@@ -1,5 +1,6 @@
 // PH4-FIX: Moved to vault domain
 import { auditService } from '@/services/auditService';
+import { logger } from '@/utils/logger';
 
 export interface ScanResult {
   id: string;
@@ -197,7 +198,7 @@ class FindMyVaultService {
 
   openVaultLocation(path: string): void {
     // Stub implementation - would open file explorer in real app
-    console.log(`Opening vault location: ${path}`);
+    logger.debug(`Opening vault location: ${path}`);
   }
 
   getScanHistory(): Array<{ date: number; found: number; duration: number }> {

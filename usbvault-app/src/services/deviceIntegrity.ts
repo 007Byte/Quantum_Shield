@@ -4,6 +4,7 @@
  */
 
 import { Platform } from 'react-native';
+import { logger } from '@/utils/logger';
 
 export interface IntegrityResult {
   passed: boolean;
@@ -157,15 +158,15 @@ export function getIntegrityStatusDescription(result: {
  * Log integrity results to console.
  */
 export function logIntegrityResults(result: DeviceIntegrityResult): void {
-  console.log('[Device Integrity Check]');
+  logger.debug('[Device Integrity Check]');
   if (result.isCompromised) {
-    console.log(`  Status: COMPROMISED (${result.riskLevel})`);
+    logger.debug(`  Status: COMPROMISED (${result.riskLevel})`);
   } else {
-    console.log('  Status: SAFE');
+    logger.debug('  Status: SAFE');
   }
-  console.log('  Checks:', JSON.stringify(result.checks));
+  logger.debug('  Checks:', JSON.stringify(result.checks));
   if (result.detailedResults) {
-    console.log('  Details:', JSON.stringify(result.detailedResults));
+    logger.debug('  Details:', JSON.stringify(result.detailedResults));
   }
 }
 
@@ -173,7 +174,7 @@ export function logIntegrityResults(result: DeviceIntegrityResult): void {
  * Initialize device integrity checks (run on app startup).
  */
 export async function initializeDeviceIntegrityCheck(): Promise<DeviceIntegrityResult> {
-  console.log('Initializing device integrity checks...');
+  logger.debug('Initializing device integrity checks...');
   const result = await checkDeviceIntegrity();
   logIntegrityResults(result);
 

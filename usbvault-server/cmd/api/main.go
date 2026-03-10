@@ -35,6 +35,7 @@ import (
 	storagepkg "github.com/usbvault/usbvault-server/internal/storage"
 	"github.com/usbvault/usbvault-server/internal/sync"
 	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
+	backuppkg "github.com/usbvault/usbvault-server/internal/backup"
 	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
 	"github.com/usbvault/usbvault-server/internal/tracing"
 	"github.com/usbvault/usbvault-server/internal/vault"
@@ -201,6 +202,20 @@ func main() {
 	billingService := billingpkg.NewBillingService(os.Getenv("STRIPE_SECRET_KEY"), dbPool)
 	notifyService := notify.NewNotifyService(dbPool)
 	syncService := sync.NewSyncService(redisClient)
+
+	// Initialize backup service
+	backupConfig, err := backuppkg.LoadBackupConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load backup config")
+	}
+	var backupService *backuppkg.BackupService
+	if backupConfig != nil {
+		s3Uploader := backuppkg.NewS3Uploader(s3Client)
+		backupService = backuppkg.NewBackupService(backupConfig, os.Getenv("DATABASE_URL"), backuppkg.NewDefaultExecutor(), s3Uploader)
+		log.Info().Msg("backup service initialized")
+	} else {
+		log.Warn().Msg("backup service not configured (BACKUP_ENCRYPTION_KEY not set)")
+	}
 	lockoutService := auth.NewAccountLockoutService(redisClient)
 	rbacService := auth.NewRBACService(dbPool)
 	// PH5-FIX: Initialize key rotation service for vault
@@ -445,7 +460,7 @@ func main() {
 		// PH2-FIX: Key rotation admin endpoint
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(mw.RequireAuth)
-			// TODO: Add admin role check middleware
+			r.Use(mw.RequireRole("admin", dbPool))
 			r.Post("/rotate-jwt-keys", func(w http.ResponseWriter, r *http.Request) {
 				if err := keyRotationService.RotateKey(r.Context()); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -456,6 +471,57 @@ func main() {
 				json.NewEncoder(w).Encode(map[string]string{
 					"status":  "rotated",
 					"new_kid": keyRotationService.GetActiveKID(),
+				})
+			})
+
+			// Backup endpoints
+			r.Post("/backups", func(w http.ResponseWriter, r *http.Request) {
+				if backupService == nil {
+					http.Error(w, "backup service not configured", http.StatusServiceUnavailable)
+					return
+				}
+				meta, err := backupService.Backup(r.Context())
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusCreated)
+				json.NewEncoder(w).Encode(meta)
+			})
+
+			r.Get("/backups", func(w http.ResponseWriter, r *http.Request) {
+				if backupService == nil {
+					http.Error(w, "backup service not configured", http.StatusServiceUnavailable)
+					return
+				}
+				backups, err := backupService.ListBackups()
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(backups)
+			})
+
+			r.Post("/backups/{backupID}/restore", func(w http.ResponseWriter, r *http.Request) {
+				if backupService == nil {
+					http.Error(w, "backup service not configured", http.StatusServiceUnavailable)
+					return
+				}
+				backupID := chi.URLParam(r, "backupID")
+				if backupID == "" {
+					http.Error(w, "backup ID required", http.StatusBadRequest)
+					return
+				}
+				if err := backupService.Restore(r.Context(), backupID); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":    "restored",
+					"backup_id": backupID,
 				})
 			})
 		})

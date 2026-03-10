@@ -22,6 +22,7 @@ import { generateShareKeypair, sealToPublicKey, openSealed } from '@/crypto/brid
 import { auditService } from '@/services/auditService';
 import { syncService } from '@/services/syncService';
 import { generateId } from '@/utils/generateId';
+import { logger } from '@/utils/logger';
 import { keyVerificationService } from '@/services/crypto/keyVerification';
 
 // ── Types ──────────────────────────────────────────────────────
@@ -407,7 +408,7 @@ class ExternalShareServiceImpl {
       if (config.requirePin) {
         const pin = this.generateRandomPin();
         pinHash = await this.hashPin(pin);
-        console.log(`[DEV] Generated PIN for share: ${pin}`);
+        logger.debug(`[DEV] Generated PIN for share: ${pin}`);
       }
 
       const share: ExternalShare = {
