@@ -65,8 +65,8 @@ export interface MonitoringStatus {
   nextCheck: number | null;
 }
 
-const STORAGE_KEY = 'qav:darkweb_monitor';
-const BREACH_HISTORY_KEY = 'qav:darkweb_history';
+const STORAGE_KEY = 'usbvault:darkweb_monitor';
+const BREACH_HISTORY_KEY = 'usbvault:darkweb_history';
 const DEFAULT_CHECK_INTERVAL = 24; // hours
 
 /**

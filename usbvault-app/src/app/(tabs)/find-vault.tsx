@@ -31,7 +31,7 @@ export default function FindVaultScreen() {
     {
       id: '1',
       name: 'Personal.vault',
-      path: 'E:\\QAV\\Personal.vault',
+      path: 'E:\\USBVault\\Personal.vault',
       size: '2.4 GB',
       status: 'healthy',
     },
@@ -58,7 +58,7 @@ export default function FindVaultScreen() {
     },
   ]);
   const [knownLocations, setKnownLocations] = useState<KnownLocation[]>([
-    { id: '1', path: 'E:\\QAV' },
+    { id: '1', path: 'E:\\USBVault' },
     { id: '2', path: 'F:\\Backups' },
     { id: '3', path: 'G:\\Storage' },
   ]);

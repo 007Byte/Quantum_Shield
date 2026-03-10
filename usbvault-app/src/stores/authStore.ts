@@ -10,7 +10,7 @@ const isWeb = Platform.OS === 'web';
 
 // ── Web-local auth helpers (SHA-256 via WebCrypto) ─────────────
 
-const WEB_SESSION_KEY = 'qav:session';
+const WEB_SESSION_KEY = 'usbvault:session';
 
 // Web-local auth storage
 // On web, the entire auth flow is local (no backend). Credentials are persisted
@@ -18,7 +18,7 @@ const WEB_SESSION_KEY = 'qav:session';
 // When a backend is connected, this local auth is bypassed entirely in favor
 // of SRP-6a authentication against the server.
 
-const WEB_AUTH_KEY = 'qav:auth';
+const WEB_AUTH_KEY = 'usbvault:auth';
 
 interface StoredAuth {
   email: string;
@@ -78,7 +78,7 @@ function saveSession(email: string, userId: string, subscriptionTier: string): v
   try {
     sessionStorage.setItem(WEB_SESSION_KEY, JSON.stringify({ email, userId, subscriptionTier }));
     // Also set userId for audit service
-    sessionStorage.setItem('qav:userId', userId);
+    sessionStorage.setItem('usbvault:userId', userId);
   } catch {
     // Silent fail
   }
@@ -88,7 +88,7 @@ function clearSession(): void {
   if (!isWeb) return;
   try {
     sessionStorage.removeItem(WEB_SESSION_KEY);
-    sessionStorage.removeItem('qav:userId');
+    sessionStorage.removeItem('usbvault:userId');
   } catch {
     // Silent fail
   }

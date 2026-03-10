@@ -10,14 +10,14 @@
  * - Fixed-Size Padding: PKCS7-style padding to 256B/1KB/4KB/16KB chunks
  *
  * Per-user configuration persisted to localStorage with key:
- * 'qav_metadata_reduction_config'
+ * 'usbvault_metadata_reduction_config'
  *
- * SEC-05 Reference: https://github.com/qav/security-spec/SEC-05
+ * SEC-05 Reference: https://github.com/usbvault/security-spec/SEC-05
  */
 
 import { logger } from '@/utils/logger';
 
-const STORAGE_KEY = 'qav_metadata_reduction_config';
+const STORAGE_KEY = 'usbvault_metadata_reduction_config';
 
 /**
  * Configuration interface for metadata reduction techniques.
@@ -68,7 +68,7 @@ interface QueuedMessage {
  * timing analysis, message size patterns, and delivery metadata.
  *
  * All configuration is per-user and persisted to localStorage.
- * SEC-05 Reference: https://github.com/qav/security-spec/SEC-05
+ * SEC-05 Reference: https://github.com/usbvault/security-spec/SEC-05
  */
 class MetadataReductionService {
   private config: MetadataReductionConfig | null = null;

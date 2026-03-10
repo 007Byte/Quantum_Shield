@@ -45,8 +45,8 @@ class FindMyVaultService {
 
   private loadFromStorage(): void {
     try {
-      const results = localStorage.getItem('qav:vault_scan_results');
-      const locations = localStorage.getItem('qav:known_vault_locations');
+      const results = localStorage.getItem('usbvault:vault_scan_results');
+      const locations = localStorage.getItem('usbvault:known_vault_locations');
 
       if (results) {
         this.lastScanResults = JSON.parse(results);
@@ -63,9 +63,9 @@ class FindMyVaultService {
 
   private saveToStorage(): void {
     try {
-      localStorage.setItem('qav:vault_scan_results', JSON.stringify(this.lastScanResults));
+      localStorage.setItem('usbvault:vault_scan_results', JSON.stringify(this.lastScanResults));
       localStorage.setItem(
-        'qav:known_vault_locations',
+        'usbvault:known_vault_locations',
         JSON.stringify(this.knownVaultLocations)
       );
     } catch (error) {

@@ -1,21 +1,18 @@
-//! Android platform-specific FFI bindings with JNI stubs
+//! Android platform-specific FFI bindings
+//!
+//! The actual JNI bridging is handled by the Java/Kotlin side which calls
+//! the C ABI functions (usbvault_*) exported from ffi/mod.rs.
+//! This module provides Android-specific initialization via C ABI.
 
+/// Android platform initialization (called from JNI_OnLoad or application startup)
+///
+/// # Safety
+/// This function is safe to call from any thread.
 #[cfg(target_os = "android")]
-pub mod platform {
-    use jni::objects::JClass;
-    use jni::JNIEnv;
-
-    /// JNI initialization
-    #[no_mangle]
-    pub extern "C" fn Java_com_qav_crypto_CryptoLib_init(_env: JNIEnv, _class: JClass) {
-        // JNI init
-    }
-
-    /// JNI key derivation wrapper
-    #[no_mangle]
-    pub extern "C" fn Java_com_qav_crypto_CryptoLib_deriveKey(_env: JNIEnv, _class: JClass) {
-        // JNI key derivation
-    }
+#[no_mangle]
+pub extern "C" fn usbvault_android_init() -> i32 {
+    // Android-specific initialization (logging, etc.)
+    0 // success
 }
 
 // Stub for non-Android builds

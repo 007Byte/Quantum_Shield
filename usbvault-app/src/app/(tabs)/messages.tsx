@@ -49,7 +49,7 @@ const formatTimestamp = (iso: string): string => {
 
 export default function MessagesScreen() {
   const { modal, showAlert, showPrompt, showError, dismiss } = useInAppModal();
-  const userEmail = useAuthStore((s) => s.email) || 'user@qav.local';
+  const userEmail = useAuthStore((s) => s.email) || 'user@usbvault.local';
 
   const [conversations, setConversations] = useState<DisplayConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);

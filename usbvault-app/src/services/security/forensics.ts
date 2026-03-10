@@ -60,8 +60,8 @@ export interface ForensicsConfig {
 
 // ── Storage ────────────────────────────────────────────────
 
-const CONFIG_KEY = 'qav:forensics_config';
-const LAST_CLEAN_KEY = 'qav:forensics_last_clean';
+const CONFIG_KEY = 'usbvault:forensics_config';
+const LAST_CLEAN_KEY = 'usbvault:forensics_last_clean';
 
 const DEFAULT_CONFIG: ForensicsConfig = {
   cleanOnLock: true,
@@ -326,10 +326,10 @@ class ForensicsService {
     try {
       if (typeof sessionStorage !== 'undefined') {
         // Preserve auth session key, clear everything else
-        const authKey = sessionStorage.getItem('qav:session');
+        const authKey = sessionStorage.getItem('usbvault:session');
         sessionStorage.clear();
         if (authKey) {
-          sessionStorage.setItem('qav:session', authKey);
+          sessionStorage.setItem('usbvault:session', authKey);
         }
         logger.log('[Forensics] Session data cleaned');
       }

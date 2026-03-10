@@ -1,5 +1,5 @@
 /**
- * QAV FIDO2 / WebAuthn Service
+ * USBVault FIDO2 / WebAuthn Service
  *
  * Hardware security key registration and authentication using the
  * Web Authentication API (navigator.credentials). Devices are stored
@@ -28,9 +28,9 @@ export interface Fido2Device {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const DEVICES_KEY = 'qav:fido2_devices';
-const RP_ID = 'qav.local';
-const RP_NAME = 'QAV';
+const DEVICES_KEY = 'usbvault:fido2_devices';
+const RP_ID = 'usbvault.local';
+const RP_NAME = 'USBVault';
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ class Fido2ServiceImpl {
     }
 
     const challenge = generateChallenge();
-    const userIdBytes = new TextEncoder().encode(userId || 'qav-user');
+    const userIdBytes = new TextEncoder().encode(userId || 'usbvault-user');
 
     // Exclude already registered credentials
     const existingDevices = readDevices();
@@ -140,7 +140,7 @@ class Fido2ServiceImpl {
         },
         user: {
           id: userIdBytes.buffer as ArrayBuffer,
-          name: userId || 'qav-user',
+          name: userId || 'usbvault-user',
           displayName: deviceName,
         },
         challenge: challenge.buffer as ArrayBuffer,
@@ -297,7 +297,7 @@ class Fido2ServiceImpl {
       throw new Error('Invalid PRF output');
     }
 
-    const salt = stringToArrayBuffer('QAV-PRF-KeyDerivation');
+    const salt = stringToArrayBuffer('USBVault-PRF-KeyDerivation');
     const info = stringToArrayBuffer('vault-master-key');
 
     // Use SubtleCrypto HKDF to derive the key

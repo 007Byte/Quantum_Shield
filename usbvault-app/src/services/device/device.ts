@@ -45,8 +45,8 @@ export interface SecuritySummary {
 // ── Device Management Service ──────────────────────────────────
 
 class DeviceManagementServiceImpl {
-  private readonly SESSIONS_STORAGE_KEY = 'qav:device_sessions';
-  private readonly TRUSTED_DEVICES_KEY = 'qav:trusted_devices';
+  private readonly SESSIONS_STORAGE_KEY = 'usbvault:device_sessions';
+  private readonly TRUSTED_DEVICES_KEY = 'usbvault:trusted_devices';
 
   constructor() {
     this.initializeStorage();
@@ -268,7 +268,7 @@ export interface BiometricConfig {
   hardwareSupport: boolean;
 }
 
-const BIOMETRIC_CONFIG_HASH_KEY = 'qav:biometric_config_hash';
+const BIOMETRIC_CONFIG_HASH_KEY = 'usbvault:biometric_config_hash';
 const isBiometricWeb = Platform.OS === 'web';
 
 const BIOMETRIC_ERRORS: Record<number, string> = {
@@ -431,7 +431,7 @@ Note: Re-enrollment is required before you can use biometric authentication agai
       if (changed) auditService.log('system', 'biometric_change_before_auth', {}, 'warning').catch(() => {});
 
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authenticate to unlock QAV',
+        promptMessage: 'Authenticate to unlock USBVault',
         cancelLabel: 'Use Password',
         disableDeviceFallback: true,
         fallbackLabel: '',

@@ -61,7 +61,7 @@ const BackupScreen = () => {
     },
   ];
 
-  const currentBackupPath = '/Volumes/QAV/backups/enterprise_vault_2026';
+  const currentBackupPath = '/Volumes/USBVault/backups/enterprise_vault_2026';
 
   const frequencyOptions: { label: string; value: BackupFrequency }[] = [
     { label: 'Daily', value: 'daily' },

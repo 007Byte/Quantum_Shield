@@ -46,8 +46,8 @@ describe('API Client', () => {
 
       await api.storeTokens('access-token-123', 'refresh-token-456');
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('qav_access_token', 'access-token-123');
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('qav_refresh_token', 'refresh-token-456');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('usbvault_access_token', 'access-token-123');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('usbvault_refresh_token', 'refresh-token-456');
     });
 
     it('should clear tokens from secure store', async () => {
@@ -55,8 +55,8 @@ describe('API Client', () => {
 
       await api.clearTokens();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('qav_access_token');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('qav_refresh_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('usbvault_access_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('usbvault_refresh_token');
     });
 
     it('should throw error if storeTokens fails', async () => {

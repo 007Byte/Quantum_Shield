@@ -1,5 +1,5 @@
 /**
- * QAV Bulk Operations Service
+ * USBVault Bulk Operations Service
  *
  * Manages bulk file operations (encrypt, decrypt, delete, export) with
  * progress tracking, cancellation, and error handling. Maintains operation
@@ -47,8 +47,8 @@ export interface OperationProgress {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const STORAGE_ACTIVE_KEY = 'qav:bulk_operations_active';
-const STORAGE_HISTORY_KEY = 'qav:bulk_operations_history';
+const STORAGE_ACTIVE_KEY = 'usbvault:bulk_operations_active';
+const STORAGE_HISTORY_KEY = 'usbvault:bulk_operations_history';
 const MAX_HISTORY = 200;
 
 // ── Helpers ────────────────────────────────────────────────────

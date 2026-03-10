@@ -61,7 +61,7 @@ const ROUTE_MAP: Record<string, string> = {
 /**
  * Sidebar - Main navigation panel for dashboard application.
  *
- * Displays the QAV logo, navigation menu items, and a premium upgrade CTA.
+ * Displays the USBVault logo, navigation menu items, and a premium upgrade CTA.
  * Uses glassmorphism styling with neon accents. Automatically detects active route
  * and highlights the corresponding nav item with a cyan accent beam.
  *
@@ -129,7 +129,7 @@ export function Sidebar() {
             <Image source={logoAsset} style={styles.logoImg} resizeMode="contain" />
             <Ionicons name="shield-checkmark" size={14} color="rgba(245,243,255,0.45)" style={styles.logoFallback} />
           </View>
-          <Text style={styles.logoText}>QAV</Text>
+          <Text style={styles.logoText}>USBVault</Text>
         </View>
 
         {/* Dashboard — always visible, outside any category */}
@@ -216,7 +216,7 @@ export function Sidebar() {
                 }
                 if (isExit) {
                   showConfirm(
-                    'Exit QAV',
+                    'Exit USBVault',
                     'This will lock the vault and close the application. Are you sure?',
                     () => {
                       const { logout } = useAuthStore.getState();

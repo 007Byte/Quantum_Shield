@@ -50,8 +50,8 @@ export interface CleanupOperation {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const SCAN_RESULT_KEY = 'qav:footprint_scan';
-const CLEANUP_HISTORY_KEY = 'qav:cleanup_history';
+const SCAN_RESULT_KEY = 'usbvault:footprint_scan';
+const CLEANUP_HISTORY_KEY = 'usbvault:cleanup_history';
 const isWeb = Platform.OS === 'web';
 
 // ── Helper Functions ───────────────────────────────────────────

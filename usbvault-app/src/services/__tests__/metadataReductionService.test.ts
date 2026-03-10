@@ -88,7 +88,7 @@ describe('MetadataReductionService', () => {
     it('should persist config to localStorage', () => {
       metadataReductionService.updateConfig({ paddingSize: 256 });
 
-      const stored = localStorage.getItem('qav_metadata_reduction_config');
+      const stored = localStorage.getItem('usbvault_metadata_reduction_config');
       expect(stored).toBeDefined();
       const parsed = JSON.parse(stored!);
       expect(parsed.paddingSize).toBe(256);

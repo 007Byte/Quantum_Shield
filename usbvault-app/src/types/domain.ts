@@ -1,5 +1,5 @@
 /**
- * QAV Shared Domain Types
+ * USBVault Shared Domain Types
  *
  * PL-001 / PL-005: Single source of truth for core data types used across
  * stores, services, and UI components. Eliminates parallel type definitions

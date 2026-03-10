@@ -73,7 +73,7 @@ export default function RemoveFileScreen() {
   };
 
   const handleConfirmDelete = () => {
-    if (confirmationText.toLowerCase() === 'qav') {
+    if (confirmationText.toLowerCase() === 'usbvault') {
       showSuccess(
         'Files Deleted',
         `${selectedFiles.size} file(s) deleted using ${secureWipeEnabled ? 'secure wipe (3-pass DOD)' : 'quick delete'}.`
@@ -83,7 +83,7 @@ export default function RemoveFileScreen() {
     } else {
       showError(
         'Incorrect Confirmation',
-        'Please type "qav" to confirm deletion.'
+        'Please type "usbvault" to confirm deletion.'
       );
     }
   };

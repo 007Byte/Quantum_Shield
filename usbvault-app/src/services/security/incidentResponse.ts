@@ -46,8 +46,8 @@ export interface IncidentLog {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const ADVISORIES_STORAGE_KEY = 'qav:security_advisories';
-const INCIDENT_LOG_STORAGE_KEY = 'qav:incident_log';
+const ADVISORIES_STORAGE_KEY = 'usbvault:security_advisories';
+const INCIDENT_LOG_STORAGE_KEY = 'usbvault:incident_log';
 
 const isWeb = Platform.OS === 'web';
 

@@ -1,6 +1,6 @@
 // PH4-FIX: Moved from services/keyVerificationService.ts to crypto domain
 /**
- * QAV Key Verification Service — SEC-04
+ * USBVault Key Verification Service — SEC-04
  *
  * Implements safety number verification for X25519 public keys using SHA-256 hashing.
  * Provides QR code data generation and persistent storage of verification status per contact.
@@ -95,7 +95,7 @@ export interface QRVerificationResult {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const VERIFICATIONS_KEY = 'qav_key_verifications';
+const VERIFICATIONS_KEY = 'usbvault_key_verifications';
 const SAFETY_NUMBER_GROUPS = 12;
 const DIGITS_PER_GROUP = 5;
 /** SG-010: QR codes expire after 10 minutes to prevent replay */

@@ -36,8 +36,8 @@ export interface GhostModeStatus {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const SETTINGS_KEY = 'qav:ghost_mode_settings';
-const STATUS_KEY = 'qav:ghost_mode_status';
+const SETTINGS_KEY = 'usbvault:ghost_mode_settings';
+const STATUS_KEY = 'usbvault:ghost_mode_status';
 
 const DEFAULT_SETTINGS: GhostModeSettings = {
   enabled: true,

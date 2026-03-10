@@ -60,7 +60,7 @@ extern "C" {
 // - salt_ptr is valid and salt_len is 32
 // - out_ptr can hold 64 bytes
 // - out_len pointer is valid for writing
-int32_t qav_derive_key(const uint8_t *password_ptr,
+int32_t usbvault_derive_key(const uint8_t *password_ptr,
                        uintptr_t password_len,
                        const uint8_t *salt_ptr,
                        uintptr_t salt_len,
@@ -71,7 +71,7 @@ int32_t qav_derive_key(const uint8_t *password_ptr,
 //
 // # Safety
 // Caller must ensure all pointers are valid and lengths are correct
-int32_t qav_encrypt(uint8_t cipher_id,
+int32_t usbvault_encrypt(uint8_t cipher_id,
                     const uint8_t *key_ptr,
                     uintptr_t key_len,
                     const uint8_t *plaintext_ptr,
@@ -84,7 +84,7 @@ int32_t qav_encrypt(uint8_t cipher_id,
 //
 // # Safety
 // Caller must ensure all pointers are valid and lengths are correct
-int32_t qav_decrypt(uint8_t cipher_id,
+int32_t usbvault_decrypt(uint8_t cipher_id,
                     const uint8_t *key_ptr,
                     uintptr_t key_len,
                     const uint8_t *ciphertext_ptr,
@@ -99,13 +99,13 @@ int32_t qav_decrypt(uint8_t cipher_id,
 // Caller must ensure:
 // - public_out can hold 32 bytes
 // - secret_out can hold 32 bytes
-int32_t qav_generate_keypair(uint8_t *public_out, uint8_t *secret_out);
+int32_t usbvault_generate_keypair(uint8_t *public_out, uint8_t *secret_out);
 
 // Seal plaintext for a recipient
 //
 // # Safety
 // Caller must ensure all pointers are valid and lengths are correct
-int32_t qav_seal(const uint8_t *recipient_public,
+int32_t usbvault_seal(const uint8_t *recipient_public,
                  const uint8_t *plaintext_ptr,
                  uintptr_t plaintext_len,
                  uint8_t *out_ptr,
@@ -116,7 +116,7 @@ int32_t qav_seal(const uint8_t *recipient_public,
 //
 // # Safety
 // Caller must ensure all pointers are valid and lengths are correct
-int32_t qav_open(const uint8_t *secret_key,
+int32_t usbvault_open(const uint8_t *secret_key,
                  const uint8_t *sealed_ptr,
                  uintptr_t sealed_len,
                  uint8_t *out_ptr,
@@ -134,13 +134,13 @@ int32_t qav_open(const uint8_t *secret_key,
 // are managed by Rust and should not be freed manually.
 //
 // Returns ERR_INVALID_ARGUMENT to indicate the function is not supported.
-int32_t qav_free(uint8_t *_ptr, uintptr_t _len);
+int32_t usbvault_free(uint8_t *_ptr, uintptr_t _len);
 
 // Generate a random salt
 //
 // # Safety
 // Caller must ensure out can hold 32 bytes
-int32_t qav_generate_salt(uint8_t *out);
+int32_t usbvault_generate_salt(uint8_t *out);
 
 // Generate a hybrid X25519 + ML-KEM-1024 keypair
 //
@@ -153,7 +153,7 @@ int32_t qav_generate_salt(uint8_t *out);
 //
 // # Returns
 // ERR_SUCCESS (0) on success, or ERR_INVALID_ARGUMENT if pqc feature not enabled
-int32_t qav_pqc_generate_keypair(uint8_t *x25519_pub_out,
+int32_t usbvault_pqc_generate_keypair(uint8_t *x25519_pub_out,
                                  uint8_t *mlkem_pub_out,
                                  uint8_t *x25519_sec_out,
                                  uint8_t *mlkem_sec_out);
@@ -169,7 +169,7 @@ int32_t qav_pqc_generate_keypair(uint8_t *x25519_pub_out,
 //
 // # Format
 // Output: x25519_eph(32) || mlkem_ct(1568) || nonce(24) || ciphertext || tag(16)
-int32_t qav_pqc_seal(const uint8_t *x25519_pub,
+int32_t usbvault_pqc_seal(const uint8_t *x25519_pub,
                      const uint8_t *mlkem_pub,
                      uintptr_t mlkem_pub_len,
                      const uint8_t *plaintext_ptr,
@@ -186,7 +186,7 @@ int32_t qav_pqc_seal(const uint8_t *x25519_pub,
 // - mlkem_sec is 1568 bytes (recipient ML-KEM-1024 decapsulation key)
 // - sealed_ptr/sealed_len are valid
 // - out_ptr has capacity for plaintext (sealed_len - 1640)
-int32_t qav_pqc_open(const uint8_t *x25519_sec,
+int32_t usbvault_pqc_open(const uint8_t *x25519_sec,
                      const uint8_t *mlkem_sec,
                      uintptr_t mlkem_sec_len,
                      const uint8_t *sealed_ptr,
@@ -196,9 +196,9 @@ int32_t qav_pqc_open(const uint8_t *x25519_sec,
                      uintptr_t *out_len);
 
 // JNI initialization
-void Java_com_qav_crypto_CryptoLib_init(JNIEnv _env, JClass _class);
+void Java_com_usbvault_crypto_CryptoLib_init(JNIEnv _env, JClass _class);
 
 // JNI key derivation wrapper
-void Java_com_qav_crypto_CryptoLib_deriveKey(JNIEnv _env, JClass _class);
+void Java_com_usbvault_crypto_CryptoLib_deriveKey(JNIEnv _env, JClass _class);
 
 } // extern "C"

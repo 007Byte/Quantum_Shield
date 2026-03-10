@@ -38,9 +38,9 @@ interface EncryptedBlob {
 }
 
 const STORAGE_KEYS = {
-  RECOVERY_PHRASE_HASH: 'qav_recovery_phrase_hash',
-  ENCRYPTED_MASTER_KEY: 'qav_encrypted_master_key',
-  ESCROW_CONTACT: 'qav_escrow_contact',
+  RECOVERY_PHRASE_HASH: 'usbvault_recovery_phrase_hash',
+  ENCRYPTED_MASTER_KEY: 'usbvault_encrypted_master_key',
+  ESCROW_CONTACT: 'usbvault_escrow_contact',
 };
 
 const BIP39_CONFIG = {

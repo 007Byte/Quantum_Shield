@@ -1,6 +1,6 @@
 // PH4-FIX: Moved from services/indexCrypto.ts to crypto domain as barrel
 /**
- * QAV Vault Index Encryption Service
+ * USBVault Vault Index Encryption Service
  *
  * SG-003: Encrypts file metadata (names, sizes, types, timestamps) client-side
  * before storage, eliminating plaintext metadata leakage. The server and local

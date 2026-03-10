@@ -1,4 +1,4 @@
-//! C ABI FFI exports for React Native integration
+//! C ABI FFI exports for USBVault React Native integration
 
 use crate::cipher::{self, CipherId};
 use crate::error::CryptoError;
@@ -72,7 +72,7 @@ fn crypto_error_to_code(err: &CryptoError) -> i32 {
 /// - out_ptr can hold 64 bytes
 /// - out_len pointer is valid for writing
 #[no_mangle]
-pub extern "C" fn qav_derive_key(
+pub extern "C" fn usbvault_derive_key(
     password_ptr: *const u8,
     password_len: usize,
     salt_ptr: *const u8,
@@ -119,7 +119,7 @@ pub extern "C" fn qav_derive_key(
 /// # Safety
 /// Caller must ensure all pointers are valid and lengths are correct
 #[no_mangle]
-pub extern "C" fn qav_encrypt(
+pub extern "C" fn usbvault_encrypt(
     cipher_id: u8,
     key_ptr: *const u8,
     key_len: usize,
@@ -177,7 +177,7 @@ pub extern "C" fn qav_encrypt(
 /// # Safety
 /// Caller must ensure all pointers are valid and lengths are correct
 #[no_mangle]
-pub extern "C" fn qav_decrypt(
+pub extern "C" fn usbvault_decrypt(
     cipher_id: u8,
     key_ptr: *const u8,
     key_len: usize,
@@ -237,7 +237,7 @@ pub extern "C" fn qav_decrypt(
 /// - public_out can hold 32 bytes
 /// - secret_out can hold 32 bytes
 #[no_mangle]
-pub extern "C" fn qav_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32 {
+pub extern "C" fn usbvault_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32 {
     if public_out.is_null() || secret_out.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -268,7 +268,7 @@ pub extern "C" fn qav_generate_keypair(public_out: *mut u8, secret_out: *mut u8)
 /// # Safety
 /// Caller must ensure all pointers are valid and lengths are correct
 #[no_mangle]
-pub extern "C" fn qav_seal(
+pub extern "C" fn usbvault_seal(
     recipient_public: *const u8,
     plaintext_ptr: *const u8,
     plaintext_len: usize,
@@ -319,7 +319,7 @@ pub extern "C" fn qav_seal(
 /// # Safety
 /// Caller must ensure all pointers are valid and lengths are correct
 #[no_mangle]
-pub extern "C" fn qav_open(
+pub extern "C" fn usbvault_open(
     secret_key: *const u8,
     sealed_ptr: *const u8,
     sealed_len: usize,
@@ -373,7 +373,7 @@ pub extern "C" fn qav_open(
 ///
 /// Returns ERR_INVALID_ARGUMENT to indicate the function is not supported.
 #[no_mangle]
-pub extern "C" fn qav_free(_ptr: *mut u8, _len: usize) -> i32 {
+pub extern "C" fn usbvault_free(_ptr: *mut u8, _len: usize) -> i32 {
     // Memory is managed by Rust, so freeing is not necessary.
     // Return error code to signal this operation is not supported.
     ERR_INVALID_ARGUMENT
@@ -384,7 +384,7 @@ pub extern "C" fn qav_free(_ptr: *mut u8, _len: usize) -> i32 {
 /// # Safety
 /// Caller must ensure out can hold 32 bytes
 #[no_mangle]
-pub extern "C" fn qav_generate_salt(out: *mut u8) -> i32 {
+pub extern "C" fn usbvault_generate_salt(out: *mut u8) -> i32 {
     if out.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -423,7 +423,7 @@ pub extern "C" fn qav_generate_salt(out: *mut u8) -> i32 {
 /// # Returns
 /// ERR_SUCCESS (0) on success, or ERR_INVALID_ARGUMENT if pqc feature not enabled
 #[no_mangle]
-pub extern "C" fn qav_pqc_generate_keypair(
+pub extern "C" fn usbvault_pqc_generate_keypair(
     x25519_pub_out: *mut u8,
     mlkem_pub_out: *mut u8,
     x25519_sec_out: *mut u8,
@@ -489,7 +489,7 @@ pub extern "C" fn qav_pqc_generate_keypair(
 /// # Format
 /// Output: x25519_eph(32) || mlkem_ct(1568) || nonce(24) || ciphertext || tag(16)
 #[no_mangle]
-pub extern "C" fn qav_pqc_seal(
+pub extern "C" fn usbvault_pqc_seal(
     x25519_pub: *const u8,
     mlkem_pub: *const u8,
     mlkem_pub_len: usize,
@@ -572,7 +572,7 @@ pub extern "C" fn qav_pqc_seal(
 /// - sealed_ptr/sealed_len are valid
 /// - out_ptr has capacity for plaintext (sealed_len - 1640)
 #[no_mangle]
-pub extern "C" fn qav_pqc_open(
+pub extern "C" fn usbvault_pqc_open(
     x25519_sec: *const u8,
     mlkem_sec: *const u8,
     mlkem_sec_len: usize,

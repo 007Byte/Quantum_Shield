@@ -75,7 +75,7 @@ export function Footer() {
 
       {/* Version */}
       <View style={styles.footerItem}>
-        <Text style={styles.text}>QAV v3.2 Enterprise</Text>
+        <Text style={styles.text}>USBVault v3.2 Enterprise</Text>
       </View>
     </View>
   );

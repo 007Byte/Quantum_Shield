@@ -61,9 +61,9 @@ func HandleFIDO2Challenge(pool *pgxpool.Pool, redisClient *redis.Client) http.Ha
 
 		// Initialize WebAuthn
 		wau, err := webauthn.New(&webauthn.Config{
-			RPID:     config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "qav.io"),
+			RPID:     config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
 			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
-			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://qav.io")},
+			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
 		if err != nil {
 			http.Error(w, "webauthn initialization failed", http.StatusInternalServerError)
@@ -161,9 +161,9 @@ func HandleFIDO2Verify(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc i
 
 		// 2. Initialize WebAuthn with same config
 		wau, err := webauthn.New(&webauthn.Config{
-			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "qav.io"),
+			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
 			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
-			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://qav.io")},
+			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
 		if err != nil {
 			http.Error(w, "webauthn initialization failed", http.StatusInternalServerError)

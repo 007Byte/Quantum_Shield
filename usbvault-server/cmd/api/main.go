@@ -595,6 +595,6 @@ func getIntEnvOrDefault(key string, defaultValue int) int {
 
 // MEDIUM-FIX: Helper function to get S3 bucket name for health checks
 func getS3BucketName() *string {
-	bucket := getEnvOrDefault("S3_BUCKET", "qav-files")
+	bucket := getEnvOrDefault("S3_BUCKET", "usbvault-files")
 	return &bucket
 }

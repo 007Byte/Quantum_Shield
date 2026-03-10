@@ -19,7 +19,7 @@ use std::thread;
 
 extern "C" {
     // Core cryptographic operations
-    fn qav_derive_key(
+    fn usbvault_derive_key(
         password_ptr: *const u8,
         password_len: usize,
         salt_ptr: *const u8,
@@ -28,7 +28,7 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_encrypt(
+    fn usbvault_encrypt(
         cipher_id: u8,
         key_ptr: *const u8,
         key_len: usize,
@@ -39,7 +39,7 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_decrypt(
+    fn usbvault_decrypt(
         cipher_id: u8,
         key_ptr: *const u8,
         key_len: usize,
@@ -50,9 +50,9 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
+    fn usbvault_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
 
-    fn qav_seal(
+    fn usbvault_seal(
         recipient_public: *const u8,
         plaintext_ptr: *const u8,
         plaintext_len: usize,
@@ -61,7 +61,7 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_open(
+    fn usbvault_open(
         secret_key: *const u8,
         sealed_ptr: *const u8,
         sealed_len: usize,
@@ -70,11 +70,11 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_generate_salt(out: *mut u8) -> i32;
+    fn usbvault_generate_salt(out: *mut u8) -> i32;
 
     // Post-quantum cryptography operations (PH9-PQ-FIX)
     #[cfg(feature = "pqc")]
-    fn qav_pqc_generate_keypair(
+    fn usbvault_pqc_generate_keypair(
         x25519_pub_out: *mut u8,
         mlkem_pub_out: *mut u8,
         x25519_sec_out: *mut u8,
@@ -82,7 +82,7 @@ extern "C" {
     ) -> i32;
 
     #[cfg(feature = "pqc")]
-    fn qav_pqc_seal(
+    fn usbvault_pqc_seal(
         x25519_pub: *const u8,
         mlkem_pub: *const u8,
         mlkem_pub_len: usize,
@@ -94,7 +94,7 @@ extern "C" {
     ) -> i32;
 
     #[cfg(feature = "pqc")]
-    fn qav_pqc_open(
+    fn usbvault_pqc_open(
         x25519_sec: *const u8,
         mlkem_sec: *const u8,
         mlkem_sec_len: usize,
@@ -156,11 +156,11 @@ fn test_ffi_encrypt_decrypt_roundtrip_small_payload() {
 
     unsafe {
         // Generate salt
-        let result = qav_generate_salt(salt.as_mut_ptr());
+        let result = usbvault_generate_salt(salt.as_mut_ptr());
         assert_eq!(result, ERR_SUCCESS, "Salt generation should succeed");
 
         // Derive key
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
             salt.as_ptr(),
@@ -172,7 +172,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_small_payload() {
         assert_eq!(key_len, 64, "Key should be 64 bytes");
 
         // Encrypt
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32, // Use first 32 bytes
@@ -189,7 +189,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_small_payload() {
         );
 
         // Decrypt
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -230,11 +230,11 @@ fn test_ffi_encrypt_decrypt_roundtrip_large_payload() {
 
     unsafe {
         // Generate salt
-        let result = qav_generate_salt(salt.as_mut_ptr());
+        let result = usbvault_generate_salt(salt.as_mut_ptr());
         assert_eq!(result, ERR_SUCCESS);
 
         // Derive key
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
             salt.as_ptr(),
@@ -245,7 +245,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_large_payload() {
         assert_eq!(result, ERR_SUCCESS);
 
         // Encrypt
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -261,7 +261,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_large_payload() {
         );
 
         // Decrypt
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -297,9 +297,9 @@ fn test_ffi_encrypt_decrypt_roundtrip_empty_payload() {
 
     unsafe {
         // Generate salt and derive key
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -311,7 +311,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_empty_payload() {
         );
 
         // Encrypt empty message
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -327,7 +327,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_empty_payload() {
         );
 
         // Decrypt empty message
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -364,9 +364,9 @@ fn test_ffi_encrypt_decrypt_roundtrip_max_payload() {
     let mut decrypted_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -378,7 +378,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_max_payload() {
         );
 
         // Encrypt max payload
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -391,7 +391,7 @@ fn test_ffi_encrypt_decrypt_roundtrip_max_payload() {
         assert_eq!(result, ERR_SUCCESS, "Max payload encryption should succeed");
 
         // Decrypt max payload
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -425,11 +425,11 @@ fn test_ffi_encrypt_decrypt_different_keys_fails() {
 
     unsafe {
         // Generate shared salt
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
 
         // Derive two different keys
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password1.as_ptr(),
                 password1.len(),
                 salt.as_ptr(),
@@ -440,7 +440,7 @@ fn test_ffi_encrypt_decrypt_different_keys_fails() {
             ERR_SUCCESS
         );
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password2.as_ptr(),
                 password2.len(),
                 salt.as_ptr(),
@@ -453,7 +453,7 @@ fn test_ffi_encrypt_decrypt_different_keys_fails() {
 
         // Encrypt with key1
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 cipher_id,
                 key1.as_ptr(),
                 32,
@@ -467,7 +467,7 @@ fn test_ffi_encrypt_decrypt_different_keys_fails() {
         );
 
         // Try to decrypt with key2 (should fail)
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key2.as_ptr(),
             32,
@@ -488,7 +488,7 @@ fn test_ffi_encrypt_decrypt_different_keys_fails() {
 // Test Category 2: Null Pointer Handling (7+ tests)
 // ═══════════════════════════════════════════════════════════════
 
-/// PH3-FIX: Test qav_derive_key with null password pointer
+/// PH3-FIX: Test usbvault_derive_key with null password pointer
 #[test]
 fn test_ffi_derive_key_null_password() {
     let mut salt = [0u8; 32];
@@ -496,9 +496,9 @@ fn test_ffi_derive_key_null_password() {
     let mut key_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
 
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             std::ptr::null(),
             10,
             salt.as_ptr(),
@@ -510,7 +510,7 @@ fn test_ffi_derive_key_null_password() {
     }
 }
 
-/// PH3-FIX: Test qav_derive_key with null salt pointer
+/// PH3-FIX: Test usbvault_derive_key with null salt pointer
 #[test]
 fn test_ffi_derive_key_null_salt() {
     let password = b"test_password";
@@ -518,7 +518,7 @@ fn test_ffi_derive_key_null_salt() {
     let mut key_len = 0usize;
 
     unsafe {
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
             std::ptr::null(),
@@ -530,7 +530,7 @@ fn test_ffi_derive_key_null_salt() {
     }
 }
 
-/// PH3-FIX: Test qav_derive_key with null output pointer
+/// PH3-FIX: Test usbvault_derive_key with null output pointer
 #[test]
 fn test_ffi_derive_key_null_output() {
     let password = b"test_password";
@@ -538,9 +538,9 @@ fn test_ffi_derive_key_null_output() {
     let mut key_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
 
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
             salt.as_ptr(),
@@ -552,7 +552,7 @@ fn test_ffi_derive_key_null_output() {
     }
 }
 
-/// PH3-FIX: Test qav_encrypt with null key pointer
+/// PH3-FIX: Test usbvault_encrypt with null key pointer
 #[test]
 fn test_ffi_encrypt_null_key() {
     let plaintext = b"test";
@@ -560,7 +560,7 @@ fn test_ffi_encrypt_null_key() {
     let mut ciphertext_len = 0usize;
 
     unsafe {
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             CIPHER_XCHACHA20_POLY1305,
             std::ptr::null(),
             32,
@@ -574,7 +574,7 @@ fn test_ffi_encrypt_null_key() {
     }
 }
 
-/// PH3-FIX: Test qav_encrypt with null plaintext pointer
+/// PH3-FIX: Test usbvault_encrypt with null plaintext pointer
 #[test]
 fn test_ffi_encrypt_null_plaintext() {
     let key = [0u8; 32];
@@ -582,7 +582,7 @@ fn test_ffi_encrypt_null_plaintext() {
     let mut ciphertext_len = 0usize;
 
     unsafe {
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             CIPHER_XCHACHA20_POLY1305,
             key.as_ptr(),
             key.len(),
@@ -596,7 +596,7 @@ fn test_ffi_encrypt_null_plaintext() {
     }
 }
 
-/// PH3-FIX: Test qav_decrypt with null ciphertext pointer
+/// PH3-FIX: Test usbvault_decrypt with null ciphertext pointer
 #[test]
 fn test_ffi_decrypt_null_ciphertext() {
     let key = [0u8; 32];
@@ -604,7 +604,7 @@ fn test_ffi_decrypt_null_ciphertext() {
     let mut decrypted_len = 0usize;
 
     unsafe {
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             CIPHER_XCHACHA20_POLY1305,
             key.as_ptr(),
             key.len(),
@@ -621,7 +621,7 @@ fn test_ffi_decrypt_null_ciphertext() {
     }
 }
 
-/// PH3-FIX: Test qav_seal with null recipient key pointer
+/// PH3-FIX: Test usbvault_seal with null recipient key pointer
 #[test]
 fn test_ffi_seal_null_recipient_key() {
     let plaintext = b"test";
@@ -629,7 +629,7 @@ fn test_ffi_seal_null_recipient_key() {
     let mut sealed_len = 0usize;
 
     unsafe {
-        let result = qav_seal(
+        let result = usbvault_seal(
             std::ptr::null(),
             plaintext.as_ptr(),
             plaintext.len(),
@@ -660,9 +660,9 @@ fn test_ffi_output_buffer_exact_size() {
     let mut key_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -677,7 +677,7 @@ fn test_ffi_output_buffer_exact_size() {
         let mut ciphertext_temp = [0u8; 256];
         let mut ciphertext_len = 0usize;
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 cipher_id,
                 key.as_ptr(),
                 32,
@@ -693,7 +693,7 @@ fn test_ffi_output_buffer_exact_size() {
         // Second pass: allocate exact size
         let mut ciphertext_exact = vec![0u8; ciphertext_len];
         let mut ciphertext_len2 = 0usize;
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -728,9 +728,9 @@ fn test_ffi_output_buffer_undersized() {
     let mut ciphertext_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -741,7 +741,7 @@ fn test_ffi_output_buffer_undersized() {
             ERR_SUCCESS
         );
 
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -772,9 +772,9 @@ fn test_ffi_output_buffer_oversized() {
     let mut ciphertext_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -785,7 +785,7 @@ fn test_ffi_output_buffer_oversized() {
             ERR_SUCCESS
         );
 
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -851,9 +851,9 @@ fn test_ffi_concurrent_allocations() {
                 let mut decrypted_len = 0usize;
 
                 unsafe {
-                    assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+                    assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
                     assert_eq!(
-                        qav_derive_key(
+                        usbvault_derive_key(
                             password.as_ptr(),
                             password.len(),
                             salt.as_ptr(),
@@ -865,7 +865,7 @@ fn test_ffi_concurrent_allocations() {
                     );
 
                     assert_eq!(
-                        qav_encrypt(
+                        usbvault_encrypt(
                             cipher_id,
                             key.as_ptr(),
                             32,
@@ -879,7 +879,7 @@ fn test_ffi_concurrent_allocations() {
                     );
 
                     assert_eq!(
-                        qav_decrypt(
+                        usbvault_decrypt(
                             cipher_id,
                             key.as_ptr(),
                             32,
@@ -932,11 +932,11 @@ fn test_ffi_concurrent_encrypt_decrypt() {
 
                 unsafe {
                     // Each thread generates its own salt
-                    let result = qav_generate_salt(salt.as_mut_ptr());
+                    let result = usbvault_generate_salt(salt.as_mut_ptr());
                     assert_eq!(result, ERR_SUCCESS);
 
                     // Derive key
-                    let result = qav_derive_key(
+                    let result = usbvault_derive_key(
                         password.as_ptr(),
                         password.len(),
                         salt.as_ptr(),
@@ -947,7 +947,7 @@ fn test_ffi_concurrent_encrypt_decrypt() {
                     assert_eq!(result, ERR_SUCCESS);
 
                     // Encrypt
-                    let result = qav_encrypt(
+                    let result = usbvault_encrypt(
                         cipher_id,
                         key.as_ptr(),
                         32,
@@ -960,7 +960,7 @@ fn test_ffi_concurrent_encrypt_decrypt() {
                     assert_eq!(result, ERR_SUCCESS);
 
                     // Decrypt
-                    let result = qav_decrypt(
+                    let result = usbvault_decrypt(
                         cipher_id,
                         key.as_ptr(),
                         32,
@@ -996,10 +996,10 @@ fn test_ffi_concurrent_key_derivation() {
 
                 unsafe {
                     // Generate unique salt per thread
-                    assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+                    assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
 
                     // Derive key
-                    let result = qav_derive_key(
+                    let result = usbvault_derive_key(
                         password.as_ptr(),
                         password.len(),
                         salt.as_ptr(),
@@ -1034,7 +1034,7 @@ fn test_ffi_concurrent_keypair_generation() {
 
                 unsafe {
                     let result =
-                        qav_generate_keypair(public_key.as_mut_ptr(), secret_key.as_mut_ptr());
+                        usbvault_generate_keypair(public_key.as_mut_ptr(), secret_key.as_mut_ptr());
                     assert_eq!(result, ERR_SUCCESS);
 
                     // Verify keys are valid
@@ -1064,7 +1064,7 @@ fn test_ffi_error_invalid_key_length() {
     let mut ciphertext_len = 0usize;
 
     unsafe {
-        let result = qav_encrypt(
+        let result = usbvault_encrypt(
             CIPHER_XCHACHA20_POLY1305,
             invalid_key.as_ptr(),
             invalid_key.len(),
@@ -1087,7 +1087,7 @@ fn test_ffi_error_invalid_salt_length() {
     let mut key_len = 0usize;
 
     unsafe {
-        let result = qav_derive_key(
+        let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
             invalid_salt.as_ptr(),
@@ -1119,9 +1119,9 @@ fn test_ffi_error_corrupted_ciphertext() {
 
     unsafe {
         // Generate valid ciphertext
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -1132,7 +1132,7 @@ fn test_ffi_error_corrupted_ciphertext() {
             ERR_SUCCESS
         );
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 cipher_id,
                 key.as_ptr(),
                 32,
@@ -1151,7 +1151,7 @@ fn test_ffi_error_corrupted_ciphertext() {
         }
 
         // Try to decrypt corrupted ciphertext
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
             32,
@@ -1186,11 +1186,11 @@ fn test_ffi_error_wrong_key_decryption() {
     let mut decrypted_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
 
         // Create two different keys
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password1.as_ptr(),
                 password1.len(),
                 salt.as_ptr(),
@@ -1201,7 +1201,7 @@ fn test_ffi_error_wrong_key_decryption() {
             ERR_SUCCESS
         );
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password2.as_ptr(),
                 password2.len(),
                 salt.as_ptr(),
@@ -1214,7 +1214,7 @@ fn test_ffi_error_wrong_key_decryption() {
 
         // Encrypt with key1
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 cipher_id,
                 key1.as_ptr(),
                 32,
@@ -1228,7 +1228,7 @@ fn test_ffi_error_wrong_key_decryption() {
         );
 
         // Decrypt with key2 should fail
-        let result = qav_decrypt(
+        let result = usbvault_decrypt(
             cipher_id,
             key2.as_ptr(),
             32,
@@ -1278,7 +1278,7 @@ fn test_pqc_keypair_generation_roundtrip() {
     let mut mlkem_sec = [0u8; 1568];
 
     unsafe {
-        let result = qav_pqc_generate_keypair(
+        let result = usbvault_pqc_generate_keypair(
             x25519_pub.as_mut_ptr(),
             mlkem_pub.as_mut_ptr(),
             x25519_sec.as_mut_ptr(),
@@ -1317,7 +1317,7 @@ fn test_pqc_seal_open_roundtrip() {
     unsafe {
         // Generate keypair
         assert_eq!(
-            qav_pqc_generate_keypair(
+            usbvault_pqc_generate_keypair(
                 x25519_pub.as_mut_ptr(),
                 mlkem_pub.as_mut_ptr(),
                 x25519_sec.as_mut_ptr(),
@@ -1327,7 +1327,7 @@ fn test_pqc_seal_open_roundtrip() {
         );
 
         // Seal plaintext
-        let result = qav_pqc_seal(
+        let result = usbvault_pqc_seal(
             x25519_pub.as_ptr(),
             mlkem_pub.as_ptr(),
             mlkem_pub.len(),
@@ -1341,7 +1341,7 @@ fn test_pqc_seal_open_roundtrip() {
         assert!(sealed_len > plaintext.len(), "Sealed should have overhead");
 
         // Open the sealed message
-        let result = qav_pqc_open(
+        let result = usbvault_pqc_open(
             x25519_sec.as_ptr(),
             mlkem_sec.as_ptr(),
             mlkem_sec.len(),
@@ -1369,7 +1369,7 @@ fn test_pqc_null_pointer_handling() {
 
     unsafe {
         // Test null x25519 public key in seal
-        let result = qav_pqc_seal(
+        let result = usbvault_pqc_seal(
             std::ptr::null(),
             mlkem_key.as_ptr(),
             mlkem_key.len(),
@@ -1385,7 +1385,7 @@ fn test_pqc_null_pointer_handling() {
         );
 
         // Test null mlkem public key in seal
-        let result = qav_pqc_seal(
+        let result = usbvault_pqc_seal(
             key.as_ptr(),
             std::ptr::null(),
             mlkem_key.len(),
@@ -1398,7 +1398,7 @@ fn test_pqc_null_pointer_handling() {
         assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null mlkem pub");
 
         // Test null plaintext in seal
-        let result = qav_pqc_seal(
+        let result = usbvault_pqc_seal(
             key.as_ptr(),
             mlkem_key.as_ptr(),
             mlkem_key.len(),
@@ -1433,7 +1433,7 @@ fn test_pqc_concurrent_operations() {
                 unsafe {
                     // Generate keypair
                     assert_eq!(
-                        qav_pqc_generate_keypair(
+                        usbvault_pqc_generate_keypair(
                             x25519_pub.as_mut_ptr(),
                             mlkem_pub.as_mut_ptr(),
                             x25519_sec.as_mut_ptr(),
@@ -1444,7 +1444,7 @@ fn test_pqc_concurrent_operations() {
 
                     // Seal
                     assert_eq!(
-                        qav_pqc_seal(
+                        usbvault_pqc_seal(
                             x25519_pub.as_ptr(),
                             mlkem_pub.as_ptr(),
                             mlkem_pub.len(),
@@ -1459,7 +1459,7 @@ fn test_pqc_concurrent_operations() {
 
                     // Open
                     assert_eq!(
-                        qav_pqc_open(
+                        usbvault_pqc_open(
                             x25519_sec.as_ptr(),
                             mlkem_sec.as_ptr(),
                             mlkem_sec.len(),
@@ -1511,17 +1511,17 @@ fn test_ffi_seal_open_key_exchange_pattern() {
     unsafe {
         // Generate keypairs
         assert_eq!(
-            qav_generate_keypair(alice_pub.as_mut_ptr(), alice_sec.as_mut_ptr()),
+            usbvault_generate_keypair(alice_pub.as_mut_ptr(), alice_sec.as_mut_ptr()),
             ERR_SUCCESS
         );
         assert_eq!(
-            qav_generate_keypair(bob_pub.as_mut_ptr(), bob_sec.as_mut_ptr()),
+            usbvault_generate_keypair(bob_pub.as_mut_ptr(), bob_sec.as_mut_ptr()),
             ERR_SUCCESS
         );
 
         // Alice sends to Bob
         assert_eq!(
-            qav_seal(
+            usbvault_seal(
                 bob_pub.as_ptr(),
                 alice_msg.as_ptr(),
                 alice_msg.len(),
@@ -1534,7 +1534,7 @@ fn test_ffi_seal_open_key_exchange_pattern() {
 
         // Bob opens Alice's message
         assert_eq!(
-            qav_open(
+            usbvault_open(
                 bob_sec.as_ptr(),
                 alice_sealed.as_ptr(),
                 alice_sealed_len,
@@ -1548,7 +1548,7 @@ fn test_ffi_seal_open_key_exchange_pattern() {
 
         // Bob sends to Alice
         assert_eq!(
-            qav_seal(
+            usbvault_seal(
                 alice_pub.as_ptr(),
                 bob_msg.as_ptr(),
                 bob_msg.len(),
@@ -1561,7 +1561,7 @@ fn test_ffi_seal_open_key_exchange_pattern() {
 
         // Alice opens Bob's message
         assert_eq!(
-            qav_open(
+            usbvault_open(
                 alice_sec.as_ptr(),
                 bob_sealed.as_ptr(),
                 bob_sealed_len,
@@ -1586,9 +1586,9 @@ fn test_ffi_multiple_cipher_algorithms() {
     let mut key_len = 0usize;
 
     unsafe {
-        assert_eq!(qav_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
+        assert_eq!(usbvault_generate_salt(salt.as_mut_ptr()), ERR_SUCCESS);
         assert_eq!(
-            qav_derive_key(
+            usbvault_derive_key(
                 password.as_ptr(),
                 password.len(),
                 salt.as_ptr(),
@@ -1606,7 +1606,7 @@ fn test_ffi_multiple_cipher_algorithms() {
         let mut decrypted1_len = 0usize;
 
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 CIPHER_XCHACHA20_POLY1305,
                 key.as_ptr(),
                 32,
@@ -1620,7 +1620,7 @@ fn test_ffi_multiple_cipher_algorithms() {
         );
 
         assert_eq!(
-            qav_decrypt(
+            usbvault_decrypt(
                 CIPHER_XCHACHA20_POLY1305,
                 key.as_ptr(),
                 32,
@@ -1641,7 +1641,7 @@ fn test_ffi_multiple_cipher_algorithms() {
         let mut decrypted2_len = 0usize;
 
         assert_eq!(
-            qav_encrypt(
+            usbvault_encrypt(
                 CIPHER_AES256_GCM_SIV,
                 key.as_ptr(),
                 32,
@@ -1655,7 +1655,7 @@ fn test_ffi_multiple_cipher_algorithms() {
         );
 
         assert_eq!(
-            qav_decrypt(
+            usbvault_decrypt(
                 CIPHER_AES256_GCM_SIV,
                 key.as_ptr(),
                 32,

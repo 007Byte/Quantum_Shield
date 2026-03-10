@@ -268,7 +268,7 @@ const KEYBOARD_PATTERNS: readonly string[] = [
 
 // Context-specific terms to block (app-related)
 const CONTEXT_BLOCKLIST = [
-  'qav', 'vault', 'encrypt', 'decrypt', 'password', 'passphrase',
+  'usbvault', 'vault', 'encrypt', 'decrypt', 'password', 'passphrase',
   'secret', 'master', 'key', 'crypto',
 ];
 

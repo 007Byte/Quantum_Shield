@@ -52,9 +52,9 @@ export interface ShareKeypair {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const SHARES_KEY = 'qav:shares';
-const KEYPAIR_KEY = 'qav:share_keypair';
-const PUBLIC_KEYS_KEY = 'qav:public_keys';
+const SHARES_KEY = 'usbvault:shares';
+const KEYPAIR_KEY = 'usbvault:share_keypair';
+const PUBLIC_KEYS_KEY = 'usbvault:public_keys';
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ class ShareServiceImpl {
       if (Platform.OS === 'web') {
         try {
           localStorage.setItem(
-            `qav:share_keypair:${recipientEmail}`,
+            `usbvault:share_keypair:${recipientEmail}`,
             JSON.stringify({
               publicKeyHex: recipientPublicHex,
               secretKeyHex: uint8ToHex(recipientKp.secretKey),
@@ -290,7 +290,7 @@ class ShareServiceImpl {
     let secretKeyHex: string | null = null;
     if (Platform.OS === 'web') {
       try {
-        const stored = localStorage.getItem(`qav:share_keypair:${recipientEmail}`);
+        const stored = localStorage.getItem(`usbvault:share_keypair:${recipientEmail}`);
         if (stored) {
           secretKeyHex = JSON.parse(stored).secretKeyHex;
         }
@@ -315,7 +315,7 @@ export const shareService = new ShareServiceImpl();
 // Sourced from: externalShareService.ts (FEAT-04)
 // ─────────────────────────────────────────────────────────────
 
-const STORAGE_KEY_SHARES = 'qav:external_shares';
+const STORAGE_KEY_SHARES = 'usbvault:external_shares';
 const SHARE_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export interface ExternalShareConfig {
@@ -561,7 +561,7 @@ class ExternalShareServiceImpl {
   }
 
   generateShareUrl(token: string): string {
-    const baseUrl = Platform.OS === 'web' ? window.location.origin : 'https://qav.app';
+    const baseUrl = Platform.OS === 'web' ? window.location.origin : 'https://usbvault.app';
     return `${baseUrl}/share?token=${encodeURIComponent(token)}`;
   }
 
@@ -699,8 +699,8 @@ interface PortalAnalytics {
 }
 
 class ExternalPortalServiceImpl {
-  private readonly SHARES_KEY = 'qav:portal_shares';
-  private readonly CONFIG_KEY = 'qav:portal_config';
+  private readonly SHARES_KEY = 'usbvault:portal_shares';
+  private readonly CONFIG_KEY = 'usbvault:portal_config';
 
   private defaultConfig: PortalConfig = {
     defaultExpiry: 24,
@@ -708,7 +708,7 @@ class ExternalPortalServiceImpl {
     requirePin: false,
     maxDownloads: 10,
     allowAnonymous: true,
-    customBranding: { companyName: 'QAV' },
+    customBranding: { companyName: 'USBVault' },
   };
 
   constructor() {
@@ -769,7 +769,7 @@ class ExternalPortalServiceImpl {
   }
 
   generateAccessUrl(shareId: string): string {
-    return `https://vault.qav.com/portal/${shareId}`;
+    return `https://vault.usbvault.com/portal/${shareId}`;
   }
 
   async validateAccess(shareId: string, pin?: string): Promise<{ valid: boolean; share?: PortalShare; error?: string }> {

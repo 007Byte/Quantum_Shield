@@ -55,12 +55,12 @@ export interface SupportConfig {
 
 // ── Configuration ──────────────────────────────────────────
 
-const STORAGE_KEY = 'qav:support_tickets';
-const CONFIG_KEY = 'qav:support_config';
+const STORAGE_KEY = 'usbvault:support_tickets';
+const CONFIG_KEY = 'usbvault:support_config';
 
 const DEFAULT_CONFIG: SupportConfig = {
   supportEmail: process.env.EXPO_PUBLIC_SUPPORT_EMAIL || 'ultimatepqcshield@gmail.com',
-  statusPageUrl: process.env.EXPO_PUBLIC_STATUS_PAGE || 'https://status.qav.io',
+  statusPageUrl: process.env.EXPO_PUBLIC_STATUS_PAGE || 'https://status.usbvault.io',
   liveChatProvider: null,
   liveChatAppId: '',
   maxAttachmentSize: 10 * 1024 * 1024, // 10 MB
@@ -72,36 +72,36 @@ const DEFAULT_CONFIG: SupportConfig = {
 const EMBEDDED_FAQ: FAQItem[] = [
   {
     id: 'faq-1',
-    question: 'What is QAV?',
-    answer: 'QAV is a portable encrypted file vault and password manager with post-quantum cryptography. It secures your files, credentials, and messages with military-grade encryption on any device. QAV is NOT an email service or email replacement.',
+    question: 'What is USBVault?',
+    answer: 'USBVault is a portable encrypted file vault and password manager with post-quantum cryptography. It secures your files, credentials, and messages with military-grade encryption on any device. USBVault is NOT an email service or email replacement.',
     category: 'General',
     tags: ['overview', 'about', 'what is'],
   },
   {
     id: 'faq-2',
-    question: 'What encryption does QAV use?',
-    answer: 'QAV supports AES-256-GCM-SIV (NIST standard, nonce-misuse resistant), XChaCha20-Poly1305 (extended nonce AEAD), and PQC Hybrid mode combining ML-KEM-1024 (FIPS 203) with AES-256 for quantum resistance. Key derivation uses Argon2id with 64 MB memory, 3 iterations, and 4 parallel lanes.',
+    question: 'What encryption does USBVault use?',
+    answer: 'USBVault supports AES-256-GCM-SIV (NIST standard, nonce-misuse resistant), XChaCha20-Poly1305 (extended nonce AEAD), and PQC Hybrid mode combining ML-KEM-1024 (FIPS 203) with AES-256 for quantum resistance. Key derivation uses Argon2id with 64 MB memory, 3 iterations, and 4 parallel lanes.',
     category: 'Security',
     tags: ['encryption', 'aes', 'pqc', 'quantum'],
   },
   {
     id: 'faq-3',
     question: 'How do I import passwords from another manager?',
-    answer: 'Go to the Password Manager tab and click "Import". QAV supports CSV imports from Bitwarden, 1Password, LastPass, and Chrome, plus JSON imports from KeePass. Export your passwords from your current manager, then drag & drop or select the file in QAV.',
+    answer: 'Go to the Password Manager tab and click "Import". USBVault supports CSV imports from Bitwarden, 1Password, LastPass, and Chrome, plus JSON imports from KeePass. Export your passwords from your current manager, then drag & drop or select the file in USBVault.',
     category: 'Features',
     tags: ['import', 'passwords', 'migration', 'bitwarden', '1password', 'lastpass'],
   },
   {
     id: 'faq-4',
     question: 'Is my data stored on your servers?',
-    answer: 'QAV uses a zero-knowledge architecture. Your encryption keys never leave your device. The server stores only encrypted blobs and public key material for key exchange. We cannot decrypt your files or read your passwords — even under legal compulsion.',
+    answer: 'USBVault uses a zero-knowledge architecture. Your encryption keys never leave your device. The server stores only encrypted blobs and public key material for key exchange. We cannot decrypt your files or read your passwords — even under legal compulsion.',
     category: 'Privacy',
     tags: ['zero-knowledge', 'privacy', 'data', 'server'],
   },
   {
     id: 'faq-5',
     question: 'What is post-quantum cryptography (PQC)?',
-    answer: 'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. QAV uses ML-KEM-1024 (FIPS 203) for key encapsulation and ML-DSA-87 (FIPS 204) for digital signatures, both standardized by NIST in 2024. These protect your data today against "harvest now, decrypt later" quantum threats.',
+    answer: 'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. USBVault uses ML-KEM-1024 (FIPS 203) for key encapsulation and ML-DSA-87 (FIPS 204) for digital signatures, both standardized by NIST in 2024. These protect your data today against "harvest now, decrypt later" quantum threats.',
     category: 'Security',
     tags: ['pqc', 'quantum', 'ml-kem', 'ml-dsa'],
   },
@@ -114,8 +114,8 @@ const EMBEDDED_FAQ: FAQItem[] = [
   },
   {
     id: 'faq-7',
-    question: 'Does QAV support hardware security keys?',
-    answer: 'Yes. QAV supports FIDO2/WebAuthn hardware keys (YubiKey, Titan, etc.) and platform authenticators (Touch ID, Windows Hello, Android biometrics) for multi-factor authentication. Register your keys in Settings > Security > Hardware Keys.',
+    question: 'Does USBVault support hardware security keys?',
+    answer: 'Yes. USBVault supports FIDO2/WebAuthn hardware keys (YubiKey, Titan, etc.) and platform authenticators (Touch ID, Windows Hello, Android biometrics) for multi-factor authentication. Register your keys in Settings > Security > Hardware Keys.',
     category: 'Security',
     tags: ['fido2', 'webauthn', 'hardware', 'yubikey', 'biometric'],
   },
@@ -129,14 +129,14 @@ const EMBEDDED_FAQ: FAQItem[] = [
   {
     id: 'faq-9',
     question: 'How do I report a security vulnerability?',
-    answer: 'Please report security vulnerabilities to security@qav.io. We operate a responsible disclosure program and respond within 24 hours. Do not file a support ticket for security issues — use the dedicated security email for faster handling.',
+    answer: 'Please report security vulnerabilities to security@usbvault.io. We operate a responsible disclosure program and respond within 24 hours. Do not file a support ticket for security issues — use the dedicated security email for faster handling.',
     category: 'Security',
     tags: ['vulnerability', 'disclosure', 'report', 'security'],
   },
   {
     id: 'faq-10',
-    question: 'Can I use QAV for email?',
-    answer: 'No. QAV is an encrypted file vault and password manager, not an email service. For private email, we recommend ProtonMail, Tutanota, or Skiff Mail. QAV does offer encrypted messaging between QAV users for secure communications.',
+    question: 'Can I use USBVault for email?',
+    answer: 'No. USBVault is an encrypted file vault and password manager, not an email service. For private email, we recommend ProtonMail, Tutanota, or Skiff Mail. USBVault does offer encrypted messaging between USBVault users for secure communications.',
     category: 'General',
     tags: ['email', 'messaging', 'not email'],
   },
@@ -345,7 +345,7 @@ class SupportService {
   private getAppVersion(): string {
     try {
       if (typeof localStorage !== 'undefined') {
-        return localStorage.getItem('qav:app_version') || '3.0.0';
+        return localStorage.getItem('usbvault:app_version') || '3.0.0';
       }
     } catch { /* silent */ }
     return '3.0.0';

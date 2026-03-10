@@ -1,5 +1,5 @@
 /**
- * QAV Audit Logging Service
+ * USBVault Audit Logging Service
  *
  * Persists all security-relevant actions to localStorage for compliance and
  * activity tracking. Capped at 500 entries (FIFO). Supports filtering by
@@ -84,7 +84,7 @@ export interface AuditFilterOptions {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const STORAGE_KEY = 'qav:audit_log';
+const STORAGE_KEY = 'usbvault:audit_log';
 const MAX_ENTRIES = 500;
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -275,7 +275,7 @@ class AuditServiceImpl {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `qav-audit-log-${new Date().toISOString().split('T')[0]}.json`;
+    anchor.download = `usbvault-audit-log-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -302,7 +302,7 @@ class AuditServiceImpl {
     // Try to get from sessionStorage (set during login)
     if (Platform.OS === 'web') {
       try {
-        return sessionStorage.getItem('qav:userId') || 'anonymous';
+        return sessionStorage.getItem('usbvault:userId') || 'anonymous';
       } catch {
         return 'anonymous';
       }

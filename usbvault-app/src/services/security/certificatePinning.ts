@@ -24,7 +24,7 @@ export interface CertificatePin {
  * CRT-01 FIX: Production-ready certificate pinning configuration.
  *
  * Pin generation instructions:
- *   openssl s_client -connect api.qav.io:443 -servername api.qav.io < /dev/null 2>/dev/null \
+ *   openssl s_client -connect api.usbvault.io:443 -servername api.usbvault.io < /dev/null 2>/dev/null \
  *     | openssl x509 -pubkey -noout \
  *     | openssl pkey -pubin -outform der \
  *     | openssl dgst -sha256 -binary \
@@ -44,7 +44,7 @@ export interface CertificatePin {
 // Environment-injected pins (set during CI/CD build)
 const ENV_PRIMARY_PIN = process.env.EXPO_PUBLIC_PIN_PRIMARY || '';
 const ENV_BACKUP_PIN = process.env.EXPO_PUBLIC_PIN_BACKUP || '';
-const ENV_API_HOSTNAME = process.env.EXPO_PUBLIC_API_HOSTNAME || 'api.qav.io';
+const ENV_API_HOSTNAME = process.env.EXPO_PUBLIC_API_HOSTNAME || 'api.usbvault.io';
 const ENV_PIN_EXPIRATION = process.env.EXPO_PUBLIC_PIN_EXPIRATION || '2027-06-01';
 
 export const CERTIFICATE_PINS: CertificatePin[] = [
@@ -220,7 +220,7 @@ export function isPinExpired(pin: CertificatePin): boolean {
  * Finds pinning configuration for hostname (with subdomain matching support)
  * and returns only non-expired pins.
  *
- * @param hostname - The hostname to get pins for (e.g., 'api.qav.io')
+ * @param hostname - The hostname to get pins for (e.g., 'api.usbvault.io')
  * @returns Array of active (non-expired) Base64-encoded SHA-256 pins
  *   - Empty array if hostname not found or all pins expired
  *
@@ -253,7 +253,7 @@ export function getActivePins(hostname: string): string[] {
  * Checks if the provided certificate pin matches any active pin configuration for the hostname.
  * Fail-closed: returns false if pins not configured, preventing use of potentially bad certs.
  *
- * @param hostname - The hostname being accessed (e.g., 'api.qav.io')
+ * @param hostname - The hostname being accessed (e.g., 'api.usbvault.io')
  * @param certificatePin - Base64-encoded SHA-256 hash of certificate's SubjectPublicKeyInfo
  * @returns true only if pin matches and is active, false otherwise
  *
@@ -265,7 +265,7 @@ export function getActivePins(hostname: string): string[] {
  *
  * @example
  * ```typescript
- * const valid = isCertificatePinned('api.qav.io', certificateSha256);
+ * const valid = isCertificatePinned('api.usbvault.io', certificateSha256);
  * if (!valid) {
  *   throw new Error('Certificate validation failed');
  * }

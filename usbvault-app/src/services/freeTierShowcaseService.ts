@@ -12,9 +12,9 @@ export interface CompetitorComparison {
 export interface FeatureComparison {
   featureName: string;
   category: string;
-  qavFree: boolean | string;
-  qavPro: boolean | string;
-  qavEnterprise: boolean | string;
+  usbvaultFree: boolean | string;
+  usbvaultPro: boolean | string;
+  usbvaultEnterprise: boolean | string;
   competitor1?: boolean | string;
   competitor2?: boolean | string;
   competitor3?: boolean | string;
@@ -139,9 +139,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'End-to-End Encryption',
         category: 'Security',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: true,
         competitor2: true,
         competitor3: true,
@@ -149,9 +149,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Post-Quantum Cryptography',
         category: 'Security',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: false,
         competitor3: false,
@@ -159,9 +159,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Zero-Knowledge Architecture',
         category: 'Security',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: 'Partial',
         competitor2: true,
         competitor3: 'Partial',
@@ -169,9 +169,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Decentralized Storage',
         category: 'Architecture',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: false,
         competitor3: false,
@@ -179,9 +179,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Multi-Device Sync',
         category: 'Features',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: 'Limited',
         competitor2: true,
         competitor3: true,
@@ -189,9 +189,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'File Versioning',
         category: 'Features',
-        qavFree: 'Limited',
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: 'Limited',
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: true,
         competitor3: false,
@@ -199,9 +199,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Secure Sharing',
         category: 'Features',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: true,
         competitor2: true,
         competitor3: 'Limited',
@@ -209,9 +209,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Mobile App',
         category: 'Platform',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: true,
         competitor2: true,
         competitor3: true,
@@ -219,9 +219,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Desktop Client',
         category: 'Platform',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: true,
         competitor2: true,
         competitor3: true,
@@ -229,9 +229,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Web Interface',
         category: 'Platform',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: 'Limited',
         competitor2: true,
         competitor3: true,
@@ -239,9 +239,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Open Source',
         category: 'Transparency',
-        qavFree: true,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: true,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: true,
         competitor2: false,
         competitor3: false,
@@ -249,9 +249,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Audit Logs',
         category: 'Enterprise',
-        qavFree: false,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: false,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: 'Limited',
         competitor3: false,
@@ -259,9 +259,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'SSO / SAML',
         category: 'Enterprise',
-        qavFree: false,
-        qavPro: false,
-        qavEnterprise: true,
+        usbvaultFree: false,
+        usbvaultPro: false,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: false,
         competitor3: 'Limited',
@@ -269,9 +269,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Team Management',
         category: 'Enterprise',
-        qavFree: false,
-        qavPro: true,
-        qavEnterprise: true,
+        usbvaultFree: false,
+        usbvaultPro: true,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: true,
         competitor3: true,
@@ -279,9 +279,9 @@ class FreeTierShowcaseService {
       {
         featureName: 'Custom Branding',
         category: 'Enterprise',
-        qavFree: false,
-        qavPro: false,
-        qavEnterprise: true,
+        usbvaultFree: false,
+        usbvaultPro: false,
+        usbvaultEnterprise: true,
         competitor1: false,
         competitor2: false,
         competitor3: false,
@@ -289,7 +289,7 @@ class FreeTierShowcaseService {
     ];
   }
 
-  getQAVAdvantages(): string[] {
+  getUSBVaultAdvantages(): string[] {
     return [
       'First production-ready post-quantum cryptography in encrypted storage',
       'Truly decentralized architecture - no single point of failure',
@@ -383,7 +383,7 @@ class FreeTierShowcaseService {
     return [
       {
         quote:
-          'QAV is the only encrypted storage solution that takes quantum safety seriously. Our entire company trusts it for sensitive client data.',
+          'USBVault is the only encrypted storage solution that takes quantum safety seriously. Our entire company trusts it for sensitive client data.',
         author: 'Sarah Chen',
         role: 'Chief Information Security Officer',
         company: 'Quantum Tech Ventures',
@@ -411,7 +411,7 @@ class FreeTierShowcaseService {
       },
       {
         quote:
-          'Switching to QAV reduced our compliance audit time by 60% thanks to the transparent zero-knowledge proofs.',
+          'Switching to USBVault reduced our compliance audit time by 60% thanks to the transparent zero-knowledge proofs.',
         author: 'Emma Rodriguez',
         role: 'Compliance Officer',
         company: 'Healthcare Systems Inc',

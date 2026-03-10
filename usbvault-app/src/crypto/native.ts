@@ -1,5 +1,5 @@
 /**
- * QAV Native Crypto Module
+ * USBVault Native Crypto Module
  *
  * Bridges React Native to the Rust crypto library via JSI (TurboModules).
  * On web platforms, provides a Web Crypto API fallback for development/preview.
@@ -22,9 +22,9 @@ import { Platform } from 'react-native';
 import { logger } from '@/utils/logger';
 
 /**
- * Represents the native QAV crypto module interface.
+ * Represents the native USBVault crypto module interface.
  */
-export interface QAVCryptoModule {
+export interface USBVaultCryptoModule {
   deriveKey(password: string, saltHex: string): Promise<string>;
   encrypt(keyHex: string, plaintextHex: string, aadHex?: string): Promise<string>;
   decrypt(keyHex: string, ciphertextHex: string, aadHex?: string): Promise<string>;
@@ -74,7 +74,7 @@ function fromHex(hex: string): Uint8Array {
 let _streamSessions: Map<string, { key: CryptoKey; counter: number }> = new Map();
 let _sessionCounter = 0;
 
-const webCryptoFallback: QAVCryptoModule = {
+const webCryptoFallback: USBVaultCryptoModule = {
   async deriveKey(password: string, saltHex: string): Promise<string> {
     const enc = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
@@ -343,7 +343,7 @@ const webCryptoFallback: QAVCryptoModule = {
     } catch {
       // Fallback: derive a 32-byte "signing key" from random bytes
       // WARNING: This is NOT real Ed25519 — dev/preview only
-      logger.warn('[QAV] Ed25519 not available in this browser. Using random keypair placeholder for dev preview.');
+      logger.warn('[USBVault] Ed25519 not available in this browser. Using random keypair placeholder for dev preview.');
       const privateBytes = crypto.getRandomValues(new Uint8Array(64));
       const publicBytes = crypto.getRandomValues(new Uint8Array(32));
       return {
@@ -368,7 +368,7 @@ const webCryptoFallback: QAVCryptoModule = {
       return toHex(new Uint8Array(signature));
     } catch {
       // Fallback: HMAC-based signature for dev preview
-      logger.warn('[QAV] Ed25519 sign not available. Using HMAC fallback for dev preview.');
+      logger.warn('[USBVault] Ed25519 sign not available. Using HMAC fallback for dev preview.');
       const key = await crypto.subtle.importKey(
         'raw',
         fromHex(privateKeyHex.substring(0, 64)).buffer as ArrayBuffer,
@@ -395,7 +395,7 @@ const webCryptoFallback: QAVCryptoModule = {
       );
       return await crypto.subtle.verify('Ed25519', publicKey, signature.buffer as ArrayBuffer, message.buffer as ArrayBuffer);
     } catch {
-      logger.warn('[QAV] Ed25519 verify not available. Returning false for dev preview.');
+      logger.warn('[USBVault] Ed25519 verify not available. Returning false for dev preview.');
       return false;
     }
   },
@@ -403,14 +403,14 @@ const webCryptoFallback: QAVCryptoModule = {
 
 // ─── Module resolution ─────────────────────────────────────────
 
-let _resolvedModule: QAVCryptoModule | null = null;
+let _resolvedModule: USBVaultCryptoModule | null = null;
 
-function getModule(): QAVCryptoModule {
+function getModule(): USBVaultCryptoModule {
   if (_resolvedModule) return _resolvedModule;
 
   if (Platform.OS === 'web') {
     logger.warn(
-      '[QAV] Using Web Crypto API fallback. This is for development preview only — not production.'
+      '[USBVault] Using Web Crypto API fallback. This is for development preview only — not production.'
     );
     _resolvedModule = webCryptoFallback;
     return _resolvedModule;
@@ -418,14 +418,14 @@ function getModule(): QAVCryptoModule {
 
   // Native platform — load the Rust module
   const { NativeModules: NM } = require('react-native');
-  const { QAVCrypto } = NM;
-  if (!QAVCrypto) {
+  const { USBVaultCrypto } = NM;
+  if (!USBVaultCrypto) {
     throw new Error(
-      'QAVCrypto native module not found. ' +
+      'USBVaultCrypto native module not found. ' +
         'Ensure the module is properly linked in your React Native project.'
     );
   }
-  _resolvedModule = QAVCrypto as QAVCryptoModule;
+  _resolvedModule = USBVaultCrypto as USBVaultCryptoModule;
   return _resolvedModule;
 }
 
@@ -450,8 +450,8 @@ export function assertNativeAvailable(): void {
  * Uses a Proxy so the module is only resolved when a method is actually called,
  * preventing crashes at import time on web.
  */
-export const nativeModule: QAVCryptoModule = new Proxy(
-  {} as QAVCryptoModule,
+export const nativeModule: USBVaultCryptoModule = new Proxy(
+  {} as USBVaultCryptoModule,
   {
     get(_target, prop) {
       const mod = getModule();

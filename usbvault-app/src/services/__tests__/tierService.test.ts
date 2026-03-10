@@ -64,7 +64,7 @@ describe('TierService', () => {
     });
 
     it('should load tier from localStorage', () => {
-      localStorage.setItem('qav_subscription_tier', 'pro');
+      localStorage.setItem('usbvault_subscription_tier', 'pro');
 
       const tier = tierService.getCurrentTier();
 
@@ -72,7 +72,7 @@ describe('TierService', () => {
     });
 
     it('should validate tier value', () => {
-      localStorage.setItem('qav_subscription_tier', 'invalid');
+      localStorage.setItem('usbvault_subscription_tier', 'invalid');
 
       const tier = tierService.getCurrentTier();
 
@@ -90,7 +90,7 @@ describe('TierService', () => {
     it('should persist to localStorage', () => {
       tierService.setCurrentTier('enterprise');
 
-      const stored = localStorage.getItem('qav_subscription_tier');
+      const stored = localStorage.getItem('usbvault_subscription_tier');
       expect(stored).toBe('enterprise');
     });
 

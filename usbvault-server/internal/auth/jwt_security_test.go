@@ -52,8 +52,8 @@ func TestGenerateTokenPair_AccessTokenHasCorrectClaims(t *testing.T) {
 	if claims.FamilyID == "" {
 		t.Error("FamilyID should not be empty")
 	}
-	if claims.Issuer != "qav" {
-		t.Errorf("Issuer = %q, want %q", claims.Issuer, "qav")
+	if claims.Issuer != "usbvault" {
+		t.Errorf("Issuer = %q, want %q", claims.Issuer, "usbvault")
 	}
 }
 
@@ -130,7 +130,7 @@ func TestValidateToken_RejectsExpiredToken(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now.Add(-2 * time.Hour)),
 			ExpiresAt: jwt.NewNumericDate(now.Add(-1 * time.Hour)), // Expired 1 hour ago
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   "user-expired",
 		},
 	}
@@ -153,7 +153,7 @@ func TestValidateToken_RejectsWrongSigningMethod(t *testing.T) {
 		"device_id": "device-wrong",
 		"type":      "access",
 		"jti":       "jti-wrong",
-		"iss":       "qav",
+		"iss":       "usbvault",
 		"exp":       time.Now().Add(time.Hour).Unix(),
 	}
 
@@ -180,7 +180,7 @@ func TestValidateToken_RejectsInvalidTokenType(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   "user-bad-type",
 		},
 	}
@@ -237,7 +237,7 @@ func TestValidateToken_RejectsWrongKeySignature(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   "user-wrong-key",
 		},
 	}

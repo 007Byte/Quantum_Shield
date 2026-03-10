@@ -42,7 +42,7 @@ export const X25519_KEY_SIZE = 32;
 /** Total overhead added by hybrid seal (x25519_eph + mlkem_ct + nonce + tag) */
 export const HYBRID_SEAL_OVERHEAD = X25519_KEY_SIZE + MLKEM_CIPHERTEXT_SIZE + 24 + 16;
 
-const STORAGE_KEY = 'qav:pqc_status';
+const STORAGE_KEY = 'usbvault:pqc_status';
 const KEY_ROTATION_INTERVAL_DAYS = 90;
 const isWeb = Platform.OS === 'web';
 
@@ -100,7 +100,7 @@ export interface PQCStatus {
 
 // ─── Native Module Interface ────────────────────────────────────
 
-interface QAVPQCNative {
+interface USBVaultPQCNative {
   pqcGenerateKeypair(): Promise<{
     x25519Pub: string;
     mlKemPub: string;
@@ -148,12 +148,12 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 }
 
 // PH9-PQ-FIX: Check for native PQC module availability
-const getNativeModule = (): QAVPQCNative | null => {
+const getNativeModule = (): USBVaultPQCNative | null => {
   if (Platform.OS === 'web') {
     return null;
   }
   try {
-    const mod = NativeModules.QAVPQC as QAVPQCNative | undefined;
+    const mod = NativeModules.USBVaultPQC as USBVaultPQCNative | undefined;
     return mod ?? null;
   } catch {
     return null;

@@ -55,9 +55,9 @@ export interface PendingAlert {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const CONFIG_STORAGE_KEY = 'qav:self_destruct_config';
-const FAIL_ATTEMPTS_STORAGE_KEY = 'qav:fail_attempts';
-const PENDING_ALERTS_STORAGE_KEY = 'qav:self_destruct_pending_alerts';
+const CONFIG_STORAGE_KEY = 'usbvault:self_destruct_config';
+const FAIL_ATTEMPTS_STORAGE_KEY = 'usbvault:fail_attempts';
+const PENDING_ALERTS_STORAGE_KEY = 'usbvault:self_destruct_pending_alerts';
 
 const DEFAULT_CONFIG: SelfDestructConfig = {
   failThreshold: 5,
@@ -248,7 +248,7 @@ class SelfDestructServiceImpl {
     try {
       // Enumerate all keys and remove vault-related data
       const keys = Object.keys(localStorage);
-      const vaultKeys = keys.filter((k) => k.startsWith('qav:'));
+      const vaultKeys = keys.filter((k) => k.startsWith('usbvault:'));
 
       for (const key of vaultKeys) {
         localStorage.removeItem(key);

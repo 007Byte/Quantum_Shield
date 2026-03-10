@@ -64,8 +64,8 @@ export interface CompactionRecord {
   recordedAt: number;
 }
 
-const STORAGE_KEY = 'qav:compaction_history';
-const VAULT_PREFIX = 'qav:vault_';
+const STORAGE_KEY = 'usbvault:compaction_history';
+const VAULT_PREFIX = 'usbvault:vault_';
 const MAX_HISTORY_RECORDS = 100;
 const FRAGMENTATION_THRESHOLD = 10; // percentage
 

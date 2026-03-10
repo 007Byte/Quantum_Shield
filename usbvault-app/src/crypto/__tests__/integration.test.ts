@@ -22,7 +22,7 @@ describe('Crypto Integration Tests', () => {
     jest.clearAllMocks();
 
     // Mock native module with realistic hex outputs
-    NativeModules.QAVCrypto = {
+    NativeModules.USBVaultCrypto = {
       deriveKey: jest.fn(async (password: string, saltHex: string) => {
         // Return consistent 32-byte key (64 hex chars) for deterministic testing
         return 'a'.repeat(64);
@@ -123,7 +123,7 @@ describe('Crypto Integration Tests', () => {
     it('derives different keys from different passwords', async () => {
       const salt = new Uint8Array(32).fill(0x01);
 
-      NativeModules.QAVCrypto.deriveKey = jest.fn(async (password: string, saltHex: string) => {
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (password: string, saltHex: string) => {
         // Return password-dependent key
         const hash = password.charCodeAt(0) + password.charCodeAt(password.length - 1);
         return hash.toString(16).padStart(64, 'a');
@@ -140,7 +140,7 @@ describe('Crypto Integration Tests', () => {
       const salt1 = new Uint8Array(32).fill(0x01);
       const salt2 = new Uint8Array(32).fill(0x02);
 
-      NativeModules.QAVCrypto.deriveKey = jest.fn(async (pwd: string, saltHex: string) => {
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (pwd: string, saltHex: string) => {
         // Return salt-dependent key
         const saltSum = saltHex.charCodeAt(0) + saltHex.charCodeAt(saltHex.length - 1);
         return saltSum.toString(16).padStart(64, 'b');
@@ -206,7 +206,7 @@ describe('Crypto Integration Tests', () => {
       const ciphertext = await bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key1, plaintext);
 
       // Mock decrypt to fail with wrong key
-      NativeModules.QAVCrypto.decrypt = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.decrypt = jest.fn(async () => {
         throw new Error('Authentication tag verification failed');
       });
 
@@ -226,7 +226,7 @@ describe('Crypto Integration Tests', () => {
       tampered[50] ^= 0xFF;
 
       // Mock to fail on tampered data
-      NativeModules.QAVCrypto.decrypt = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.decrypt = jest.fn(async () => {
         throw new Error('Tag verification failed');
       });
 
@@ -315,7 +315,7 @@ describe('Crypto Integration Tests', () => {
       const creation = await keyHierarchy.createKeyHierarchy(correctPassword);
 
       // Mock unwrap to fail with wrong password
-      NativeModules.QAVCrypto.decrypt = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.decrypt = jest.fn(async () => {
         throw new Error('Tag verification failed');
       });
 
@@ -349,7 +349,7 @@ describe('Crypto Integration Tests', () => {
       const sealed = await bridge.sealToPublicKey(keypair1.publicKey, plaintext);
 
       // Mock to fail with wrong key
-      NativeModules.QAVCrypto.openSealed = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.openSealed = jest.fn(async () => {
         throw new Error('Decryption failed with wrong key');
       });
 
@@ -383,7 +383,7 @@ describe('Crypto Integration Tests', () => {
       const signature = await bridge.sign(keypair1.secretKey, message);
 
       // Mock verify to fail
-      NativeModules.QAVCrypto.verify = jest.fn(async () => false);
+      NativeModules.USBVaultCrypto.verify = jest.fn(async () => false);
 
       const isValid = await bridge.verify(keypair2.publicKey, message, signature);
       expect(isValid).toBe(false);
@@ -400,7 +400,7 @@ describe('Crypto Integration Tests', () => {
       tampered[0] ^= 0xFF;
 
       // Mock to reject tampered signature
-      NativeModules.QAVCrypto.verify = jest.fn(async () => false);
+      NativeModules.USBVaultCrypto.verify = jest.fn(async () => false);
 
       const isValid = await bridge.verify(keypair.publicKey, message, tampered);
       expect(isValid).toBe(false);

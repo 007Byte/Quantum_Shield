@@ -143,7 +143,7 @@ export function HelpSection() {
       {/* Documentation */}
       <Pressable
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
-        onPress={() => handleOpenUrl('https://docs.qav.io')}
+        onPress={() => handleOpenUrl('https://docs.usbvault.io')}
       >
         <View style={hs.helpRowInner}>
           <Feather name="file-text" size={16} color={dashboardColors.cyan} />
@@ -167,7 +167,7 @@ export function HelpSection() {
       {/* Security disclosure */}
       <Pressable
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
-        onPress={() => handleOpenUrl('mailto:security@qav.io')}
+        onPress={() => handleOpenUrl('mailto:security@usbvault.io')}
       >
         <View style={hs.helpRowInner}>
           <Feather name="alert-triangle" size={16} color="#FBBF24" />
@@ -192,7 +192,7 @@ export function HelpSection() {
       {/* Legal */}
       <Pressable
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
-        onPress={() => handleOpenUrl('https://qav.io/privacy')}
+        onPress={() => handleOpenUrl('https://usbvault.io/privacy')}
       >
         <Text style={styles.helpText}>Privacy Policy</Text>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
@@ -200,7 +200,7 @@ export function HelpSection() {
 
       <Pressable
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
-        onPress={() => handleOpenUrl('https://qav.io/terms')}
+        onPress={() => handleOpenUrl('https://usbvault.io/terms')}
       >
         <Text style={styles.helpText}>Terms of Service</Text>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
