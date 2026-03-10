@@ -190,7 +190,7 @@ pub fn derive_subkey(master: &[u8], info: &str) -> Result<[u8; 32]> {
 /// Generate a cryptographically random salt (32 bytes)
 pub fn generate_salt() -> [u8; 32] {
     let mut salt = [0u8; 32];
-    rand::thread_rng().fill(&mut salt);
+    rand::Rng::fill(&mut rand::thread_rng(), &mut salt);
     salt
 }
 

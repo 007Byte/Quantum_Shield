@@ -56,6 +56,10 @@ fn crypto_error_to_code(err: &CryptoError) -> i32 {
         CryptoError::BufferTooSmall => ERR_BUFFER_TOO_SMALL,
         CryptoError::InvalidArgument => ERR_INVALID_ARGUMENT,
         CryptoError::SrpError(_) => ERR_INVALID_ARGUMENT,
+        CryptoError::NonceReuse => ERR_INVALID_NONCE,
+        CryptoError::KeyWrappingFailed => ERR_KEY_DERIVATION_FAILED,
+        CryptoError::RollbackDetected => ERR_INVALID_VERSION,
+        CryptoError::InvalidInput(_) => ERR_INVALID_ARGUMENT,
     }
 }
 
@@ -445,7 +449,7 @@ pub extern "C" fn qav_pqc_generate_keypair(
                     mlkem_pub.copy_from_slice(&pk.ml_kem);
 
                     let x25519_sec = slice::from_raw_parts_mut(x25519_sec_out, 32);
-                    x25519_sec.copy_from_slice(&sk.x25519);
+                    x25519_sec.copy_from_slice(sk.x25519.as_ref());
 
                     let mlkem_sec = slice::from_raw_parts_mut(mlkem_sec_out, sk.ml_kem.len());
                     mlkem_sec.copy_from_slice(&sk.ml_kem);

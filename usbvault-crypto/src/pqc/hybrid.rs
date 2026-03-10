@@ -202,7 +202,8 @@ pub fn hybrid_open(recipient_secret: &HybridSecretKey, sealed: &[u8]) -> Result<
     let ciphertext = &sealed[offset..];
 
     // X25519 ECDH
-    let secret = StaticSecret::from(recipient_secret.x25519.as_slice().try_into().unwrap());
+    let x25519_bytes: [u8; 32] = recipient_secret.x25519.as_slice().try_into().unwrap();
+    let secret = StaticSecret::from(x25519_bytes);
     let ephemeral_pk = PublicKey::from(ephemeral_x25519);
     let x25519_ss = secret.diffie_hellman(&ephemeral_pk);
 
