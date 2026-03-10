@@ -38,7 +38,7 @@ class ThemeService {
 
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem('qav:theme');
+      const stored = localStorage.getItem('usbvault:theme');
       if (stored && ['dark', 'light', 'system'].includes(stored)) {
         this.currentTheme = stored as Theme;
       }
@@ -50,7 +50,7 @@ class ThemeService {
 
   private saveToStorage(): void {
     try {
-      localStorage.setItem('qav:theme', this.currentTheme);
+      localStorage.setItem('usbvault:theme', this.currentTheme);
     } catch (error) {
       console.error('Failed to save theme to storage:', error);
     }

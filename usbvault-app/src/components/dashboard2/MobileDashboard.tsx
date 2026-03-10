@@ -57,7 +57,7 @@ export const MobileDashboard: React.FC = () => {
       {/* Header with Menu */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>QAV</Text>
+          <Text style={styles.headerTitle}>USBVault</Text>
         </View>
         <Pressable
           style={({ pressed }) => [

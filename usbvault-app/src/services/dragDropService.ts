@@ -1,5 +1,5 @@
 /**
- * QAV Drag & Drop Upload Service
+ * USBVault Drag & Drop Upload Service
  *
  * Handles drag-and-drop file uploads with validation, size checking, and
  * type filtering. Maintains configuration and upload history persisted to
@@ -84,8 +84,8 @@ export interface ValidationResult {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const STORAGE_CONFIG_KEY = 'qav:dragdrop_config';
-const STORAGE_HISTORY_KEY = 'qav:upload_history';
+const STORAGE_CONFIG_KEY = 'usbvault:dragdrop_config';
+const STORAGE_HISTORY_KEY = 'usbvault:upload_history';
 
 const DEFAULT_CONFIG: DropConfig = {
   maxFileSize: 100 * 1024 * 1024, // 100MB

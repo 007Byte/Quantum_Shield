@@ -138,7 +138,7 @@ func TestValidateToken_Expired(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now.Add(-2 * time.Hour)),
 			ExpiresAt: jwt.NewNumericDate(now.Add(-1 * time.Hour)), // Already expired
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   userID,
 		},
 	}
@@ -469,7 +469,7 @@ func TestValidateToken_WrongSigningMethod(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   userID,
 		},
 	}
@@ -499,7 +499,7 @@ func TestValidateToken_InvalidTokenType(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   userID,
 		},
 	}
@@ -540,7 +540,7 @@ func TestTokenClaimsContainUserAndDeviceInfo(t *testing.T) {
 	if claims.Subject != userID {
 		t.Errorf("Subject mismatch: expected %q, got %q", userID, claims.Subject)
 	}
-	if claims.Issuer != "qav" {
+	if claims.Issuer != "usbvault" {
 		t.Errorf("Issuer mismatch: expected 'qav', got %q", claims.Issuer)
 	}
 }
@@ -642,7 +642,7 @@ func TestTokenClaimsStructure(t *testing.T) {
 	}
 
 	// Verify RegisteredClaims
-	if claims.RegisteredClaims.Issuer != "qav" {
+	if claims.RegisteredClaims.Issuer != "usbvault" {
 		t.Errorf("issuer should be 'qav', got %q", claims.RegisteredClaims.Issuer)
 	}
 	if claims.RegisteredClaims.Subject != userID {

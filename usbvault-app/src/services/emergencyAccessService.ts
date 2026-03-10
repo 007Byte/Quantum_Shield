@@ -45,9 +45,9 @@ export interface AccessHistoryEntry {
   reason?: string;
 }
 
-const CONTACTS_STORAGE_KEY = 'qav:emergency_contacts';
-const REQUESTS_STORAGE_KEY = 'qav:emergency_requests';
-const HISTORY_STORAGE_KEY = 'qav:emergency_history';
+const CONTACTS_STORAGE_KEY = 'usbvault:emergency_contacts';
+const REQUESTS_STORAGE_KEY = 'usbvault:emergency_requests';
+const HISTORY_STORAGE_KEY = 'usbvault:emergency_history';
 const ACCESS_WAIT_PERIOD_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 /**

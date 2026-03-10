@@ -22,8 +22,8 @@ class AccountSwitcherService {
 
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem('qav:accounts');
-      const activeStored = localStorage.getItem('qav:active_account');
+      const stored = localStorage.getItem('usbvault:accounts');
+      const activeStored = localStorage.getItem('usbvault:active_account');
 
       if (stored) {
         this.accounts = JSON.parse(stored);
@@ -40,9 +40,9 @@ class AccountSwitcherService {
 
   private saveToStorage(): void {
     try {
-      localStorage.setItem('qav:accounts', JSON.stringify(this.accounts));
+      localStorage.setItem('usbvault:accounts', JSON.stringify(this.accounts));
       if (this.activeAccountId) {
-        localStorage.setItem('qav:active_account', this.activeAccountId);
+        localStorage.setItem('usbvault:active_account', this.activeAccountId);
       }
     } catch (error) {
       console.error('Failed to save accounts to storage:', error);

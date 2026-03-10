@@ -67,9 +67,9 @@ export interface StorageAlert {
 }
 
 class StorageManagementService {
-  private readonly STATS_KEY = 'qav:storage_stats';
-  private readonly HISTORY_KEY = 'qav:storage_history';
-  private readonly CLEANUP_HISTORY_KEY = 'qav:cleanup_history';
+  private readonly STATS_KEY = 'usbvault:storage_stats';
+  private readonly HISTORY_KEY = 'usbvault:storage_history';
+  private readonly CLEANUP_HISTORY_KEY = 'usbvault:cleanup_history';
   private readonly HISTORY_LIMIT = 30;
 
   constructor() {

@@ -30,7 +30,7 @@ interface HealthBreakdown {
 }
 
 class ResilienceTestService {
-  private readonly HISTORY_KEY = 'qav:resilience_test_history';
+  private readonly HISTORY_KEY = 'usbvault:resilience_test_history';
   private readonly DEFAULT_LATENCY = 0;
   private simulatedLatency = this.DEFAULT_LATENCY;
   private isOffline = false;

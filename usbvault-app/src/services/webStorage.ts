@@ -1,5 +1,5 @@
 /**
- * QAV Web Storage Service
+ * USBVault Web Storage Service
  *
  * Persistent storage layer for the web platform.
  * - localStorage for vault metadata (small JSON)
@@ -21,8 +21,8 @@ type StoredVaultInfo = VaultInfo;
 
 // ─── Constants ───────────────────────────────────────────────────────
 
-const LS_VAULTS_KEY = 'qav:vaults';
-const IDB_NAME = 'qav_db';
+const LS_VAULTS_KEY = 'usbvault:vaults';
+const IDB_NAME = 'usbvault_db';
 const IDB_VERSION = 2; // Bumped for SG-003 encrypted index store
 const IDB_FILE_STORE = 'encrypted_files';
 const IDB_META_STORE = 'file_metadata';

@@ -29,16 +29,16 @@ function generateRequestId(): string {
 }
 
 // Configuration
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.qav.com';
-const TOKEN_KEY = 'qav_access_token';
-const REFRESH_TOKEN_KEY = 'qav_refresh_token';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com';
+const TOKEN_KEY = 'usbvault_access_token';
+const REFRESH_TOKEN_KEY = 'usbvault_refresh_token';
 
 // MEDIUM-FIX: Retry configuration for network errors
 const MAX_RETRIES = 3;
 const RETRY_BACKOFF_MS = [1000, 2000, 4000]; // 1s, 2s, 4s exponential backoff
 
 /**
- * API client for QAV Go backend.
+ * API client for USBVault Go backend.
  *
  * Features:
  * - Automatic JWT attachment to requests

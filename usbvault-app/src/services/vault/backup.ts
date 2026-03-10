@@ -1,6 +1,6 @@
 // PH4-FIX: Moved to vault domain
 /**
- * QAV Backup & Restore Service — FEAT-07
+ * USBVault Backup & Restore Service — FEAT-07
  *
  * Implements complete backup and restore workflow for vault data including:
  * - Creating backups of vault data, files, and settings
@@ -10,8 +10,8 @@
  * - Backup history tracking for compliance
  *
  * Storage keys:
- * - 'qav_auto_backup_config': AutoBackupConfig (JSON)
- * - 'qav_backup_history': BackupHistoryEntry[] (JSON)
+ * - 'usbvault_auto_backup_config': AutoBackupConfig (JSON)
+ * - 'usbvault_backup_history': BackupHistoryEntry[] (JSON)
  *
  * @module services/backupService
  * @see FEAT-07: Backup & Restore Flow
@@ -97,8 +97,8 @@ export interface BackupHistoryEntry {
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
-const STORAGE_KEY_AUTO_BACKUP_CONFIG = 'qav_auto_backup_config';
-const STORAGE_KEY_BACKUP_HISTORY = 'qav_backup_history';
+const STORAGE_KEY_AUTO_BACKUP_CONFIG = 'usbvault_auto_backup_config';
+const STORAGE_KEY_BACKUP_HISTORY = 'usbvault_backup_history';
 
 const DEFAULT_AUTO_BACKUP_CONFIG: AutoBackupConfig = {
   enabled: false,
@@ -648,7 +648,7 @@ class BackupService {
    * Download backup file to user's device using browser download.
    *
    * @param backup - BackupData to download
-   * @param filename - Optional custom filename (default: qav-backup-TIMESTAMP.json)
+   * @param filename - Optional custom filename (default: usbvault-backup-TIMESTAMP.json)
    *
    * @example
    * const backup = await backupService.createBackup();
@@ -677,7 +677,7 @@ class BackupService {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download =
-        filename || `qav-backup-${new Date().toISOString().split('T')[0]}.json`;
+        filename || `usbvault-backup-${new Date().toISOString().split('T')[0]}.json`;
 
       // Trigger download
       document.body.appendChild(anchor);

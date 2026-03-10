@@ -33,7 +33,7 @@ import {
   srpDeriveSession,
   getCryptoVersion,
 } from '@/crypto/bridge';
-import { QAVCryptoModule } from '@/crypto/native';
+import { USBVaultCryptoModule } from '@/crypto/native';
 
 // ============================================================================
 // Test Fixtures and Utilities
@@ -43,7 +43,7 @@ import { QAVCryptoModule } from '@/crypto/native';
  * Create a mock native crypto module with sensible defaults.
  * Each test can override specific functions.
  */
-function createMockNativeModule(overrides?: Partial<QAVCryptoModule>): QAVCryptoModule {
+function createMockNativeModule(overrides?: Partial<USBVaultCryptoModule>): USBVaultCryptoModule {
   return {
     deriveKey: jest.fn(async () => 'a'.repeat(64)), // 32 bytes as hex
     encrypt: jest.fn(async () => 'b'.repeat(100)), // Some ciphertext
@@ -91,23 +91,23 @@ describe('Native Crypto Module - Availability', () => {
 
   afterEach(() => {
     // Restore a valid mock for other tests
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should initialize without error when native module is available', () => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
     expect(() => initializeCryptoBridge()).not.toThrow();
   });
 
   it('should throw error when native module is not available', () => {
-    NativeModules.QAVCrypto = undefined;
+    NativeModules.USBVaultCrypto = undefined;
     expect(() => assertNativeAvailable()).toThrow(
       'Native crypto module unavailable'
     );
   });
 
-  it('should throw error if NativeModules.QAVCrypto is null', () => {
-    NativeModules.QAVCrypto = null;
+  it('should throw error if NativeModules.USBVaultCrypto is null', () => {
+    NativeModules.USBVaultCrypto = null;
     expect(() => assertNativeAvailable()).toThrow(
       'Native crypto module unavailable'
     );
@@ -120,12 +120,12 @@ describe('Native Crypto Module - Availability', () => {
 
 describe('Native Crypto Module - Key Derivation', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should derive key with valid password and salt', async () => {
     const mockDeriveKey = jest.fn(async () => 'a'.repeat(64)); // 32 bytes hex
-    NativeModules.QAVCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
 
     const password = 'test-password';
     const salt = new Uint8Array(32).fill(0x42);
@@ -156,7 +156,7 @@ describe('Native Crypto Module - Key Derivation', () => {
   it('should convert hex response to Uint8Array', async () => {
     const expectedKey = 'deadbeef'.repeat(8); // 64 hex chars = 32 bytes
     const mockDeriveKey = jest.fn(async () => expectedKey);
-    NativeModules.QAVCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
 
     const password = 'password';
     const salt = new Uint8Array(32);
@@ -170,7 +170,7 @@ describe('Native Crypto Module - Key Derivation', () => {
     const mockDeriveKey = jest.fn(async () => {
       throw new Error('Argon2id failed');
     });
-    NativeModules.QAVCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ deriveKey: mockDeriveKey });
 
     const password = 'password';
     const salt = new Uint8Array(32);
@@ -187,12 +187,12 @@ describe('Native Crypto Module - Key Derivation', () => {
 
 describe('Native Crypto Module - Encryption/Decryption', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should encrypt plaintext successfully', async () => {
     const mockEncrypt = jest.fn(async () => 'deadbeef'.repeat(10));
-    NativeModules.QAVCrypto = createMockNativeModule({ encrypt: mockEncrypt });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ encrypt: mockEncrypt });
 
     const key = new Uint8Array(32).fill(0x11);
     const plaintext = Buffer.from('Hello, World!');
@@ -227,7 +227,7 @@ describe('Native Crypto Module - Encryption/Decryption', () => {
 
   it('should decrypt ciphertext successfully', async () => {
     const mockDecrypt = jest.fn(async () => Buffer.from('Hello, World!').toString('hex'));
-    NativeModules.QAVCrypto = createMockNativeModule({ decrypt: mockDecrypt });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ decrypt: mockDecrypt });
 
     const key = new Uint8Array(32).fill(0x11);
     const ciphertext = Buffer.from('encrypted-data');
@@ -262,7 +262,7 @@ describe('Native Crypto Module - Encryption/Decryption', () => {
 
   it('should support additional authenticated data (AAD)', async () => {
     const mockEncrypt = jest.fn(async () => 'deadbeef'.repeat(10));
-    NativeModules.QAVCrypto = createMockNativeModule({ encrypt: mockEncrypt });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ encrypt: mockEncrypt });
 
     const key = new Uint8Array(32);
     const plaintext = Buffer.from('test');
@@ -281,7 +281,7 @@ describe('Native Crypto Module - Encryption/Decryption', () => {
     const mockEncrypt = jest.fn(async () => {
       throw new Error('Encryption failed in native module');
     });
-    NativeModules.QAVCrypto = createMockNativeModule({ encrypt: mockEncrypt });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ encrypt: mockEncrypt });
 
     const key = new Uint8Array(32);
     const plaintext = Buffer.from('test');
@@ -298,12 +298,12 @@ describe('Native Crypto Module - Encryption/Decryption', () => {
 
 describe('Native Crypto Module - Streaming Encryption', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should initialize streaming encryption session', async () => {
     const mockStreamInit = jest.fn(async () => 'session-123');
-    NativeModules.QAVCrypto = createMockNativeModule({ streamEncryptInit: mockStreamInit });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamEncryptInit: mockStreamInit });
 
     const key = new Uint8Array(32);
     const sessionId = await streamEncryptInit(key);
@@ -322,7 +322,7 @@ describe('Native Crypto Module - Streaming Encryption', () => {
 
   it('should encrypt stream chunks', async () => {
     const mockChunk = jest.fn(async () => 'encrypted-chunk-hex');
-    NativeModules.QAVCrypto = createMockNativeModule({ streamEncryptChunk: mockChunk });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamEncryptChunk: mockChunk });
 
     const sessionId = 'session-123';
     const chunk = Buffer.from('data chunk');
@@ -340,7 +340,7 @@ describe('Native Crypto Module - Streaming Encryption', () => {
 
   it('should free streaming session', async () => {
     const mockFree = jest.fn(async () => {});
-    NativeModules.QAVCrypto = createMockNativeModule({ streamFree: mockFree });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamFree: mockFree });
 
     const sessionId = 'session-123';
     await streamEncryptFree(sessionId);
@@ -352,7 +352,7 @@ describe('Native Crypto Module - Streaming Encryption', () => {
     const mockChunk = jest.fn(async () => {
       throw new Error('Streaming encryption failed');
     });
-    NativeModules.QAVCrypto = createMockNativeModule({ streamEncryptChunk: mockChunk });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamEncryptChunk: mockChunk });
 
     await expect(streamEncryptChunk('session', new Uint8Array(10), false)).rejects.toThrow(
       'Streaming encryption chunk failed'
@@ -362,12 +362,12 @@ describe('Native Crypto Module - Streaming Encryption', () => {
 
 describe('Native Crypto Module - Streaming Decryption', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should initialize streaming decryption session', async () => {
     const mockStreamInit = jest.fn(async () => 'session-456');
-    NativeModules.QAVCrypto = createMockNativeModule({ streamDecryptInit: mockStreamInit });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamDecryptInit: mockStreamInit });
 
     const key = new Uint8Array(32);
     const sessionId = await streamDecryptInit(key);
@@ -377,7 +377,7 @@ describe('Native Crypto Module - Streaming Decryption', () => {
 
   it('should decrypt stream chunks', async () => {
     const mockChunk = jest.fn(async () => Buffer.from('decrypted').toString('hex'));
-    NativeModules.QAVCrypto = createMockNativeModule({ streamDecryptChunk: mockChunk });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamDecryptChunk: mockChunk });
 
     const sessionId = 'session-456';
     const chunk = Buffer.from('encrypted-chunk');
@@ -390,7 +390,7 @@ describe('Native Crypto Module - Streaming Decryption', () => {
 
   it('should free decryption session', async () => {
     const mockFree = jest.fn(async () => {});
-    NativeModules.QAVCrypto = createMockNativeModule({ streamFree: mockFree });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ streamFree: mockFree });
 
     await streamDecryptFree('session-456');
     expect(mockFree).toHaveBeenCalledWith('session-456');
@@ -403,7 +403,7 @@ describe('Native Crypto Module - Streaming Decryption', () => {
 
 describe('Native Crypto Module - Public Key Operations', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should generate share keypair', async () => {
@@ -411,7 +411,7 @@ describe('Native Crypto Module - Public Key Operations', () => {
       public: 'aa'.repeat(32),
       private: 'bb'.repeat(32),
     }));
-    NativeModules.QAVCrypto = createMockNativeModule({ generateShareKeypair: mockGen });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ generateShareKeypair: mockGen });
 
     const keypair = await generateShareKeypair();
 
@@ -423,7 +423,7 @@ describe('Native Crypto Module - Public Key Operations', () => {
 
   it('should seal data to public key', async () => {
     const mockSeal = jest.fn(async () => 'cc'.repeat(60)); // ~60 bytes as hex
-    NativeModules.QAVCrypto = createMockNativeModule({ sealToPublicKey: mockSeal });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ sealToPublicKey: mockSeal });
 
     const publicKey = new Uint8Array(32).fill(0xaa);
     const plaintext = Buffer.from('secret message');
@@ -457,7 +457,7 @@ describe('Native Crypto Module - Public Key Operations', () => {
 
   it('should open sealed data with secret key', async () => {
     const mockOpen = jest.fn(async () => Buffer.from('secret message').toString('hex'));
-    NativeModules.QAVCrypto = createMockNativeModule({ openSealed: mockOpen });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ openSealed: mockOpen });
 
     const secretKey = new Uint8Array(32).fill(0xbb);
     const sealed = Buffer.from('dd'.repeat(60), 'hex');
@@ -496,7 +496,7 @@ describe('Native Crypto Module - Public Key Operations', () => {
 
 describe('Native Crypto Module - SRP Authentication', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should generate SRP client ephemeral keypair', async () => {
@@ -504,7 +504,7 @@ describe('Native Crypto Module - SRP Authentication', () => {
       public: 'ee'.repeat(40),
       private: 'ff'.repeat(40),
     }));
-    NativeModules.QAVCrypto = createMockNativeModule({ srpGenerateClientEphemeral: mockGen });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ srpGenerateClientEphemeral: mockGen });
 
     const ephemeral = await srpGenerateClientEphemeral();
 
@@ -518,7 +518,7 @@ describe('Native Crypto Module - SRP Authentication', () => {
       proof: '11'.repeat(32),
       key: '22'.repeat(32),
     }));
-    NativeModules.QAVCrypto = createMockNativeModule({ srpDeriveSession: mockDerive });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ srpDeriveSession: mockDerive });
 
     const clientPrivate = new Uint8Array(32).fill(0x11);
     const serverPublic = new Uint8Array(64).fill(0x22);
@@ -596,12 +596,12 @@ describe('Native Crypto Module - SRP Authentication', () => {
 
 describe('Native Crypto Module - Utilities', () => {
   beforeEach(() => {
-    NativeModules.QAVCrypto = createMockNativeModule();
+    NativeModules.USBVaultCrypto = createMockNativeModule();
   });
 
   it('should get crypto library version', async () => {
     const mockVersion = jest.fn(async () => '0.1.0');
-    NativeModules.QAVCrypto = createMockNativeModule({ getVersion: mockVersion });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ getVersion: mockVersion });
 
     const version = await getCryptoVersion();
 
@@ -613,7 +613,7 @@ describe('Native Crypto Module - Utilities', () => {
     const mockVersion = jest.fn(async () => {
       throw new Error('Version not available');
     });
-    NativeModules.QAVCrypto = createMockNativeModule({ getVersion: mockVersion });
+    NativeModules.USBVaultCrypto = createMockNativeModule({ getVersion: mockVersion });
 
     await expect(getCryptoVersion()).rejects.toThrow('Failed to get crypto version');
   });

@@ -95,8 +95,8 @@ const DEFAULT_RECONNECT: ReconnectConfig = {
 const PING_INTERVAL_MS = 25_000;       // Send ping every 25s
 const PONG_TIMEOUT_MS = 10_000;        // Expect pong within 10s
 const MAX_RETRIES = 5;                 // Queue item max retries
-const QUEUE_STORAGE_KEY = 'qav:sync_queue';
-const STATE_STORAGE_KEY = 'qav:sync_state';
+const QUEUE_STORAGE_KEY = 'usbvault:sync_queue';
+const STATE_STORAGE_KEY = 'usbvault:sync_state';
 
 // ── Helpers ────────────────────────────────────────
 
@@ -177,7 +177,7 @@ class SyncService {
 
   /**
    * RM-007: Connect to the sync WebSocket endpoint.
-   * @param wsUrl  Full WebSocket URL, e.g. wss://api.qav.com/ws/sync
+   * @param wsUrl  Full WebSocket URL, e.g. wss://api.usbvault.com/ws/sync
    * @param token  JWT auth token
    * @param onSyncEvent  Callback for incoming encrypted sync events
    */

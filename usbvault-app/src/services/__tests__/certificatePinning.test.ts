@@ -205,7 +205,7 @@ describe('Certificate Pinning Service', () => {
     });
 
     it('should return string array of pin values', () => {
-      const pins = certificatePinning.getActivePins('api.qav.io');
+      const pins = certificatePinning.getActivePins('api.usbvault.io');
       expect(Array.isArray(pins)).toBe(true);
       pins.forEach((pin) => {
         expect(typeof pin).toBe('string');
@@ -272,7 +272,7 @@ describe('Certificate Pinning Service', () => {
     it('should check if certificate pin matches any active pin', () => {
       // With current TODO placeholders, should always return false
       const result = certificatePinning.isCertificatePinned(
-        'api.qav.io',
+        'api.usbvault.io',
         'TODO-REPLACE-WITH-PRODUCTION-PIN-1'
       );
 
@@ -286,7 +286,7 @@ describe('Certificate Pinning Service', () => {
     });
 
     it('should handle hostname matching with subdomains', () => {
-      const result = certificatePinning.isCertificatePinned('api.qav.io', 'test-pin');
+      const result = certificatePinning.isCertificatePinned('api.usbvault.io', 'test-pin');
 
       expect(typeof result).toBe('boolean');
     });
@@ -308,7 +308,7 @@ describe('Certificate Pinning Service', () => {
   // ============================================================================
   describe('getAllPinsForHostname', () => {
     it('should return CertificatePin or undefined', () => {
-      const result = certificatePinning.getAllPinsForHostname('api.qav.io');
+      const result = certificatePinning.getAllPinsForHostname('api.usbvault.io');
 
       expect(result === undefined || typeof result === 'object').toBe(true);
     });
@@ -331,7 +331,7 @@ describe('Certificate Pinning Service', () => {
     });
 
     it('should return all pins including expired ones', () => {
-      const result = certificatePinning.getAllPinsForHostname('api.qav.io');
+      const result = certificatePinning.getAllPinsForHostname('api.usbvault.io');
 
       if (result) {
         expect(result).toHaveProperty('sha256Pins');
@@ -378,7 +378,7 @@ describe('Certificate Pinning Service', () => {
 
     it('should update existing pin configuration', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const hostToUpdate = 'api.qav.io';
+      const hostToUpdate = 'api.usbvault.io';
 
       certificatePinning.updatePinsForHostname(hostToUpdate, {
         sha256Pins: ['updated-pin'],

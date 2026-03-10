@@ -7,8 +7,8 @@ import { Platform } from 'react-native';
 import { auditService } from './auditService';
 import { syncService } from './syncService';
 
-const STORAGE_KEY_IDENTITY = 'qav:enterprise_qr_identity';
-const STORAGE_KEY_ENROLLED_DEVICES = 'qav:enterprise_enrolled_devices';
+const STORAGE_KEY_IDENTITY = 'usbvault:enterprise_qr_identity';
+const STORAGE_KEY_ENROLLED_DEVICES = 'usbvault:enterprise_enrolled_devices';
 const QR_IDENTITY_EXPIRY_DAYS = 365;
 
 /**

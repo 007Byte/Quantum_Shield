@@ -31,7 +31,7 @@ jobs:
       DB_HOST: localhost
       DB_PORT: 5432
       DB_USER: test
-      DB_NAME: qav_test
+      DB_NAME: usbvault_test
 
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +39,13 @@ jobs:
       - name: Create test backup
         run: |
           mkdir -p backups
-          createdb qav_source
+          createdb usbvault_source
           # Initialize schema if migrations exist
           if [ -f usbvault-server/migrations/001_initial.sql ]; then
-            psql qav_source < usbvault-server/migrations/001_initial.sql || true
+            psql usbvault_source < usbvault-server/migrations/001_initial.sql || true
           fi
           # Insert test data for validation
-          psql qav_source << 'EOF'
+          psql usbvault_source << 'EOF'
           CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255));
           CREATE TABLE IF NOT EXISTS vaults (id SERIAL PRIMARY KEY, user_id INTEGER);
           CREATE TABLE IF NOT EXISTS files (id SERIAL PRIMARY KEY, vault_id INTEGER);
@@ -65,7 +65,7 @@ jobs:
           INSERT INTO shared_files (file_id) VALUES (1);
           EOF
           # Create backup
-          pg_dump qav_source | gzip > backups/qav-$(date +%Y%m%d).sql.gz
+          pg_dump usbvault_source | gzip > backups/usbvault-$(date +%Y%m%d).sql.gz
 
       - name: Run backup verification
         run: bash scripts/verify-backup.sh

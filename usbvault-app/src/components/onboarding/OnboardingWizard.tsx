@@ -48,9 +48,9 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
 
       // Store onboarding completion flag
       try {
-        localStorage.setItem('qav:onboarding_complete', 'true');
-        localStorage.setItem('qav:display_name', displayName);
-        localStorage.setItem('qav:cipher_suite', selectedCipher);
+        localStorage.setItem('usbvault:onboarding_complete', 'true');
+        localStorage.setItem('usbvault:display_name', displayName);
+        localStorage.setItem('usbvault:cipher_suite', selectedCipher);
       } catch { /* silent */ }
 
       auditService.log('vault_create', 'onboarding', {
@@ -78,7 +78,7 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <Text style={s.stepTitle}>Post-Quantum Readiness</Text>
             <Text style={s.stepDescription}>
               Checking your environment for post-quantum cryptography support.
-              QAV uses ML-KEM-1024 (FIPS 203) hybrid key encapsulation to protect
+              USBVault uses ML-KEM-1024 (FIPS 203) hybrid key encapsulation to protect
               your data against future quantum computing threats.
             </Text>
 
@@ -193,15 +193,15 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <View style={s.positioningCard}>
               <View style={s.positioningHeader}>
                 <Feather name="info" size={16} color="#60A5FA" />
-                <Text style={s.positioningTitle}>What QAV Is</Text>
+                <Text style={s.positioningTitle}>What USBVault Is</Text>
               </View>
               <Text style={s.positioningText}>
-                QAV is a portable encrypted file vault and password manager with
+                USBVault is a portable encrypted file vault and password manager with
                 post-quantum cryptography. It secures your files, credentials, and messages
                 with military-grade encryption on any device.
               </Text>
               <Text style={[s.positioningText, { marginTop: 8 }]}>
-                QAV is not an email service or email replacement. For private email,
+                USBVault is not an email service or email replacement. For private email,
                 we recommend: ProtonMail, Tutanota, or Skiff Mail.
               </Text>
             </View>

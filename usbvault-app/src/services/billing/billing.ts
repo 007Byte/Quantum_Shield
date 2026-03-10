@@ -79,7 +79,7 @@ export interface FeatureListItem {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const TIER_STORAGE_KEY = 'qav_subscription_tier';
+const TIER_STORAGE_KEY = 'usbvault_subscription_tier';
 const isTierWeb = Platform.OS === 'web';
 
 const FEATURE_LABELS: Record<Feature, string> = {
@@ -275,8 +275,8 @@ export interface ReceiptPreferences {
   batchWithSync: boolean;
 }
 
-const RECEIPT_PREFS_KEY = 'qav:receipt_prefs';
-const RECEIPT_PENDING_KEY = 'qav:pending_receipts';
+const RECEIPT_PREFS_KEY = 'usbvault:receipt_prefs';
+const RECEIPT_PENDING_KEY = 'usbvault:pending_receipts';
 const isReceiptWeb = Platform.OS === 'web';
 
 const DEFAULT_RECEIPT_PREFS: ReceiptPreferences = {

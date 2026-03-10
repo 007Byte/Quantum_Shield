@@ -130,7 +130,7 @@ describe('MessageService', () => {
         'Test message',
       );
 
-      const stored = localStorage.getItem('qav:messages');
+      const stored = localStorage.getItem('usbvault:messages');
       expect(stored).toBeDefined();
       const messages = JSON.parse(stored!);
       expect(messages.length).toBeGreaterThan(0);
@@ -315,7 +315,7 @@ describe('MessageService', () => {
 
       messageService.setGhostMode(conversationId, true, 30);
 
-      const stored = localStorage.getItem(`qav:ghost_config:${conversationId}`);
+      const stored = localStorage.getItem(`usbvault:ghost_config:${conversationId}`);
       expect(stored).toBeDefined();
       const config = JSON.parse(stored!);
       expect(config.enabled).toBe(true);

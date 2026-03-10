@@ -1,4 +1,4 @@
-# cbindgen configuration for Quantum Armor Vault Crypto FFI
+# cbindgen configuration for USBVault Crypto FFI
 # This file configures how Rust FFI exports are converted to C headers
 
 [export]
@@ -11,73 +11,39 @@ include = []
 parse_deps = false
 include = []
 
+[parse.expand]
+# Tell cbindgen to expand the ffi feature so it sees FFI exports
+features = ["ffi"]
+
 [struct]
-# Struct configuration
 derive_helper_methods = false
 derive_eq = false
 derive_neq = false
-derive_lt = false
-derive_lte = false
-derive_gt = false
-derive_gte = false
 
 [enum]
-# Enum configuration
 derive_helper_methods = false
 derive_eq = false
 derive_neq = false
-derive_lt = false
-derive_lte = false
-derive_gt = false
-derive_gte = false
 
 [const]
-# Allow pub const
 allow_static_const = false
 
 [fn]
-# Function configuration
-allow_stateless_unit_tests = true
+rename_args = "None"
 
 [documentation]
-# Enable documentation in generated headers
 document_private_items = false
+style = "C99"
 
 [header]
-# C header configuration
-# Standard C types and includes
 includes = []
 sys_includes = ["stddef.h", "stdint.h", "stdbool.h"]
-# No language specification (supports C and C++)
 language = "C"
-# Generate pragma once guards
 pragma_once = true
-# Documentation style
-documentation_style = "C99"
-# Use leading underscores for includes
-includes_order = "system"
 
 [defines]
-# Preprocessor defines for generated headers
 "FFI_VERSION" = "1"
 "USBVAULT_CRYPTO_H" = "1"
-
-[cpp]
-# C++ specific configuration
-# Generate non-mangled extern C
-using_namespaces = []
-
-[preview]
-# Features that are still in preview
-cast_bitfield_to_u32 = false
-
-[macro_expansion]
-# Macro expansion settings
-bitflags = true
-
-[layout]
-# Layout tests (disabled to avoid test function generation)
-derive = true
 
 [export.rename]
 # Rename exports if needed

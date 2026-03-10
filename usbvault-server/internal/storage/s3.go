@@ -66,7 +66,7 @@ func NewStorageService(s3Client *s3.Client, pool *pgxpool.Pool) *StorageService 
 	return &StorageService{
 		s3Client:       s3Client,
 		pool:           pool,
-		bucket:         config.GetEnvOrDefault("S3_BUCKET", "qav-prod"),
+		bucket:         config.GetEnvOrDefault("S3_BUCKET", "usbvault-prod"),
 		region:         config.GetEnvOrDefault("AWS_REGION", "us-east-1"),
 		billingChecker: nil, // Optional - can be set later
 	}
@@ -77,7 +77,7 @@ func NewStorageServiceWithBilling(s3Client *s3.Client, pool *pgxpool.Pool, billi
 	return &StorageService{
 		s3Client:       s3Client,
 		pool:           pool,
-		bucket:         config.GetEnvOrDefault("S3_BUCKET", "qav-prod"),
+		bucket:         config.GetEnvOrDefault("S3_BUCKET", "usbvault-prod"),
 		region:         config.GetEnvOrDefault("AWS_REGION", "us-east-1"),
 		billingChecker: billingChecker,
 	}

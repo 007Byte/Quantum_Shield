@@ -53,7 +53,7 @@ export interface Conversation {
   ghostTimerSec?: GhostTimer;
 }
 
-const MESSAGES_KEY = 'qav:messages';
+const MESSAGES_KEY = 'usbvault:messages';
 
 function uint8ToHex(arr: Uint8Array): string {
   return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -92,7 +92,7 @@ class MessageServiceImpl {
       if (Platform.OS === 'web') {
         try {
           localStorage.setItem(
-            `qav:share_keypair:${recipientEmail}`,
+            `usbvault:share_keypair:${recipientEmail}`,
             JSON.stringify({ publicKeyHex: recipientPublicHex, secretKeyHex: uint8ToHex(recipientKp.secretKey) }),
           );
         } catch {}
@@ -164,7 +164,7 @@ class MessageServiceImpl {
     let secretKeyHex: string | null = null;
     if (Platform.OS === 'web') {
       try {
-        const stored = localStorage.getItem(`qav:share_keypair:${recipientEmail}`);
+        const stored = localStorage.getItem(`usbvault:share_keypair:${recipientEmail}`);
         if (stored) secretKeyHex = JSON.parse(stored).secretKeyHex;
       } catch {}
     }
@@ -197,7 +197,7 @@ class MessageServiceImpl {
   setGhostMode(conversationId: string, enabled: boolean, timerSec: GhostTimer = 30): void {
     const validTimers: GhostTimer[] = [5, 30, 60, 300, 3600, 86400];
     if (!validTimers.includes(timerSec)) throw new Error(`Invalid ghost timer: ${timerSec}`);
-    const key = `qav:ghost_config:${conversationId}`;
+    const key = `usbvault:ghost_config:${conversationId}`;
     try {
       if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify({ enabled, timerSec }));
     } catch { /* silent */ }
@@ -207,7 +207,7 @@ class MessageServiceImpl {
   getConversationGhostConfig(conversationId: string): { enabled: boolean; timerSec: GhostTimer } | null {
     try {
       if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem(`qav:ghost_config:${conversationId}`);
+      const raw = localStorage.getItem(`usbvault:ghost_config:${conversationId}`);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }
@@ -344,14 +344,14 @@ class GroupMessageServiceImpl {
 
   private loadFromStorage(): void {
     try {
-      const groupsData = localStorage.getItem('qav:groups');
+      const groupsData = localStorage.getItem('usbvault:groups');
       if (groupsData) (JSON.parse(groupsData) as GroupConversation[]).forEach(g => this.groups.set(g.id, g));
 
-      const messagesData = localStorage.getItem('qav:group_messages');
+      const messagesData = localStorage.getItem('usbvault:group_messages');
       if (messagesData) (JSON.parse(messagesData) as Array<{ groupId: string; messages: GroupMessage[] }>)
         .forEach(item => this.messages.set(item.groupId, item.messages));
 
-      const historyData = localStorage.getItem('qav:group_key_history');
+      const historyData = localStorage.getItem('usbvault:group_key_history');
       if (historyData) (JSON.parse(historyData) as Array<{ groupId: string; history: GroupKeyRotationHistory[] }>)
         .forEach(item => this.keyHistory.set(item.groupId, item.history));
     } catch (error) {
@@ -362,9 +362,9 @@ class GroupMessageServiceImpl {
   private saveToStorage(): void {
     if (Platform.OS !== 'web') return;
     try {
-      localStorage.setItem('qav:groups', JSON.stringify(Array.from(this.groups.values())));
-      localStorage.setItem('qav:group_messages', JSON.stringify(Array.from(this.messages.entries()).map(([groupId, messages]) => ({ groupId, messages }))));
-      localStorage.setItem('qav:group_key_history', JSON.stringify(Array.from(this.keyHistory.entries()).map(([groupId, history]) => ({ groupId, history }))));
+      localStorage.setItem('usbvault:groups', JSON.stringify(Array.from(this.groups.values())));
+      localStorage.setItem('usbvault:group_messages', JSON.stringify(Array.from(this.messages.entries()).map(([groupId, messages]) => ({ groupId, messages }))));
+      localStorage.setItem('usbvault:group_key_history', JSON.stringify(Array.from(this.keyHistory.entries()).map(([groupId, history]) => ({ groupId, history }))));
     } catch (error) {
       console.error('Failed to save groups to storage:', error);
     }
@@ -662,9 +662,9 @@ class GroupMessageServiceImpl {
   clearAll(): void {
     this.groups.clear(); this.messages.clear(); this.keyHistory.clear();
     if (Platform.OS === 'web') {
-      localStorage.removeItem('qav:groups');
-      localStorage.removeItem('qav:group_messages');
-      localStorage.removeItem('qav:group_key_history');
+      localStorage.removeItem('usbvault:groups');
+      localStorage.removeItem('usbvault:group_messages');
+      localStorage.removeItem('usbvault:group_key_history');
     }
   }
 }
@@ -700,10 +700,10 @@ export interface AlertRecord {
   nextRetryAt?: string;
 }
 
-const EMAIL_CONFIG_KEY = 'qav:email_alert_config';
-const EMAIL_HISTORY_KEY = 'qav:email_alert_history';
-const EMAIL_PENDING_KEY = 'qav:email_alert_pending';
-const EMAIL_TEST_RESULT_KEY = 'qav:email_alert_test_result';
+const EMAIL_CONFIG_KEY = 'usbvault:email_alert_config';
+const EMAIL_HISTORY_KEY = 'usbvault:email_alert_history';
+const EMAIL_PENDING_KEY = 'usbvault:email_alert_pending';
+const EMAIL_TEST_RESULT_KEY = 'usbvault:email_alert_test_result';
 const EMAIL_MAX_HISTORY = 50;
 const EMAIL_RETRY_DELAY_MS = 60000;
 const isEmailWeb = Platform.OS === 'web';
@@ -714,7 +714,7 @@ const DEFAULT_EMAIL_CONFIG: EmailAlertConfig = {
   smtpUser: '',
   smtpPasswordSet: false,
   useTLS: true,
-  fromAddress: 'security-alerts@qav.local',
+  fromAddress: 'security-alerts@usbvault.local',
   alertRecipients: [],
   enabled: false,
 };

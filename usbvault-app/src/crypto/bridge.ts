@@ -1,5 +1,5 @@
 /**
- * QAV Cryptographic Bridge
+ * USBVault Cryptographic Bridge
  *
  * Production-grade bridge to the Rust crypto core via FFI/JSI.
  * All cryptographic operations are executed in native code with zero-knowledge guarantee:

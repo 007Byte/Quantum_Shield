@@ -120,7 +120,7 @@ func (bs *BillingService) CreateCustomer(ctx context.Context, userID, email stri
 	data := url.Values{}
 	data.Set("email", email)
 	data.Set("metadata[user_id]", userID)
-	data.Set("metadata[platform]", "qav")
+	data.Set("metadata[platform]", "usbvault")
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.stripe.com/v1/customers", strings.NewReader(data.Encode()))
 	if err != nil {

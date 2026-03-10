@@ -39,7 +39,7 @@ export interface StegoCapacity {
  * Embeds encrypted data into PNG images using least significant bit manipulation
  */
 class SteganographyServiceImpl {
-  private readonly MAGIC_BYTES = 'USVS'; // QAV Steganography magic bytes
+  private readonly MAGIC_BYTES = 'USVS'; // USBVault Steganography magic bytes
   private readonly HEADER_SIZE = 28; // 4 (magic) + 4 (length) + 12 (IV) + 8 (GCM tag)
   private readonly IV_SIZE = 12;
 

@@ -2,7 +2,7 @@
  * Classroom - Education Screen (CLASSROOM-01)
  *
  * Educational course modules for learning about encryption, security,
- * and QAV best practices. Features progress tracking, module cards
+ * and USBVault best practices. Features progress tracking, module cards
  * with status indicators, and interactive content structure.
  * Uses glassmorphic design consistent with Dashboard 2 theme.
  */
@@ -49,7 +49,7 @@ const courseModules: CourseModule[] = [
     id: 'post-quantum-crypto',
     icon: 'shield',
     title: 'Post-Quantum Cryptography',
-    description: 'Why PQC matters and how QAV implements it',
+    description: 'Why PQC matters and how USBVault implements it',
     status: 'completed',
     estimatedTime: '~10 min',
   },
@@ -129,7 +129,7 @@ export default function ClassroomScreen() {
               <View style={styles.header}>
                 <Text style={styles.title}>Classroom</Text>
                 <Text style={styles.subtitle}>
-                  Learn about encryption, security, and QAV best practices
+                  Learn about encryption, security, and USBVault best practices
                 </Text>
               </View>
 

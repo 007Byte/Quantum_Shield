@@ -52,8 +52,8 @@ export interface SecurityIcon {
 // ── Constants ──────────────────────────────────────────────────
 
 const isWeb = Platform.OS === 'web';
-const STORAGE_KEY = 'qav:anti_phishing_icon';
-const SECURITY_CHECKS_KEY = 'qav:security_checks';
+const STORAGE_KEY = 'usbvault:anti_phishing_icon';
+const SECURITY_CHECKS_KEY = 'usbvault:security_checks';
 
 const SECURITY_EMOJIS = [
   '🛡️', '🔐', '🔒', '🗝️', '⚔️', '🎯', '🏰', '🧿',
@@ -224,7 +224,7 @@ class AntiThreatService {
       'Never share your password or recovery codes with anyone, even support staff',
       'Verify the security icon before entering sensitive information',
       'Check the full URL — phishers often use domains similar to legitimate ones',
-      'QAV will never ask for your password in an email or pop-up',
+      'USBVault will never ask for your password in an email or pop-up',
       'Be wary of urgent requests to "verify" your account or confirm payment',
       'Look for https:// and a valid certificate before logging in',
       'Hover over links to see the actual URL before clicking',

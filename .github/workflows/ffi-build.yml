@@ -352,8 +352,16 @@ jobs:
         working-directory: usbvault-crypto
         run: |
           mkdir -p ../ffi-artifacts
-          cbindgen --output ../ffi-artifacts/usbvault_crypto.h
-        continue-on-error: true
+          cbindgen --crate usbvault-crypto --output ../ffi-artifacts/usbvault_crypto.h
+
+      - name: Verify header generated
+        run: |
+          if [ ! -f "ffi-artifacts/usbvault_crypto.h" ]; then
+            echo "::error::Header generation failed — ffi-artifacts/usbvault_crypto.h not found"
+            exit 1
+          fi
+          echo "Header generated successfully:"
+          head -20 ffi-artifacts/usbvault_crypto.h
 
       - name: Upload headers
         uses: actions/upload-artifact@v4

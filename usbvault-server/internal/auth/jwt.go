@@ -212,7 +212,7 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   userID,
 		},
 	}
@@ -239,7 +239,7 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(refreshTokenTTL)),
-			Issuer:    "qav",
+			Issuer:    "usbvault",
 			Subject:   userID,
 		},
 	}

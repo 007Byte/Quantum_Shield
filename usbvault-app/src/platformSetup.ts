@@ -1,5 +1,5 @@
 /**
- * Platform setup for QAV
+ * Platform setup for USBVault
  *
  * MUST be imported before any code that uses Node.js globals (Buffer, process, etc.).
  * This file ensures cross-platform compatibility between React Native (native) and web.

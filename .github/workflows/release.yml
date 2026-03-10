@@ -117,13 +117,13 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go build -v -ldflags="-X main.version=${{ github.ref_name }} -X main.buildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-            -o qav-server-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server
+            -o usbvault-server-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server
 
       - name: Upload build artifact
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
         with:
           name: go-build-${{ matrix.os }}-${{ matrix.arch }}
-          path: usbvault-server/qav-server-${{ matrix.os }}-${{ matrix.arch }}
+          path: usbvault-server/usbvault-server-${{ matrix.os }}-${{ matrix.arch }}
           retention-days: 7
 
   # ============================================================
@@ -154,7 +154,7 @@ jobs:
         uses: docker/metadata-action@8e5442c4ef9f78752691021f404eb50fe5a2ceda # v5.5.1
         with:
           images: |
-            ghcr.io/${{ github.repository_owner }}/qav-server
+            ghcr.io/${{ github.repository_owner }}/usbvault-server
           tags: |
             type=ref,event=tag
             type=semver,pattern={{version}}
@@ -196,7 +196,7 @@ jobs:
         id: release-notes
         run: |
           cat > RELEASE_NOTES.md << 'EOF'
-          # Quantum Armor Vault (QAV) Release ${{ github.ref_name }}
+          # USBVault Release ${{ github.ref_name }}
 
           ## Build Artifacts
 
@@ -208,11 +208,11 @@ jobs:
           - **Windows x86-64**: `usbvault_crypto.dll`
 
           ### Go Server Binary
-          - **Linux x86-64**: `qav-server-linux-amd64`
-          - **Linux ARM64**: `qav-server-linux-arm64`
+          - **Linux x86-64**: `usbvault-server-linux-amd64`
+          - **Linux ARM64**: `usbvault-server-linux-arm64`
 
           ### Docker Image
-          - Image pushed to: `ghcr.io/${{ github.repository_owner }}/qav-server:${{ github.ref_name }}`
+          - Image pushed to: `ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }}`
           - Supports: `linux/amd64`, `linux/arm64`
 
           ## Security

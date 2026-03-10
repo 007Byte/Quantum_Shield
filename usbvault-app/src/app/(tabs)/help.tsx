@@ -47,18 +47,18 @@ const faqItems: FAQItem[] = [
   },
   {
     id: 'multiple-devices',
-    question: 'Can I use QAV on multiple devices?',
-    answer: 'Yes, you can install QAV on multiple devices. Your vault data is synchronized across devices when you use the same credentials. Make sure to keep your recovery phrase safe as it\'s needed for account recovery on new devices.',
+    question: 'Can I use USBVault on multiple devices?',
+    answer: 'Yes, you can install USBVault on multiple devices. Your vault data is synchronized across devices when you use the same credentials. Make sure to keep your recovery phrase safe as it\'s needed for account recovery on new devices.',
   },
   {
     id: 'encryption-algorithms',
-    question: 'What encryption algorithms does QAV support?',
-    answer: 'QAV uses AES-256-GCM-SIV for file encryption with 64KB streaming chunks. For authenticated encryption with associated data (AEAD), we support both AES-256-GCM-SIV and XChaCha20-Poly1305. All algorithms use NIST-approved or IETF-standardized implementations.',
+    question: 'What encryption algorithms does USBVault support?',
+    answer: 'USBVault uses AES-256-GCM-SIV for file encryption with 64KB streaming chunks. For authenticated encryption with associated data (AEAD), we support both AES-256-GCM-SIV and XChaCha20-Poly1305. All algorithms use NIST-approved or IETF-standardized implementations.',
   },
   {
     id: 'security-audit',
-    question: 'Is QAV security audited?',
-    answer: 'QAV has undergone comprehensive third-party security audits. Our implementation follows defense-in-depth principles with 10 layers of security including SRP-6a auth, FIDO2, AEAD encryption, certificate pinning, device integrity checks, and post-quantum cryptography.',
+    question: 'Is USBVault security audited?',
+    answer: 'USBVault has undergone comprehensive third-party security audits. Our implementation follows defense-in-depth principles with 10 layers of security including SRP-6a auth, FIDO2, AEAD encryption, certificate pinning, device integrity checks, and post-quantum cryptography.',
   },
 ];
 
@@ -96,7 +96,7 @@ export default function HelpScreen() {
               <View style={styles.header}>
                 <Text style={styles.title}>Help & Support</Text>
                 <Text style={styles.subtitle}>
-                  Find answers, guides, and resources to get the most from QAV
+                  Find answers, guides, and resources to get the most from USBVault
                 </Text>
               </View>
 
@@ -204,7 +204,7 @@ export default function HelpScreen() {
 
               {/* About Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>About QAV</Text>
+                <Text style={styles.sectionTitle}>About USBVault</Text>
                 <View style={[styles.aboutCard, glassPanelBase, webOnlyGlass]}>
                   <View style={styles.aboutRow}>
                     <Text style={styles.aboutLabel}>Version</Text>

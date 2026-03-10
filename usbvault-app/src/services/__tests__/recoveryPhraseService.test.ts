@@ -274,7 +274,7 @@ describe('RecoveryPhraseService', () => {
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
 
-      const stored = localStorage.getItem('qav_recovery_phrase_hash');
+      const stored = localStorage.getItem('usbvault_recovery_phrase_hash');
       expect(stored).toBeDefined();
       expect(stored?.length).toBe(64); // SHA-256 hex hash
     });
@@ -314,7 +314,7 @@ describe('RecoveryPhraseService', () => {
       await recoveryPhraseService.storePhraseHash(mnemonic);
       recoveryPhraseService.clearRecoveryData();
 
-      const stored = localStorage.getItem('qav_recovery_phrase_hash');
+      const stored = localStorage.getItem('usbvault_recovery_phrase_hash');
       expect(stored).toBeNull();
     });
   });
@@ -357,7 +357,7 @@ describe('RecoveryPhraseService', () => {
 
       recoveryPhraseService.setTrustedContact(email, shard);
 
-      const stored = localStorage.getItem('qav_escrow_contact');
+      const stored = localStorage.getItem('usbvault_escrow_contact');
       expect(stored).toBeDefined();
       const parsed = JSON.parse(stored!);
       expect(parsed.email).toBe(email);

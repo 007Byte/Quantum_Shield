@@ -11,7 +11,7 @@ describe('Crypto Bridge Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Ensure native module is available for all tests
-    NativeModules.QAVCrypto = {
+    NativeModules.USBVaultCrypto = {
       deriveKey: jest.fn(async () => 'a'.repeat(64)),
       encrypt: jest.fn(async () => 'b'.repeat(100)),
       decrypt: jest.fn(async () => 'c'.repeat(50)),
@@ -43,7 +43,7 @@ describe('Crypto Bridge Integration', () => {
   // ============================================================================
   describe('Native Module Availability', () => {
     it('should throw error when native module is unavailable', () => {
-      NativeModules.QAVCrypto = undefined;
+      NativeModules.USBVaultCrypto = undefined;
       expect(() => bridge.assertNativeAvailable()).toThrow('Native crypto module unavailable');
     });
 
@@ -52,20 +52,20 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error when deriveKey called without native module', async () => {
-      NativeModules.QAVCrypto = undefined;
+      NativeModules.USBVaultCrypto = undefined;
       const salt = new Uint8Array(32);
       await expect(bridge.deriveKey('password', salt)).rejects.toThrow();
     });
 
     it('should throw error when encrypt called without native module', async () => {
-      NativeModules.QAVCrypto = undefined;
+      NativeModules.USBVaultCrypto = undefined;
       const key = new Uint8Array(32);
       const plaintext = Buffer.from('test');
       await expect(bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, plaintext)).rejects.toThrow();
     });
 
     it('should throw error when decrypt called without native module', async () => {
-      NativeModules.QAVCrypto = undefined;
+      NativeModules.USBVaultCrypto = undefined;
       const key = new Uint8Array(32);
       const ciphertext = Buffer.from('test');
       await expect(bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key, ciphertext)).rejects.toThrow();
@@ -175,7 +175,7 @@ describe('Crypto Bridge Integration', () => {
   // ============================================================================
   describe('Error Handling', () => {
     it('should throw error if deriveKey throws from native module', async () => {
-      NativeModules.QAVCrypto.deriveKey = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async () => {
         throw new Error('Native deriveKey failed');
       });
 
@@ -184,7 +184,7 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error if encrypt throws from native module', async () => {
-      NativeModules.QAVCrypto.encrypt = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.encrypt = jest.fn(async () => {
         throw new Error('Native encrypt failed');
       });
 
@@ -196,7 +196,7 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error if decrypt throws from native module', async () => {
-      NativeModules.QAVCrypto.decrypt = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.decrypt = jest.fn(async () => {
         throw new Error('Native decrypt failed');
       });
 
@@ -208,7 +208,7 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error if streaming throws from native module', async () => {
-      NativeModules.QAVCrypto.streamEncryptInit = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.streamEncryptInit = jest.fn(async () => {
         throw new Error('Native stream init failed');
       });
 
@@ -219,7 +219,7 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error if public key operations throw', async () => {
-      NativeModules.QAVCrypto.sealToPublicKey = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.sealToPublicKey = jest.fn(async () => {
         throw new Error('Native seal failed');
       });
 
@@ -229,7 +229,7 @@ describe('Crypto Bridge Integration', () => {
     });
 
     it('should throw error if SRP operations throw', async () => {
-      NativeModules.QAVCrypto.srpDeriveSession = jest.fn(async () => {
+      NativeModules.USBVaultCrypto.srpDeriveSession = jest.fn(async () => {
         throw new Error('Native SRP failed');
       });
 
@@ -247,7 +247,7 @@ describe('Crypto Bridge Integration', () => {
   // ============================================================================
   describe('Type Safety', () => {
     it('should return Uint8Array from deriveKey', async () => {
-      NativeModules.QAVCrypto.deriveKey = jest.fn(async () => 'aa'.repeat(32)); // 32 bytes hex
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async () => 'aa'.repeat(32)); // 32 bytes hex
 
       const salt = new Uint8Array(32);
       const key = await bridge.deriveKey('password', salt);

@@ -7,7 +7,7 @@
 
 import { logger } from '@/utils/logger';
 
-const SETTINGS_KEY = 'qav:settings';
+const SETTINGS_KEY = 'usbvault:settings';
 
 export interface UserSettings {
   // Security

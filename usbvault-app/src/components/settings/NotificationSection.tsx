@@ -14,7 +14,7 @@ export function NotificationSection() {
   // Load preferences from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('qav:notification_prefs');
+      const stored = localStorage.getItem('usbvault:notification_prefs');
       if (stored) {
         const prefs = JSON.parse(stored);
         setSecurityAlerts(prefs.securityAlerts ?? true);
@@ -31,10 +31,10 @@ export function NotificationSection() {
   // Save preferences to localStorage whenever they change
   const savePreferences = (updates: Record<string, boolean>) => {
     try {
-      const stored = localStorage.getItem('qav:notification_prefs');
+      const stored = localStorage.getItem('usbvault:notification_prefs');
       const current = stored ? JSON.parse(stored) : {};
       const updated = { ...current, ...updates };
-      localStorage.setItem('qav:notification_prefs', JSON.stringify(updated));
+      localStorage.setItem('usbvault:notification_prefs', JSON.stringify(updated));
     } catch (error) {
       console.error('Failed to save notification preferences', error);
     }

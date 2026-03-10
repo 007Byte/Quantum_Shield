@@ -212,7 +212,7 @@ export async function register(email: string, password: string): Promise<void> {
     const publicKeyEd25519 = Buffer.from(signingKeypair.publicKey).toString('base64');
 
     // Step 5: Send registration data to server
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://api.qav.com'}/auth/register`, {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -233,12 +233,12 @@ export async function register(email: string, password: string): Promise<void> {
     // These are needed for decrypting shared files and signing messages
     if (SecureStore) {
       await SecureStore.setItemAsync(
-        'qav_share_secret_key',
+        'usbvault_share_secret_key',
         Buffer.from(shareKeypair.secretKey).toString('hex'),
         SECURE_STORE_OPTIONS
       );
       await SecureStore.setItemAsync(
-        'qav_signing_secret_key',
+        'usbvault_signing_secret_key',
         Buffer.from(signingKeypair.secretKey).toString('hex'),
         SECURE_STORE_OPTIONS
       );
@@ -343,7 +343,7 @@ export async function enableBiometricUnlock(masterKeyRef: string): Promise<void>
       throw new Error('Biometric authentication is not available on this device');
     }
 
-    await SecureStore.setItemAsync('qav_biometric_unlock', masterKeyRef, SECURE_STORE_OPTIONS);
+    await SecureStore.setItemAsync('usbvault_biometric_unlock', masterKeyRef, SECURE_STORE_OPTIONS);
 
     logger.log('Biometric unlock enabled');
   } catch (error) {
@@ -358,7 +358,7 @@ export async function enableBiometricUnlock(masterKeyRef: string): Promise<void>
 export async function disableBiometricUnlock(): Promise<void> {
   if (Platform.OS === 'web' || !SecureStore) return;
   try {
-    await SecureStore.deleteItemAsync('qav_biometric_unlock');
+    await SecureStore.deleteItemAsync('usbvault_biometric_unlock');
     logger.log('Biometric unlock disabled');
   } catch (error) {
     logger.error('Failed to disable biometric unlock:', error);
@@ -372,7 +372,7 @@ export async function disableBiometricUnlock(): Promise<void> {
 export async function isBiometricUnlockEnabled(): Promise<boolean> {
   if (Platform.OS === 'web' || !SecureStore) return false;
   try {
-    const biometricRef = await SecureStore.getItemAsync('qav_biometric_unlock');
+    const biometricRef = await SecureStore.getItemAsync('usbvault_biometric_unlock');
     return biometricRef !== null;
   } catch (error) {
     logger.error('Failed to check biometric unlock status:', error);
@@ -387,21 +387,21 @@ export async function isBiometricUnlockEnabled(): Promise<boolean> {
  */
 export async function migrateToSecureStorage(): Promise<void> {
   try {
-    const accessTokenKey = 'qav_access_token_async';
-    const refreshTokenKey = 'qav_refresh_token_async';
+    const accessTokenKey = 'usbvault_access_token_async';
+    const refreshTokenKey = 'usbvault_refresh_token_async';
 
     // Check if tokens exist in AsyncStorage
     const accessToken = await AsyncStorage.getItem(accessTokenKey);
     const refreshToken = await AsyncStorage.getItem(refreshTokenKey);
 
     if (accessToken) {
-      await SecureStore.setItemAsync('qav_access_token', accessToken, SECURE_STORE_OPTIONS);
+      await SecureStore.setItemAsync('usbvault_access_token', accessToken, SECURE_STORE_OPTIONS);
       await AsyncStorage.removeItem(accessTokenKey);
       logger.log('Migrated access token to SecureStore');
     }
 
     if (refreshToken) {
-      await SecureStore.setItemAsync('qav_refresh_token', refreshToken, SECURE_STORE_OPTIONS);
+      await SecureStore.setItemAsync('usbvault_refresh_token', refreshToken, SECURE_STORE_OPTIONS);
       await AsyncStorage.removeItem(refreshTokenKey);
       logger.log('Migrated refresh token to SecureStore');
     }
@@ -446,10 +446,10 @@ export function getMasterKey(): Uint8Array | null {
 export async function isAuthenticated(): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
-      const token = localStorage.getItem('qav_access_token');
+      const token = localStorage.getItem('usbvault_access_token');
       return token !== null && masterKey !== null;
     }
-    const token = await SecureStore?.getItemAsync('qav_access_token', SECURE_STORE_OPTIONS);
+    const token = await SecureStore?.getItemAsync('usbvault_access_token', SECURE_STORE_OPTIONS);
     return token !== null && masterKey !== null;
   } catch (error) {
     return false;

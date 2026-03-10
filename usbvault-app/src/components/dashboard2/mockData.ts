@@ -241,12 +241,12 @@ export const topBarProfile: TopBarProfile = {
 };
 
 export const passwordEntries = [
-  { id: 'pw1', service: 'AWS Console', username: 'admin@qav.io', lastModified: '2 hours ago', strength: 'Strong' },
-  { id: 'pw2', service: 'GitHub Enterprise', username: 'john.doe@qav.io', lastModified: '1 day ago', strength: 'Strong' },
+  { id: 'pw1', service: 'AWS Console', username: 'admin@usbvault.io', lastModified: '2 hours ago', strength: 'Strong' },
+  { id: 'pw2', service: 'GitHub Enterprise', username: 'john.doe@usbvault.io', lastModified: '1 day ago', strength: 'Strong' },
   { id: 'pw3', service: 'Slack Workspace', username: 'jdoe', lastModified: '3 days ago', strength: 'Medium' },
-  { id: 'pw4', service: 'Jira Cloud', username: 'john.doe@qav.io', lastModified: '1 week ago', strength: 'Strong' },
+  { id: 'pw4', service: 'Jira Cloud', username: 'john.doe@usbvault.io', lastModified: '1 week ago', strength: 'Strong' },
   { id: 'pw5', service: 'Confluence', username: 'john.doe', lastModified: '2 weeks ago', strength: 'Weak' },
-  { id: 'pw6', service: 'Azure DevOps', username: 'jdoe@qav.onmicrosoft.com', lastModified: '1 month ago', strength: 'Strong' },
+  { id: 'pw6', service: 'Azure DevOps', username: 'jdoe@usbvault.onmicrosoft.com', lastModified: '1 month ago', strength: 'Strong' },
 ];
 
 export const messageThreads = [

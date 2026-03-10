@@ -9,7 +9,7 @@
 import { Platform } from 'react-native';
 
 const isWeb = Platform.OS === 'web';
-const STORAGE_KEY = 'qav:passwords';
+const STORAGE_KEY = 'usbvault:passwords';
 
 export interface PasswordEntry {
   id: string;
@@ -32,13 +32,13 @@ async function getDerivedKey(): Promise<CryptoKey | null> {
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      encoder.encode('qav-password-manager-key-v1'),
+      encoder.encode('usbvault-password-manager-key-v1'),
       'PBKDF2',
       false,
       ['deriveKey'],
     );
     return await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: encoder.encode('qav-pw-salt'), iterations: 100000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt: encoder.encode('usbvault-pw-salt'), iterations: 100000, hash: 'SHA-256' },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,

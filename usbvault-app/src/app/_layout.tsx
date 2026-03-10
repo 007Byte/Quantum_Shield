@@ -60,7 +60,7 @@ function useWebBackground() {
 
     if (!uri) return;
 
-    const styleId = 'qav-global-bg';
+    const styleId = 'usbvault-global-bg';
     // Don't inject twice on hot reload
     if (document.getElementById(styleId)) return;
 

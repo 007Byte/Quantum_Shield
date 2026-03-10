@@ -32,9 +32,9 @@ export interface RememberedDevice {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const SESSIONS_STORAGE_KEY = 'qav:sessions';
-const REMEMBERED_DEVICES_KEY = 'qav:remembered_devices';
-const SESSION_DURATION_KEY = 'qav:session_duration_minutes';
+const SESSIONS_STORAGE_KEY = 'usbvault:sessions';
+const REMEMBERED_DEVICES_KEY = 'usbvault:remembered_devices';
+const SESSION_DURATION_KEY = 'usbvault:session_duration_minutes';
 
 const isWeb = Platform.OS === 'web';
 
@@ -366,7 +366,7 @@ class SessionServiceImpl {
   private getOrCreateDeviceId(): string {
     if (!isWeb) return `device-${Platform.OS}`;
 
-    const key = 'qav:device_id';
+    const key = 'usbvault:device_id';
     try {
       let deviceId = localStorage.getItem(key);
       if (!deviceId) {

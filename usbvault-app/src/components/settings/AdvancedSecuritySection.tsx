@@ -155,7 +155,7 @@ export function AdvancedSecuritySection() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `qav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `usbvault-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     settingsService.set('lastBackupAt', new Date().toISOString());

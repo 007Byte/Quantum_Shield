@@ -1,6 +1,6 @@
 // PH4-FIX: Moved to vault domain
 /**
- * QAV Recovery Code Service
+ * USBVault Recovery Code Service
  *
  * SG-006: Shamir's Secret Sharing (SSS) for MEK recovery.
  *

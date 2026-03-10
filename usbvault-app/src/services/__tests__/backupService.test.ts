@@ -294,7 +294,7 @@ describe('BackupService', () => {
         lastBackupAt: '2024-01-01T00:00:00Z',
       };
       localStorage.setItem(
-        'qav_auto_backup_config',
+        'usbvault_auto_backup_config',
         JSON.stringify(savedConfig),
       );
 
@@ -321,7 +321,7 @@ describe('BackupService', () => {
     it('should persist to localStorage', () => {
       backupService.setAutoBackupConfig({ enabled: true });
 
-      const stored = localStorage.getItem('qav_auto_backup_config');
+      const stored = localStorage.getItem('usbvault_auto_backup_config');
       expect(stored).toBeDefined();
       const parsed = JSON.parse(stored!);
       expect(parsed.enabled).toBe(true);
@@ -348,7 +348,7 @@ describe('BackupService', () => {
         },
       ];
       localStorage.setItem(
-        'qav_backup_history',
+        'usbvault_backup_history',
         JSON.stringify(mockHistory),
       );
 

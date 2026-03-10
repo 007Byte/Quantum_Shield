@@ -12,7 +12,7 @@ export function PrivacySection() {
   // Load privacy toggles from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('qav:privacy_toggles');
+      const stored = localStorage.getItem('usbvault:privacy_toggles');
       if (stored) {
         const prefs = JSON.parse(stored);
         setAnalyticsEnabled(prefs.analyticsEnabled ?? false);
@@ -27,10 +27,10 @@ export function PrivacySection() {
   // Save preferences to localStorage whenever they change
   const savePreferences = (updates: Record<string, boolean>) => {
     try {
-      const stored = localStorage.getItem('qav:privacy_toggles');
+      const stored = localStorage.getItem('usbvault:privacy_toggles');
       const current = stored ? JSON.parse(stored) : {};
       const updated = { ...current, ...updates };
-      localStorage.setItem('qav:privacy_toggles', JSON.stringify(updated));
+      localStorage.setItem('usbvault:privacy_toggles', JSON.stringify(updated));
     } catch (error) {
       console.error('Failed to save privacy toggles', error);
     }
@@ -66,7 +66,7 @@ export function PrivacySection() {
   );
 
   const handleViewWhitepaper = () => {
-    Linking.openURL('https://qav.com/security').catch(() => {
+    Linking.openURL('https://usbvault.io/security').catch(() => {
       console.error('Failed to open security whitepaper');
     });
   };

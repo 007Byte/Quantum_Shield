@@ -1,7 +1,7 @@
 /**
  * usbService.ts — USB Drive Detection & Vault Provisioning
  *
- * Calls the QAV backend API for all USB-related operations:
+ * Calls the USBVault backend API for all USB-related operations:
  *   - Listing connected USB drives
  *   - Provisioning an encrypted vault on a drive
  *   - Resetting (wiping) a vault drive
@@ -22,7 +22,7 @@ export interface USBDrive {
   capacity: string;
   device: string;       // e.g. /dev/sdb, \\.\PhysicalDrive1
   available: boolean;   // false if currently mounted as a system disk
-  hasVault: boolean;    // true if drive already contains a QAV vault
+  hasVault: boolean;    // true if drive already contains a USBVault vault
 }
 
 export interface ProvisionParams {

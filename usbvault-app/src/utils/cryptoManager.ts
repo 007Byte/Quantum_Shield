@@ -1,5 +1,5 @@
 /**
- * QAV Crypto Manager
+ * USBVault Crypto Manager
  *
  * High-level abstraction over the crypto bridge for file encryption/decryption.
  * Handles:

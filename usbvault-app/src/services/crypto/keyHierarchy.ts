@@ -1,5 +1,5 @@
 /**
- * QAV Key Hierarchy Service
+ * USBVault Key Hierarchy Service
  *
  * PH4-FIX: Moved from services/keyHierarchy.ts to crypto domain
  * SG-004: Two-layer key hierarchy (KEK + MEK) for proper key management.

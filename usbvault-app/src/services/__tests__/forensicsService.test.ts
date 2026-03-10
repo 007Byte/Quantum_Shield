@@ -110,7 +110,7 @@ describe('ForensicsService', () => {
     it('should persist config to localStorage', () => {
       forensicsService.updateConfig({ cleanOnLock: false });
 
-      const stored = localStorage.getItem('qav:forensics_config');
+      const stored = localStorage.getItem('usbvault:forensics_config');
       expect(stored).toBeDefined();
       const parsed = JSON.parse(stored!);
       expect(parsed.cleanOnLock).toBe(false);
@@ -192,19 +192,19 @@ describe('ForensicsService', () => {
 
     it('should clean session data', async () => {
       sessionStorageMock.setItem('test-key', 'test-value');
-      sessionStorageMock.setItem('qav:session', 'session-data');
+      sessionStorageMock.setItem('usbvault:session', 'session-data');
 
       const result = await forensicsService.cleanCategory('session_data');
 
       expect(result).toBe(true);
       expect(sessionStorageMock.getItem('test-key')).toBeNull();
-      expect(sessionStorageMock.getItem('qav:session')).toBe('session-data');
+      expect(sessionStorageMock.getItem('usbvault:session')).toBe('session-data');
     });
 
     it('should record clean timestamp', async () => {
       await forensicsService.cleanCategory('clipboard');
 
-      const stored = localStorage.getItem('qav:forensics_last_clean');
+      const stored = localStorage.getItem('usbvault:forensics_last_clean');
       expect(stored).toBeDefined();
       const timestamps = JSON.parse(stored!);
       expect(timestamps.clipboard).toBeDefined();
@@ -357,14 +357,14 @@ describe('ForensicsService', () => {
     it('should complete vault lock cleanup', async () => {
       // Setup some state
       sessionStorageMock.setItem('vault-unlock-key', 'sensitive-data');
-      sessionStorageMock.setItem('qav:session', 'auth-token');
+      sessionStorageMock.setItem('usbvault:session', 'auth-token');
 
       // Quick cleanup on lock
       await forensicsService.quickClean();
 
       // Verify cleanup
       expect(sessionStorageMock.getItem('vault-unlock-key')).toBeNull();
-      expect(sessionStorageMock.getItem('qav:session')).toBe('auth-token');
+      expect(sessionStorageMock.getItem('usbvault:session')).toBe('auth-token');
     });
 
     it('should complete full ghost mode cleanup', async () => {

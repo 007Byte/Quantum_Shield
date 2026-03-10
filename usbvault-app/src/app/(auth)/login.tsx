@@ -270,7 +270,7 @@ export default function LoginScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🛡️</Text>
-          <Text style={styles.title}>Welcome to QAV</Text>
+          <Text style={styles.title}>Welcome to USBVault</Text>
           <Text style={styles.subtitle}>Zero-Knowledge Security</Text>
         </View>
 

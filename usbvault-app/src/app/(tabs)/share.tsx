@@ -74,7 +74,7 @@ function buildDisplayItems(shares: ShareRequest[], direction: 'outgoing' | 'inco
 export default function ShareScreen() {
   const { modal, showAlert, showSuccess, showError, showConfirm, showPrompt } = useInAppModal();
   const { files } = useVaultStore();
-  const userEmail = useAuthStore((s) => s.email) || 'user@qav.local';
+  const userEmail = useAuthStore((s) => s.email) || 'user@usbvault.local';
 
   const [outgoing, setOutgoing] = useState<ShareDisplayItem[]>([]);
   const [incoming, setIncoming] = useState<ShareDisplayItem[]>([]);

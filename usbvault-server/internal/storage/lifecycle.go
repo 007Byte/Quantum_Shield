@@ -35,7 +35,7 @@ func NewBlobLifecycleService(s3Client *s3.Client, pool *pgxpool.Pool) *BlobLifec
 	return &BlobLifecycleService{
 		s3Client: s3Client,
 		pool:     pool,
-		bucket:   config.GetEnvOrDefault("S3_BUCKET", "qav-prod"),
+		bucket:   config.GetEnvOrDefault("S3_BUCKET", "usbvault-prod"),
 	}
 }
 

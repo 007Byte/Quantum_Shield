@@ -1,5 +1,5 @@
 /**
- * QAV Keyboard Shortcuts Service
+ * USBVault Keyboard Shortcuts Service
  *
  * Manages global keyboard shortcuts with customizable bindings, conflict
  * detection, and category organization. Supports enable/disable per shortcut
@@ -116,7 +116,7 @@ const DEFAULT_SHORTCUTS: Record<DefaultShortcutId, Omit<Shortcut, 'id'>> = {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const STORAGE_KEY = 'qav:keyboard_shortcuts';
+const STORAGE_KEY = 'usbvault:keyboard_shortcuts';
 
 // ── Helpers ────────────────────────────────────────────────────
 
