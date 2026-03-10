@@ -38,7 +38,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: Enterprise_Version/qav-crypto
+        working-directory: usbvault-crypto
 
     steps:
       - name: Checkout code
@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
         with:
           name: rust-build-${{ matrix.target }}
-          path: Enterprise_Version/qav-crypto/target/${{ matrix.target }}/release/${{ matrix.artifact-name }}
+          path: usbvault-crypto/target/${{ matrix.target }}/release/${{ matrix.artifact-name }}
           retention-days: 7
 
   # ============================================================
@@ -87,7 +87,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: Enterprise_Version/qav-server
+        working-directory: usbvault-server
 
     steps:
       - name: Checkout code
@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
         with:
           name: go-build-${{ matrix.os }}-${{ matrix.arch }}
-          path: Enterprise_Version/qav-server/qav-server-${{ matrix.os }}-${{ matrix.arch }}
+          path: usbvault-server/qav-server-${{ matrix.os }}-${{ matrix.arch }}
           retention-days: 7
 
   # ============================================================
@@ -161,7 +161,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
-          context: Enterprise_Version/qav-server
+          context: usbvault-server
           file: Enterprise_Version/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
