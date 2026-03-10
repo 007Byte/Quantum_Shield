@@ -58,7 +58,6 @@ logs/
 
 # Dependency files (for some projects)
 node_modules/
-package-lock.json
 yarn.lock
 
 # Application state
