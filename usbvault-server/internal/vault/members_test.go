@@ -11,13 +11,15 @@ import (
 
 // MockRBACService for testing vault membership operations
 type MockRBACServiceMembers struct {
-	members map[string]map[string]auth.Role // vaultID -> userID -> role
-	calls   map[string]int                   // Track method calls
+	members   map[string]map[string]auth.Role   // vaultID -> userID -> role
+	grantedBy map[string]map[string]string       // vaultID -> userID -> grantedBy
+	calls     map[string]int                     // Track method calls
 }
 
 func NewMockRBACServiceMembers() *MockRBACServiceMembers {
 	return &MockRBACServiceMembers{
-		members: make(map[string]map[string]auth.Role),
+		members:   make(map[string]map[string]auth.Role),
+		grantedBy: make(map[string]map[string]string),
 		calls:   make(map[string]int),
 	}
 }
@@ -28,13 +30,19 @@ func (m *MockRBACServiceMembers) ListMembers(ctx context.Context, vaultID string
 
 	if vaultMembers, exists := m.members[vaultID]; exists {
 		for userID, role := range vaultMembers {
+			grantedBy := "system"
+			if gb, ok := m.grantedBy[vaultID]; ok {
+				if g, ok := gb[userID]; ok {
+					grantedBy = g
+				}
+			}
 			members = append(members, auth.VaultMember{
 				ID:        userID + "-membership",
 				VaultID:   vaultID,
 				UserID:    userID,
 				Role:      role,
 				GrantedAt: time.Now(),
-				GrantedBy: "system",
+				GrantedBy: grantedBy,
 			})
 		}
 	}
@@ -48,6 +56,9 @@ func (m *MockRBACServiceMembers) AssignRole(ctx context.Context, vaultID, userID
 	if _, exists := m.members[vaultID]; !exists {
 		m.members[vaultID] = make(map[string]auth.Role)
 	}
+	if _, exists := m.grantedBy[vaultID]; !exists {
+		m.grantedBy[vaultID] = make(map[string]string)
+	}
 
 	// Check for duplicate member with different role
 	if existingRole, exists := m.members[vaultID][userID]; exists && existingRole != role {
@@ -55,6 +66,7 @@ func (m *MockRBACServiceMembers) AssignRole(ctx context.Context, vaultID, userID
 	}
 
 	m.members[vaultID][userID] = role
+	m.grantedBy[vaultID][userID] = grantedBy
 	return nil
 }
 
@@ -79,7 +91,7 @@ func (m *MockRBACServiceMembers) RemoveRole(ctx context.Context, vaultID, userID
 		}
 	}
 
-	delete(m.members[vaultID][userID], userID)
+	delete(m.members[vaultID], userID)
 	return nil
 }
 

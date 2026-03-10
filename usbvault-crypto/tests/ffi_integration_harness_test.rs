@@ -13,98 +13,13 @@
 use std::sync::Arc;
 use std::thread;
 
-// ═══════════════════════════════════════════════════════════════
-// FFI Function Declarations
-// ═══════════════════════════════════════════════════════════════
-
-extern "C" {
-    // Core cryptographic operations
-    fn usbvault_derive_key(
-        password_ptr: *const u8,
-        password_len: usize,
-        salt_ptr: *const u8,
-        salt_len: usize,
-        out_ptr: *mut u8,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_encrypt(
-        cipher_id: u8,
-        key_ptr: *const u8,
-        key_len: usize,
-        plaintext_ptr: *const u8,
-        plaintext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_decrypt(
-        cipher_id: u8,
-        key_ptr: *const u8,
-        key_len: usize,
-        ciphertext_ptr: *const u8,
-        ciphertext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
-
-    fn usbvault_seal(
-        recipient_public: *const u8,
-        plaintext_ptr: *const u8,
-        plaintext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_open(
-        secret_key: *const u8,
-        sealed_ptr: *const u8,
-        sealed_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_generate_salt(out: *mut u8) -> i32;
-
-    // Post-quantum cryptography operations (PH9-PQ-FIX)
-    #[cfg(feature = "pqc")]
-    fn usbvault_pqc_generate_keypair(
-        x25519_pub_out: *mut u8,
-        mlkem_pub_out: *mut u8,
-        x25519_sec_out: *mut u8,
-        mlkem_sec_out: *mut u8,
-    ) -> i32;
-
-    #[cfg(feature = "pqc")]
-    fn usbvault_pqc_seal(
-        x25519_pub: *const u8,
-        mlkem_pub: *const u8,
-        mlkem_pub_len: usize,
-        plaintext_ptr: *const u8,
-        plaintext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    #[cfg(feature = "pqc")]
-    fn usbvault_pqc_open(
-        x25519_sec: *const u8,
-        mlkem_sec: *const u8,
-        mlkem_sec_len: usize,
-        sealed_ptr: *const u8,
-        sealed_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-}
+// Import FFI functions directly from the crate (they are pub extern "C" #[no_mangle])
+use usbvault_crypto::ffi::{
+    usbvault_decrypt, usbvault_derive_key, usbvault_encrypt, usbvault_generate_keypair,
+    usbvault_generate_salt, usbvault_open, usbvault_seal,
+};
+#[cfg(feature = "pqc")]
+use usbvault_crypto::ffi::{usbvault_pqc_generate_keypair, usbvault_pqc_open, usbvault_pqc_seal};
 
 // ═══════════════════════════════════════════════════════════════
 // FFI Error Codes (must match src/ffi/mod.rs)
@@ -1275,7 +1190,7 @@ fn test_pqc_keypair_generation_roundtrip() {
     let mut x25519_pub = [0u8; 32];
     let mut mlkem_pub = [0u8; 1568];
     let mut x25519_sec = [0u8; 32];
-    let mut mlkem_sec = [0u8; 1568];
+    let mut mlkem_sec = [0u8; 3168];
 
     unsafe {
         let result = usbvault_pqc_generate_keypair(
@@ -1296,7 +1211,7 @@ fn test_pqc_keypair_generation_roundtrip() {
 
         // Verify keys are different
         assert_ne!(x25519_pub, x25519_sec);
-        assert_ne!(mlkem_pub, mlkem_sec);
+        assert_ne!(&mlkem_pub[..], &mlkem_sec[..mlkem_pub.len()]);
     }
 }
 
@@ -1308,7 +1223,7 @@ fn test_pqc_seal_open_roundtrip() {
     let mut x25519_pub = [0u8; 32];
     let mut mlkem_pub = [0u8; 1568];
     let mut x25519_sec = [0u8; 32];
-    let mut mlkem_sec = [0u8; 1568];
+    let mut mlkem_sec = [0u8; 3168];
     let mut sealed = vec![0u8; plaintext.len() + 2048]; // PQC overhead
     let mut sealed_len = 0usize;
     let mut opened = vec![0u8; plaintext.len() + 256];
@@ -1424,7 +1339,7 @@ fn test_pqc_concurrent_operations() {
                 let mut x25519_pub = [0u8; 32];
                 let mut mlkem_pub = [0u8; 1568];
                 let mut x25519_sec = [0u8; 32];
-                let mut mlkem_sec = [0u8; 1568];
+                let mut mlkem_sec = [0u8; 3168];
                 let mut sealed = vec![0u8; plaintext.len() + 2048];
                 let mut sealed_len = 0usize;
                 let mut opened = vec![0u8; plaintext.len() + 256];

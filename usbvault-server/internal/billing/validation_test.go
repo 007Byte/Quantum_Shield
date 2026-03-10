@@ -1,7 +1,6 @@
 package billing
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -98,7 +97,7 @@ func TestIsValidTierCaseSensitivity(t *testing.T) {
 func TestBillingServiceCreateCustomerValidatesEmail(t *testing.T) {
 	t.Run("create customer validates email format", func(t *testing.T) {
 		// Create a mock database (we'll test without actual DB)
-		bs := &BillingService{pool: nil}
+		_ = &BillingService{pool: nil}
 
 		testCases := []struct {
 			email   string
@@ -121,7 +120,7 @@ func TestBillingServiceCreateCustomerValidatesEmail(t *testing.T) {
 
 func TestBillingServiceCreateSubscriptionValidatesTier(t *testing.T) {
 	t.Run("create subscription validates tier", func(t *testing.T) {
-		bs := &BillingService{pool: nil}
+		_ = &BillingService{pool: nil}
 
 		testCases := []struct {
 			tier    string

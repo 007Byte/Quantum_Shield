@@ -9,15 +9,29 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/config"
 )
 
+// LifecyclePool defines the database interface used by the lifecycle service.
+// *pgxpool.Pool satisfies this interface.
+type LifecyclePool interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
+// Ensure *pgxpool.Pool satisfies LifecyclePool at compile time.
+var _ LifecyclePool = (*pgxpool.Pool)(nil)
+
 // BlobLifecycleService manages blob expiry, soft delete, and cleanup
 type BlobLifecycleService struct {
 	s3Client *s3.Client
-	pool     *pgxpool.Pool
+	pool     LifecyclePool
 	bucket   string
 }
 
@@ -31,7 +45,7 @@ type DeletedBlobInfo struct {
 }
 
 // NewBlobLifecycleService creates a new blob lifecycle service
-func NewBlobLifecycleService(s3Client *s3.Client, pool *pgxpool.Pool) *BlobLifecycleService {
+func NewBlobLifecycleService(s3Client *s3.Client, pool LifecyclePool) *BlobLifecycleService {
 	return &BlobLifecycleService{
 		s3Client: s3Client,
 		pool:     pool,

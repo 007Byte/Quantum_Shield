@@ -163,7 +163,7 @@ func TestFileSizeValidationFreeTierLimit(t *testing.T) {
 
 		// Over limit - should fail
 		if maxSize+1 <= maxSize {
-			t.Error("file size %d exceeds limit %d", maxSize+1, maxSize)
+			t.Errorf("file size %d exceeds limit %d", maxSize+1, maxSize)
 		}
 	})
 }
@@ -275,7 +275,7 @@ func TestBillingCheckerIntegration(t *testing.T) {
 
 		// Verify we can use the tier to get limits
 		maxSize := getMaxFileSizeForTier(tier)
-		expectedSize := MaxFileSizeIndividual
+		expectedSize := int64(MaxFileSizeIndividual)
 
 		if maxSize != expectedSize {
 			t.Errorf("expected limit %d, got %d", expectedSize, maxSize)
@@ -371,7 +371,7 @@ func TestMaxFileSizeBytesConstant(t *testing.T) {
 func TestTierComparisonForContentType(t *testing.T) {
 	t.Run("tier limits properly restrict different file sizes", func(t *testing.T) {
 		// 500MB file
-		fileSize := 500 * 1024 * 1024
+		fileSize := int64(500 * 1024 * 1024)
 
 		// Should pass free tier? No
 		if fileSize <= getMaxFileSizeForTier("free") {

@@ -17,8 +17,7 @@ import { Buffer as BufferImpl } from 'buffer';
 
 // Make Buffer available globally on platforms that don't provide it (web)
 if (typeof globalThis.Buffer === 'undefined') {
-  // @ts-expect-error Assigning Buffer constructor to globalThis
-  globalThis.Buffer = BufferImpl;
+  (globalThis as Record<string, unknown>).Buffer = BufferImpl;
 }
 
 // Process shim (some dependencies expect process.env)

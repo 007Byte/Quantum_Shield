@@ -367,37 +367,36 @@ mod tests {
 
     #[test]
     fn test_full_srp_flow() {
-        // This is an integration test showing the full SRP flow
+        // This is an integration test showing the full SRP-6a flow with
+        // a proper server-side simulation.
         let mut client = SrpClient::new("alice", b"password123");
         let salt = [0x42u8; 32];
 
-        // Registration: compute verifier
-        let verifier = client
+        // Registration: compute verifier v = g^x mod N
+        let verifier_bytes = client
             .compute_verifier(&salt)
             .expect("Verifier computation failed");
-        assert!(!verifier.is_empty());
+        assert!(!verifier_bytes.is_empty());
+        let v = BigUint::from_bytes_be(&verifier_bytes);
 
-        // Authentication: start
-        let (client_a, mut session) = client.start_auth().expect("Auth start failed");
-        assert!(!client_a.is_empty());
+        // Authentication: client generates A
+        let (client_a_bytes, mut session) = client.start_auth().expect("Auth start failed");
+        assert!(!client_a_bytes.is_empty());
+        let client_a = BigUint::from_bytes_be(&client_a_bytes);
 
-        // In a real scenario, the server would:
-        // 1. Look up the user
-        // 2. Retrieve their salt and verifier
-        // 3. Generate server ephemeral key B and send it
-        // For this test, we'll create a minimal server B
         let g = srp_params::get_g();
         let n = srp_params::get_n();
+        let k = BigUint::from_bytes_be(&srp_params::K);
 
         // Server generates random b and computes B = k*v + g^b mod N
-        // PH1-FIX: Ensure CSPRNG (OsRng) for all cryptographic random generation
         let mut rng = OsRng;
         let mut b_bytes = vec![0u8; 32];
         rng.fill_bytes(&mut b_bytes[..]);
         let server_b_private = BigUint::from_bytes_be(&b_bytes);
 
-        // For simplicity, just compute B = g^b mod N (real server would add k*v)
-        let server_b_public = g.modpow(&server_b_private, &n);
+        // Proper SRP-6a: B = (k*v + g^b) mod N
+        let gb = g.modpow(&server_b_private, &n);
+        let server_b_public = ((&k * &v) % &n + &gb) % &n;
         let server_b_bytes = server_b_public.to_bytes_be();
 
         // Client processes challenge
@@ -409,14 +408,34 @@ mod tests {
         assert!(!session_key.is_empty());
         assert_eq!(session_key.len(), 32); // SHA256 output
 
-        // Verify M2 (simulated)
+        // Server computes u = H(A || B)
         let mut hasher = Sha256::new();
-        hasher.update(server_b_public.to_bytes_be());
-        hasher.update(&m1);
-        hasher.update(&session_key);
-        let simulated_m2 = hasher.finalize();
+        hasher.update(&client_a_bytes);
+        hasher.update(&server_b_bytes);
+        let u_hash = hasher.finalize();
+        let u = BigUint::from_bytes_be(u_hash.as_ref());
 
-        let verify_result = session.verify_server(&simulated_m2.as_ref());
+        // Server computes S = (A * v^u)^b mod N
+        let vu = v.modpow(&u, &n);
+        let avu = (&client_a * &vu) % &n;
+        let server_s = avu.modpow(&server_b_private, &n);
+
+        // Server computes K = H(S)
+        let mut hasher = Sha256::new();
+        hasher.update(server_s.to_bytes_be());
+        let server_k = hasher.finalize().to_vec();
+
+        // Both sides should derive the same session key
+        assert_eq!(session_key, server_k, "Client and server session keys must match");
+
+        // Server computes M2 = H(A, M1, K) — matching verify_server expectation
+        let mut hasher = Sha256::new();
+        hasher.update(&client_a_bytes);
+        hasher.update(&m1);
+        hasher.update(&server_k);
+        let server_m2 = hasher.finalize();
+
+        let verify_result = session.verify_server(server_m2.as_ref());
         assert!(verify_result.is_ok());
     }
 

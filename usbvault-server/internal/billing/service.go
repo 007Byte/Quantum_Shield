@@ -30,9 +30,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
+
+// BillingPool defines the database interface used by the billing service.
+// *pgxpool.Pool satisfies this interface.
+type BillingPool interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
 // PH8-FIX: Stripe Integration Documentation
 // This billing service uses local customer and subscription IDs in development.
@@ -75,11 +85,14 @@ type Subscription struct {
 // Supports local billing mode fallback when Stripe is not configured.
 type BillingService struct {
 	apiKey string
-	pool   *pgxpool.Pool
+	pool   BillingPool
 }
 
+// Ensure *pgxpool.Pool satisfies BillingPool at compile time.
+var _ BillingPool = (*pgxpool.Pool)(nil)
+
 // NewBillingService creates a new billing service with Stripe API key and database pool.
-func NewBillingService(stripeKey string, pool *pgxpool.Pool) *BillingService {
+func NewBillingService(stripeKey string, pool BillingPool) *BillingService {
 	return &BillingService{
 		apiKey: stripeKey,
 		pool:   pool,
@@ -105,6 +118,9 @@ func (bs *BillingService) CreateCustomer(ctx context.Context, userID, email stri
 	if !isLiveStripeKey(bs.apiKey) {
 		log.Warn().Msg("PH1-FIX: No Stripe API key configured, using local billing mode")
 		customerID := "local_cust_" + userID
+		if bs.pool == nil {
+			return customerID, nil
+		}
 		_, err := bs.pool.Exec(ctx,
 			`INSERT INTO subscriptions (id, user_id, stripe_customer_id, tier, status, current_period_end, created_at, updated_at)
 			 VALUES (gen_random_uuid(), $1, $2, 'free', 'active', NOW() + INTERVAL '100 years', NOW(), NOW())
@@ -170,6 +186,11 @@ func (bs *BillingService) CreateSubscription(ctx context.Context, userID, tier s
 	if !isValidTier(tier) {
 		log.Warn().Str("user_id", userID).Str("tier", tier).Msg("invalid tier requested")
 		return "", ErrInvalidTier
+	}
+
+	if bs.pool == nil {
+		// Local mode without database
+		return "local_sub_" + userID, nil
 	}
 
 	// PH1-FIX: Real Stripe subscription creation via REST API
@@ -258,6 +279,16 @@ func (bs *BillingService) CreateSubscription(ctx context.Context, userID, tier s
 }
 
 func (bs *BillingService) GetSubscription(ctx context.Context, userID string) (*Subscription, error) {
+	// Return free tier if no database pool configured
+	if bs.pool == nil {
+		return &Subscription{
+			UserID:        userID,
+			Tier:          "free",
+			Status:        "active",
+			CurrentPeriod: time.Now().AddDate(1, 0, 0).Format(time.RFC3339),
+		}, nil
+	}
+
 	// Query subscription from database
 	var sub Subscription
 	err := bs.pool.QueryRow(ctx,
@@ -1008,6 +1039,13 @@ func HandleCancelSubscription(bs *BillingService) http.HandlerFunc {
 
 // Helpers
 
+// computeWebhookSignature computes an HMAC-SHA256 signature for webhook payload verification.
+func computeWebhookSignature(payload []byte, secret string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write(payload)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // PH1-FIX: Stripe price ID mapping for subscription tiers.
 // These should come from environment variables in production.
 func (bs *BillingService) mapTierToPrice(tier string) string {
@@ -1051,6 +1089,26 @@ func isValidTier(tier string) bool {
 }
 
 func isValidEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-	return err == nil
+	// Reject leading/trailing whitespace
+	if email != strings.TrimSpace(email) {
+		return false
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil {
+		return false
+	}
+	// Ensure parsed address matches input (no display name wrapping)
+	if addr.Address != email {
+		return false
+	}
+	// Require a dot in the domain part (rejects user@localhost, user@example)
+	parts := strings.SplitN(email, "@", 2)
+	if len(parts) != 2 || !strings.Contains(parts[1], ".") {
+		return false
+	}
+	// Reject spaces in the address
+	if strings.ContainsAny(email, " \t") {
+		return false
+	}
+	return true
 }

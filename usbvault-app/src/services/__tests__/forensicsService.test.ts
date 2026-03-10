@@ -157,7 +157,7 @@ describe('ForensicsService', () => {
     it('should include required fields in each status', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      statuses.forEach((status) => {
+      statuses.forEach((status: { category: string; label: string; description: string; status: string; canClean: boolean }) => {
         expect(status.category).toBeDefined();
         expect(status.label).toBeDefined();
         expect(status.description).toBeDefined();
@@ -169,14 +169,14 @@ describe('ForensicsService', () => {
     it('should mark clipboard as cleanable on web', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      const clipboard = statuses.find((s) => s.category === 'clipboard');
+      const clipboard = statuses.find((s: { category: string }) => s.category === 'clipboard');
       expect(clipboard?.canClean).toBe(true);
     });
 
     it('should mark native-only categories as not applicable on web', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      const swap = statuses.find((s) => s.category === 'swap_pagefile');
+      const swap = statuses.find((s: { category: string }) => s.category === 'swap_pagefile');
       expect(swap?.status).toBe('not_applicable');
       expect(swap?.canClean).toBe(false);
     });
@@ -268,7 +268,7 @@ describe('ForensicsService', () => {
 
       const start2 = Date.now();
       await forensicsService.executeGhostMode();
-      const full = Date.now() - start2;
+      void (Date.now() - start2);
 
       // Quick clean should generally be faster (though this is not guaranteed)
       expect(quick).toBeLessThanOrEqual(quick + 100);
@@ -318,7 +318,7 @@ describe('ForensicsService', () => {
     it('should determine clipboard status', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      const clipboard = statuses.find((s) => s.category === 'clipboard');
+      const clipboard = statuses.find((s: { category: string }) => s.category === 'clipboard');
       expect(['clean', 'dirty', 'unknown', 'not_applicable']).toContain(
         clipboard?.status,
       );
@@ -327,7 +327,7 @@ describe('ForensicsService', () => {
     it('should determine cache status', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      const cache = statuses.find((s) => s.category === 'app_cache');
+      const cache = statuses.find((s: { category: string }) => s.category === 'app_cache');
       expect(cache).toBeDefined();
     });
 
@@ -336,18 +336,18 @@ describe('ForensicsService', () => {
 
       const statuses = forensicsService.getCategoryStatuses();
 
-      const session = statuses.find((s) => s.category === 'session_data');
+      const session = statuses.find((s: { category: string }) => s.category === 'session_data');
       expect(session?.status).toBe('clean');
     });
 
     it('should update status after cleanup', async () => {
       let statuses = forensicsService.getCategoryStatuses();
-      const clipboardBefore = statuses.find((s) => s.category === 'clipboard');
+      void statuses.find((s: { category: string }) => s.category === 'clipboard');
 
       await forensicsService.cleanCategory('clipboard');
 
       statuses = forensicsService.getCategoryStatuses();
-      const clipboardAfter = statuses.find((s) => s.category === 'clipboard');
+      const clipboardAfter = statuses.find((s: { category: string }) => s.category === 'clipboard');
 
       expect(clipboardAfter?.lastCleaned).not.toBeNull();
     });

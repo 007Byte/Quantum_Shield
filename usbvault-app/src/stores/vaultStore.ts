@@ -4,12 +4,8 @@ import * as api from '@/services/api';
 import { webStorage } from '@/services/webStorage';
 import { auditService } from '@/services/auditService';
 import { encryptFileIndex, decryptFileIndex } from '@/services/indexCrypto';
-import {
-  createKeyHierarchy,
-  unlockKeyHierarchy,
-  // migrateToKeyHierarchy is available for legacy vault migration (SG-004)
-} from '@/services/keyHierarchy';
-import { toStoredFileInfo, fromStoredFileInfo } from '@/types/domain';
+import { createKeyHierarchy, unlockKeyHierarchy } from '@/services/keyHierarchy';
+import { toStoredFileInfo, fromStoredFileInfo, type StoredFileInfo } from '@/types/domain';
 import { logger } from '@/utils/logger';
 
 // PL-001: Re-export canonical types from shared domain module
@@ -302,7 +298,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
           if (encryptedBlob !== null) {
             const decrypted = await decryptFileIndex(vaultKey, encryptedBlob);
             if (decrypted !== null) {
-              const restored: FileInfo[] = decrypted.map(fromStoredFileInfo);
+              const restored: FileInfo[] = (decrypted as StoredFileInfo[]).map(fromStoredFileInfo);
               set({ files: restored, isLoading: false, error: null });
               return;
             }

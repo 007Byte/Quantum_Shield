@@ -308,8 +308,8 @@ func TestGetClientIP_RemoteAddr(t *testing.T) {
 	req.RemoteAddr = "192.168.1.1:54321"
 
 	ip := getClientIP(req)
-	if ip != "192.168.1.1:54321" {
-		t.Errorf("expected '192.168.1.1:54321', got %q", ip)
+	if ip != "192.168.1.1" {
+		t.Errorf("expected '192.168.1.1', got %q", ip)
 	}
 }
 

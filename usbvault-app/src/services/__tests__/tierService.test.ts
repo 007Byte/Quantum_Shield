@@ -4,7 +4,7 @@
  * Tests feature gating, tier limits, and subscription management.
  */
 
-import { tierService, SubscriptionTier, Feature, LimitType, TIER_CONFIGS } from '../tierService';
+import { tierService, Feature, LimitType, TIER_CONFIGS } from '../tierService';
 
 // Mock localStorage
 const localStorageMock = (() => {

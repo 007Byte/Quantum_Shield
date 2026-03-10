@@ -5,7 +5,7 @@
  */
 
 import { backupService } from '../backupService';
-import { BackupData, BackupMetadata } from '../backupService';
+import type { BackupData } from '../backupService';
 
 // Mock localStorage
 const localStorageMock = (() => {

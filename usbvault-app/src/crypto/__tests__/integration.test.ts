@@ -23,11 +23,11 @@ describe('Crypto Integration Tests', () => {
 
     // Mock native module with realistic hex outputs
     NativeModules.USBVaultCrypto = {
-      deriveKey: jest.fn(async (password: string, saltHex: string) => {
+      deriveKey: jest.fn(async (_password: string, _saltHex: string) => {
         // Return consistent 32-byte key (64 hex chars) for deterministic testing
         return 'a'.repeat(64);
       }),
-      encrypt: jest.fn(async (keyHex: string, plaintextHex: string, aadHex?: string) => {
+      encrypt: jest.fn(async (_keyHex: string, plaintextHex: string, _aadHex?: string) => {
         // Return nonce(24) + ciphertext + tag(16) = simulated encrypted output
         // 24-byte nonce + 16-byte tag + plaintext length in hex
         const nonce = 'b'.repeat(48); // 24 bytes as hex
@@ -35,7 +35,7 @@ describe('Crypto Integration Tests', () => {
         const tag = 'd'.repeat(32); // 16 bytes as hex
         return nonce + ciphertext + tag;
       }),
-      decrypt: jest.fn(async (keyHex: string, ciphertextHex: string, aadHex?: string) => {
+      decrypt: jest.fn(async (_keyHex: string, ciphertextHex: string, _aadHex?: string) => {
         // Extract payload and return decrypted plaintext
         // Remove nonce (48 chars) and tag (32 chars) to get ciphertext
         const payload = ciphertextHex.slice(48, -32);
@@ -49,7 +49,7 @@ describe('Crypto Integration Tests', () => {
         public: 'f'.repeat(64), // 32 bytes
         private: 'g'.repeat(64), // 32 bytes
       })),
-      sealToPublicKey: jest.fn(async (publicKeyHex: string, plaintextHex: string) => {
+      sealToPublicKey: jest.fn(async (_publicKeyHex: string, plaintextHex: string) => {
         // ephemeral_public(32) + nonce(24) + ciphertext + tag(16)
         const ephemeralPublic = 'h'.repeat(64); // 32 bytes
         const nonce = 'i'.repeat(48); // 24 bytes
@@ -57,7 +57,7 @@ describe('Crypto Integration Tests', () => {
         const tag = 'k'.repeat(32); // 16 bytes
         return ephemeralPublic + nonce + ciphertext + tag;
       }),
-      openSealed: jest.fn(async (secretKeyHex: string, sealedHex: string) => {
+      openSealed: jest.fn(async (_secretKeyHex: string, sealedHex: string) => {
         // Extract plaintext from sealed format
         const payload = sealedHex.slice(112, -32); // Skip ephemeral + nonce, remove tag
         return payload;
@@ -66,38 +66,38 @@ describe('Crypto Integration Tests', () => {
         public: 'l'.repeat(64), // 32 bytes
         private: 'm'.repeat(128), // 64 bytes
       })),
-      sign: jest.fn(async (secretKeyHex: string, messageHex: string) => {
+      sign: jest.fn(async (_secretKeyHex: string, _messageHex: string) => {
         // Return 64-byte signature
         return 'n'.repeat(128);
       }),
-      verify: jest.fn(async (publicKeyHex: string, messageHex: string, signatureHex: string) => {
+      verify: jest.fn(async (_publicKeyHex: string, _messageHex: string, signatureHex: string) => {
         // Return true if signature length is valid
         return signatureHex.length === 128;
       }),
-      hashSha256: jest.fn(async (dataHex: string) => {
+      hashSha256: jest.fn(async (_dataHex: string) => {
         // Return 32-byte SHA256 hash
         return 'o'.repeat(64);
       }),
       getVersion: jest.fn(async () => '0.1.0'),
-      streamEncryptInit: jest.fn(async (keyHex: string) => 'stream-enc-' + Date.now()),
-      streamEncryptChunk: jest.fn(async (sessionId: string, chunkBase64: string, isFinal: boolean) => {
+      streamEncryptInit: jest.fn(async (_keyHex: string) => 'stream-enc-' + Date.now()),
+      streamEncryptChunk: jest.fn(async (_sessionId: string, chunkBase64: string, _isFinal: boolean) => {
         return 'p'.repeat(Buffer.from(chunkBase64, 'base64').length * 2 + 48);
       }),
-      streamDecryptInit: jest.fn(async (keyHex: string) => 'stream-dec-' + Date.now()),
-      streamDecryptChunk: jest.fn(async (sessionId: string, chunkBase64: string, isFinal: boolean) => {
+      streamDecryptInit: jest.fn(async (_keyHex: string) => 'stream-dec-' + Date.now()),
+      streamDecryptChunk: jest.fn(async (_sessionId: string, chunkBase64: string, _isFinal: boolean) => {
         return Buffer.from(chunkBase64, 'base64').toString('hex');
       }),
-      streamFree: jest.fn(async (sessionId: string) => {}),
+      streamFree: jest.fn(async (_sessionId: string) => {}),
       srpGenerateClientEphemeral: jest.fn(async () => ({
         public: 'q'.repeat(128), // 64 bytes
         private: 'r'.repeat(128), // 64 bytes
       })),
       srpDeriveSession: jest.fn(async (
-        clientPrivateHex: string,
-        serverPublicHex: string,
-        saltHex: string,
-        username: string,
-        password: string
+        _clientPrivateHex: string,
+        _serverPublicHex: string,
+        _saltHex: string,
+        _username: string,
+        _password: string
       ) => ({
         proof: 's'.repeat(64), // 32 bytes
         key: 't'.repeat(64), // 32 bytes
@@ -123,7 +123,7 @@ describe('Crypto Integration Tests', () => {
     it('derives different keys from different passwords', async () => {
       const salt = new Uint8Array(32).fill(0x01);
 
-      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (password: string, saltHex: string) => {
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (password: string, _saltHex: string) => {
         // Return password-dependent key
         const hash = password.charCodeAt(0) + password.charCodeAt(password.length - 1);
         return hash.toString(16).padStart(64, 'a');
@@ -140,7 +140,7 @@ describe('Crypto Integration Tests', () => {
       const salt1 = new Uint8Array(32).fill(0x01);
       const salt2 = new Uint8Array(32).fill(0x02);
 
-      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (pwd: string, saltHex: string) => {
+      NativeModules.USBVaultCrypto.deriveKey = jest.fn(async (_pwd: string, saltHex: string) => {
         // Return salt-dependent key
         const saltSum = saltHex.charCodeAt(0) + saltHex.charCodeAt(saltHex.length - 1);
         return saltSum.toString(16).padStart(64, 'b');

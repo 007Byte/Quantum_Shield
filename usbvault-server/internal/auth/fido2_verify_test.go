@@ -11,7 +11,7 @@ import (
 
 func TestFIDO2ChallengeEndpoint_RequiresAuth(t *testing.T) {
 	// FIDO2 challenge endpoint should require authentication
-	req := httptest.NewRequest("POST", "/auth/fido2/challenge", bytes.NewBufferString("{}"))
+	_ = httptest.NewRequest("POST", "/auth/fido2/challenge", bytes.NewBufferString("{}"))
 	w := httptest.NewRecorder()
 
 	// Without auth context, should fail

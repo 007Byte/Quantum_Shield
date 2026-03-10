@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // PH2-FIX: Multipart upload service tests
@@ -63,16 +61,16 @@ func TestMultipartUploadPartCalculation(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		partSize := DefaultPartSize
-		totalParts := int(test.totalSize / int64(partSize))
-		if test.totalSize%int64(partSize) != 0 {
+		partSize := int64(DefaultPartSize)
+		totalParts := int(test.totalSize / partSize)
+		if test.totalSize%partSize != 0 {
 			totalParts++
 		}
 
 		// Cap at MaxParts
 		if totalParts > MaxParts {
-			partSize = test.totalSize / MaxParts
-			if test.totalSize%MaxParts != 0 {
+			partSize = test.totalSize / int64(MaxParts)
+			if test.totalSize%int64(MaxParts) != 0 {
 				partSize++
 			}
 			totalParts = MaxParts

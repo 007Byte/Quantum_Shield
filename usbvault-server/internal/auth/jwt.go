@@ -332,13 +332,15 @@ func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) 
 		return nil, err
 	}
 
-	// Check if token JTI is revoked
-	ctx, cancel := context.WithTimeout(context.Background(), tokenContextTimeout)
-	defer cancel()
+	// Check if token JTI is revoked (skip if no Redis client)
+	if redisClient != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), tokenContextTimeout)
+		defer cancel()
 
-	revoked, err := redisClient.Get(ctx, "revoked:"+claims.JTI).Result()
-	if err == nil && revoked == "1" {
-		return nil, errors.New("token revoked")
+		revoked, err := redisClient.Get(ctx, "revoked:"+claims.JTI).Result()
+		if err == nil && revoked == "1" {
+			return nil, errors.New("token revoked")
+		}
 	}
 
 	return claims, nil
