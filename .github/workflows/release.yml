@@ -137,7 +137,7 @@ jobs:
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d70bba72b1f3fd22344e8fb7f21a78f7ff3c5066 # v3.3.0
+        uses: docker/setup-buildx-action@c8ad1c5d0f6f39c2bc446b807fa8ea2afadcddb6 # v3.3.0
 
       - name: Log in to Docker Hub
         uses: docker/login-action@9780b0c442fbb1117521a9e20e440f8bc7b5104e # v3.2.0
