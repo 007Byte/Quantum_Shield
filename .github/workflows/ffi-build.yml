@@ -273,7 +273,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ffi-libs-${{ matrix.target }}
           path: ffi-artifacts/${{ matrix.target }}/
@@ -312,7 +312,7 @@ jobs:
             -output ffi-artifacts/ios-xcframework/USBVaultCrypto.xcframework
 
       - name: Upload xcframework
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ffi-libs-ios-xcframework
           path: ffi-artifacts/ios-xcframework/
@@ -364,7 +364,7 @@ jobs:
           head -20 ffi-artifacts/usbvault_crypto.h
 
       - name: Upload headers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ffi-headers
           path: ffi-artifacts/usbvault_crypto.h

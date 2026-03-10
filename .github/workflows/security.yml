@@ -58,7 +58,7 @@ jobs:
           fi
 
       - name: Upload gosec report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: gosec-results
@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Upload cargo-audit report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: cargo-audit-results
@@ -149,7 +149,7 @@ jobs:
           fi
 
       - name: Upload ESLint security report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eslint-security-report
@@ -187,7 +187,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Snyk results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: snyk-results-${{ hashFiles(matrix.manifest-path) }}
@@ -228,7 +228,7 @@ jobs:
           echo "Gitleaks scan complete"
 
       - name: Upload gitleaks report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: gitleaks-results
@@ -311,7 +311,7 @@ jobs:
             -o cyclonedx-json=sbom-app.cdx.json
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-reports
           path: |
