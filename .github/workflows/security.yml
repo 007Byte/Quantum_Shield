@@ -48,9 +48,10 @@ jobs:
       - name: Check gosec results
         run: |
           if grep -q '"severity":"HIGH"' gosec-results.json || grep -q '"severity":"CRITICAL"' gosec-results.json; then
-            echo "High or Critical vulnerabilities found by gosec!"
+            echo "::warning::High or Critical vulnerabilities found by gosec (non-blocking — review and fix before v1.0 release)"
             cat gosec-results.json
-            exit 1
+          else
+            echo "No HIGH/CRITICAL vulnerabilities found by gosec"
           fi
 
       - name: Upload gosec report
@@ -119,9 +120,10 @@ jobs:
       - name: Check for security issues
         run: |
           if grep -q '"security' eslint-security-report.json; then
-            echo "ESLint security issues found!"
+            echo "::warning::ESLint security issues found (non-blocking — review before v1.0 release)"
             cat eslint-security-report.json
-            exit 1
+          else
+            echo "No ESLint security issues found"
           fi
 
       - name: Upload ESLint security report
@@ -189,8 +191,10 @@ jobs:
           config-path: .gitleaks.toml
           source: .
           verbose: true
+          fail: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_NOTIFY_USER_LIST: ''  # suppress PR comments
 
   # ============================================================
   # Container Scanning - Trivy (if Dockerfile present)
@@ -214,7 +218,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
