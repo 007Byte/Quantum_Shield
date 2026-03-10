@@ -1,0 +1,239 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ============================================================
+  # BUILD: Rust Cryptographic Library
+  # ============================================================
+  build-rust:
+    name: Build Rust Library (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact-name: libqav_crypto.so
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact-name: libqav_crypto.so
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact-name: libqav_crypto.dylib
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact-name: libqav_crypto.dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact-name: qav_crypto.dll
+
+    defaults:
+      run:
+        working-directory: Enterprise_Version/qav-crypto
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1482605bafe5805bec0e8148bef273352f24fcc7 # stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Cache cargo registry
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Rust library
+        run: cargo build --release --target ${{ matrix.target }} --locked
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        with:
+          name: rust-build-${{ matrix.target }}
+          path: Enterprise_Version/qav-crypto/target/${{ matrix.target }}/release/${{ matrix.artifact-name }}
+          retention-days: 7
+
+  # ============================================================
+  # BUILD: Go Server Binary
+  # ============================================================
+  build-go:
+    name: Build Go Server (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [linux, linux]
+        arch: [amd64, arm64]
+
+    defaults:
+      run:
+        working-directory: Enterprise_Version/qav-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.0
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Build Go binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -v -ldflags="-X main.version=${{ github.ref_name }} -X main.buildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            -o qav-server-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        with:
+          name: go-build-${{ matrix.os }}-${{ matrix.arch }}
+          path: Enterprise_Version/qav-server/qav-server-${{ matrix.os }}-${{ matrix.arch }}
+          retention-days: 7
+
+  # ============================================================
+  # BUILD: Docker Image
+  # ============================================================
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-go]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d70bba72b1f3fd22344e8fb7f21a78f7ff3c5066 # v3.3.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@9780b0c442fbb1117521a9e20e440f8bc7b5104e # v3.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691021f404eb50fe5a2ceda # v5.5.1
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/qav-server
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: Enterprise_Version/qav-server
+          file: Enterprise_Version/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ============================================================
+  # CREATE: GitHub Release
+  # ============================================================
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-rust, build-go, build-docker]
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935 # v4.1.1
+        with:
+          path: release-artifacts
+
+      - name: Prepare release notes
+        id: release-notes
+        run: |
+          cat > RELEASE_NOTES.md << 'EOF'
+          # Quantum Armor Vault (QAV) Release ${{ github.ref_name }}
+
+          ## Build Artifacts
+
+          ### Rust Cryptographic Library
+          - **Linux x86-64**: `libqav_crypto.so`
+          - **Linux ARM64**: `libqav_crypto.so`
+          - **macOS x86-64**: `libqav_crypto.dylib`
+          - **macOS ARM64**: `libqav_crypto.dylib`
+          - **Windows x86-64**: `qav_crypto.dll`
+
+          ### Go Server Binary
+          - **Linux x86-64**: `qav-server-linux-amd64`
+          - **Linux ARM64**: `qav-server-linux-arm64`
+
+          ### Docker Image
+          - Image pushed to: `ghcr.io/${{ github.repository_owner }}/qav-server:${{ github.ref_name }}`
+          - Supports: `linux/amd64`, `linux/arm64`
+
+          ## Security
+
+          All binaries are built in release mode with security hardening enabled.
+
+          ## Installation
+
+          See the project README for installation and deployment instructions.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.0
+        with:
+          files: |
+            release-artifacts/rust-build-*/*
+            release-artifacts/go-build-*/*
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify release completion
+        run: |
+          echo "Release ${{ github.ref_name }} completed successfully!"
+          echo "GitHub Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"

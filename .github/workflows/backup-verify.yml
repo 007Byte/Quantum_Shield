@@ -1,0 +1,88 @@
+name: Nightly Backup Verification
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 3 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  verify-backup:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: test
+      PGPASSWORD: test
+      BACKUP_DIR: ./backups
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: test
+      DB_NAME: qav_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test backup
+        run: |
+          mkdir -p backups
+          createdb qav_source
+          # Initialize schema if migrations exist
+          if [ -f usbvault-server/migrations/001_initial.sql ]; then
+            psql qav_source < usbvault-server/migrations/001_initial.sql || true
+          fi
+          # Insert test data for validation
+          psql qav_source << 'EOF'
+          CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email VARCHAR(255));
+          CREATE TABLE IF NOT EXISTS vaults (id SERIAL PRIMARY KEY, user_id INTEGER);
+          CREATE TABLE IF NOT EXISTS files (id SERIAL PRIMARY KEY, vault_id INTEGER);
+          CREATE TABLE IF NOT EXISTS subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER);
+          CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, user_id INTEGER);
+          CREATE TABLE IF NOT EXISTS security_events (id SERIAL PRIMARY KEY, user_id INTEGER);
+          CREATE TABLE IF NOT EXISTS vault_members (id SERIAL PRIMARY KEY, vault_id INTEGER);
+          CREATE TABLE IF NOT EXISTS shared_files (id SERIAL PRIMARY KEY, file_id INTEGER);
+
+          INSERT INTO users (email) VALUES ('test@example.com');
+          INSERT INTO vaults (user_id) VALUES (1);
+          INSERT INTO files (vault_id) VALUES (1);
+          INSERT INTO subscriptions (user_id) VALUES (1);
+          INSERT INTO audit_logs (user_id) VALUES (1);
+          INSERT INTO security_events (user_id) VALUES (1);
+          INSERT INTO vault_members (vault_id) VALUES (1);
+          INSERT INTO shared_files (file_id) VALUES (1);
+          EOF
+          # Create backup
+          pg_dump qav_source | gzip > backups/qav-$(date +%Y%m%d).sql.gz
+
+      - name: Run backup verification
+        run: bash scripts/verify-backup.sh
+        env:
+          BACKUP_DIR: ./backups
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: test
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: test
+          PGPASSWORD: test
+
+      - name: Upload verification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-verify-log
+          path: logs/backup-verify-*.log
+          retention-days: 30

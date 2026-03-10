@@ -1,0 +1,117 @@
+version: 2
+updates:
+  # ============================================================
+  # Rust Cargo Dependencies
+  # ============================================================
+  - package-ecosystem: cargo
+    directory: "/Enterprise_Version/qav-crypto"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "007Byte"
+    assignees:
+      - "007Byte"
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps-cargo):"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major version updates for critical dependencies
+      # Review manually and schedule separately
+      - dependency-name: "cryptography"
+        update-types: ["version-update:semver-major"]
+
+  # ============================================================
+  # Go Modules
+  # ============================================================
+  - package-ecosystem: gomod
+    directory: "/Enterprise_Version/qav-server"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:15"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "007Byte"
+    assignees:
+      - "007Byte"
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "chore(deps-go):"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major version updates for critical dependencies
+      - dependency-name: "github.com/gorilla/mux"
+        update-types: ["version-update:semver-major"]
+
+  # ============================================================
+  # NPM Dependencies
+  # ============================================================
+  - package-ecosystem: npm
+    directory: "/Enterprise_Version/qav-app"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:30"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "007Byte"
+    assignees:
+      - "007Byte"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "react-native"
+    commit-message:
+      prefix: "chore(deps-npm):"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major version updates for critical dependencies
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+
+  # ============================================================
+  # GitHub Actions
+  # ============================================================
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "03:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "007Byte"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(actions):"
+      include: "scope"
+    rebase-strategy: "auto"
+    allow:
+      - dependency-type: "all"

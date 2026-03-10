@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PH9-FIX: Android Network Security Configuration (CWE-319)
+
+     This configuration enforces secure network communications:
+     - Blocks all cleartext (HTTP) traffic by default
+     - Requires HTTPS with system certificate authorities
+     - Allows localhost/10.0.2.2 cleartext for development/testing only
+
+     Integration with AndroidManifest.xml:
+     <application
+       android:networkSecurityConfig="@xml/network_security_config"
+       ...
+     >
+-->
+<network-security-config>
+    <!-- PH9-FIX: Base configuration - HTTPS only (CWE-319) -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- PH9-FIX: Only trust system certificate authorities -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- PH9-FIX: Development only: allow localhost cleartext for testing
+         Remove this configuration in production builds -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Local machine via USB debugging -->
+        <domain includeSubdomains="false">localhost</domain>
+        <!-- Android emulator default gateway -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

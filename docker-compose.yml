@@ -1,0 +1,189 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qav-postgres
+    environment:
+      POSTGRES_USER: qav
+      POSTGRES_PASSWORD: dev_password_change_me
+      POSTGRES_DB: qav_dev
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qav -d qav_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qav-network
+
+  pgbouncer:
+    # PH2-FIX: PgBouncer connection pooling service
+    image: edoburu/pgbouncer:1.22.0
+    container_name: qav-pgbouncer
+    environment:
+      PGBOUNCER_USER: qav
+      PGBOUNCER_PASSWORD: dev_password_change_me
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - qav-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: qav-redis
+    command: >
+      redis-server
+      --requirepass dev_redis_pass
+      --maxmemory 256mb
+      --maxmemory-policy volatile-lru
+      --appendonly yes
+      --appendfsync everysec
+      --save 60 1000
+      --save 300 100
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "dev_redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qav-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: qav-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/minio_data
+    command: server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qav-network
+
+  createbuckets:
+    image: minio/mc:latest
+    container_name: qav-createbuckets
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin_secret;
+      /usr/bin/mc mb myminio/qav-encrypted-blobs;
+      /usr/bin/mc version enable myminio/qav-encrypted-blobs;
+      exit 0;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - qav-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: qav-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - qav-network
+    profiles:
+      - observability
+
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: qav-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - qav-network
+    profiles:
+      - observability
+
+  api:
+    build:
+      context: ./qav-server
+      dockerfile: Dockerfile
+    container_name: qav-api
+    environment:
+      # PH2-FIX: Point to PgBouncer instead of direct postgres connection
+      DATABASE_URL: postgres://qav:dev_password_change_me@pgbouncer:6432/qav?sslmode=disable
+      REDIS_URL: redis://:dev_redis_pass@redis:6379
+      AWS_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin_secret
+      AWS_REGION: us-east-1
+      S3_BUCKET: qav-encrypted-blobs
+      SERVER_PORT: 8080
+      LOG_LEVEL: debug
+      ENVIRONMENT: development
+      FIDO2_RELYING_PARTY_ID: localhost
+      FIDO2_RELYING_PARTY_NAME: QAV Dev
+      FIDO2_RELYING_PARTY_ORIGIN: http://localhost:8080
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-placeholder_change_me}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder_change_me}
+      STRIPE_PRICE_INDIVIDUAL: ${STRIPE_PRICE_INDIVIDUAL:-price_individual_dev}
+      STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-price_team_dev}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE:-price_enterprise_dev}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-jaeger:4318}
+    ports:
+      - "8080:8080"
+    depends_on:
+      # PH2-FIX: Added pgbouncer dependency
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - qav-network
+
+networks:
+  qav-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  minio-data:
+    driver: local

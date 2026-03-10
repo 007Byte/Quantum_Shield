@@ -1,0 +1,55 @@
+# PH11-FIX: Kubernetes service for QAV API
+apiVersion: v1
+kind: Service
+metadata:
+  name: qav-api
+  namespace: qav
+spec:
+  selector:
+    app: qav-api
+  ports:
+    - port: 443
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+---
+# PH11-FIX: Network policy for pod isolation (CWE-1188)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qav-api-netpol
+  namespace: qav
+spec:
+  podSelector:
+    matchLabels:
+      app: qav-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
+    - to: # DNS
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

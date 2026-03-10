@@ -1,0 +1,86 @@
+# Environment files - NEVER commit these to version control
+.env
+.env.local
+.env.*.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build artifacts
+bin/
+dist/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+.bin
+
+# Security scanning reports
+/tmp/
+*.json.bak
+/coverage/
+.scannerwork/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.vim
+.emacs.d
+
+# Go-specific
+go.sum.backup
+vendor/
+*.test
+
+# Rust-specific
+target/
+Cargo.lock.backup
+.cargo/
+
+# Docker volumes (not committed but useful to gitignore)
+postgres-data/
+redis-data/
+minio-data/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+logs/
+
+# Dependency files (for some projects)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Application state
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Network files
+*.pcap
+*.pcapng
+
+# Secrets and credentials
+secrets/
+credentials/
+*.key
+*.pem
+*.cert
+*.crt
+!.env.example

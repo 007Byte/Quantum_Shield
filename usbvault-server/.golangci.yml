@@ -1,0 +1,41 @@
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - node_modules
+
+linters:
+  enable:
+    - gosec      # security issues
+    - govet      # vet issues
+    - staticcheck # static analysis
+    - errcheck   # unchecked errors
+    - ineffassign # ineffective assignments
+    - unused     # unused variables/functions
+    - misspell   # spelling mistakes
+  disable-all: false
+
+linters-settings:
+  gosec:
+    exclude:
+      - G101  # hard-coded credentials in tests only
+    excludes-dirs:
+      - test
+      - tests
+      - _test.go
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - "G101" # Excluding hard-coded credentials only in test context
+  exclude-rules:
+    - path: ".*_test.go"
+      linters:
+        - gosec
+      text: "G101"

@@ -1,0 +1,51 @@
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "bundleIdentifier": "com.qav.app"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.qav.app",
+        "buildNumber": "1"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "package": "com.qav.app",
+        "versionCode": 1
+      },
+      "env": {
+        "ENVIRONMENT": "production",
+        "API_BASE_URL": "https://api.usbvault.io"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "CONFIGURE_APPLE_ID",
+        "ascAppId": "CONFIGURE_ASC_APP_ID",
+        "appleTeamId": "CONFIGURE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-key.json",
+        "track": "internal"
+      }
+    }
+  }
+}

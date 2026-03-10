@@ -1,0 +1,165 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyInsecureConnections",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyUnencryptedObjectUploads",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::qav-prod/*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption": [
+            "AES256",
+            "aws:kms"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyUnencryptedObjectUploadsMissingHeader",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::qav-prod/*",
+      "Condition": {
+        "StringNotLike": {
+          "s3:x-amz-server-side-encryption": "*"
+        }
+      }
+    },
+    {
+      "Sid": "DenyPublicACLs",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:PutObjectAcl",
+        "s3:PutBucketAcl"
+      ],
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/*"
+      ],
+      "Condition": {
+        "StringLike": {
+          "s3:x-amz-acl": [
+            "public-read",
+            "public-read-write",
+            "authenticated-read"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyAccessOutsideVPC",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/*"
+      ],
+      "Condition": {
+        "StringNotEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
+    },
+    {
+      "Sid": "AllowPresignedURLAccess",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::qav-prod/vaults/*",
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "true"
+        }
+      }
+    },
+    {
+      "Sid": "AllowServerAccess",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::ACCOUNT_ID:role/qav-api-server-role"
+      },
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:HeadObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/vaults/*"
+      ]
+    },
+    {
+      "Sid": "DenyBucketDeleteWithoutMFA",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:DeleteBucket",
+      "Resource": "arn:aws:s3:::qav-prod",
+      "Condition": {
+        "Bool": {
+          "aws:MultiFactorAuthPresent": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyAccessOutsideVaultsPrefix",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": "arn:aws:iam::ACCOUNT_ID:role/qav-api-server-role"
+      },
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/*"
+      ],
+      "Condition": {
+        "StringNotLike": {
+          "s3:prefix": [
+            "vaults/*",
+            "vaults"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowVPCEndpointAccess",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::qav-prod",
+        "arn:aws:s3:::qav-prod/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:sourceVpce": "${vpc_endpoint_id}"
+        }
+      }
+    }
+  ]
+}
