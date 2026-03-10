@@ -163,104 +163,134 @@ impl VaultHeader {
         offset += 8;
 
         // Argon2 parameters
-        let argon2_memory =
-            u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let argon2_memory = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
-        let argon2_time =
-            u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+        let argon2_time = u32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]);
         offset += 4;
 
         let argon2_parallelism = data[offset];
         offset += 1;
 
         // Optional blocks (only in V3)
-        let (identity_block, tfa_block, fail_counter_block) = if version == 3 && offset + 12 <= data.len()
-        {
-            // Identity block length (4 bytes)
-            let identity_len =
-                u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
-                    as usize;
-            offset += 4;
+        let (identity_block, tfa_block, fail_counter_block) =
+            if version == 3 && offset + 12 <= data.len() {
+                // Identity block length (4 bytes)
+                let identity_len = u32::from_le_bytes([
+                    data[offset],
+                    data[offset + 1],
+                    data[offset + 2],
+                    data[offset + 3],
+                ]) as usize;
+                offset += 4;
 
-            let identity_block = if identity_len > 0 && offset + identity_len <= data.len() {
-                let block = Some(data[offset..offset + identity_len].to_vec());
-                offset += identity_len;
-                block
+                let identity_block = if identity_len > 0 && offset + identity_len <= data.len() {
+                    let block = Some(data[offset..offset + identity_len].to_vec());
+                    offset += identity_len;
+                    block
+                } else {
+                    None
+                };
+
+                // TFA block length (4 bytes)
+                let tfa_len = u32::from_le_bytes([
+                    data[offset],
+                    data[offset + 1],
+                    data[offset + 2],
+                    data[offset + 3],
+                ]) as usize;
+                offset += 4;
+
+                let tfa_block = if tfa_len > 0 && offset + tfa_len <= data.len() {
+                    let block = Some(data[offset..offset + tfa_len].to_vec());
+                    offset += tfa_len;
+                    block
+                } else {
+                    None
+                };
+
+                // Fail counter block length (4 bytes)
+                let fail_counter_len = u32::from_le_bytes([
+                    data[offset],
+                    data[offset + 1],
+                    data[offset + 2],
+                    data[offset + 3],
+                ]) as usize;
+                offset += 4;
+
+                let fail_counter_block =
+                    if fail_counter_len > 0 && offset + fail_counter_len <= data.len() {
+                        Some(data[offset..offset + fail_counter_len].to_vec())
+                    } else {
+                        None
+                    };
+
+                (identity_block, tfa_block, fail_counter_block)
             } else {
-                None
+                (None, None, None)
             };
-
-            // TFA block length (4 bytes)
-            let tfa_len =
-                u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
-                    as usize;
-            offset += 4;
-
-            let tfa_block = if tfa_len > 0 && offset + tfa_len <= data.len() {
-                let block = Some(data[offset..offset + tfa_len].to_vec());
-                offset += tfa_len;
-                block
-            } else {
-                None
-            };
-
-            // Fail counter block length (4 bytes)
-            let fail_counter_len =
-                u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
-                    as usize;
-            offset += 4;
-
-            let fail_counter_block = if fail_counter_len > 0 && offset + fail_counter_len <= data.len() {
-                Some(data[offset..offset + fail_counter_len].to_vec())
-            } else {
-                None
-            };
-
-            (identity_block, tfa_block, fail_counter_block)
-        } else {
-            (None, None, None)
-        };
 
         // V4 extended fields
-        let (wrapped_mek, state_version, index_encrypted) = if version == 4 && offset + 8 <= data.len() {
-            // Wrapped MEK length (4 bytes)
-            let wmek_len = u32::from_le_bytes([data[offset], data[offset+1], data[offset+2], data[offset+3]]) as usize;
-            offset += 4;
+        let (wrapped_mek, state_version, index_encrypted) =
+            if version == 4 && offset + 8 <= data.len() {
+                // Wrapped MEK length (4 bytes)
+                let wmek_len = u32::from_le_bytes([
+                    data[offset],
+                    data[offset + 1],
+                    data[offset + 2],
+                    data[offset + 3],
+                ]) as usize;
+                offset += 4;
 
-            let wrapped_mek = if wmek_len > 0 && offset + wmek_len <= data.len() {
-                let blob = Some(data[offset..offset + wmek_len].to_vec());
-                offset += wmek_len;
-                blob
+                let wrapped_mek = if wmek_len > 0 && offset + wmek_len <= data.len() {
+                    let blob = Some(data[offset..offset + wmek_len].to_vec());
+                    offset += wmek_len;
+                    blob
+                } else {
+                    None
+                };
+
+                // State version (8 bytes)
+                let sv = if offset + 8 <= data.len() {
+                    let v = u64::from_le_bytes([
+                        data[offset],
+                        data[offset + 1],
+                        data[offset + 2],
+                        data[offset + 3],
+                        data[offset + 4],
+                        data[offset + 5],
+                        data[offset + 6],
+                        data[offset + 7],
+                    ]);
+                    offset += 8;
+                    v
+                } else {
+                    0
+                };
+
+                // Index encrypted flag (1 byte)
+                let ie = if offset < data.len() {
+                    let flag = data[offset] != 0;
+                    offset += 1;
+                    flag
+                } else {
+                    false
+                };
+
+                (wrapped_mek, sv, ie)
             } else {
-                None
+                (None, 0, false)
             };
-
-            // State version (8 bytes)
-            let sv = if offset + 8 <= data.len() {
-                let v = u64::from_le_bytes([
-                    data[offset], data[offset+1], data[offset+2], data[offset+3],
-                    data[offset+4], data[offset+5], data[offset+6], data[offset+7],
-                ]);
-                offset += 8;
-                v
-            } else {
-                0
-            };
-
-            // Index encrypted flag (1 byte)
-            let ie = if offset < data.len() {
-                let flag = data[offset] != 0;
-                offset += 1;
-                flag
-            } else {
-                false
-            };
-
-            (wrapped_mek, sv, ie)
-        } else {
-            (None, 0, false)
-        };
 
         Ok(VaultHeader {
             version,
@@ -329,7 +359,8 @@ impl VaultHeader {
         data[offset..offset + 2].copy_from_slice(&verify_ct_len.to_le_bytes());
         offset += 2;
 
-        data[offset..offset + self.verify_ciphertext.len()].copy_from_slice(&self.verify_ciphertext);
+        data[offset..offset + self.verify_ciphertext.len()]
+            .copy_from_slice(&self.verify_ciphertext);
         offset += self.verify_ciphertext.len();
 
         // Header HMAC
@@ -380,7 +411,11 @@ impl VaultHeader {
                 offset += block.len();
             }
 
-            let fail_counter_len = self.fail_counter_block.as_ref().map(|b| b.len()).unwrap_or(0) as u32;
+            let fail_counter_len = self
+                .fail_counter_block
+                .as_ref()
+                .map(|b| b.len())
+                .unwrap_or(0) as u32;
             data[offset..offset + 4].copy_from_slice(&fail_counter_len.to_le_bytes());
             offset += 4;
             if let Some(ref block) = self.fail_counter_block {
@@ -410,7 +445,8 @@ impl VaultHeader {
     /// Verify password by checking the verify marker
     pub fn verify_password(&self, key: &MasterKey) -> Result<bool> {
         let hmac_key = key.hmac_key();
-        let computed_hmac = Self::compute_verify_hmac(hmac_key, &self.verify_iv, &self.verify_ciphertext);
+        let computed_hmac =
+            Self::compute_verify_hmac(hmac_key, &self.verify_iv, &self.verify_ciphertext);
 
         // Constant-time comparison
         Ok(computed_hmac.ct_eq(&self.header_hmac).unwrap_u8() != 0)

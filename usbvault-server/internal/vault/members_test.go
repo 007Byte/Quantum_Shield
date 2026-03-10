@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	auth "github.com/qav/qav-server/internal/auth"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
 )
 
 // MockRBACService for testing vault membership operations

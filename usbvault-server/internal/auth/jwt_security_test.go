@@ -265,7 +265,7 @@ func TestRandomString_CryptoRandom(t *testing.T) {
 	}
 }
 
-func TestRandomBigInt_Unique(t *testing.T) {
+func TestRandomBigInt_UniqueSecurity(t *testing.T) {
 	v1, err1 := randomBigInt(256)
 	v2, err2 := randomBigInt(256)
 	if err1 != nil || err2 != nil {
@@ -276,7 +276,7 @@ func TestRandomBigInt_Unique(t *testing.T) {
 	}
 }
 
-func TestComputeSRPk_NonZero(t *testing.T) {
+func TestComputeSRPk_NonZeroSecurity(t *testing.T) {
 	N := new(big.Int)
 	N.SetString(srpN, 16)
 	g := big.NewInt(int64(srpG))

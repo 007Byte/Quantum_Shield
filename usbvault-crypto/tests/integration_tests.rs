@@ -12,8 +12,7 @@ fn test_kdf_output_size() {
     let password = b"test_password";
     let salt = [0x42u8; 32];
 
-    let key = kdf::derive_master_key(password, &salt)
-        .expect("Key derivation failed");
+    let key = kdf::derive_master_key(password, &salt).expect("Key derivation failed");
 
     assert_eq!(key.as_bytes().len(), 64);
     assert_eq!(key.encryption_key().len(), 32);
@@ -25,10 +24,8 @@ fn test_kdf_deterministic() {
     let password = b"test_password";
     let salt = [0x42u8; 32];
 
-    let key1 = kdf::derive_master_key(password, &salt)
-        .expect("Key derivation 1 failed");
-    let key2 = kdf::derive_master_key(password, &salt)
-        .expect("Key derivation 2 failed");
+    let key1 = kdf::derive_master_key(password, &salt).expect("Key derivation 1 failed");
+    let key2 = kdf::derive_master_key(password, &salt).expect("Key derivation 2 failed");
 
     assert_eq!(key1.as_bytes(), key2.as_bytes());
 }
@@ -39,10 +36,8 @@ fn test_kdf_different_salts_produce_different_keys() {
     let salt1 = [0x42u8; 32];
     let salt2 = [0x99u8; 32];
 
-    let key1 = kdf::derive_master_key(password, &salt1)
-        .expect("Key derivation 1 failed");
-    let key2 = kdf::derive_master_key(password, &salt2)
-        .expect("Key derivation 2 failed");
+    let key1 = kdf::derive_master_key(password, &salt1).expect("Key derivation 1 failed");
+    let key2 = kdf::derive_master_key(password, &salt2).expect("Key derivation 2 failed");
 
     assert_ne!(key1.as_bytes(), key2.as_bytes());
 }
@@ -53,10 +48,8 @@ fn test_kdf_different_passwords_produce_different_keys() {
     let password2 = b"password_two";
     let salt = [0x42u8; 32];
 
-    let key1 = kdf::derive_master_key(password1, &salt)
-        .expect("Key derivation 1 failed");
-    let key2 = kdf::derive_master_key(password2, &salt)
-        .expect("Key derivation 2 failed");
+    let key1 = kdf::derive_master_key(password1, &salt).expect("Key derivation 1 failed");
+    let key2 = kdf::derive_master_key(password2, &salt).expect("Key derivation 2 failed");
 
     assert_ne!(key1.as_bytes(), key2.as_bytes());
 }
@@ -66,8 +59,8 @@ fn test_kdf_empty_password() {
     let password = b"";
     let salt = [0x42u8; 32];
 
-    let key = kdf::derive_master_key(password, &salt)
-        .expect("Key derivation with empty password failed");
+    let key =
+        kdf::derive_master_key(password, &salt).expect("Key derivation with empty password failed");
 
     assert_eq!(key.as_bytes().len(), 64);
 }
@@ -86,8 +79,7 @@ fn test_kdf_derive_subkey() {
     let master = [0x42u8; 32];
     let info = "test_context";
 
-    let subkey = kdf::derive_subkey(&master, info)
-        .expect("Subkey derivation failed");
+    let subkey = kdf::derive_subkey(&master, info).expect("Subkey derivation failed");
 
     assert_eq!(subkey.len(), 32);
 }
@@ -97,10 +89,8 @@ fn test_kdf_subkey_deterministic() {
     let master = [0x42u8; 32];
     let info = "test_context";
 
-    let subkey1 = kdf::derive_subkey(&master, info)
-        .expect("Subkey derivation 1 failed");
-    let subkey2 = kdf::derive_subkey(&master, info)
-        .expect("Subkey derivation 2 failed");
+    let subkey1 = kdf::derive_subkey(&master, info).expect("Subkey derivation 1 failed");
+    let subkey2 = kdf::derive_subkey(&master, info).expect("Subkey derivation 2 failed");
 
     assert_eq!(subkey1, subkey2);
 }
@@ -109,10 +99,8 @@ fn test_kdf_subkey_deterministic() {
 fn test_kdf_different_contexts_produce_different_subkeys() {
     let master = [0x42u8; 32];
 
-    let subkey1 = kdf::derive_subkey(&master, "context_1")
-        .expect("Subkey derivation 1 failed");
-    let subkey2 = kdf::derive_subkey(&master, "context_2")
-        .expect("Subkey derivation 2 failed");
+    let subkey1 = kdf::derive_subkey(&master, "context_1").expect("Subkey derivation 1 failed");
+    let subkey2 = kdf::derive_subkey(&master, "context_2").expect("Subkey derivation 2 failed");
 
     assert_ne!(subkey1, subkey2);
 }
@@ -343,7 +331,10 @@ fn test_sharing_cannot_open_with_wrong_key() {
     let sealed = sharing::seal(&alice_public, plaintext).expect("Seal failed");
     let result = sharing::open(&bob_secret, &sealed);
 
-    assert!(result.is_err(), "Bob should not be able to decrypt Alice's message");
+    assert!(
+        result.is_err(),
+        "Bob should not be able to decrypt Alice's message"
+    );
 }
 
 #[test]
@@ -426,11 +417,13 @@ fn test_vault_header_v2_roundtrip() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
-    let parsed = vault::VaultHeader::read(&bytes)
-        .expect("Failed to parse header");
+    let parsed = vault::VaultHeader::read(&bytes).expect("Failed to parse header");
 
     assert_eq!(parsed.version, 2);
     assert_eq!(parsed.salt, header.salt);
@@ -463,11 +456,13 @@ fn test_vault_header_v3_with_identity_block() {
         identity_block: Some(identity_data.clone()),
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
-    let parsed = vault::VaultHeader::read(&bytes)
-        .expect("Failed to parse header");
+    let parsed = vault::VaultHeader::read(&bytes).expect("Failed to parse header");
 
     assert_eq!(parsed.version, 3);
     assert_eq!(parsed.identity_block, Some(identity_data));
@@ -522,8 +517,7 @@ fn test_vault_index_json_roundtrip() {
     index.insert("archive.tar".to_string(), 16384);
 
     let json = index.to_json().expect("Serialization failed");
-    let parsed = vault::VaultIndex::from_json(&json)
-        .expect("Deserialization failed");
+    let parsed = vault::VaultIndex::from_json(&json).expect("Deserialization failed");
 
     assert_eq!(parsed.lookup("test.bin"), Some(4096));
     assert_eq!(parsed.lookup("data.json"), Some(8192));

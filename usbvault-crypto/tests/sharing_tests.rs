@@ -29,7 +29,11 @@ fn test_keypair_public_keys_are_unique() {
     let (pub1, _) = sharing::generate_keypair();
     let (pub2, _) = sharing::generate_keypair();
 
-    assert_ne!(pub1.as_bytes(), pub2.as_bytes(), "Different key pairs should have different public keys");
+    assert_ne!(
+        pub1.as_bytes(),
+        pub2.as_bytes(),
+        "Different key pairs should have different public keys"
+    );
 }
 
 #[test]
@@ -37,7 +41,11 @@ fn test_keypair_secret_keys_are_unique() {
     let (_, secret1) = sharing::generate_keypair();
     let (_, secret2) = sharing::generate_keypair();
 
-    assert_ne!(secret1.as_bytes(), secret2.as_bytes(), "Different key pairs should have different secret keys");
+    assert_ne!(
+        secret1.as_bytes(),
+        secret2.as_bytes(),
+        "Different key pairs should have different secret keys"
+    );
 }
 
 #[test]
@@ -93,7 +101,11 @@ fn test_seal_open_empty_message() {
     let sealed = sharing::seal(&public, plaintext).expect("Seal failed");
     let opened = sharing::open(&secret, &sealed).expect("Open failed");
 
-    assert_eq!(plaintext, opened.as_slice(), "Empty message roundtrip must work");
+    assert_eq!(
+        plaintext,
+        opened.as_slice(),
+        "Empty message roundtrip must work"
+    );
 }
 
 #[test]
@@ -104,7 +116,11 @@ fn test_seal_open_small_message() {
     let sealed = sharing::seal(&public, plaintext).expect("Seal failed");
     let opened = sharing::open(&secret, &sealed).expect("Open failed");
 
-    assert_eq!(plaintext, opened.as_slice(), "Small message roundtrip must work");
+    assert_eq!(
+        plaintext,
+        opened.as_slice(),
+        "Small message roundtrip must work"
+    );
 }
 
 #[test]
@@ -115,7 +131,11 @@ fn test_seal_open_message_1_byte() {
     let sealed = sharing::seal(&public, &plaintext).expect("Seal failed");
     let opened = sharing::open(&secret, &sealed).expect("Open failed");
 
-    assert_eq!(plaintext.to_vec(), opened, "1-byte message roundtrip must work");
+    assert_eq!(
+        plaintext.to_vec(),
+        opened,
+        "1-byte message roundtrip must work"
+    );
 }
 
 #[test]
@@ -153,18 +173,26 @@ fn test_seal_open_message_1mb() {
 
 #[test]
 fn test_seal_open_various_patterns() {
+    let pattern3 = "X".repeat(1000);
     let test_patterns = vec![
         (b"pattern1" as &[u8], "8 bytes"),
         (b"The quick brown fox jumps over the lazy dog", "phrase"),
-        ("X".repeat(1000).as_bytes(), "1000 chars"),
+        (pattern3.as_bytes(), "1000 chars"),
     ];
 
     for (plaintext, description) in test_patterns {
         let (public, secret) = sharing::generate_keypair();
-        let sealed = sharing::seal(&public, plaintext).expect(&format!("Seal failed for {}", description));
-        let opened = sharing::open(&secret, &sealed).expect(&format!("Open failed for {}", description));
+        let sealed =
+            sharing::seal(&public, plaintext).expect(&format!("Seal failed for {}", description));
+        let opened =
+            sharing::open(&secret, &sealed).expect(&format!("Open failed for {}", description));
 
-        assert_eq!(plaintext, opened.as_slice(), "Pattern {} must roundtrip", description);
+        assert_eq!(
+            plaintext,
+            opened.as_slice(),
+            "Pattern {} must roundtrip",
+            description
+        );
     }
 }
 
@@ -337,10 +365,16 @@ fn test_sealed_box_overhead_constant() {
     let overhead = sealed1.len() - plaintext1.len();
     let expected_overhead = 32 + 24 + 16; // ephemeral + nonce + tag
 
-    assert_eq!(overhead, expected_overhead, "Overhead must be constant 72 bytes");
+    assert_eq!(
+        overhead, expected_overhead,
+        "Overhead must be constant 72 bytes"
+    );
 
     let delta = sealed2.len() - sealed1.len();
-    assert_eq!(delta, 100, "Growing plaintext by 100 should grow sealed box by 100");
+    assert_eq!(
+        delta, 100,
+        "Growing plaintext by 100 should grow sealed box by 100"
+    );
 }
 
 // ============================================================================
@@ -356,7 +390,10 @@ fn test_ecdh_forward_secrecy() {
     let sealed1 = sharing::seal(&public, plaintext).expect("Seal 1 failed");
     let sealed2 = sharing::seal(&public, plaintext).expect("Seal 2 failed");
 
-    assert_ne!(sealed1, sealed2, "Different ephemeral keys provide forward secrecy");
+    assert_ne!(
+        sealed1, sealed2,
+        "Different ephemeral keys provide forward secrecy"
+    );
 
     // Both decrypt correctly
     let open1 = sharing::open(&secret, &sealed1).expect("Open 1 failed");
@@ -386,7 +423,10 @@ fn test_sealed_box_contains_ephemeral_public_key() {
     let sealed2 = sharing::seal(&public, plaintext).expect("Seal 2 failed");
     let ephemeral_pubkey2 = &sealed2[0..32];
 
-    assert_ne!(ephemeral_pubkey, ephemeral_pubkey2, "Ephemeral keys should be different");
+    assert_ne!(
+        ephemeral_pubkey, ephemeral_pubkey2,
+        "Ephemeral keys should be different"
+    );
 }
 
 #[test]
@@ -431,7 +471,10 @@ fn test_corrupted_ciphertext_fails_authentication() {
     }
 
     let result = sharing::open(&secret, &sealed);
-    assert!(result.is_err(), "Corrupted ciphertext must fail authentication");
+    assert!(
+        result.is_err(),
+        "Corrupted ciphertext must fail authentication"
+    );
 }
 
 #[test]
@@ -447,7 +490,10 @@ fn test_corrupted_ephemeral_key_fails_decryption() {
     }
 
     let result = sharing::open(&secret, &sealed);
-    assert!(result.is_err(), "Corrupted ephemeral key must fail decryption");
+    assert!(
+        result.is_err(),
+        "Corrupted ephemeral key must fail decryption"
+    );
 }
 
 #[test]
@@ -547,9 +593,24 @@ fn test_multiple_recipients_independence() {
     let sealed_carol = sharing::seal(&carol_pub, plaintext).expect("Seal for Carol failed");
 
     // Each can decrypt their own
-    assert_eq!(plaintext, sharing::open(&alice_sec, &sealed_alice).expect("Alice open failed").as_slice());
-    assert_eq!(plaintext, sharing::open(&bob_sec, &sealed_bob).expect("Bob open failed").as_slice());
-    assert_eq!(plaintext, sharing::open(&carol_sec, &sealed_carol).expect("Carol open failed").as_slice());
+    assert_eq!(
+        plaintext,
+        sharing::open(&alice_sec, &sealed_alice)
+            .expect("Alice open failed")
+            .as_slice()
+    );
+    assert_eq!(
+        plaintext,
+        sharing::open(&bob_sec, &sealed_bob)
+            .expect("Bob open failed")
+            .as_slice()
+    );
+    assert_eq!(
+        plaintext,
+        sharing::open(&carol_sec, &sealed_carol)
+            .expect("Carol open failed")
+            .as_slice()
+    );
 
     // Cross-decryption fails
     assert!(sharing::open(&bob_sec, &sealed_alice).is_err());

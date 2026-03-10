@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	auth "github.com/qav/qav-server/internal/auth"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
 	"github.com/rs/zerolog/log"
 )
 

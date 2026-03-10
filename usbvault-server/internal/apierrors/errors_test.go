@@ -318,11 +318,11 @@ func TestErrorResponseWithDetails(t *testing.T) {
 }
 
 func TestAPIErrorJSONMarshaling(t *testing.T) {
-	err := NewBadRequest("test error")
-	err.SetRequestID("req-456")
-	err.AddDetail("key", "value")
+	errObj := NewBadRequest("test error")
+	errObj.SetRequestID("req-456")
+	errObj.AddDetail("key", "value")
 
-	data, err := json.Marshal(err)
+	data, err := json.Marshal(errObj)
 	if err != nil {
 		t.Fatalf("Failed to marshal error: %v", err)
 	}

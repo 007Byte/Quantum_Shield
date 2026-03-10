@@ -51,11 +51,6 @@ func TestRateLimiter_IPLimitExceeded(t *testing.T) {
 	})
 
 	t.Run("returns 429 when IP limit exceeded", func(t *testing.T) {
-		// Mock handler that always blocks
-		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
-
 		// For actual testing, we would use testcontainers or miniredis
 		// This validates the expected behavior
 		expectedStatus := http.StatusTooManyRequests
@@ -79,14 +74,9 @@ func TestRateLimiter_UserRateLimiting(t *testing.T) {
 	})
 
 	t.Run("checks user rate limit when user_id in context", func(t *testing.T) {
-		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
-
 		req := httptest.NewRequest("GET", "/", nil)
 		ctx := context.WithValue(req.Context(), "user_id", "user-123")
 		req = req.WithContext(ctx)
-		w := httptest.NewRecorder()
 
 		// Verify user_id is in context
 		userID, ok := req.Context().Value("user_id").(string)
@@ -96,7 +86,6 @@ func TestRateLimiter_UserRateLimiting(t *testing.T) {
 
 	t.Run("skips user rate limit check when not authenticated", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
-		w := httptest.NewRecorder()
 
 		// Verify user_id is NOT in context
 		userID, ok := req.Context().Value("user_id").(string)
@@ -263,7 +252,6 @@ func TestCheckRateLimit_WindowCleanup(t *testing.T) {
 	t.Parallel()
 
 	t.Run("sets expiration on rate limit key", func(t *testing.T) {
-		key := "ratelimit:ip:192.168.1.1"
 		window := time.Minute
 
 		// The key should expire after 2x the window to ensure cleanup

@@ -29,7 +29,10 @@ pub fn generate_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
     let mut rng = OsRng;
     let (dk, ek) = MlKem1024::generate(&mut rng);
 
-    Ok((ek.as_bytes().as_slice().to_vec(), dk.as_bytes().as_slice().to_vec()))
+    Ok((
+        ek.as_bytes().as_slice().to_vec(),
+        dk.as_bytes().as_slice().to_vec(),
+    ))
 }
 
 /// Encapsulate: generate a shared secret and ciphertext from a public key
@@ -50,7 +53,9 @@ pub fn encapsulate(encapsulation_key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
     let ek = EncapsulationKey::<MlKem1024Params>::from_bytes(ek_array.into());
 
     let mut rng = OsRng;
-    let (ct, ss) = ek.encapsulate(&mut rng).map_err(|_| CryptoError::SharingError)?;
+    let (ct, ss) = ek
+        .encapsulate(&mut rng)
+        .map_err(|_| CryptoError::SharingError)?;
 
     Ok((ct.as_slice().to_vec(), ss.as_slice().to_vec()))
 }
@@ -67,18 +72,18 @@ pub fn decapsulate(decapsulation_key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8
 
     // Decapsulation key may be different size from encapsulation key
     let dk = DecapsulationKey::<MlKem1024Params>::from_bytes(
-        decapsulation_key.try_into().map_err(|_| CryptoError::InvalidKey)?
+        decapsulation_key
+            .try_into()
+            .map_err(|_| CryptoError::InvalidKey)?,
     );
 
     // Construct ciphertext using the correct Kem type alias
-    let ct_array: &[u8; CIPHERTEXT_SIZE] = ciphertext
-        .try_into()
-        .map_err(|_| CryptoError::InvalidKey)?;
+    let ct_array: &[u8; CIPHERTEXT_SIZE] =
+        ciphertext.try_into().map_err(|_| CryptoError::InvalidKey)?;
     let ct = <MlKem1024 as KemCore>::CiphertextSize::default();
     let _ = ct; // just to verify the type exists
-    // Use Array::from for the fixed-size array conversion
-    let ct: ml_kem::Ciphertext<MlKem1024> =
-        (*ct_array).into();
+                // Use Array::from for the fixed-size array conversion
+    let ct: ml_kem::Ciphertext<MlKem1024> = (*ct_array).into();
 
     let ss = dk.decapsulate(&ct).map_err(|_| CryptoError::SharingError)?;
 

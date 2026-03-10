@@ -101,14 +101,14 @@ func (ms *MultipartService) InitiateUpload(ctx context.Context, userID, vaultID,
 	key := fmt.Sprintf("vaults/%s/files/%s", vaultID, fileID)
 
 	// Calculate part size and count
-	partSize := DefaultPartSize
-	totalParts := int(totalSize / int64(partSize))
-	if totalSize%int64(partSize) != 0 {
+	partSize := int64(DefaultPartSize)
+	totalParts := int(totalSize / partSize)
+	if totalSize%partSize != 0 {
 		totalParts++
 	}
 	if totalParts > MaxParts {
-		partSize = totalSize / MaxParts
-		if totalSize%MaxParts != 0 {
+		partSize = totalSize / int64(MaxParts)
+		if totalSize%int64(MaxParts) != 0 {
 			partSize++
 		}
 		totalParts = MaxParts

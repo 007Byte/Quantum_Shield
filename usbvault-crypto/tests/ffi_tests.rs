@@ -42,10 +42,7 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn usbvault_generate_keypair(
-        public_out: *mut u8,
-        secret_out: *mut u8,
-    ) -> i32;
+    fn usbvault_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
 
     fn usbvault_seal(
         recipient_public: *const u8,
@@ -84,7 +81,10 @@ fn test_ffi_functions_are_callable() {
     unsafe {
         // Test that function pointers are valid
         let func_ptr = usbvault_generate_salt as *const ();
-        assert!(!func_ptr.is_null(), "usbvault_generate_salt should be callable");
+        assert!(
+            !func_ptr.is_null(),
+            "usbvault_generate_salt should be callable"
+        );
     }
 }
 
@@ -149,7 +149,10 @@ fn test_key_derivation_invalid_salt_length() {
             &mut key_len,
         );
 
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject invalid salt length");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject invalid salt length"
+        );
     }
 }
 
@@ -170,7 +173,10 @@ fn test_key_derivation_null_pointers() {
             key.as_mut_ptr(),
             &mut key_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null password pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null password pointer"
+        );
 
         // Test null salt pointer
         let result = usbvault_derive_key(
@@ -181,7 +187,10 @@ fn test_key_derivation_null_pointers() {
             key.as_mut_ptr(),
             &mut key_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null salt pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null salt pointer"
+        );
 
         // Test null output pointer
         let result = usbvault_derive_key(
@@ -192,7 +201,10 @@ fn test_key_derivation_null_pointers() {
             std::ptr::null_mut(),
             &mut key_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null output pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null output pointer"
+        );
 
         // Test null output length pointer
         let result = usbvault_derive_key(
@@ -203,7 +215,10 @@ fn test_key_derivation_null_pointers() {
             key.as_mut_ptr(),
             std::ptr::null_mut(),
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null output length pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null output length pointer"
+        );
     }
 }
 
@@ -249,7 +264,10 @@ fn test_encryption_decryption_round_trip() {
             &mut ciphertext_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Encryption should succeed");
-        assert!(ciphertext_len > plaintext.len(), "Ciphertext should be longer due to auth tag");
+        assert!(
+            ciphertext_len > plaintext.len(),
+            "Ciphertext should be longer due to auth tag"
+        );
 
         // Decrypt
         let result = usbvault_decrypt(
@@ -263,10 +281,17 @@ fn test_encryption_decryption_round_trip() {
             &mut decrypted_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Decryption should succeed");
-        assert_eq!(decrypted_len, plaintext.len(), "Decrypted length should match plaintext");
+        assert_eq!(
+            decrypted_len,
+            plaintext.len(),
+            "Decrypted length should match plaintext"
+        );
 
         let decrypted_slice = &decrypted[..decrypted_len];
-        assert_eq!(decrypted_slice, plaintext, "Decrypted text should match original");
+        assert_eq!(
+            decrypted_slice, plaintext,
+            "Decrypted text should match original"
+        );
     }
 }
 
@@ -314,7 +339,10 @@ fn test_encryption_buffer_too_small() {
             &mut ciphertext_len,
         );
 
-        assert_eq!(result, ERR_BUFFER_TOO_SMALL, "Should reject buffer that's too small");
+        assert_eq!(
+            result, ERR_BUFFER_TOO_SMALL,
+            "Should reject buffer that's too small"
+        );
     }
 }
 
@@ -338,7 +366,10 @@ fn test_keypair_generation() {
         );
 
         // Verify keys are different
-        assert_ne!(public_key, secret_key, "Public and secret keys should be different");
+        assert_ne!(
+            public_key, secret_key,
+            "Public and secret keys should be different"
+        );
     }
 }
 
@@ -350,11 +381,17 @@ fn test_keypair_generation_null_pointers() {
 
         // Test null public key pointer
         let result = usbvault_generate_keypair(std::ptr::null_mut(), secret_key.as_mut_ptr());
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null public key pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null public key pointer"
+        );
 
         // Test null secret key pointer
         let result = usbvault_generate_keypair(public_key.as_mut_ptr(), std::ptr::null_mut());
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null secret key pointer");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null secret key pointer"
+        );
     }
 }
 
@@ -370,10 +407,8 @@ fn test_seal_and_open() {
 
     unsafe {
         // Generate recipient keypair
-        let result = usbvault_generate_keypair(
-            recipient_public.as_mut_ptr(),
-            recipient_secret.as_mut_ptr(),
-        );
+        let result =
+            usbvault_generate_keypair(recipient_public.as_mut_ptr(), recipient_secret.as_mut_ptr());
         assert_eq!(result, ERR_SUCCESS);
 
         // Seal plaintext for recipient
@@ -386,7 +421,10 @@ fn test_seal_and_open() {
             &mut sealed_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Sealing should succeed");
-        assert!(sealed_len > plaintext.len(), "Sealed message should be longer");
+        assert!(
+            sealed_len > plaintext.len(),
+            "Sealed message should be longer"
+        );
 
         // Open the sealed message
         let result = usbvault_open(
@@ -398,10 +436,17 @@ fn test_seal_and_open() {
             &mut opened_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Opening should succeed");
-        assert_eq!(opened_len, plaintext.len(), "Opened length should match plaintext");
+        assert_eq!(
+            opened_len,
+            plaintext.len(),
+            "Opened length should match plaintext"
+        );
 
         let opened_slice = &opened[..opened_len];
-        assert_eq!(opened_slice, plaintext, "Opened message should match original");
+        assert_eq!(
+            opened_slice, plaintext,
+            "Opened message should match original"
+        );
     }
 }
 
@@ -423,7 +468,10 @@ fn test_seal_invalid_recipient_key() {
         );
 
         // Should either succeed (if all-zeros is a valid key) or fail gracefully
-        assert!(result == ERR_SUCCESS || result < 0, "Should handle invalid key gracefully");
+        assert!(
+            result == ERR_SUCCESS || result < 0,
+            "Should handle invalid key gracefully"
+        );
     }
 }
 
@@ -448,7 +496,10 @@ fn test_memory_safety() {
         );
 
         // Should either succeed or fail gracefully
-        assert!(result == ERR_SUCCESS || result < 0, "Should handle empty messages safely");
+        assert!(
+            result == ERR_SUCCESS || result < 0,
+            "Should handle empty messages safely"
+        );
     }
 }
 
@@ -507,7 +558,10 @@ fn test_multiple_sequential_operations() {
         assert_eq!(result, ERR_SUCCESS);
 
         // Different salt should produce different key
-        assert_ne!(first_key, key, "Different salts should produce different keys");
+        assert_ne!(
+            first_key, key,
+            "Different salts should produce different keys"
+        );
     }
 }
 

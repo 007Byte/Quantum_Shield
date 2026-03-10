@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use usbvault_crypto::cipher::{self, CipherId};
 use usbvault_crypto::kdf::{self, derive_subkey};
 use usbvault_crypto::sharing::{self};
-use usbvault_crypto::streaming::{StreamingEncryptor, StreamingDecryptor};
+use usbvault_crypto::streaming::{StreamingDecryptor, StreamingEncryptor};
 
 // ============================================================================
 // PROPERTY TESTS FOR CIPHER ROUNDTRIPS
@@ -224,12 +224,10 @@ proptest! {
 
         let mut encryptor = StreamingEncryptor::new(CipherId::XChaCha20Poly1305, &key);
         if let Ok(encrypted_record) = encryptor.encrypt_record("test.bin", data_bytes) {
-            if let Ok(decryptor) = StreamingDecryptor::new(CipherId::XChaCha20Poly1305, &key) {
-                if let Ok((_filename, decrypted)) = decryptor.decrypt_record(&encrypted_record) {
-                    // PROPERTY: streaming_encrypt(streaming_decrypt(data)) == data
-                    prop_assert_eq!(data_bytes, decrypted.as_slice(),
-                        "Streaming roundtrip failed for XChaCha20");
-                }
+            if let Ok((_filename, decrypted)) = StreamingDecryptor::decrypt_record(CipherId::XChaCha20Poly1305, &key, &encrypted_record) {
+                // PROPERTY: streaming_encrypt(streaming_decrypt(data)) == data
+                prop_assert_eq!(data_bytes, decrypted.as_slice(),
+                    "Streaming roundtrip failed for XChaCha20");
             }
         }
     }
@@ -244,12 +242,10 @@ proptest! {
 
         let mut encryptor = StreamingEncryptor::new(CipherId::Aes256GcmSiv, &key);
         if let Ok(encrypted_record) = encryptor.encrypt_record("test.bin", data_bytes) {
-            if let Ok(decryptor) = StreamingDecryptor::new(CipherId::Aes256GcmSiv, &key) {
-                if let Ok((_filename, decrypted)) = decryptor.decrypt_record(&encrypted_record) {
-                    // PROPERTY: streaming_encrypt(streaming_decrypt(data)) == data
-                    prop_assert_eq!(data_bytes, decrypted.as_slice(),
-                        "Streaming roundtrip failed for AES-256");
-                }
+            if let Ok((_filename, decrypted)) = StreamingDecryptor::decrypt_record(CipherId::Aes256GcmSiv, &key, &encrypted_record) {
+                // PROPERTY: streaming_encrypt(streaming_decrypt(data)) == data
+                prop_assert_eq!(data_bytes, decrypted.as_slice(),
+                    "Streaming roundtrip failed for AES-256");
             }
         }
     }

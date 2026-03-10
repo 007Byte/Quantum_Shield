@@ -17,4 +17,6 @@ pub mod hybrid;
 pub mod ml_kem;
 
 // Re-export main API
-pub use hybrid::{generate_hybrid_keypair, hybrid_seal, hybrid_open, HybridPublicKey, HybridSecretKey};
+pub use hybrid::{
+    generate_hybrid_keypair, hybrid_open, hybrid_seal, HybridPublicKey, HybridSecretKey,
+};

@@ -171,7 +171,7 @@ func TestAttestationService_VerifyPlayIntegrity_ValidToken(t *testing.T) {
 	token := mockPlayIntegrityToken(true)
 	nonce := "test-nonce-123"
 
-	result, err := service.VerifyPlayIntegrity(
+	result, _ := service.VerifyPlayIntegrity(
 		context.Background(),
 		enrollmentID,
 		token,
@@ -196,8 +196,8 @@ func TestAttestationService_EnrollDevice_Success(t *testing.T) {
 		AttestationTTL: 24 * time.Hour,
 	}
 
-	service := NewAttestationService(db, config)
-	enrollmentID := uuid.New()
+	_ = NewAttestationService(db, config)
+	_ = uuid.New()
 
 	result := &AttestationResult{
 		Valid:           true,
@@ -225,8 +225,8 @@ func TestAttestationService_VerifyDevice_AfterEnrollment(t *testing.T) {
 		AttestationTTL: 24 * time.Hour,
 	}
 
-	service := NewAttestationService(db, config)
-	enrollmentID := uuid.New()
+	_ = NewAttestationService(db, config)
+	_ = uuid.New()
 
 	// Simulate attestation after enrollment
 	result := &AttestationResult{
@@ -260,8 +260,8 @@ func TestAttestationService_VerifyAppAttest_ExpiredToken(t *testing.T) {
 		AttestationTTL: 1 * time.Minute,
 	}
 
-	service := NewAttestationService(db, config)
-	enrollmentID := uuid.New()
+	_ = NewAttestationService(db, config)
+	_ = uuid.New()
 
 	// Simulate an old attestation record
 	record := &DeviceAttestationRecord{
@@ -282,7 +282,7 @@ func TestAttestationService_VerifyPlayIntegrity_ExpiredToken(t *testing.T) {
 		AttestationTTL:    1 * time.Minute,
 	}
 
-	service := NewAttestationService(db, config)
+	_ = NewAttestationService(db, config)
 	enrollmentID := uuid.New()
 
 	// Simulate expired integrity token

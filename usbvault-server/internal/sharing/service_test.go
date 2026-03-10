@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestEncodeToBase64_ValidData(t *testing.T) {
@@ -363,17 +366,6 @@ func TestHandleListSentShares_Unauthorized(t *testing.T) {
 }
 
 // TS-012: Share expiration and revocation tests
-
-func TestShareExpirationBoundary(t *testing.T) {
-	t.Run("shares at exact expiration time are considered expired", func(t *testing.T) {
-		// This tests the boundary condition where a share expires
-		// at the exact current time (should be considered expired)
-		exactNow := time.Now()
-
-		// In real implementation, this would test that shares with
-		// ExpiresAt == now are filtered out from ListReceivedShares
-	})
-}
 
 func TestRevokeOtherUserShare(t *testing.T) {
 	t.Run("revoking another user's share returns error", func(t *testing.T) {

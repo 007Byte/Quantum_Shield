@@ -50,10 +50,7 @@ extern "C" {
         out_len: *mut usize,
     ) -> i32;
 
-    fn qav_generate_keypair(
-        public_out: *mut u8,
-        secret_out: *mut u8,
-    ) -> i32;
+    fn qav_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
 
     fn qav_seal(
         recipient_public: *const u8,
@@ -186,7 +183,10 @@ fn test_ffi_encrypt_decrypt_roundtrip_small_payload() {
             &mut ciphertext_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Encryption should succeed");
-        assert!(ciphertext_len > plaintext.len(), "Ciphertext should have overhead");
+        assert!(
+            ciphertext_len > plaintext.len(),
+            "Ciphertext should have overhead"
+        );
 
         // Decrypt
         let result = qav_decrypt(
@@ -200,8 +200,16 @@ fn test_ffi_encrypt_decrypt_roundtrip_small_payload() {
             &mut decrypted_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Decryption should succeed");
-        assert_eq!(decrypted_len, plaintext.len(), "Decrypted length should match");
-        assert_eq!(&decrypted[..decrypted_len], plaintext, "Plaintext should match");
+        assert_eq!(
+            decrypted_len,
+            plaintext.len(),
+            "Decrypted length should match"
+        );
+        assert_eq!(
+            &decrypted[..decrypted_len],
+            plaintext,
+            "Plaintext should match"
+        );
     }
 }
 
@@ -247,7 +255,10 @@ fn test_ffi_encrypt_decrypt_roundtrip_large_payload() {
             ciphertext.len(),
             &mut ciphertext_len,
         );
-        assert_eq!(result, ERR_SUCCESS, "Large payload encryption should succeed");
+        assert_eq!(
+            result, ERR_SUCCESS,
+            "Large payload encryption should succeed"
+        );
 
         // Decrypt
         let result = qav_decrypt(
@@ -260,7 +271,10 @@ fn test_ffi_encrypt_decrypt_roundtrip_large_payload() {
             decrypted.len(),
             &mut decrypted_len,
         );
-        assert_eq!(result, ERR_SUCCESS, "Large payload decryption should succeed");
+        assert_eq!(
+            result, ERR_SUCCESS,
+            "Large payload decryption should succeed"
+        );
         assert_eq!(decrypted_len, plaintext.len());
         assert_eq!(&decrypted[..decrypted_len], &plaintext[..]);
     }
@@ -307,7 +321,10 @@ fn test_ffi_encrypt_decrypt_roundtrip_empty_payload() {
             ciphertext.len(),
             &mut ciphertext_len,
         );
-        assert_eq!(result, ERR_SUCCESS, "Empty payload encryption should succeed");
+        assert_eq!(
+            result, ERR_SUCCESS,
+            "Empty payload encryption should succeed"
+        );
 
         // Decrypt empty message
         let result = qav_decrypt(
@@ -320,8 +337,14 @@ fn test_ffi_encrypt_decrypt_roundtrip_empty_payload() {
             decrypted.len(),
             &mut decrypted_len,
         );
-        assert_eq!(result, ERR_SUCCESS, "Empty payload decryption should succeed");
-        assert_eq!(decrypted_len, 0, "Decrypted empty message should have length 0");
+        assert_eq!(
+            result, ERR_SUCCESS,
+            "Empty payload decryption should succeed"
+        );
+        assert_eq!(
+            decrypted_len, 0,
+            "Decrypted empty message should have length 0"
+        );
     }
 }
 
@@ -591,7 +614,10 @@ fn test_ffi_decrypt_null_ciphertext() {
             decrypted.len(),
             &mut decrypted_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null ciphertext");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null ciphertext"
+        );
     }
 }
 
@@ -611,7 +637,10 @@ fn test_ffi_seal_null_recipient_key() {
             sealed.len(),
             &mut sealed_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null recipient key");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null recipient key"
+        );
     }
 }
 
@@ -674,8 +703,14 @@ fn test_ffi_output_buffer_exact_size() {
             ciphertext_exact.len(),
             &mut ciphertext_len2,
         );
-        assert_eq!(result, ERR_SUCCESS, "Encryption with exact size should succeed");
-        assert_eq!(ciphertext_len2, ciphertext_len, "Output length should be consistent");
+        assert_eq!(
+            result, ERR_SUCCESS,
+            "Encryption with exact size should succeed"
+        );
+        assert_eq!(
+            ciphertext_len2, ciphertext_len,
+            "Output length should be consistent"
+        );
     }
 }
 
@@ -761,11 +796,16 @@ fn test_ffi_output_buffer_oversized() {
             &mut ciphertext_len,
         );
         assert_eq!(result, ERR_SUCCESS, "Oversized buffer should be acceptable");
-        assert!(ciphertext_len <= oversized.len(), "Output should fit in buffer");
+        assert!(
+            ciphertext_len <= oversized.len(),
+            "Output should fit in buffer"
+        );
 
         // Verify unused portions remain unchanged
-        assert!(oversized[ciphertext_len..].iter().all(|&b| b == 0xFFu8),
-                "Unused buffer should remain unchanged");
+        assert!(
+            oversized[ciphertext_len..].iter().all(|&b| b == 0xFFu8),
+            "Unused buffer should remain unchanged"
+        );
     }
 }
 
@@ -993,10 +1033,8 @@ fn test_ffi_concurrent_keypair_generation() {
                 let mut secret_key = [0u8; 32];
 
                 unsafe {
-                    let result = qav_generate_keypair(
-                        public_key.as_mut_ptr(),
-                        secret_key.as_mut_ptr(),
-                    );
+                    let result =
+                        qav_generate_keypair(public_key.as_mut_ptr(), secret_key.as_mut_ptr());
                     assert_eq!(result, ERR_SUCCESS);
 
                     // Verify keys are valid
@@ -1057,7 +1095,10 @@ fn test_ffi_error_invalid_salt_length() {
             key.as_mut_ptr(),
             &mut key_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should return ERR_INVALID_ARGUMENT");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should return ERR_INVALID_ARGUMENT"
+        );
     }
 }
 
@@ -1338,7 +1379,10 @@ fn test_pqc_null_pointer_handling() {
             sealed.len(),
             &mut sealed_len,
         );
-        assert_eq!(result, ERR_INVALID_ARGUMENT, "Should reject null x25519 pub");
+        assert_eq!(
+            result, ERR_INVALID_ARGUMENT,
+            "Should reject null x25519 pub"
+        );
 
         // Test null mlkem public key in seal
         let result = qav_pqc_seal(
@@ -1626,6 +1670,9 @@ fn test_ffi_multiple_cipher_algorithms() {
         assert_eq!(&decrypted2[..decrypted2_len], plaintext);
 
         // Verify different algorithms produce different ciphertexts for same plaintext
-        assert_ne!(&ciphertext1[..ciphertext1_len], &ciphertext2[..ciphertext2_len]);
+        assert_ne!(
+            &ciphertext1[..ciphertext1_len],
+            &ciphertext2[..ciphertext2_len]
+        );
     }
 }

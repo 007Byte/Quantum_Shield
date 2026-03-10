@@ -50,9 +50,10 @@ func TestGenerateBackupCodesProducesUniqueValidCodes(t *testing.T) {
 func TestHashBackupCodeGeneratesConsistentHash(t *testing.T) {
 	t.Run("backup code hashing is consistent", func(t *testing.T) {
 		code := "ABC12345"
+		salt := "test-salt"
 
-		hash1 := hashBackupCode(code)
-		hash2 := hashBackupCode(code)
+		hash1 := hashBackupCode(code, salt)
+		hash2 := hashBackupCode(code, salt)
 
 		if hash1 != hash2 {
 			t.Errorf("hashing should be deterministic, got different hashes: %s vs %s", hash1, hash2)
@@ -75,11 +76,12 @@ func TestHashBackupCodeGeneratesConsistentHash(t *testing.T) {
 func TestHashBackupCodeIsDifferentForDifferentInputs(t *testing.T) {
 	t.Run("different codes produce different hashes", func(t *testing.T) {
 		codes := []string{"ABC12345", "XYZ98765", "TESTCODE"}
+		salt := "test-salt"
 
 		hashes := make(map[string]string)
 
 		for _, code := range codes {
-			hash := hashBackupCode(code)
+			hash := hashBackupCode(code, salt)
 			if existing, ok := hashes[code]; ok {
 				t.Errorf("code %s produced different hash on second call: %s vs %s", code, existing, hash)
 			}
@@ -101,11 +103,12 @@ func TestBackupCodeVerificationWithValidCode(t *testing.T) {
 			t.Fatalf("failed to generate code: %v", err)
 		}
 
+		salt := "test-salt"
 		code := codes[0]
-		hash := hashBackupCode(code)
+		hash := hashBackupCode(code, salt)
 
 		// Verify the hash matches when we hash the same code
-		reverifyHash := hashBackupCode(code)
+		reverifyHash := hashBackupCode(code, salt)
 		if hash != reverifyHash {
 			t.Errorf("hash verification failed: %s != %s", hash, reverifyHash)
 		}

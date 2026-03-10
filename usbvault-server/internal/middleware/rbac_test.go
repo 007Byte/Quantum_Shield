@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	auth "github.com/qav/qav-server/internal/auth"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
 )
 
 // MockRBACService implements a mock RBAC service for testing

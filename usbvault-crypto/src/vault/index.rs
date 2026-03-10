@@ -50,9 +50,19 @@ impl VaultIndex {
         let legacy: HashMap<String, u64> =
             serde_json::from_slice(data).map_err(|_| CryptoError::SerializationError)?;
 
-        let files = legacy.into_iter().map(|(name, offset)| {
-            (name, FileEntry { offset, encrypted_file_key: None, version: 0 })
-        }).collect();
+        let files = legacy
+            .into_iter()
+            .map(|(name, offset)| {
+                (
+                    name,
+                    FileEntry {
+                        offset,
+                        encrypted_file_key: None,
+                        version: 0,
+                    },
+                )
+            })
+            .collect();
 
         Ok(VaultIndex { files })
     }
@@ -65,7 +75,10 @@ impl VaultIndex {
     /// Encrypt the index using a key derived from the master key
     /// Returns: nonce(24) || ciphertext || tag(16)
     pub fn encrypt(&self, master_key: &[u8; 32]) -> Result<Vec<u8>> {
-        use chacha20poly1305::{XChaCha20Poly1305, aead::{Aead, KeyInit}};
+        use chacha20poly1305::{
+            aead::{Aead, KeyInit},
+            XChaCha20Poly1305,
+        };
         use generic_array::GenericArray;
         use rand::Rng;
 
@@ -90,7 +103,10 @@ impl VaultIndex {
 
     /// Decrypt an encrypted index blob
     pub fn decrypt(master_key: &[u8; 32], encrypted: &[u8]) -> Result<Self> {
-        use chacha20poly1305::{XChaCha20Poly1305, aead::{Aead, KeyInit}};
+        use chacha20poly1305::{
+            aead::{Aead, KeyInit},
+            XChaCha20Poly1305,
+        };
         use generic_array::GenericArray;
 
         if encrypted.len() < 24 + 16 {
@@ -122,19 +138,48 @@ impl VaultIndex {
 
     /// Insert or update a file entry (version starts at 1 for new entries)
     pub fn insert(&mut self, filename: String, offset: u64) {
-        let version = self.files.get(&filename).map(|e| e.version + 1).unwrap_or(1);
-        self.files.insert(filename, FileEntry { offset, encrypted_file_key: None, version });
+        let version = self
+            .files
+            .get(&filename)
+            .map(|e| e.version + 1)
+            .unwrap_or(1);
+        self.files.insert(
+            filename,
+            FileEntry {
+                offset,
+                encrypted_file_key: None,
+                version,
+            },
+        );
     }
 
     /// Insert or update a file entry with an encrypted per-file key
     pub fn insert_with_key(&mut self, filename: String, offset: u64, encrypted_file_key: Vec<u8>) {
-        let version = self.files.get(&filename).map(|e| e.version + 1).unwrap_or(1);
-        self.files.insert(filename, FileEntry { offset, encrypted_file_key: Some(encrypted_file_key), version });
+        let version = self
+            .files
+            .get(&filename)
+            .map(|e| e.version + 1)
+            .unwrap_or(1);
+        self.files.insert(
+            filename,
+            FileEntry {
+                offset,
+                encrypted_file_key: Some(encrypted_file_key),
+                version,
+            },
+        );
     }
 
     /// SG-012: Insert with explicit version (used during sync/migration)
     pub fn insert_with_version(&mut self, filename: String, offset: u64, version: u64) {
-        self.files.insert(filename, FileEntry { offset, encrypted_file_key: None, version });
+        self.files.insert(
+            filename,
+            FileEntry {
+                offset,
+                encrypted_file_key: None,
+                version,
+            },
+        );
     }
 
     /// SG-012: Validate that an incoming file entry does not roll back the version.
@@ -224,7 +269,11 @@ mod tests {
         assert_eq!(index.lookup("file1.txt"), Some(1000));
         assert_eq!(index.lookup("file2.txt"), Some(2000));
         // Legacy entries should have no per-file key
-        assert!(index.lookup_entry("file1.txt").unwrap().encrypted_file_key.is_none());
+        assert!(index
+            .lookup_entry("file1.txt")
+            .unwrap()
+            .encrypted_file_key
+            .is_none());
     }
 
     #[test]
@@ -243,7 +292,11 @@ mod tests {
         let decrypted = VaultIndex::decrypt(&master_key, &encrypted).expect("Decryption failed");
         assert_eq!(decrypted.lookup("secret_file.txt"), Some(4096));
         assert_eq!(decrypted.lookup("encrypted_file.bin"), Some(8192));
-        assert!(decrypted.lookup_entry("encrypted_file.bin").unwrap().encrypted_file_key.is_some());
+        assert!(decrypted
+            .lookup_entry("encrypted_file.bin")
+            .unwrap()
+            .encrypted_file_key
+            .is_some());
     }
 
     #[test]

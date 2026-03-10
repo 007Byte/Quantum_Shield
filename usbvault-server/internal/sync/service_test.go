@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -47,8 +46,7 @@ func TestPublishSyncEvent(t *testing.T) {
 
 	t.Run("publishes sync event with valid user ID", func(t *testing.T) {
 		mockRedis := redis.NewClient(&redis.Options{})
-		svc := NewSyncService(mockRedis)
-		ctx := context.Background()
+		_ = NewSyncService(mockRedis)
 
 		event := SyncEvent{
 			EventType:     "FILE_ADDED",
@@ -97,8 +95,7 @@ func TestBroadcastSyncEvent(t *testing.T) {
 
 	t.Run("sets ID on event", func(t *testing.T) {
 		mockRedis := redis.NewClient(&redis.Options{})
-		svc := NewSyncService(mockRedis)
-		ctx := context.Background()
+		_ = NewSyncService(mockRedis)
 
 		event := SyncEvent{
 			EventType:     "VAULT_UPDATED",
@@ -134,8 +131,7 @@ func TestBroadcastSyncEvent(t *testing.T) {
 
 	t.Run("broadcasts event via redis pubsub", func(t *testing.T) {
 		mockRedis := redis.NewClient(&redis.Options{})
-		svc := NewSyncService(mockRedis)
-		ctx := context.Background()
+		_ = NewSyncService(mockRedis)
 
 		event := SyncEvent{
 			EventType: "FILE_MODIFIED",
@@ -175,7 +171,7 @@ func TestHandleWebSocket(t *testing.T) {
 	t.Run("accepts authenticated user connection", func(t *testing.T) {
 		mockRedis := redis.NewClient(&redis.Options{})
 		svc := NewSyncService(mockRedis)
-		handler := svc.HandleWebSocket(svc)
+		_ = svc.HandleWebSocket(svc)
 
 		req := httptest.NewRequest("GET", "/ws", nil)
 		ctx := context.WithValue(req.Context(), "user_id", "user-123")

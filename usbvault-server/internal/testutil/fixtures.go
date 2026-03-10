@@ -39,5 +39,5 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 
 // GenerateTestID creates a unique test identifier
 func GenerateTestID(prefix string) string {
-	return fmt.Sprintf("%s_test_%d", prefix, testing.AllocsPerRun(1, func() {}))
+	return fmt.Sprintf("%s_test_%f", prefix, testing.AllocsPerRun(1, func() {}))
 }
