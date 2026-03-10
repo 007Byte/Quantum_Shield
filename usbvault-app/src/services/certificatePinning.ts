@@ -3,6 +3,8 @@
  * TODO: Implement certificate pinning for API connections.
  */
 
+import { logger } from '@/utils/logger';
+
 export interface PinConfig {
   hostname: string;
   pins: string[];
@@ -173,7 +175,7 @@ export function updatePinsForHostname(
   };
 
   _runtimePins.set(hostname, updated);
-  console.log(`Updated certificate pins for ${hostname}`);
+  logger.debug(`Updated certificate pins for ${hostname}`);
 }
 
 /**
@@ -191,7 +193,7 @@ export function initializeCertificatePinning(): {
       validationResult.errors,
     );
   } else {
-    console.log('Certificate pinning initialized successfully');
+    logger.debug('Certificate pinning initialized successfully');
   }
 
   return {
