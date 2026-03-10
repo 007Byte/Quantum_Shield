@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
-	"github.com/qav/qav-server/internal/config"
+	"github.com/usbvault/usbvault-server/internal/config"
 )
 
 type FIDO2ChallengeRequest struct {

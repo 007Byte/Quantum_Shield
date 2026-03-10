@@ -2,24 +2,18 @@
 
 #[cfg(target_os = "android")]
 pub mod platform {
-    use jni::JNIEnv;
     use jni::objects::JClass;
+    use jni::JNIEnv;
 
     /// JNI initialization
     #[no_mangle]
-    pub extern "C" fn Java_com_qav_crypto_CryptoLib_init(
-        _env: JNIEnv,
-        _class: JClass,
-    ) {
+    pub extern "C" fn Java_com_qav_crypto_CryptoLib_init(_env: JNIEnv, _class: JClass) {
         // JNI init
     }
 
     /// JNI key derivation wrapper
     #[no_mangle]
-    pub extern "C" fn Java_com_qav_crypto_CryptoLib_deriveKey(
-        _env: JNIEnv,
-        _class: JClass,
-    ) {
+    pub extern "C" fn Java_com_qav_crypto_CryptoLib_deriveKey(_env: JNIEnv, _class: JClass) {
         // JNI key derivation
     }
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
-	auth "github.com/qav/qav-server/internal/auth"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
 )
 
 // ListMembersResponse contains a list of vault members

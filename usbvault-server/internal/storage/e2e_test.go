@@ -42,7 +42,7 @@ type testEncryptionParams struct {
 
 // deriveKeyArgon2id derives a 32-byte key using Argon2id
 func deriveKeyArgon2id(password string, salt []byte, time, memory, threads, keylen uint32) []byte {
-	return argon2.IDKey([]byte(password), salt, time, memory, threads, keylen)
+	return argon2.IDKey([]byte(password), salt, time, memory, uint8(threads), keylen)
 }
 
 // encryptXChaCha20Poly1305 encrypts plaintext with XChaCha20-Poly1305

@@ -134,8 +134,8 @@ pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<MasterKey> {
     // Argon2id with 64MB memory, 3 iterations, 4 lanes
     // Note: Parameters::new(m_cost, t_cost, p_cost, output_len)
     // m_cost in KiB, t_cost is iterations, p_cost is parallelism
-    let params = argon2::Params::new(65536, 3, 4, Some(64))
-        .map_err(|_| CryptoError::KeyDerivationFailed)?;
+    let params =
+        argon2::Params::new(65536, 3, 4, Some(64)).map_err(|_| CryptoError::KeyDerivationFailed)?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::default(), params);
 
     let salt_str = SaltString::encode_b64(salt).map_err(|_| CryptoError::KeyDerivationFailed)?;
@@ -146,9 +146,7 @@ pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<MasterKey> {
         .map_err(|_| CryptoError::KeyDerivationFailed)?;
 
     // Extract the raw hash (64 bytes for Argon2id)
-    let hash = output
-        .hash
-        .ok_or(CryptoError::KeyDerivationFailed)?;
+    let hash = output.hash.ok_or(CryptoError::KeyDerivationFailed)?;
     let hash_bytes = hash.as_bytes();
 
     if hash_bytes.len() < 64 {
@@ -200,8 +198,8 @@ pub fn derive_kek(password: &[u8], salt: &[u8]) -> Result<KeyEncryptionKey> {
         return Err(CryptoError::InvalidArgument);
     }
 
-    let params = argon2::Params::new(65536, 3, 4, Some(32))
-        .map_err(|_| CryptoError::KeyDerivationFailed)?;
+    let params =
+        argon2::Params::new(65536, 3, 4, Some(32)).map_err(|_| CryptoError::KeyDerivationFailed)?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::default(), params);
 
     let salt_str = SaltString::encode_b64(salt).map_err(|_| CryptoError::KeyDerivationFailed)?;
@@ -225,7 +223,10 @@ pub fn derive_kek(password: &[u8], salt: &[u8]) -> Result<KeyEncryptionKey> {
 
 /// Wrap (encrypt) a MEK with the KEK using XChaCha20-Poly1305
 pub fn wrap_mek(kek: &KeyEncryptionKey, mek: &MasterEncryptionKey) -> Result<Vec<u8>> {
-    use chacha20poly1305::{XChaCha20Poly1305, aead::{Aead, KeyInit}};
+    use chacha20poly1305::{
+        aead::{Aead, KeyInit},
+        XChaCha20Poly1305,
+    };
     use generic_array::GenericArray;
 
     let mut nonce = [0u8; 24];
@@ -248,7 +249,10 @@ pub fn wrap_mek(kek: &KeyEncryptionKey, mek: &MasterEncryptionKey) -> Result<Vec
 
 /// Unwrap (decrypt) a MEK from the wrapped blob using the KEK
 pub fn unwrap_mek(kek: &KeyEncryptionKey, wrapped: &[u8]) -> Result<MasterEncryptionKey> {
-    use chacha20poly1305::{XChaCha20Poly1305, aead::{Aead, KeyInit}};
+    use chacha20poly1305::{
+        aead::{Aead, KeyInit},
+        XChaCha20Poly1305,
+    };
     use generic_array::GenericArray;
 
     if wrapped.len() < WRAPPED_MEK_SIZE {

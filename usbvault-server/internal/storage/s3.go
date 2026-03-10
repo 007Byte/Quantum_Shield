@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
-	"github.com/qav/qav-server/internal/config"
+	"github.com/usbvault/usbvault-server/internal/config"
 )
 
 // DV-010 FIX: Validate S3 key components to prevent path traversal

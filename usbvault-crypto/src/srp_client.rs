@@ -5,17 +5,17 @@
 
 use crate::error::{CryptoError, Result};
 use crate::kdf;
+use num_bigint::BigUint;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
-use zeroize::Zeroizing;
-use num_bigint::BigUint;
 use subtle::ConstantTimeEq;
+use zeroize::Zeroizing;
 
 /// SRP constants from RFC 7919 (3072-bit MODP group)
 mod srp_params {
-    use once_cell::sync::Lazy;
     use num_bigint::BigUint;
+    use once_cell::sync::Lazy;
 
     /// N = prime modulus for 3072-bit group (RFC 7919)
     pub static N_HEX: &str = "FFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C583CE2D3695A9E13641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC4617A2CA2F5C0A853179A7E8D7F456B6A586B67B7A52DED7FBEA15045AF2FA6FFFFCA0F8B0B8CD88BB88BAD6CDAFFD70E5B1DCE8D8C60FA48E73A3D08B87E2D0E85AC9EC58F1B5B7A537A0FFF7E32B1F7DAC4E3B40D82F32F4DD6C17F89CEE94D8B8A5BA95E1DB0C1C6EF5C0F1B54629E2DB79D6B7F0B0D56FAA71EECF5BA96A9B4BEAB4A0D5F6C3A7D8C8D8E5F7B9A3C5D7E9F1B3D5E7F9B1C3D5E7F900";
@@ -209,7 +209,9 @@ impl SrpClientSession {
 
         // Validate B: B must not be zero mod N
         if b == BigUint::from(0u32) || &b % &n == BigUint::from(0u32) {
-            return Err(CryptoError::SrpError("Invalid server public key B".to_string()));
+            return Err(CryptoError::SrpError(
+                "Invalid server public key B".to_string(),
+            ));
         }
 
         // Compute u = H(PAD(A) || PAD(B))
@@ -285,7 +287,9 @@ impl SrpClientSession {
 
         // Compare constant-time - verify length first, then content
         if server_m2.len() != 32 {
-            return Err(CryptoError::SrpError("Server proof verification failed".to_string()));
+            return Err(CryptoError::SrpError(
+                "Server proof verification failed".to_string(),
+            ));
         }
 
         let mut expected_m2_array = [0u8; 32];
@@ -297,13 +301,20 @@ impl SrpClientSession {
         if expected_m2_array.ct_eq(&server_m2_array).unwrap_u8() != 0 {
             Ok(())
         } else {
-            Err(CryptoError::SrpError("Server proof verification failed".to_string()))
+            Err(CryptoError::SrpError(
+                "Server proof verification failed".to_string(),
+            ))
         }
     }
 
     /// Get the session key (only valid after successful challenge processing)
     pub fn session_key(&self) -> &[u8] {
         self.session_key.as_slice()
+    }
+
+    /// Get the client proof M1 (for testing verification)
+    pub fn client_proof_m1(&self) -> &[u8] {
+        self.client_proof_m1.as_slice()
     }
 }
 
@@ -321,7 +332,9 @@ mod tests {
     fn test_compute_verifier() {
         let client = SrpClient::new("alice", b"password123");
         let salt = [0x42u8; 32];
-        let verifier = client.compute_verifier(&salt).expect("Verifier computation failed");
+        let verifier = client
+            .compute_verifier(&salt)
+            .expect("Verifier computation failed");
         assert!(!verifier.is_empty());
         // Verifier should be a valid BigUint (3072-bit = 384 bytes)
         assert!(verifier.len() > 0);
@@ -343,7 +356,9 @@ mod tests {
         let salt = [0x42u8; 32];
 
         // Registration: compute verifier
-        let verifier = client.compute_verifier(&salt).expect("Verifier computation failed");
+        let verifier = client
+            .compute_verifier(&salt)
+            .expect("Verifier computation failed");
         assert!(!verifier.is_empty());
 
         // Authentication: start

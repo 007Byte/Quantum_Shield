@@ -26,18 +26,18 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	auth "github.com/qav/qav-server/internal/auth"
-	mw "github.com/qav/qav-server/internal/middleware"
-	"github.com/qav/qav-server/internal/metrics"
-	"github.com/qav/qav-server/internal/notify"
-	"github.com/qav/qav-server/internal/resilience"
-	sharing "github.com/qav/qav-server/internal/sharing"
-	storagepkg "github.com/qav/qav-server/internal/storage"
-	"github.com/qav/qav-server/internal/sync"
-	auditpkg "github.com/qav/qav-server/internal/audit"
-	billingpkg "github.com/qav/qav-server/internal/billing"
-	"github.com/qav/qav-server/internal/tracing"
-	"github.com/qav/qav-server/internal/vault"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
+	mw "github.com/usbvault/usbvault-server/internal/middleware"
+	"github.com/usbvault/usbvault-server/internal/metrics"
+	"github.com/usbvault/usbvault-server/internal/notify"
+	"github.com/usbvault/usbvault-server/internal/resilience"
+	sharing "github.com/usbvault/usbvault-server/internal/sharing"
+	storagepkg "github.com/usbvault/usbvault-server/internal/storage"
+	"github.com/usbvault/usbvault-server/internal/sync"
+	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
+	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
+	"github.com/usbvault/usbvault-server/internal/tracing"
+	"github.com/usbvault/usbvault-server/internal/vault"
 )
 
 func main() {
@@ -204,7 +204,7 @@ func main() {
 	lockoutService := auth.NewAccountLockoutService(redisClient)
 	rbacService := auth.NewRBACService(dbPool)
 	// PH5-FIX: Initialize key rotation service for vault
-	keyRotationService := vault.NewKeyRotationService(dbPool, auditService)
+	vaultKeyRotationService := vault.NewKeyRotationService(dbPool, auditService)
 	// PH6-FIX: Initialize anomaly detection and compliance services
 	anomalyDetectionService := auditpkg.NewAnomalyDetectionService(dbPool)
 	complianceService := auditpkg.NewComplianceService(dbPool)
@@ -376,8 +376,8 @@ func main() {
 			})
 
 			// PH5-FIX: Key rotation routes
-			r.With(mw.VaultOwnerOnly(rbacService)).Post("/{vaultID}/rotate", vault.HandleInitiateKeyRotation(keyRotationService))
-			r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/{vaultID}/rotation-status", vault.HandleGetRotationStatus(keyRotationService))
+			r.With(mw.VaultOwnerOnly(rbacService)).Post("/{vaultID}/rotate", vault.HandleInitiateKeyRotation(vaultKeyRotationService))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/{vaultID}/rotation-status", vault.HandleGetRotationStatus(vaultKeyRotationService))
 		})
 
 		// Sharing routes (authenticated)

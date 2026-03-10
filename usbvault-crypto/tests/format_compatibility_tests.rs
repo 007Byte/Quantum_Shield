@@ -37,12 +37,19 @@ fn test_v2_header_magic_bytes() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
 
     // V2 magic bytes at offset 0-8
-    assert_eq!(&bytes[0..8], b"USBVLT02", "V2 header magic must be 'USBVLT02'");
+    assert_eq!(
+        &bytes[0..8],
+        b"USBVLT02",
+        "V2 header magic must be 'USBVLT02'"
+    );
 }
 
 #[test]
@@ -68,12 +75,19 @@ fn test_v3_header_magic_bytes() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
 
     // V3 magic bytes at offset 0-8
-    assert_eq!(&bytes[0..8], b"USBVLT03", "V3 header magic must be 'USBVLT03'");
+    assert_eq!(
+        &bytes[0..8],
+        b"USBVLT03",
+        "V3 header magic must be 'USBVLT03'"
+    );
 }
 
 #[test]
@@ -99,6 +113,9 @@ fn test_v2_header_size_is_4096() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
@@ -128,6 +145,9 @@ fn test_v3_header_size_is_16384() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
@@ -159,6 +179,9 @@ fn test_v2_header_salt_offset_20() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
@@ -190,6 +213,9 @@ fn test_v2_header_kdf_at_offset_8() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
@@ -221,6 +247,9 @@ fn test_v2_header_cipher_id_at_offset_9() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header.write();
@@ -237,7 +266,8 @@ fn test_v2_header_cipher_id_at_offset_9() {
 fn test_v2rc_record_magic_bytes() {
     // V2RC record magic must be "V2RC"
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
@@ -250,7 +280,8 @@ fn test_v2rc_record_magic_bytes() {
 fn test_v2rc_record_format_version_byte() {
     // V2RC format version must be 0x02 at offset 4
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
@@ -263,13 +294,17 @@ fn test_v2rc_record_format_version_byte() {
 fn test_v2rc_record_base_nonce_24_bytes() {
     // V2RC base nonce must be 24 bytes at offset 5-29
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
 
     // Check that nonce region exists (5 + 24 = 29)
-    assert!(record.len() >= 29, "V2RC record must have at least magic(4) + version(1) + nonce(24) = 29 bytes");
+    assert!(
+        record.len() >= 29,
+        "V2RC record must have at least magic(4) + version(1) + nonce(24) = 29 bytes"
+    );
 
     // Extract nonce (should be 24 bytes of random data, non-zero)
     let nonce = &record[5..29];
@@ -280,14 +315,18 @@ fn test_v2rc_record_base_nonce_24_bytes() {
 fn test_v2rc_record_has_length_prefixed_chunks() {
     // After base nonce, chunks have 4-byte LE length headers
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
 
     // Structure: magic(4) + version(1) + nonce(24) + chunks + hmac(32)
     let header_size = 4 + 1 + 24; // 29
-    assert!(record.len() >= header_size + 4 + 32, "Record must have space for at least one chunk with length header and final HMAC");
+    assert!(
+        record.len() >= header_size + 4 + 32,
+        "Record must have space for at least one chunk with length header and final HMAC"
+    );
 
     // Read first length header (at offset 29, 4 bytes LE)
     if record.len() >= header_size + 4 {
@@ -300,7 +339,10 @@ fn test_v2rc_record_has_length_prefixed_chunks() {
 
         // Chunk length should be reasonable
         assert!(chunk_len > 0, "Metadata chunk should have non-zero length");
-        assert!(chunk_len < 100_000, "Chunk length should be reasonable for small test data");
+        assert!(
+            chunk_len < 100_000,
+            "Chunk length should be reasonable for small test data"
+        );
     }
 }
 
@@ -308,13 +350,17 @@ fn test_v2rc_record_has_length_prefixed_chunks() {
 fn test_v2rc_record_final_hmac_32_bytes() {
     // V2RC records end with 32-byte HMAC-SHA256
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
 
     // Record must be at least: magic(4) + version(1) + nonce(24) + min_chunk(4+16) + hmac(32)
-    assert!(record.len() >= 29 + 4 + 16 + 32, "Record must be large enough for header, min chunk, and HMAC");
+    assert!(
+        record.len() >= 29 + 4 + 16 + 32,
+        "Record must be large enough for header, min chunk, and HMAC"
+    );
 
     // Last 32 bytes should be HMAC
     let _hmac = &record[record.len() - 32..];
@@ -333,7 +379,8 @@ fn test_v2rc_record_chunk_size_is_65536() {
 fn test_v2rc_record_large_file_multiple_chunks() {
     // Large files should produce multiple chunks
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
 
     // Create 200KB file (should span multiple 65KB chunks)
     let large_data = vec![0x55u8; 200_000];
@@ -346,7 +393,8 @@ fn test_v2rc_record_large_file_multiple_chunks() {
         cipher::CipherId::XChaCha20Poly1305,
         &key,
         &record,
-    ).expect("Decryption failed");
+    )
+    .expect("Decryption failed");
 
     assert_eq!(recovered_name, "large.bin");
     assert_eq!(recovered_data.len(), 200_000);
@@ -402,6 +450,9 @@ fn test_cipher_dispatch_in_header() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     let bytes = header_xchacha.write();
@@ -447,6 +498,9 @@ fn test_kdf_memory_parameter_65536() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     assert_eq!(header.argon2_memory, 65536, "Memory cost must be 65536 KiB");
@@ -475,6 +529,9 @@ fn test_kdf_time_parameter_3_iterations() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     assert_eq!(header.argon2_time, 3, "Time cost must be 3");
@@ -503,6 +560,9 @@ fn test_kdf_parallelism_parameter_4_lanes() {
         identity_block: None,
         tfa_block: None,
         fail_counter_block: None,
+        index_encrypted: false,
+        state_version: 0,
+        wrapped_mek: None,
     };
 
     assert_eq!(header.argon2_parallelism, 4, "Parallelism must be 4");
@@ -515,13 +575,21 @@ fn test_kdf_parallelism_parameter_4_lanes() {
 #[test]
 fn test_nonce_size_xchacha20_is_24_bytes() {
     let cipher_id = cipher::CipherId::XChaCha20Poly1305;
-    assert_eq!(cipher_id.nonce_size(), 24, "XChaCha20 nonce must be 24 bytes");
+    assert_eq!(
+        cipher_id.nonce_size(),
+        24,
+        "XChaCha20 nonce must be 24 bytes"
+    );
 }
 
 #[test]
 fn test_nonce_size_aes256_gcm_siv_is_12_bytes() {
     let cipher_id = cipher::CipherId::Aes256GcmSiv;
-    assert_eq!(cipher_id.nonce_size(), 12, "AES-256-GCM-SIV nonce must be 12 bytes");
+    assert_eq!(
+        cipher_id.nonce_size(),
+        12,
+        "AES-256-GCM-SIV nonce must be 12 bytes"
+    );
 }
 
 #[test]
@@ -531,7 +599,11 @@ fn test_tag_size_both_ciphers_16_bytes() {
     let aes256 = cipher::CipherId::Aes256GcmSiv;
 
     assert_eq!(xchacha.tag_size(), 16, "XChaCha20 tag must be 16 bytes");
-    assert_eq!(aes256.tag_size(), 16, "AES-256-GCM-SIV tag must be 16 bytes");
+    assert_eq!(
+        aes256.tag_size(),
+        16,
+        "AES-256-GCM-SIV tag must be 16 bytes"
+    );
 }
 
 #[test]
@@ -549,7 +621,10 @@ fn test_xchacha20_encryption_includes_24_byte_nonce() {
     // First 24 bytes should be nonce
     let nonce = &ciphertext[0..24];
     // Nonce should have some entropy (not all zeros)
-    assert!(nonce.iter().any(|&b| b != 0), "Nonce should contain random data");
+    assert!(
+        nonce.iter().any(|&b| b != 0),
+        "Nonce should contain random data"
+    );
 }
 
 #[test]
@@ -567,7 +642,10 @@ fn test_aes256_gcm_siv_encryption_includes_12_byte_nonce() {
     // First 12 bytes should be nonce
     let nonce = &ciphertext[0..12];
     // Nonce should have some entropy (not all zeros)
-    assert!(nonce.iter().any(|&b| b != 0), "Nonce should contain random data");
+    assert!(
+        nonce.iter().any(|&b| b != 0),
+        "Nonce should contain random data"
+    );
 }
 
 // ============================================================================
@@ -577,7 +655,8 @@ fn test_aes256_gcm_siv_encryption_includes_12_byte_nonce() {
 #[test]
 fn test_streaming_with_xchacha20_format() {
     let key = [0x42u8; 32];
-    let mut encryptor = streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
     let record = encryptor
         .encrypt_record("test.txt", b"data")
         .expect("Encryption failed");
@@ -587,7 +666,8 @@ fn test_streaming_with_xchacha20_format() {
         cipher::CipherId::XChaCha20Poly1305,
         &key,
         &record,
-    ).expect("Decryption failed");
+    )
+    .expect("Decryption failed");
 
     assert_eq!(name, "test.txt");
     assert_eq!(data, b"data");
@@ -606,7 +686,8 @@ fn test_streaming_with_aes256_format() {
         cipher::CipherId::Aes256GcmSiv,
         &key,
         &record,
-    ).expect("Decryption failed");
+    )
+    .expect("Decryption failed");
 
     assert_eq!(name, "test.txt");
     assert_eq!(data, b"data");

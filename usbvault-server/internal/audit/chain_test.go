@@ -340,19 +340,6 @@ func TestChainWithDifferentActionTypes(t *testing.T) {
 	})
 }
 
-// Helper function to compare byte slices
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func TestHashImmutability(t *testing.T) {
 	t.Run("hash is immutable once computed", func(t *testing.T) {
 		entry := &MockAuditEntry{

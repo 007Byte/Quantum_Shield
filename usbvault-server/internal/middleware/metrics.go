@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/qav/qav-server/internal/metrics"
+	"github.com/usbvault/usbvault-server/internal/metrics"
 )
 
 // MetricsMiddleware records HTTP metrics for Prometheus scraping

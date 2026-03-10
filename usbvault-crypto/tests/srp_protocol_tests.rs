@@ -9,8 +9,8 @@
 //! - Ephemeral key randomness
 //! - RFC 5054 group parameters
 
-use usbvault_crypto::srp_client::{SrpClient, SrpClientSession};
 use num_bigint::BigUint;
+use usbvault_crypto::srp_client::{SrpClient, SrpClientSession};
 
 // Helper module for simulating server-side SRP operations
 mod srp_server {
@@ -83,12 +83,8 @@ fn test_verifier_deterministic() {
     let client2 = SrpClient::new("alice", b"password123");
     let salt = [0x42u8; 32];
 
-    let v1 = client1
-        .compute_verifier(&salt)
-        .expect("Verifier 1 failed");
-    let v2 = client2
-        .compute_verifier(&salt)
-        .expect("Verifier 2 failed");
+    let v1 = client1.compute_verifier(&salt).expect("Verifier 1 failed");
+    let v2 = client2.compute_verifier(&salt).expect("Verifier 2 failed");
 
     assert_eq!(v1, v2, "Same password+salt must produce identical verifier");
 }
@@ -100,14 +96,13 @@ fn test_verifier_different_passwords() {
     let client2 = SrpClient::new("alice", b"password456");
     let salt = [0x42u8; 32];
 
-    let v1 = client1
-        .compute_verifier(&salt)
-        .expect("Verifier 1 failed");
-    let v2 = client2
-        .compute_verifier(&salt)
-        .expect("Verifier 2 failed");
+    let v1 = client1.compute_verifier(&salt).expect("Verifier 1 failed");
+    let v2 = client2.compute_verifier(&salt).expect("Verifier 2 failed");
 
-    assert_ne!(v1, v2, "Different passwords must produce different verifiers");
+    assert_ne!(
+        v1, v2,
+        "Different passwords must produce different verifiers"
+    );
 }
 
 #[test]
@@ -117,12 +112,8 @@ fn test_verifier_different_salts() {
     let salt1 = [0x42u8; 32];
     let salt2 = [0x99u8; 32];
 
-    let v1 = client
-        .compute_verifier(&salt1)
-        .expect("Verifier 1 failed");
-    let v2 = client
-        .compute_verifier(&salt2)
-        .expect("Verifier 2 failed");
+    let v1 = client.compute_verifier(&salt1).expect("Verifier 1 failed");
+    let v2 = client.compute_verifier(&salt2).expect("Verifier 2 failed");
 
     assert_ne!(v1, v2, "Different salts must produce different verifiers");
 }
@@ -134,14 +125,13 @@ fn test_verifier_different_usernames() {
     let client2 = SrpClient::new("bob", b"password123");
     let salt = [0x42u8; 32];
 
-    let v1 = client1
-        .compute_verifier(&salt)
-        .expect("Verifier 1 failed");
-    let v2 = client2
-        .compute_verifier(&salt)
-        .expect("Verifier 2 failed");
+    let v1 = client1.compute_verifier(&salt).expect("Verifier 1 failed");
+    let v2 = client2.compute_verifier(&salt).expect("Verifier 2 failed");
 
-    assert_ne!(v1, v2, "Different usernames must produce different verifiers");
+    assert_ne!(
+        v1, v2,
+        "Different usernames must produce different verifiers"
+    );
 }
 
 #[test]
@@ -150,15 +140,16 @@ fn test_verifier_is_valid_bigint() {
     let client = SrpClient::new("alice", b"password123");
     let salt = [0x42u8; 32];
 
-    let verifier = client
-        .compute_verifier(&salt)
-        .expect("Verifier failed");
+    let verifier = client.compute_verifier(&salt).expect("Verifier failed");
 
     // Verifier should be at least 256 bytes (2048 bits) for 3072-bit group
     assert!(verifier.len() > 100, "Verifier should be large (3072-bit)");
 
     // Verifier should not be all zeros
-    assert!(verifier.iter().any(|&b| b != 0), "Verifier should not be all zeros");
+    assert!(
+        verifier.iter().any(|&b| b != 0),
+        "Verifier should not be all zeros"
+    );
 }
 
 // ============================================================================
@@ -187,9 +178,18 @@ fn test_multiple_ephemeral_keys_are_unique() {
     let (pub2, _) = client.start_auth().expect("Auth 2 failed");
     let (pub3, _) = client.start_auth().expect("Auth 3 failed");
 
-    assert_ne!(pub1, pub2, "Auth 1 and 2 should have different ephemeral keys");
-    assert_ne!(pub2, pub3, "Auth 2 and 3 should have different ephemeral keys");
-    assert_ne!(pub1, pub3, "Auth 1 and 3 should have different ephemeral keys");
+    assert_ne!(
+        pub1, pub2,
+        "Auth 1 and 2 should have different ephemeral keys"
+    );
+    assert_ne!(
+        pub2, pub3,
+        "Auth 2 and 3 should have different ephemeral keys"
+    );
+    assert_ne!(
+        pub1, pub3,
+        "Auth 1 and 3 should have different ephemeral keys"
+    );
 }
 
 #[test]
@@ -199,7 +199,10 @@ fn test_public_key_non_zero() {
 
     for _ in 0..10 {
         let (pub_key, _) = client.start_auth().expect("Auth failed");
-        assert!(pub_key.iter().any(|&b| b != 0), "Public key must be non-zero");
+        assert!(
+            pub_key.iter().any(|&b| b != 0),
+            "Public key must be non-zero"
+        );
     }
 }
 
@@ -216,9 +219,7 @@ fn test_full_srp_handshake_client_server_match() {
 
     // Registration phase (server-side)
     let client_reg = SrpClient::new(username, password);
-    let verifier = client_reg
-        .compute_verifier(&salt)
-        .expect("Verifier failed");
+    let verifier = client_reg.compute_verifier(&salt).expect("Verifier failed");
 
     // Authentication phase
     let mut client_auth = SrpClient::new(username, password);
@@ -234,7 +235,11 @@ fn test_full_srp_handshake_client_server_match() {
         .expect("Challenge processing failed");
 
     assert!(!client_m1.is_empty(), "Client M1 should not be empty");
-    assert_eq!(client_key.len(), 32, "Session key should be 32 bytes (SHA256)");
+    assert_eq!(
+        client_key.len(),
+        32,
+        "Session key should be 32 bytes (SHA256)"
+    );
 }
 
 #[test]
@@ -356,12 +361,15 @@ fn test_m2_verification_succeeds_with_correct_m2() {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(&BigUint::from_bytes_be(&client_a).to_bytes_be());
-    hasher.update(session.client_proof_m1.as_slice());
-    hasher.update(session.session_key.as_slice());
+    hasher.update(session.client_proof_m1());
+    hasher.update(session.session_key());
     let simulated_m2 = hasher.finalize();
 
     let verify_result = session.verify_server(&simulated_m2);
-    assert!(verify_result.is_ok(), "M2 verification should succeed with correct M2");
+    assert!(
+        verify_result.is_ok(),
+        "M2 verification should succeed with correct M2"
+    );
 }
 
 #[test]
@@ -387,7 +395,10 @@ fn test_m2_verification_fails_with_wrong_m2() {
     let wrong_m2 = [0xAAu8; 32];
     let verify_result = session.verify_server(&wrong_m2);
 
-    assert!(verify_result.is_err(), "M2 verification should fail with wrong M2");
+    assert!(
+        verify_result.is_err(),
+        "M2 verification should fail with wrong M2"
+    );
 }
 
 #[test]
@@ -413,8 +424,8 @@ fn test_m2_verification_fails_with_tampered_m2() {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(&BigUint::from_bytes_be(&[0u8; 32]).to_bytes_be());
-    hasher.update(session.client_proof_m1.as_slice());
-    hasher.update(session.session_key.as_slice());
+    hasher.update(session.client_proof_m1());
+    hasher.update(session.session_key());
     let mut tampered_m2 = hasher.finalize().to_vec();
 
     // Flip one bit
@@ -423,7 +434,10 @@ fn test_m2_verification_fails_with_tampered_m2() {
     }
 
     let verify_result = session.verify_server(&tampered_m2);
-    assert!(verify_result.is_err(), "M2 verification should fail with tampered M2");
+    assert!(
+        verify_result.is_err(),
+        "M2 verification should fail with tampered M2"
+    );
 }
 
 #[test]
@@ -449,7 +463,10 @@ fn test_m2_verification_fails_with_short_m2() {
     let short_m2 = [0xAAu8; 16];
     let verify_result = session.verify_server(&short_m2);
 
-    assert!(verify_result.is_err(), "M2 verification should fail with short M2");
+    assert!(
+        verify_result.is_err(),
+        "M2 verification should fail with short M2"
+    );
 }
 
 // ============================================================================
@@ -469,7 +486,10 @@ fn test_rfc7919_3072_bit_prime_used() {
         .expect("Verifier computation failed");
 
     // Verifier for 3072-bit group should be substantial
-    assert!(verifier.len() > 200, "Verifier should be ~3072 bits (384 bytes)");
+    assert!(
+        verifier.len() > 200,
+        "Verifier should be ~3072 bits (384 bytes)"
+    );
 }
 
 #[test]
@@ -517,7 +537,11 @@ fn test_k_parameter_correctly_computed() {
 
     // Successful challenge means k is correct
     assert!(!m1.is_empty(), "M1 must be computed with correct k");
-    assert_eq!(session_key.len(), 32, "Session key computation requires correct k");
+    assert_eq!(
+        session_key.len(),
+        32,
+        "Session key computation requires correct k"
+    );
 }
 
 // ============================================================================
@@ -533,7 +557,10 @@ fn test_empty_password() {
         .compute_verifier(&salt)
         .expect("Should handle empty password");
 
-    assert!(!verifier.is_empty(), "Verifier for empty password should not be empty");
+    assert!(
+        !verifier.is_empty(),
+        "Verifier for empty password should not be empty"
+    );
 }
 
 #[test]
@@ -545,7 +572,10 @@ fn test_unicode_password() {
         .compute_verifier(&salt)
         .expect("Should handle unicode password");
 
-    assert!(!verifier.is_empty(), "Verifier for unicode password should work");
+    assert!(
+        !verifier.is_empty(),
+        "Verifier for unicode password should work"
+    );
 }
 
 #[test]
@@ -558,5 +588,8 @@ fn test_long_password() {
         .compute_verifier(&salt)
         .expect("Should handle long password");
 
-    assert!(!verifier.is_empty(), "Verifier for long password should work");
+    assert!(
+        !verifier.is_empty(),
+        "Verifier for long password should work"
+    );
 }

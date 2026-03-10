@@ -238,7 +238,7 @@ func (vs *VaultService) CheckRollback(ctx context.Context, vaultID uuid.UUID, ne
 	}
 
 	// Update the max state version
-	_, err = vs.pool.ExecContext(ctx,
+	_, err = vs.pool.Exec(ctx,
 		`UPDATE vaults SET max_state_version = $1 WHERE id = $2`,
 		newStateVersion, vaultID,
 	)

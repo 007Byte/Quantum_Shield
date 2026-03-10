@@ -170,7 +170,7 @@ impl StreamingEncryptor {
 
         match self.cipher_id {
             CipherId::XChaCha20Poly1305 => {
-                use chacha20poly1305::{XChaCha20Poly1305, aead::Aead, aead::KeyInit};
+                use chacha20poly1305::{aead::Aead, aead::KeyInit, XChaCha20Poly1305};
                 use generic_array::GenericArray;
 
                 let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(&chunk_key));
@@ -187,7 +187,7 @@ impl StreamingEncryptor {
                 Ok(result)
             }
             CipherId::Aes256GcmSiv => {
-                use aes_gcm_siv::{Aes256GcmSiv, aead::Aead, aead::KeyInit};
+                use aes_gcm_siv::{aead::Aead, aead::KeyInit, Aes256GcmSiv};
                 use generic_array::GenericArray;
 
                 let cipher = Aes256GcmSiv::new(GenericArray::from_slice(&chunk_key));
@@ -244,8 +244,8 @@ impl StreamingEncryptor {
         hkdf.expand(b"stream_hmac_key", &mut hmac_key)
             .map_err(|_| CryptoError::KeyDerivationFailed)?;
 
-        let mut mac = HmacSha256::new_from_slice(&hmac_key)
-            .map_err(|_| CryptoError::KeyDerivationFailed)?;
+        let mut mac =
+            HmacSha256::new_from_slice(&hmac_key).map_err(|_| CryptoError::KeyDerivationFailed)?;
         mac.update(data);
         let result = mac.finalize();
         let mut hmac = [0u8; 32];
@@ -297,11 +297,7 @@ impl StreamingDecryptor {
     }
 
     /// Decrypt V2 format record with length-prefixed chunks and final HMAC
-    fn decrypt_v2(
-        cipher_id: CipherId,
-        key: &[u8; 32],
-        record: &[u8],
-    ) -> Result<(String, Vec<u8>)> {
+    fn decrypt_v2(cipher_id: CipherId, key: &[u8; 32], record: &[u8]) -> Result<(String, Vec<u8>)> {
         const HEADER_SIZE: usize = 4 + 1 + 24; // magic + version + base_nonce
 
         if record.len() < HEADER_SIZE + 32 {
@@ -375,11 +371,7 @@ impl StreamingDecryptor {
     }
 
     /// Decrypt V1 format record (backward compatibility)
-    fn decrypt_v1(
-        cipher_id: CipherId,
-        key: &[u8; 32],
-        record: &[u8],
-    ) -> Result<(String, Vec<u8>)> {
+    fn decrypt_v1(cipher_id: CipherId, key: &[u8; 32], record: &[u8]) -> Result<(String, Vec<u8>)> {
         const HEADER_SIZE: usize = 4 + 24; // magic + base_nonce (no version byte in V1)
 
         if record.len() < HEADER_SIZE {
@@ -394,7 +386,8 @@ impl StreamingDecryptor {
 
         // Decrypt chunk 0 (metadata) - V1 uses same key for all chunks
         let mut offset = HEADER_SIZE;
-        let (filename, data_len) = Self::extract_metadata_v1(&record[offset..], cipher_id, key, &base_nonce)?;
+        let (filename, data_len) =
+            Self::extract_metadata_v1(&record[offset..], cipher_id, key, &base_nonce)?;
 
         // Find data chunks offset (heuristic)
         let nonce_size = cipher_id.nonce_size();
@@ -493,7 +486,7 @@ impl StreamingDecryptor {
                     return Err(CryptoError::InvalidNonce);
                 }
 
-                use chacha20poly1305::{XChaCha20Poly1305, aead::Aead, aead::KeyInit};
+                use chacha20poly1305::{aead::Aead, aead::KeyInit, XChaCha20Poly1305};
                 use generic_array::GenericArray;
 
                 let (nonce_bytes, ciphertext) = data.split_at(NONCE_SIZE);
@@ -510,7 +503,7 @@ impl StreamingDecryptor {
                     return Err(CryptoError::InvalidNonce);
                 }
 
-                use aes_gcm_siv::{Aes256GcmSiv, aead::Aead, aead::KeyInit};
+                use aes_gcm_siv::{aead::Aead, aead::KeyInit, Aes256GcmSiv};
                 use generic_array::GenericArray;
 
                 let (nonce_bytes, ciphertext) = data.split_at(NONCE_SIZE);
@@ -528,7 +521,11 @@ impl StreamingDecryptor {
     ///
     /// SG-013: Info string is now `"stream_chunk_key:" || derived_nonce(24)` to match
     /// the encryptor's domain separation.
-    fn derive_chunk_key(master_key: &[u8; 32], base_nonce: &[u8; 24], chunk_index: u64) -> [u8; 32] {
+    fn derive_chunk_key(
+        master_key: &[u8; 32],
+        base_nonce: &[u8; 24],
+        chunk_index: u64,
+    ) -> [u8; 32] {
         use hkdf::Hkdf;
         use sha2::Sha256;
 
@@ -566,8 +563,8 @@ impl StreamingDecryptor {
         hkdf.expand(b"stream_hmac_key", &mut hmac_key)
             .map_err(|_| CryptoError::KeyDerivationFailed)?;
 
-        let mut mac = HmacSha256::new_from_slice(&hmac_key)
-            .map_err(|_| CryptoError::KeyDerivationFailed)?;
+        let mut mac =
+            HmacSha256::new_from_slice(&hmac_key).map_err(|_| CryptoError::KeyDerivationFailed)?;
         mac.update(data);
         let result = mac.finalize();
         let mut hmac = [0u8; 32];
@@ -661,8 +658,9 @@ mod tests {
             .expect("Encryption failed");
 
         // Record should decrypt successfully
-        let (name1, data1) = StreamingDecryptor::decrypt_record(CipherId::XChaCha20Poly1305, &key, &record)
-            .expect("Should decrypt original");
+        let (name1, data1) =
+            StreamingDecryptor::decrypt_record(CipherId::XChaCha20Poly1305, &key, &record)
+                .expect("Should decrypt original");
         assert_eq!(filename, name1);
         assert_eq!(plaintext, data1.as_slice());
 
@@ -703,7 +701,10 @@ mod tests {
         // V2 record structure: magic(4) + version(1) + nonce(24) + chunks + hmac(32)
         // After header should be length-prefixed chunks
         let header_size = 4 + 1 + 24;
-        assert!(record.len() > header_size + 4, "Record should have length headers");
+        assert!(
+            record.len() > header_size + 4,
+            "Record should have length headers"
+        );
 
         // First length header (for metadata chunk)
         let chunk_len = u32::from_le_bytes([

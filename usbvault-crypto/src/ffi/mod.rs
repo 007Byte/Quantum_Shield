@@ -237,10 +237,7 @@ pub extern "C" fn qav_decrypt(
 /// - public_out can hold 32 bytes
 /// - secret_out can hold 32 bytes
 #[no_mangle]
-pub extern "C" fn qav_generate_keypair(
-    public_out: *mut u8,
-    secret_out: *mut u8,
-) -> i32 {
+pub extern "C" fn qav_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32 {
     if public_out.is_null() || secret_out.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -279,7 +276,11 @@ pub extern "C" fn qav_seal(
     out_capacity: usize,
     out_len: *mut usize,
 ) -> i32 {
-    if recipient_public.is_null() || plaintext_ptr.is_null() || out_ptr.is_null() || out_len.is_null() {
+    if recipient_public.is_null()
+        || plaintext_ptr.is_null()
+        || out_ptr.is_null()
+        || out_len.is_null()
+    {
         return ERR_INVALID_ARGUMENT;
     }
 
@@ -428,8 +429,10 @@ pub extern "C" fn qav_pqc_generate_keypair(
     x25519_sec_out: *mut u8,
     mlkem_sec_out: *mut u8,
 ) -> i32 {
-    if x25519_pub_out.is_null() || mlkem_pub_out.is_null()
-        || x25519_sec_out.is_null() || mlkem_sec_out.is_null()
+    if x25519_pub_out.is_null()
+        || mlkem_pub_out.is_null()
+        || x25519_sec_out.is_null()
+        || mlkem_sec_out.is_null()
     {
         return ERR_INVALID_ARGUMENT;
     }
@@ -439,26 +442,27 @@ pub extern "C" fn qav_pqc_generate_keypair(
         use crate::pqc::hybrid::generate_hybrid_keypair;
 
         // PH1-FIX: Wrap FFI unsafe block in catch_unwind to prevent panics from crossing FFI boundary
-        let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-            match generate_hybrid_keypair() {
-                Ok((pk, sk)) => unsafe {
-                    let x25519_pub = slice::from_raw_parts_mut(x25519_pub_out, 32);
-                    x25519_pub.copy_from_slice(&pk.x25519);
+        let result =
+            panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                match generate_hybrid_keypair() {
+                    Ok((pk, sk)) => unsafe {
+                        let x25519_pub = slice::from_raw_parts_mut(x25519_pub_out, 32);
+                        x25519_pub.copy_from_slice(&pk.x25519);
 
-                    let mlkem_pub = slice::from_raw_parts_mut(mlkem_pub_out, pk.ml_kem.len());
-                    mlkem_pub.copy_from_slice(&pk.ml_kem);
+                        let mlkem_pub = slice::from_raw_parts_mut(mlkem_pub_out, pk.ml_kem.len());
+                        mlkem_pub.copy_from_slice(&pk.ml_kem);
 
-                    let x25519_sec = slice::from_raw_parts_mut(x25519_sec_out, 32);
-                    x25519_sec.copy_from_slice(sk.x25519.as_ref());
+                        let x25519_sec = slice::from_raw_parts_mut(x25519_sec_out, 32);
+                        x25519_sec.copy_from_slice(sk.x25519.as_ref());
 
-                    let mlkem_sec = slice::from_raw_parts_mut(mlkem_sec_out, sk.ml_kem.len());
-                    mlkem_sec.copy_from_slice(&sk.ml_kem);
+                        let mlkem_sec = slice::from_raw_parts_mut(mlkem_sec_out, sk.ml_kem.len());
+                        mlkem_sec.copy_from_slice(&sk.ml_kem);
 
-                    ERR_SUCCESS
-                },
-                Err(e) => crypto_error_to_code(&e),
-            }
-        }));
+                        ERR_SUCCESS
+                    },
+                    Err(e) => crypto_error_to_code(&e),
+                }
+            }));
 
         match result {
             Ok(code) => code,
@@ -495,8 +499,11 @@ pub extern "C" fn qav_pqc_seal(
     out_capacity: usize,
     out_len: *mut usize,
 ) -> i32 {
-    if x25519_pub.is_null() || mlkem_pub.is_null() || plaintext_ptr.is_null()
-        || out_ptr.is_null() || out_len.is_null()
+    if x25519_pub.is_null()
+        || mlkem_pub.is_null()
+        || plaintext_ptr.is_null()
+        || out_ptr.is_null()
+        || out_len.is_null()
     {
         return ERR_INVALID_ARGUMENT;
     }
@@ -542,8 +549,16 @@ pub extern "C" fn qav_pqc_seal(
 
     #[cfg(not(feature = "pqc"))]
     {
-        let _ = (x25519_pub, mlkem_pub, mlkem_pub_len, plaintext_ptr, plaintext_len,
-                 out_ptr, out_capacity, out_len);
+        let _ = (
+            x25519_pub,
+            mlkem_pub,
+            mlkem_pub_len,
+            plaintext_ptr,
+            plaintext_len,
+            out_ptr,
+            out_capacity,
+            out_len,
+        );
         ERR_INVALID_ARGUMENT
     }
 }
@@ -567,8 +582,11 @@ pub extern "C" fn qav_pqc_open(
     out_capacity: usize,
     out_len: *mut usize,
 ) -> i32 {
-    if x25519_sec.is_null() || mlkem_sec.is_null() || sealed_ptr.is_null()
-        || out_ptr.is_null() || out_len.is_null()
+    if x25519_sec.is_null()
+        || mlkem_sec.is_null()
+        || sealed_ptr.is_null()
+        || out_ptr.is_null()
+        || out_len.is_null()
     {
         return ERR_INVALID_ARGUMENT;
     }
@@ -614,8 +632,16 @@ pub extern "C" fn qav_pqc_open(
 
     #[cfg(not(feature = "pqc"))]
     {
-        let _ = (x25519_sec, mlkem_sec, mlkem_sec_len, sealed_ptr, sealed_len,
-                 out_ptr, out_capacity, out_len);
+        let _ = (
+            x25519_sec,
+            mlkem_sec,
+            mlkem_sec_len,
+            sealed_ptr,
+            sealed_len,
+            out_ptr,
+            out_capacity,
+            out_len,
+        );
         ERR_INVALID_ARGUMENT
     }
 }

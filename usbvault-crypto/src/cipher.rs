@@ -171,7 +171,12 @@ fn decrypt_aes256(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>> {
 ///
 /// # Returns
 /// nonce || ciphertext || tag
-pub fn encrypt_with_ad(cipher_id: CipherId, key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<Vec<u8>> {
+pub fn encrypt_with_ad(
+    cipher_id: CipherId,
+    key: &[u8; 32],
+    plaintext: &[u8],
+    ad: &[u8],
+) -> Result<Vec<u8>> {
     match cipher_id {
         CipherId::XChaCha20Poly1305 => encrypt_xchacha20_ad(key, plaintext, ad),
         CipherId::Aes256GcmSiv => encrypt_aes256_ad(key, plaintext, ad),
@@ -182,7 +187,12 @@ pub fn encrypt_with_ad(cipher_id: CipherId, key: &[u8; 32], plaintext: &[u8], ad
 ///
 /// Decryption fails if AD doesn't match what was used during encryption,
 /// detecting rollback or version tampering.
-pub fn decrypt_with_ad(cipher_id: CipherId, key: &[u8; 32], ciphertext: &[u8], ad: &[u8]) -> Result<Vec<u8>> {
+pub fn decrypt_with_ad(
+    cipher_id: CipherId,
+    key: &[u8; 32],
+    ciphertext: &[u8],
+    ad: &[u8],
+) -> Result<Vec<u8>> {
     match cipher_id {
         CipherId::XChaCha20Poly1305 => decrypt_xchacha20_ad(key, ciphertext, ad),
         CipherId::Aes256GcmSiv => decrypt_aes256_ad(key, ciphertext, ad),
@@ -214,7 +224,10 @@ fn encrypt_xchacha20_ad(key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<V
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
 
-    let payload = Payload { msg: plaintext, aad: ad };
+    let payload = Payload {
+        msg: plaintext,
+        aad: ad,
+    };
     let ciphertext = cipher
         .encrypt(nonce_array, payload)
         .map_err(|_| CryptoError::DecryptionFailed)?;
@@ -239,7 +252,10 @@ fn decrypt_xchacha20_ad(key: &[u8; 32], data: &[u8], ad: &[u8]) -> Result<Vec<u8
     let nonce = chacha20poly1305::XNonce::from_slice(nonce_bytes);
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
 
-    let payload = Payload { msg: ciphertext, aad: ad };
+    let payload = Payload {
+        msg: ciphertext,
+        aad: ad,
+    };
     cipher
         .decrypt(nonce, payload)
         .map_err(|_| CryptoError::DecryptionFailed)
@@ -255,7 +271,10 @@ fn encrypt_aes256_ad(key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<Vec<
     let cipher = Aes256GcmSiv::new(GenericArray::from_slice(key));
     let nonce_array: &GenericArray<u8, _> = GenericArray::from_slice(&nonce);
 
-    let payload = Payload { msg: plaintext, aad: ad };
+    let payload = Payload {
+        msg: plaintext,
+        aad: ad,
+    };
     let ciphertext = cipher
         .encrypt(nonce_array, payload)
         .map_err(|_| CryptoError::DecryptionFailed)?;
@@ -280,7 +299,10 @@ fn decrypt_aes256_ad(key: &[u8; 32], data: &[u8], ad: &[u8]) -> Result<Vec<u8>> 
     let nonce: &GenericArray<u8, _> = GenericArray::from_slice(nonce_bytes);
     let cipher = Aes256GcmSiv::new(GenericArray::from_slice(key));
 
-    let payload = Payload { msg: ciphertext, aad: ad };
+    let payload = Payload {
+        msg: ciphertext,
+        aad: ad,
+    };
     cipher
         .decrypt(nonce, payload)
         .map_err(|_| CryptoError::DecryptionFailed)
@@ -295,8 +317,8 @@ mod tests {
         let key = [0x42u8; 32];
         let plaintext = b"Hello, World!";
 
-        let ciphertext = encrypt(CipherId::XChaCha20Poly1305, &key, plaintext)
-            .expect("Encryption failed");
+        let ciphertext =
+            encrypt(CipherId::XChaCha20Poly1305, &key, plaintext).expect("Encryption failed");
         let decrypted =
             decrypt(CipherId::XChaCha20Poly1305, &key, &ciphertext).expect("Decryption failed");
 
@@ -308,7 +330,8 @@ mod tests {
         let key = [0x42u8; 32];
         let plaintext = b"Hello, World!";
 
-        let ciphertext = encrypt(CipherId::Aes256GcmSiv, &key, plaintext).expect("Encryption failed");
+        let ciphertext =
+            encrypt(CipherId::Aes256GcmSiv, &key, plaintext).expect("Encryption failed");
         let decrypted =
             decrypt(CipherId::Aes256GcmSiv, &key, &ciphertext).expect("Decryption failed");
 
@@ -364,7 +387,10 @@ mod tests {
             .expect("Encryption failed");
         // Decrypt with wrong version → must fail
         let result = decrypt_with_ad(CipherId::XChaCha20Poly1305, &key, &ciphertext, &ad_v2);
-        assert!(result.is_err(), "Decryption with wrong version AD should fail");
+        assert!(
+            result.is_err(),
+            "Decryption with wrong version AD should fail"
+        );
     }
 
     #[test]
@@ -377,7 +403,10 @@ mod tests {
         let ciphertext = encrypt_with_ad(CipherId::Aes256GcmSiv, &key, plaintext, &ad_v1)
             .expect("Encryption failed");
         let result = decrypt_with_ad(CipherId::Aes256GcmSiv, &key, &ciphertext, &ad_v2);
-        assert!(result.is_err(), "Decryption with wrong version AD should fail");
+        assert!(
+            result.is_err(),
+            "Decryption with wrong version AD should fail"
+        );
     }
 
     #[test]

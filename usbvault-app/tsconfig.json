@@ -59,7 +59,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "build"
-  ],
-  "extends": "expo/tsconfig.base"
+    "build",
+    "_dead_code"
+  ]
 }
