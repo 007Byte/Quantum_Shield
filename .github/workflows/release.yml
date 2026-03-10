@@ -140,7 +140,7 @@ jobs:
         uses: docker/setup-buildx-action@d70bba72b1f3fd22344e8fb7f21a78f7ff3c5066 # v3.3.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117521a9e20e440f8bc7b5104e # v3.2.0
+        uses: docker/login-action@9fe7774c8f8ebfade96f0a62aa10f3882309d517 # v3.2.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
