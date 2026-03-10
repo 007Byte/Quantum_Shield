@@ -1,7 +1,6 @@
 // PH4-FIX: DecryptFileList component - file listing/selection UI
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useCallback } from 'react';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors } from '@/components/dashboard2/styles';
 import type { DisplayFile } from '@/hooks/useDecrypt';

@@ -1,5 +1,5 @@
 // PH4-FIX: PasswordSearch component - search/filter bar
-import { StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import { StyleSheet, TextInput, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors, glassPanelBase, webOnlyGlass } from '@/components/dashboard2/styles';

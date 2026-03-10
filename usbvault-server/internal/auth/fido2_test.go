@@ -51,7 +51,7 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 	tests := []struct {
 		name           string
 		email          string
-		dbScanFunc     func(pgxmock.PgxConnIface)
+		dbScanFunc     func(pgxmock.PgxPoolIface)
 		expectStatus   int
 		expectError    string
 		validateResp   func(*testing.T, []byte)
@@ -59,7 +59,7 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 		{
 			name:  "valid user with existing credentials",
 			email: "user@example.com",
-			dbScanFunc: func(mock pgxmock.PgxConnIface) {
+			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
 					WithArgs("hashed_email").
 					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow("user-123"))
@@ -81,7 +81,7 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 		{
 			name:  "user not found",
 			email: "nonexistent@example.com",
-			dbScanFunc: func(mock pgxmock.PgxConnIface) {
+			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
 					WithArgs("hashed_email").
 					WillReturnError(pgx.ErrNoRows)
@@ -92,7 +92,7 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 		{
 			name:  "invalid request body",
 			email: "",
-			dbScanFunc: func(mock pgxmock.PgxConnIface) {
+			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusBadRequest,
@@ -146,7 +146,7 @@ func TestHandleFIDO2Verify(t *testing.T) {
 		name           string
 		setupRequest   func() FIDO2VerifyRequest
 		setupRedis     func(*redis.Client) error
-		setupDB        func(pgxmock.PgxConnIface)
+		setupDB        func(pgxmock.PgxPoolIface)
 		expectStatus   int
 		expectError    string
 		validateResp   func(*testing.T, []byte)
@@ -160,7 +160,7 @@ func TestHandleFIDO2Verify(t *testing.T) {
 				}
 			},
 			setupRedis: func(rc *redis.Client) error { return nil },
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusBadRequest,
@@ -175,7 +175,7 @@ func TestHandleFIDO2Verify(t *testing.T) {
 				}
 			},
 			setupRedis: func(rc *redis.Client) error { return nil },
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusBadRequest,
@@ -193,7 +193,7 @@ func TestHandleFIDO2Verify(t *testing.T) {
 				// Session doesn't exist in Redis (expired)
 				return nil
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusUnauthorized,

@@ -50,7 +50,7 @@ func TestLogAction(t *testing.T) {
 		userID         string
 		actionType     string
 		encryptedData  []byte
-		setupDB        func(pgxmock.PgxConnIface)
+		setupDB        func(pgxmock.PgxPoolIface)
 		expectError    bool
 		validateEntry  func(*testing.T, *AuditEntry)
 	}{
@@ -59,7 +59,7 @@ func TestLogAction(t *testing.T) {
 			userID:        "user-123",
 			actionType:    "LOGIN",
 			encryptedData: []byte("encrypted_login_data"),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No previous entries
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
 					WithArgs("user-123").
@@ -77,7 +77,7 @@ func TestLogAction(t *testing.T) {
 			userID:        "user-456",
 			actionType:    "FILE_ACCESSED",
 			encryptedData: []byte("file_access_data"),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// Previous entry exists
 				prevHash := make([]byte, 32)
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
@@ -96,7 +96,7 @@ func TestLogAction(t *testing.T) {
 			userID:         "user-789",
 			actionType:     "PERMISSION_DENIED",
 			encryptedData:  []byte("denial_data"),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No previous entries
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
 					WithArgs("user-789").
@@ -213,14 +213,14 @@ func TestVerifyChain(t *testing.T) {
 	tests := []struct {
 		name        string
 		userID      string
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectValid bool
 		expectError bool
 	}{
 		{
 			name:   "valid chain returns true",
 			userID: "user-123",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				prevHash := make([]byte, 32)
 
 				h := sha256.New()
@@ -242,7 +242,7 @@ func TestVerifyChain(t *testing.T) {
 		{
 			name:   "empty chain returns true",
 			userID: "user-456",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
 					WithArgs("user-456").
 					WillReturnRows(pgxmock.NewRows(
@@ -255,7 +255,7 @@ func TestVerifyChain(t *testing.T) {
 		{
 			name:   "broken chain returns false",
 			userID: "user-789",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// Chain broken: prev_hash doesn't match previous entry's hash
 				prevHash := make([]byte, 32)
 				wrongHash := make([]byte, 32)
@@ -275,7 +275,7 @@ func TestVerifyChain(t *testing.T) {
 		{
 			name:   "tampered hash detected",
 			userID: "user-101",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				prevHash := make([]byte, 32)
 				tamperedHash := make([]byte, 32)
 				tamperedHash[0] = 0xFF // Doesn't match computed hash
@@ -292,7 +292,7 @@ func TestVerifyChain(t *testing.T) {
 		{
 			name:   "database error returns error",
 			userID: "user-202",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
 					WithArgs("user-202").
 					WillReturnError(context.DeadlineExceeded)
@@ -340,7 +340,7 @@ func TestListAuditLog(t *testing.T) {
 		userID      string
 		limit       int
 		offset      int
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectCount int
 		expectError bool
 	}{
@@ -349,7 +349,7 @@ func TestListAuditLog(t *testing.T) {
 			userID: "user-123",
 			limit:  10,
 			offset: 0,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, user_id, action_type, timestamp, hash FROM audit_log").
 					WithArgs("user-123", 10, 0).
 					WillReturnRows(pgxmock.NewRows(
@@ -367,7 +367,7 @@ func TestListAuditLog(t *testing.T) {
 			userID: "user-456",
 			limit:  5,
 			offset: 10,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, user_id, action_type, timestamp, hash FROM audit_log").
 					WithArgs("user-456", 5, 10).
 					WillReturnRows(pgxmock.NewRows(
@@ -384,7 +384,7 @@ func TestListAuditLog(t *testing.T) {
 			userID: "user-789",
 			limit:  10,
 			offset: 0,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, user_id, action_type, timestamp, hash FROM audit_log").
 					WithArgs("user-789", 10, 0).
 					WillReturnRows(pgxmock.NewRows(
@@ -399,7 +399,7 @@ func TestListAuditLog(t *testing.T) {
 			userID: "user-101",
 			limit:  10,
 			offset: 0,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, user_id, action_type, timestamp, hash FROM audit_log").
 					WithArgs("user-101", 10, 0).
 					WillReturnError(context.DeadlineExceeded)

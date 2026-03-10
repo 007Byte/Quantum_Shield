@@ -8,6 +8,7 @@ import { webOnly } from '@/utils/webStyle';
 import { useAuthStore } from '@/stores/authStore';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { auditService, AuditLogEntry, getActionIcon } from '@/services/auditService';
+import type { PressableState } from '@/types/utilities';
 
 type DropdownMenu = 'language' | 'notifications' | 'profile' | null;
 
@@ -15,9 +16,6 @@ type DropdownMenu = 'language' | 'notifications' | 'profile' | null;
 type PressableWithClick = PressableProps & {
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 };
-
-// PH4-FIX: State type for pressable style function
-type PressableState = { hovered: boolean; pressed: boolean };
 
 // ─── Simple dropdown item that works on both web and native ──────────
 function DropdownItem({
@@ -208,7 +206,7 @@ export function TopBar() {
       {/* Dark/Light Mode Toggle */}
       <Pressable
         onPress={() => setDarkMode(!darkMode)}
-        style={(state: any) => [styles.themeToggleBtn, state.hovered && styles.controlPillHover]}
+        style={(state: PressableState) => [styles.themeToggleBtn, state.hovered && styles.controlPillHover] as any}
       >
         <Feather name={darkMode ? 'moon' : 'sun'} size={15} color={dashboardColors.textPrimary} />
         <Text style={styles.controlText}>{darkMode ? 'Dark' : 'Light'}</Text>
@@ -218,7 +216,7 @@ export function TopBar() {
       <View style={[styles.controlContainer, openMenu === 'language' && styles.controlContainerOpen]}>
         <Pressable
           onPress={() => toggleMenu('language')}
-          style={(state: any) => [styles.controlPill, state.hovered && styles.controlPillHover]}
+          style={(state: PressableState) => [styles.controlPill, state.hovered && styles.controlPillHover] as any}
         >
           <Feather name="globe" size={15} color={dashboardColors.textPrimary} />
           <Text style={styles.controlText}>{languageCode}</Text>
@@ -253,7 +251,7 @@ export function TopBar() {
       <View style={[styles.controlContainer, openMenu === 'notifications' && styles.controlContainerOpen]}>
         <Pressable
           onPress={() => toggleMenu('notifications')}
-          style={(state: any) => [styles.notificationBtn, state.hovered && styles.controlPillHover]}
+          style={(state: PressableState) => [styles.notificationBtn, state.hovered && styles.controlPillHover] as any}
         >
           <Feather name="bell" size={16} color={dashboardColors.textPrimary} />
           <View style={styles.badge}>
@@ -289,7 +287,7 @@ export function TopBar() {
       <View style={[styles.controlContainer, openMenu === 'profile' && styles.controlContainerOpen]}>
         <Pressable
           onPress={() => toggleMenu('profile')}
-          style={(state: any) => [styles.profilePill, state.hovered && styles.controlPillHover]}
+          style={(state: PressableState) => [styles.profilePill, state.hovered && styles.controlPillHover] as any}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>

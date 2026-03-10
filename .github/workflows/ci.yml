@@ -144,10 +144,9 @@ jobs:
         continue-on-error: true
 
       - name: Run gosec (security scanner)
-        uses: securego/gosec@master
-        with:
-          args: -no-fail -fmt json -out gosec-report.json ./...
-          working-directory: usbvault-server
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -no-fail -fmt json -out gosec-report.json ./... || true
         continue-on-error: true
 
       - name: Upload Go coverage report

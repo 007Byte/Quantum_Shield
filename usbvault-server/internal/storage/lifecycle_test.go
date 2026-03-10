@@ -24,7 +24,7 @@ func TestSoftDeleteBlob(t *testing.T) {
 		vaultID     uuid.UUID
 		blobID      uuid.UUID
 		userID      string
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectError bool
 		errorType   error
 	}{
@@ -33,7 +33,7 @@ func TestSoftDeleteBlob(t *testing.T) {
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
 			userID:  "user-123",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -47,7 +47,7 @@ func TestSoftDeleteBlob(t *testing.T) {
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
 			userID:  "user-456",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -61,7 +61,7 @@ func TestSoftDeleteBlob(t *testing.T) {
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
 			userID:  "user-789",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -90,14 +90,14 @@ func TestRestoreBlob(t *testing.T) {
 		name        string
 		vaultID     uuid.UUID
 		blobID      uuid.UUID
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectError bool
 	}{
 		{
 			name:    "restore un-deletes a soft-deleted blob",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -110,7 +110,7 @@ func TestRestoreBlob(t *testing.T) {
 			name:    "returns error when blob not deleted",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -123,7 +123,7 @@ func TestRestoreBlob(t *testing.T) {
 			name:    "returns error when blob not found",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("UPDATE blobs").
@@ -171,14 +171,14 @@ func TestPermanentlyDeleteBlob(t *testing.T) {
 		name        string
 		vaultID     uuid.UUID
 		blobID      uuid.UUID
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectError bool
 	}{
 		{
 			name:    "permanently deletes blob from database",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("DELETE FROM blobs").
@@ -191,7 +191,7 @@ func TestPermanentlyDeleteBlob(t *testing.T) {
 			name:    "returns error when blob not found",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectExec("DELETE FROM blobs").
@@ -238,13 +238,13 @@ func TestCleanupExpiredBlobs(t *testing.T) {
 	tests := []struct {
 		name          string
 		retentionDays int
-		setupDB       func(pgxmock.PgxConnIface)
+		setupDB       func(pgxmock.PgxPoolIface)
 		expectError   bool
 	}{
 		{
 			name:          "removes blobs past retention period",
 			retentionDays: 30,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec("DELETE FROM blobs WHERE deleted_at IS NOT NULL AND deleted_at <").
 					WillReturnResult(pgxmock.NewResult("DELETE", 5))
 			},
@@ -253,7 +253,7 @@ func TestCleanupExpiredBlobs(t *testing.T) {
 		{
 			name:          "returns count of deleted blobs",
 			retentionDays: 7,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec("DELETE FROM blobs WHERE deleted_at IS NOT NULL AND deleted_at <").
 					WillReturnResult(pgxmock.NewResult("DELETE", 3))
 			},
@@ -262,7 +262,7 @@ func TestCleanupExpiredBlobs(t *testing.T) {
 		{
 			name:          "handles database errors gracefully",
 			retentionDays: 30,
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec("DELETE FROM blobs WHERE deleted_at IS NOT NULL AND deleted_at <").
 					WillReturnError(context.DeadlineExceeded)
 			},
@@ -304,7 +304,7 @@ func TestSetBlobExpiry(t *testing.T) {
 		vaultID     uuid.UUID
 		blobID      uuid.UUID
 		expiryTime  time.Time
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectError bool
 	}{
 		{
@@ -312,7 +312,7 @@ func TestSetBlobExpiry(t *testing.T) {
 			vaultID:    uuid.New(),
 			blobID:     uuid.New(),
 			expiryTime: time.Now().AddDate(0, 0, 7), // 7 days from now
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				expiryTime := time.Now().AddDate(0, 0, 7)
@@ -327,7 +327,7 @@ func TestSetBlobExpiry(t *testing.T) {
 			vaultID:    uuid.New(),
 			blobID:     uuid.New(),
 			expiryTime: time.Now().AddDate(0, 0, 7),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				expiryTime := time.Now().AddDate(0, 0, 7)
@@ -370,14 +370,14 @@ func TestListDeletedBlobs(t *testing.T) {
 	tests := []struct {
 		name          string
 		vaultID       uuid.UUID
-		setupDB       func(pgxmock.PgxConnIface)
+		setupDB       func(pgxmock.PgxPoolIface)
 		expectCount   int
 		expectError   bool
 	}{
 		{
 			name:    "lists soft-deleted blobs in trash",
 			vaultID: uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				mock.ExpectQuery("SELECT id, vault_id, deleted_at, deleted_by, size_bytes FROM blobs WHERE").
 					WithArgs(vaultID).
@@ -393,7 +393,7 @@ func TestListDeletedBlobs(t *testing.T) {
 		{
 			name:    "returns empty list when no deleted blobs",
 			vaultID: uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				mock.ExpectQuery("SELECT id, vault_id, deleted_at, deleted_by, size_bytes FROM blobs WHERE").
 					WithArgs(vaultID).
@@ -438,7 +438,7 @@ func TestBlobExistsInDatabase(t *testing.T) {
 		name        string
 		vaultID     uuid.UUID
 		blobID      uuid.UUID
-		setupDB     func(pgxmock.PgxConnIface)
+		setupDB     func(pgxmock.PgxPoolIface)
 		expectExists bool
 		expectError bool
 	}{
@@ -446,7 +446,7 @@ func TestBlobExistsInDatabase(t *testing.T) {
 			name:    "returns true for active blob",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectQuery("SELECT 1 FROM blobs WHERE id = .* AND vault_id = .* AND deleted_at IS NULL").
@@ -460,7 +460,7 @@ func TestBlobExistsInDatabase(t *testing.T) {
 			name:    "returns false for deleted blob",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectQuery("SELECT 1 FROM blobs WHERE id = .* AND vault_id = .* AND deleted_at IS NULL").
@@ -474,7 +474,7 @@ func TestBlobExistsInDatabase(t *testing.T) {
 			name:    "returns false for non-existent blob",
 			vaultID: uuid.New(),
 			blobID:  uuid.New(),
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				vaultID := uuid.New()
 				blobID := uuid.New()
 				mock.ExpectQuery("SELECT 1 FROM blobs WHERE id = .* AND vault_id = .* AND deleted_at IS NULL").

@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -389,7 +388,7 @@ export default function SetupUSB() {
                 <Text style={styles.fieldLabel}>Confirm Password</Text>
                 <View style={[
                   styles.inputRow,
-                  state.passwordConfirm && !passwordsMatch && styles.inputRowError,
+                  state.passwordConfirm && !passwordsMatch ? styles.inputRowError : {},
                 ]}>
                   <Feather name="lock" size={16} color={state.passwordConfirm && !passwordsMatch ? '#EF4444' : '#22D3EE'} style={styles.inputIcon} />
                   <TextInput

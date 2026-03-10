@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, type TextProps } from 'react-native'
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors, dashboardLayout } from '@/components/dashboard2/styles';
+import type { PressableState } from '@/types/utilities';
 
 // PH4-FIX: Web-only contentEditable support for text input
 interface ContentEditableTextProps extends TextProps {
@@ -10,9 +11,6 @@ interface ContentEditableTextProps extends TextProps {
   suppressContentEditableWarning?: boolean;
   onInput?: (e: React.FormEvent<HTMLDivElement>) => void;
 }
-
-// PH4-FIX: Pressable state type with hovered property
-type PressableState = { hovered: boolean; pressed: boolean };
 
 interface DecryptToolbarProps {
   searchQuery: string;
@@ -26,14 +24,13 @@ interface DecryptToolbarProps {
 export function DecryptToolbar({
   searchQuery,
   onSearchChange,
-  filteredCount,
   totalCount,
   allSelected,
   onSelectAll,
 }: DecryptToolbarProps) {
   return (
     <View style={styles.toolbar}>
-      <Pressable style={(state: PressableState) => [styles.searchBox, state.hovered && styles.searchBoxHover]}>
+      <Pressable style={(state: PressableState) => [styles.searchBox, state.hovered && styles.searchBoxHover] as any}>
         <Feather name="search" size={16} color={dashboardColors.textSecondary} />
         <View style={styles.searchInputWrap}>
           {/* PH4-FIX: Replaced @ts-ignore with proper ContentEditable type */}
@@ -49,7 +46,7 @@ export function DecryptToolbar({
         </View>
         {!searchQuery && <Text style={styles.searchPlaceholder}>Search files...</Text>}
       </Pressable>
-      <Pressable onPress={onSelectAll} style={(state: any) => [styles.selectAllButton, state.hovered && styles.selectAllButtonHover]}>
+      <Pressable onPress={onSelectAll} style={(state: PressableState) => [styles.selectAllButton, state.hovered && styles.selectAllButtonHover] as any}>
         <Feather
           name={allSelected && totalCount > 0 ? 'check-square' : 'square'}
           size={16}
