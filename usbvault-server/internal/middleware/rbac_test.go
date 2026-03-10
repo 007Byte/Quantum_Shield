@@ -75,9 +75,11 @@ func (m *MockRBACService) SetRole(userID, vaultID string, role auth.Role) {
 
 func createTestRouter(rbac *MockRBACService, perm auth.Permission) *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(RequireVaultPermission(rbac, perm))
-	r.Get("/vaults/{vaultID}/test", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Route("/vaults/{vaultID}", func(r chi.Router) {
+		r.Use(RequireVaultPermission(rbac, perm))
+		r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
 	})
 	return r
 }
@@ -192,7 +194,6 @@ func TestRBACViewerPermissions(t *testing.T) {
 func TestRBACNonMemberForbidden(t *testing.T) {
 	rbac := NewMockRBACService()
 	userID := "user-stranger"
-	vaultID := "vault-123"
 
 	t.Run("non-member gets 403 for all operations", func(t *testing.T) {
 		permissions := []auth.Permission{
@@ -261,9 +262,11 @@ func TestVaultOwnerOnlyMiddleware(t *testing.T) {
 
 	t.Run("VaultOwnerOnly enforces manage_members permission", func(t *testing.T) {
 		r := chi.NewRouter()
-		r.Use(VaultOwnerOnly(rbac))
-		r.Get("/vaults/{vaultID}/members", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
+		r.Route("/vaults/{vaultID}", func(r chi.Router) {
+			r.Use(VaultOwnerOnly(rbac))
+			r.Get("/members", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
 		})
 
 		// Test owner access
@@ -297,13 +300,15 @@ func TestRequireVaultRead(t *testing.T) {
 
 	t.Run("RequireVaultRead checks read permission", func(t *testing.T) {
 		r := chi.NewRouter()
-		r.Use(RequireVaultRead(rbac))
-		r.Get("/vaults/{vaultID}", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
+		r.Route("/vaults/{vaultID}", func(r chi.Router) {
+			r.Use(RequireVaultRead(rbac))
+			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
 		})
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermRead, true)
-		req := httptest.NewRequest("GET", "/vaults/vault-123", nil)
+		req := httptest.NewRequest("GET", "/vaults/vault-123/", nil)
 		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
 
 		recorder := httptest.NewRecorder()
@@ -320,13 +325,15 @@ func TestRequireVaultUpdate(t *testing.T) {
 
 	t.Run("RequireVaultUpdate checks update permission", func(t *testing.T) {
 		r := chi.NewRouter()
-		r.Use(RequireVaultUpdate(rbac))
-		r.Put("/vaults/{vaultID}", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
+		r.Route("/vaults/{vaultID}", func(r chi.Router) {
+			r.Use(RequireVaultUpdate(rbac))
+			r.Put("/", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
 		})
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermUpdate, true)
-		req := httptest.NewRequest("PUT", "/vaults/vault-123", nil)
+		req := httptest.NewRequest("PUT", "/vaults/vault-123/", nil)
 		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
 
 		recorder := httptest.NewRecorder()
@@ -343,13 +350,15 @@ func TestRequireVaultDelete(t *testing.T) {
 
 	t.Run("RequireVaultDelete checks delete permission", func(t *testing.T) {
 		r := chi.NewRouter()
-		r.Use(RequireVaultDelete(rbac))
-		r.Delete("/vaults/{vaultID}", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
+		r.Route("/vaults/{vaultID}", func(r chi.Router) {
+			r.Use(RequireVaultDelete(rbac))
+			r.Delete("/", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
 		})
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermDelete, true)
-		req := httptest.NewRequest("DELETE", "/vaults/vault-123", nil)
+		req := httptest.NewRequest("DELETE", "/vaults/vault-123/", nil)
 		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
 
 		recorder := httptest.NewRecorder()

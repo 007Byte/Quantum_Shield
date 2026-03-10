@@ -7,12 +7,26 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// stripeSignature computes a Stripe-compatible webhook signature header value.
+func stripeSignature(payload []byte, secret string) string {
+	ts := fmt.Sprintf("%d", time.Now().Unix())
+	signedPayload := ts + "." + string(payload)
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(signedPayload))
+	sig := hex.EncodeToString(h.Sum(nil))
+	return fmt.Sprintf("t=%s,v1=%s", ts, sig)
+}
 
 func TestValidHMACSignaturePasses(t *testing.T) {
 	t.Run("valid HMAC signature passes verification", func(t *testing.T) {
@@ -27,10 +41,8 @@ func TestValidHMACSignaturePasses(t *testing.T) {
 		// Create test payload
 		payload := []byte(`{"type":"customer.subscription.updated","data":{"object":{"id":"sub_123"}}}`)
 
-		// Compute valid signature
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		// Compute valid Stripe-format signature
+		validSig := stripeSignature(payload, webhook_secret)
 
 		// Create request
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
@@ -151,9 +163,7 @@ func TestWebhookEventTypeRouting(t *testing.T) {
 
 				payload, _ := json.Marshal(event)
 
-				h := hmac.New(sha256.New, []byte(webhook_secret))
-				h.Write(payload)
-				validSig := hex.EncodeToString(h.Sum(nil))
+				validSig := stripeSignature(payload, webhook_secret)
 
 				req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 				req.Header.Set("Stripe-Signature", validSig)
@@ -192,9 +202,7 @@ func TestSubscriptionUpdatedEvent(t *testing.T) {
 
 		payload, _ := json.Marshal(event)
 
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(payload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -235,9 +243,7 @@ func TestSubscriptionDeletedEvent(t *testing.T) {
 
 		payload, _ := json.Marshal(event)
 
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(payload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -272,9 +278,7 @@ func TestPaymentSucceededEvent(t *testing.T) {
 
 		payload, _ := json.Marshal(event)
 
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(payload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -309,9 +313,7 @@ func TestPaymentFailedEvent(t *testing.T) {
 
 		payload, _ := json.Marshal(event)
 
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(payload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -336,10 +338,7 @@ func TestMalformedPayloadReturnsError(t *testing.T) {
 		bs := NewBillingService("stripe_key", mockPool)
 
 		invalidPayload := []byte(`{invalid json}`)
-
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(invalidPayload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(invalidPayload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(invalidPayload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -374,9 +373,7 @@ func TestWebhookResponseFormat(t *testing.T) {
 
 		payload, _ := json.Marshal(event)
 
-		h := hmac.New(sha256.New, []byte(webhook_secret))
-		h.Write(payload)
-		validSig := hex.EncodeToString(h.Sum(nil))
+		validSig := stripeSignature(payload, webhook_secret)
 
 		req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
 		req.Header.Set("Stripe-Signature", validSig)
@@ -401,30 +398,24 @@ func TestWebhookResponseFormat(t *testing.T) {
 	})
 }
 
-// Mock database pool for testing
+// Mock database pool for testing - implements BillingPool interface
 type MockPool struct{}
 
 func NewMockPool() *MockPool {
 	return &MockPool{}
 }
 
-func (m *MockPool) Exec(ctx context.Context, sql string, args ...interface{}) (interface{}, error) {
+func (m *MockPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (m *MockPool) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	return nil, nil
 }
 
-func (m *MockPool) Query(ctx context.Context, sql string, args ...interface{}) (interface{}, error) {
-	return nil, nil
-}
-
-func (m *MockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) interface{} {
+func (m *MockPool) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
 	return nil
 }
-
-func (m *MockPool) Begin(ctx context.Context) (interface{}, error) {
-	return nil, nil
-}
-
-func (m *MockPool) Close() {}
 
 // Helper function for testing HMAC signature computation
 func computeTestSignature(payload []byte, secret string) string {

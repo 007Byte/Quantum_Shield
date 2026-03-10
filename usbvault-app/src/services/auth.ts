@@ -21,7 +21,12 @@ interface LocalAuthenticationInterface {
   hasHardwareAsync: () => Promise<boolean>;
   isAvailableAsync: () => Promise<boolean>;
   supportedAuthenticationTypesAsync: () => Promise<number[]>;
-  authenticateAsync: (options?: unknown) => Promise<{ success: boolean }>;
+  authenticateAsync: (options?: unknown) => Promise<{ success: boolean; error?: string }>;
+  AuthenticationType: {
+    FACIAL_RECOGNITION: number;
+    FINGERPRINT: number;
+    IRIS: number;
+  };
 }
 
 // Conditional imports for native-only modules
@@ -304,7 +309,7 @@ export async function authenticateWithBiometrics(): Promise<boolean> {
     }
 
     // Attempt biometric authentication
-    const isAuthenticated = await LocalAuthentication.authenticateAsync({
+    const isAuthenticated = await LocalAuthentication!.authenticateAsync({
       reason: 'Authenticate to unlock your vault',
       fallbackLabel: 'Use passcode instead',
       disableDeviceFallback: false,
@@ -395,13 +400,13 @@ export async function migrateToSecureStorage(): Promise<void> {
     const refreshToken = await AsyncStorage.getItem(refreshTokenKey);
 
     if (accessToken) {
-      await SecureStore.setItemAsync('usbvault_access_token', accessToken, SECURE_STORE_OPTIONS);
+      await SecureStore!.setItemAsync('usbvault_access_token', accessToken, SECURE_STORE_OPTIONS);
       await AsyncStorage.removeItem(accessTokenKey);
       logger.log('Migrated access token to SecureStore');
     }
 
     if (refreshToken) {
-      await SecureStore.setItemAsync('usbvault_refresh_token', refreshToken, SECURE_STORE_OPTIONS);
+      await SecureStore!.setItemAsync('usbvault_refresh_token', refreshToken, SECURE_STORE_OPTIONS);
       await AsyncStorage.removeItem(refreshTokenKey);
       logger.log('Migrated refresh token to SecureStore');
     }

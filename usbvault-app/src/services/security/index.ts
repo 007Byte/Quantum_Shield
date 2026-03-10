@@ -7,7 +7,6 @@
 
 // Anti-threat (consolidated antiPhishing + antiDebug)
 export * from './antiThreat';
-export { antiThreatService as antiDebugService, antiThreatService as antiPhishingService };
 
 // Application protection
 export * from './appProtection';

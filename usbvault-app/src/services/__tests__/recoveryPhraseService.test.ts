@@ -45,32 +45,32 @@ describe('RecoveryPhraseService', () => {
   });
 
   describe('generateMnemonic', () => {
-    it('should generate 24-word mnemonic', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should generate 24-word mnemonic', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       expect(Array.isArray(mnemonic)).toBe(true);
       expect(mnemonic.length).toBe(24);
     });
 
-    it('should generate valid BIP39 words', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should generate valid BIP39 words', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      mnemonic.forEach((word) => {
+      mnemonic.forEach((word: string) => {
         expect(BIP39_ENGLISH_WORDLIST).toContain(word);
       });
     });
 
-    it('should generate different mnemonics on each call', () => {
-      const mnemonic1 = recoveryPhraseService.generateMnemonic();
-      const mnemonic2 = recoveryPhraseService.generateMnemonic();
+    it('should generate different mnemonics on each call', async () => {
+      const mnemonic1 = await recoveryPhraseService.generateMnemonic();
+      const mnemonic2 = await recoveryPhraseService.generateMnemonic();
 
       expect(mnemonic1.join(' ')).not.toBe(mnemonic2.join(' '));
     });
 
-    it('should pass checksum validation', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should pass checksum validation', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      const validation = recoveryPhraseService.validateMnemonic(mnemonic);
+      const validation = await recoveryPhraseService.validateMnemonic(mnemonic);
 
       expect(validation.valid).toBe(true);
       expect(validation.errors.length).toBe(0);
@@ -78,40 +78,40 @@ describe('RecoveryPhraseService', () => {
   });
 
   describe('validateMnemonic', () => {
-    it('should reject wrong word count', () => {
+    it('should reject wrong word count', async () => {
       const words = ['word1', 'word2', 'word3'];
 
-      const result = recoveryPhraseService.validateMnemonic(words);
+      const result = await recoveryPhraseService.validateMnemonic(words);
 
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
     });
 
-    it('should reject invalid words', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should reject invalid words', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
       mnemonic[0] = 'invalidword';
 
-      const result = recoveryPhraseService.validateMnemonic(mnemonic);
+      const result = await recoveryPhraseService.validateMnemonic(mnemonic);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.includes('not in BIP39 wordlist'))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes('not in BIP39 wordlist'))).toBe(true);
     });
 
-    it('should accept valid generated mnemonic', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should accept valid generated mnemonic', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      const result = recoveryPhraseService.validateMnemonic(mnemonic);
+      const result = await recoveryPhraseService.validateMnemonic(mnemonic);
 
       expect(result.valid).toBe(true);
       expect(result.errors.length).toBe(0);
     });
 
-    it('should validate checksum', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should validate checksum', async () => {
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
       // Corrupt last word (which affects checksum)
       mnemonic[23] = 'abandon'; // Replace with different valid word
 
-      const result = recoveryPhraseService.validateMnemonic(mnemonic);
+      const result = await recoveryPhraseService.validateMnemonic(mnemonic);
 
       expect(result.valid).toBe(false);
     });
@@ -119,7 +119,7 @@ describe('RecoveryPhraseService', () => {
 
   describe('mnemonicToSeed', () => {
     it('should derive 512-bit seed from mnemonic', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const seed = await recoveryPhraseService.mnemonicToSeed(mnemonic);
 
@@ -128,7 +128,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should produce same seed with same mnemonic', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const seed1 = await recoveryPhraseService.mnemonicToSeed(mnemonic);
       const seed2 = await recoveryPhraseService.mnemonicToSeed(mnemonic);
@@ -137,7 +137,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should produce different seed with passphrase', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const seed1 = await recoveryPhraseService.mnemonicToSeed(mnemonic, '');
       const seed2 = await recoveryPhraseService.mnemonicToSeed(mnemonic, 'passphrase');
@@ -157,7 +157,7 @@ describe('RecoveryPhraseService', () => {
   describe('encryptMasterKey', () => {
     it('should encrypt master key with mnemonic', async () => {
       const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const encrypted = await recoveryPhraseService.encryptMasterKey(
         masterKey,
@@ -170,7 +170,7 @@ describe('RecoveryPhraseService', () => {
 
     it('should produce different ciphertext each time', async () => {
       const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const encrypted1 = await recoveryPhraseService.encryptMasterKey(
         masterKey,
@@ -188,7 +188,7 @@ describe('RecoveryPhraseService', () => {
   describe('decryptMasterKey', () => {
     it('should decrypt encrypted master key', async () => {
       const original = new TextEncoder().encode('my-secret-master-key').buffer;
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const encrypted = await recoveryPhraseService.encryptMasterKey(
         original,
@@ -204,7 +204,7 @@ describe('RecoveryPhraseService', () => {
 
     it('should decrypt with passphrase', async () => {
       const original = new TextEncoder().encode('secret-data').buffer;
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
       const passphrase = 'my-passphrase';
 
       const encrypted = await recoveryPhraseService.encryptMasterKey(
@@ -223,7 +223,7 @@ describe('RecoveryPhraseService', () => {
 
     it('should fail to decrypt with wrong passphrase', async () => {
       const original = new TextEncoder().encode('secret-data').buffer;
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const encrypted = await recoveryPhraseService.encryptMasterKey(
         original,
@@ -243,7 +243,7 @@ describe('RecoveryPhraseService', () => {
 
   describe('storePhraseHash and verifyPhraseHash', () => {
     it('should store and verify phrase hash', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
       const verified = await recoveryPhraseService.verifyPhraseHash(mnemonic);
@@ -252,8 +252,8 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should reject wrong phrase', async () => {
-      const mnemonic1 = recoveryPhraseService.generateMnemonic();
-      const mnemonic2 = recoveryPhraseService.generateMnemonic();
+      const mnemonic1 = await recoveryPhraseService.generateMnemonic();
+      const mnemonic2 = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic1);
       const verified = await recoveryPhraseService.verifyPhraseHash(mnemonic2);
@@ -262,7 +262,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should return false when no hash stored', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       const verified = await recoveryPhraseService.verifyPhraseHash(mnemonic);
 
@@ -270,7 +270,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should store hash in localStorage', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
 
@@ -288,7 +288,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should return true after storing phrase hash', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
       const has = recoveryPhraseService.hasRecoveryPhrase();
@@ -299,7 +299,7 @@ describe('RecoveryPhraseService', () => {
 
   describe('clearRecoveryData', () => {
     it('should clear all recovery data', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
       recoveryPhraseService.clearRecoveryData();
@@ -309,7 +309,7 @@ describe('RecoveryPhraseService', () => {
     });
 
     it('should remove from localStorage', async () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
 
       await recoveryPhraseService.storePhraseHash(mnemonic);
       recoveryPhraseService.clearRecoveryData();
@@ -326,8 +326,8 @@ describe('RecoveryPhraseService', () => {
       expect(contact).toBeNull();
     });
 
-    it('should return trusted contact after setting', () => {
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+    it('should return trusted contact after setting', async () => {
+      await recoveryPhraseService.generateMnemonic();
       const email = 'trusted@example.com';
       const shard = 'encrypted-shard-data';
 
@@ -367,11 +367,11 @@ describe('RecoveryPhraseService', () => {
   describe('integration: full recovery flow', () => {
     it('should complete full recovery process', async () => {
       // 1. Generate mnemonic
-      const mnemonic = recoveryPhraseService.generateMnemonic();
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
       expect(mnemonic.length).toBe(24);
 
       // 2. Validate mnemonic
-      const validation = recoveryPhraseService.validateMnemonic(mnemonic);
+      const validation = await recoveryPhraseService.validateMnemonic(mnemonic);
       expect(validation.valid).toBe(true);
 
       // 3. Store phrase hash

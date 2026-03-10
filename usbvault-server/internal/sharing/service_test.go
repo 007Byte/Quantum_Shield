@@ -112,8 +112,11 @@ func TestValidateSealedBox_TooShort(t *testing.T) {
 }
 
 func TestValidateSealedBox_MinimumValid(t *testing.T) {
-	// Exactly minimum size
+	// Exactly minimum size with non-zero ephemeral key
 	validData := make([]byte, minSealedBoxSize)
+	for i := 0; i < 32; i++ {
+		validData[i] = byte(i + 1) // Non-zero ephemeral public key
+	}
 
 	err := validateSealedBox(validData)
 	if err != nil {
@@ -124,6 +127,9 @@ func TestValidateSealedBox_MinimumValid(t *testing.T) {
 func TestValidateSealedBox_LargerThanMinimum(t *testing.T) {
 	// Larger than minimum (real encrypted keys would be this size)
 	validData := make([]byte, minSealedBoxSize+100)
+	for i := 0; i < 32; i++ {
+		validData[i] = byte(i + 1) // Non-zero ephemeral public key
+	}
 
 	err := validateSealedBox(validData)
 	if err != nil {
@@ -141,12 +147,15 @@ func TestValidateSealedBox_Empty(t *testing.T) {
 }
 
 func TestValidateSealedBox_VeryLarge(t *testing.T) {
-	// Test with a large encrypted key (e.g., for a large file key)
-	largeData := make([]byte, minSealedBoxSize+10000)
+	// Test with data at the maximum allowed size
+	largeData := make([]byte, maxSealedBoxSize)
+	for i := 0; i < 32; i++ {
+		largeData[i] = byte(i + 1) // Non-zero ephemeral public key
+	}
 
 	err := validateSealedBox(largeData)
 	if err != nil {
-		t.Errorf("validateSealedBox should accept large encrypted data: %v", err)
+		t.Errorf("validateSealedBox should accept max-size encrypted data: %v", err)
 	}
 }
 
@@ -323,6 +332,12 @@ func TestValidateSealedBox_BoundaryConditions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			data := make([]byte, tc.size)
+			// Set non-zero ephemeral public key for valid-size tests
+			if tc.size >= 32 {
+				for i := 0; i < 32; i++ {
+					data[i] = byte(i + 1)
+				}
+			}
 			err := validateSealedBox(data)
 
 			if tc.shouldPass && err != nil {

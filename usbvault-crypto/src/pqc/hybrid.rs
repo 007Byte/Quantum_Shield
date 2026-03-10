@@ -254,7 +254,8 @@ mod tests {
         assert_eq!(pk.x25519.len(), 32);
         assert_eq!(pk.ml_kem.len(), ml_kem::PUBLIC_KEY_SIZE);
         assert_eq!(sk.x25519.len(), 32);
-        assert_eq!(sk.ml_kem.len(), ml_kem::PUBLIC_KEY_SIZE);
+        // ML-KEM-1024 decapsulation key is 3168 bytes, not the same as the public key
+        assert_eq!(sk.ml_kem.len(), 3168);
     }
 
     #[test]

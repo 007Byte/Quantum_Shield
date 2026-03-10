@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PH2-FIX: Tests for JWT key rotation service
@@ -68,8 +68,8 @@ func TestKeyRotationService_GetVerificationKey_ReturnsPublicKey(t *testing.T) {
 	krs := NewKeyRotationService(nil)
 
 	// Create a test public key
-	_, privKey, _ := GenerateTestKeyPair()
-	pubKey := privKey.Public()
+	pub, _, _ := GenerateTestKeyPair()
+	pubKey := pub.(ed25519.PublicKey)
 
 	krs.keyCache["test-kid"] = &SigningKey{
 		KID:       "test-kid",
@@ -82,7 +82,7 @@ func TestKeyRotationService_GetVerificationKey_ReturnsPublicKey(t *testing.T) {
 		t.Fatalf("GetVerificationKey failed: %v", err)
 	}
 
-	if retrievedKey != pubKey {
+	if !retrievedKey.Equal(pubKey) {
 		t.Error("GetVerificationKey should return the correct public key")
 	}
 }
@@ -91,8 +91,8 @@ func TestKeyRotationService_GetVerificationKey_ReturnsPublicKey(t *testing.T) {
 func TestKeyRotationService_GetVerificationKey_RejectsRevokedKey(t *testing.T) {
 	krs := NewKeyRotationService(nil)
 
-	_, privKey, _ := GenerateTestKeyPair()
-	pubKey := privKey.Public()
+	pub, _, _ := GenerateTestKeyPair()
+	pubKey := pub.(ed25519.PublicKey)
 
 	krs.keyCache["revoked-kid"] = &SigningKey{
 		KID:       "revoked-kid",
@@ -127,11 +127,13 @@ func TestKeyRotationService_GetSigningKey_ReturnsFallbackGlobal(t *testing.T) {
 	}
 }
 
-// Helper function to generate test key pairs (not cryptographically secure, just for testing)
+// Helper function to generate test key pairs
 func GenerateTestKeyPair() (interface{}, interface{}, error) {
-	// In real tests, use proper Ed25519 key generation
-	// This is a placeholder
-	return nil, nil, nil
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pub, priv, nil
 }
 
 // TestKeyRotationService_RevokeKey_UpdatesStatus tests that RevokeKey updates key status

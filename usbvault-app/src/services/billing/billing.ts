@@ -19,7 +19,6 @@
 import { Platform } from 'react-native';
 import { logger } from '@/utils/logger';
 import { auditService } from '@/services/auditService';
-import { generateSecureId } from '@/utils/generateId';
 
 // ── Tier Types ─────────────────────────────────────────────────
 

@@ -192,6 +192,10 @@ func (krs *KeyRotationService) RotateKey(ctx context.Context) error {
 	krs.mu.Lock()
 	defer krs.mu.Unlock()
 
+	if krs.pool == nil {
+		return fmt.Errorf("database pool not configured")
+	}
+
 	if krs.activeKey != nil {
 		// Mark current key as rotated
 		_, err := krs.pool.Exec(ctx,
@@ -281,6 +285,10 @@ func (krs *KeyRotationService) RevokeKey(ctx context.Context, kid string) error 
 func (krs *KeyRotationService) CleanupExpiredKeys(ctx context.Context) error {
 	krs.mu.Lock()
 	defer krs.mu.Unlock()
+
+	if krs.pool == nil {
+		return fmt.Errorf("database pool not configured")
+	}
 
 	result, err := krs.pool.Exec(ctx,
 		`DELETE FROM jwt_signing_keys WHERE status = 'rotated' AND rotated_at < NOW() - INTERVAL '60 days'`)

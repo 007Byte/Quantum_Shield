@@ -9,63 +9,11 @@
 
 #![cfg(feature = "ffi")]
 
-// Import FFI functions using unsafe extern "C"
-extern "C" {
-    fn usbvault_derive_key(
-        password_ptr: *const u8,
-        password_len: usize,
-        salt_ptr: *const u8,
-        salt_len: usize,
-        out_ptr: *mut u8,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_encrypt(
-        cipher_id: u8,
-        key_ptr: *const u8,
-        key_len: usize,
-        plaintext_ptr: *const u8,
-        plaintext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_decrypt(
-        cipher_id: u8,
-        key_ptr: *const u8,
-        key_len: usize,
-        ciphertext_ptr: *const u8,
-        ciphertext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_generate_keypair(public_out: *mut u8, secret_out: *mut u8) -> i32;
-
-    fn usbvault_seal(
-        recipient_public: *const u8,
-        plaintext_ptr: *const u8,
-        plaintext_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_open(
-        secret_key: *const u8,
-        sealed_ptr: *const u8,
-        sealed_len: usize,
-        out_ptr: *mut u8,
-        out_capacity: usize,
-        out_len: *mut usize,
-    ) -> i32;
-
-    fn usbvault_free(ptr: *mut u8, len: usize);
-
-    fn usbvault_generate_salt(out: *mut u8) -> i32;
-}
+// Import FFI functions directly from the crate (they are pub extern "C" #[no_mangle])
+use usbvault_crypto::ffi::{
+    usbvault_decrypt, usbvault_derive_key, usbvault_encrypt, usbvault_free,
+    usbvault_generate_keypair, usbvault_generate_salt, usbvault_open, usbvault_seal,
+};
 
 // Error codes (should match src/ffi/mod.rs)
 const ERR_SUCCESS: i32 = 0;
@@ -226,7 +174,7 @@ fn test_key_derivation_null_pointers() {
 fn test_encryption_decryption_round_trip() {
     let password = b"test_password";
     let plaintext = b"Hello, QAV!";
-    let cipher_id = 0u8; // ChaCha20-Poly1305
+    let cipher_id = 2u8; // XChaCha20-Poly1305
 
     let mut salt = [0u8; 32];
     let mut key = [0u8; 64];
@@ -241,7 +189,7 @@ fn test_encryption_decryption_round_trip() {
         let result = usbvault_generate_salt(salt.as_mut_ptr());
         assert_eq!(result, ERR_SUCCESS);
 
-        // Derive key
+        // Derive key (returns 64 bytes; encryption uses first 32)
         let result = usbvault_derive_key(
             password.as_ptr(),
             password.len(),
@@ -252,11 +200,11 @@ fn test_encryption_decryption_round_trip() {
         );
         assert_eq!(result, ERR_SUCCESS);
 
-        // Encrypt
+        // Encrypt (key_len must be 32 for the cipher)
         let result = usbvault_encrypt(
             cipher_id,
             key.as_ptr(),
-            key.len(),
+            32,
             plaintext.as_ptr(),
             plaintext.len(),
             ciphertext.as_mut_ptr(),
@@ -273,7 +221,7 @@ fn test_encryption_decryption_round_trip() {
         let result = usbvault_decrypt(
             cipher_id,
             key.as_ptr(),
-            key.len(),
+            32,
             ciphertext.as_ptr(),
             ciphertext_len,
             decrypted.as_mut_ptr(),
@@ -297,7 +245,7 @@ fn test_encryption_decryption_round_trip() {
 
 #[test]
 fn test_encryption_invalid_key_length() {
-    let cipher_id = 0u8;
+    let cipher_id = 2u8; // XChaCha20-Poly1305
     let plaintext = b"Hello";
     let invalid_key = [0u8; 16]; // Wrong length: should be 32
     let mut ciphertext = [0u8; 256];
@@ -321,7 +269,7 @@ fn test_encryption_invalid_key_length() {
 
 #[test]
 fn test_encryption_buffer_too_small() {
-    let cipher_id = 0u8;
+    let cipher_id = 2u8; // XChaCha20-Poly1305
     let plaintext = b"Hello, this is a longer test message";
     let key = [0u8; 32];
     let mut ciphertext = [0u8; 4]; // Too small

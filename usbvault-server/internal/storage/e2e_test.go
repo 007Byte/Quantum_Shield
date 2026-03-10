@@ -2,11 +2,9 @@ package storage
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"testing"
 	"time"

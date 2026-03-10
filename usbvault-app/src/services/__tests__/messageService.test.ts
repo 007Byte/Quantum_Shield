@@ -4,7 +4,7 @@
  * Tests encrypted messaging, ghost message timers, and message expiration.
  */
 
-import { messageService, GhostTimer } from '../messageService';
+import { messageService } from '../messageService';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -164,7 +164,7 @@ describe('MessageService', () => {
     });
 
     it('should calculate unread count', async () => {
-      const msg = await messageService.sendMessage(
+      await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
         'Unread message',
@@ -212,7 +212,7 @@ describe('MessageService', () => {
         'bob@example.com',
         'First',
       );
-      const msg2 = await messageService.sendMessage(
+      await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
         'Second',
@@ -276,7 +276,7 @@ describe('MessageService', () => {
         'bob@example.com',
         'Message 1',
       );
-      const msg2 = await messageService.sendMessage(
+      await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
         'Message 2',

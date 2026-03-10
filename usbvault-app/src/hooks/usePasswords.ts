@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { validatePassword, levelToLabel } from '@/utils/passwordPolicy';
 import { passwordService } from '@/services/passwordService';
-import { importPasswords, validateImportFile, formatLabel, ImportResult, ImportProgress } from '@/services/importService';
+import { importPasswords, validateImportFile, formatLabel, ImportResult, ImportProgress, type ImportFormat } from '@/services/importService';
 import { auditService } from '@/services/auditService';
 
 export interface PasswordEntry {
@@ -199,10 +199,10 @@ export function usePasswords() {
     if (!validation.valid) {
       return { valid: false, error: 'File format not recognized. Supported: Bitwarden, 1Password, LastPass, Chrome (CSV), KeePass (JSON).' };
     }
-    return { valid: true, format: validation.format, formatName: formatLabel(validation.format), estimatedCount: validation.estimatedCount };
+    return { valid: true, format: validation.format, formatName: formatLabel(validation.format ?? 'auto'), estimatedCount: validation.estimatedCount };
   };
 
-  const performImport = async (content: string, format: string, fileName: string) => {
+  const performImport = async (content: string, format: ImportFormat, fileName: string) => {
     try {
       const existingEntries = await passwordService.loadEntries();
       const result = await importPasswords(

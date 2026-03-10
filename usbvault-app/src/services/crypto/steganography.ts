@@ -1,6 +1,6 @@
 // PH4-FIX: Moved from services/steganographyService.ts to crypto domain
 import { Platform } from 'react-native';
-import { auditService } from './auditService';
+import { auditService } from '@/services/auditService';
 
 /**
  * Result of steganographic embedding operation

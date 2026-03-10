@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // PH3-FIX: Key rotation integration test suite
@@ -37,16 +38,24 @@ func (m *MockAuditService) LogAction(ctx context.Context, userID string, actionT
 	return nil
 }
 
-// MockPool implements a mock pgxpool.Pool for testing
+// MockPool implements the DBPool interface for testing
 type MockPool struct {
 	mu              sync.Mutex
 	rotationJobs    map[string]*KeyRotationJob
 	vaults          map[string]map[string]interface{}
 	blobs           map[string][]map[string]interface{}
-	queryRowFunc    func(ctx context.Context, sql string, args ...interface{}) interface{}
-	execFunc        func(ctx context.Context, sql string, args ...interface{}) error
-	beginFunc       func(ctx context.Context) interface{}
-	queryFunc       func(ctx context.Context, sql string, args ...interface{}) interface{}
+}
+
+func (m *MockPool) Begin(ctx context.Context) (pgx.Tx, error) {
+	return nil, errors.New("mock: Begin not implemented")
+}
+
+func (m *MockPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
+	return nil
+}
+
+func (m *MockPool) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
 }
 
 func NewMockPool() *MockPool {
@@ -66,7 +75,7 @@ func TestKeyRotation_FullLifecycle_ScheduleExecuteVerify(t *testing.T) {
 	pool := NewMockPool()
 	auditSvc := &MockAuditService{}
 
-	service := NewKeyRotationService(pool, auditSvc)
+	_ = NewKeyRotationService(pool, auditSvc)
 
 	userID := "user-123"
 	vaultID := "vault-456"
@@ -84,7 +93,7 @@ func TestKeyRotation_FullLifecycle_ScheduleExecuteVerify(t *testing.T) {
 		})
 	}
 
-	ctx := context.Background()
+	_ = context.Background()
 
 	// Step 1: Initiate rotation (would normally fail with mock pool, but test structure)
 	// In real test with DB, this would work
@@ -104,7 +113,7 @@ func TestKeyRotation_FullLifecycle_ScheduleExecuteVerify(t *testing.T) {
 
 // PH3-FIX: Test initiate rotation creates job with pending status
 func TestKeyRotation_Initiate_CreatesJobWithPendingStatus(t *testing.T) {
-	ctx := context.Background()
+	_ = context.Background()
 
 	// Test the job structure and status constants
 	job := &KeyRotationJob{
@@ -299,10 +308,9 @@ func TestKeyRotation_ConcurrentRotation_OnlyOneAllowed(t *testing.T) {
 	pool := NewMockPool()
 	auditSvc := &MockAuditService{}
 
-	service := NewKeyRotationService(pool, auditSvc)
+	_ = NewKeyRotationService(pool, auditSvc)
 
 	vaultID := "vault-456"
-	userID := "user-123"
 
 	// First rotation job
 	job1 := &KeyRotationJob{
@@ -327,7 +335,7 @@ func TestKeyRotation_ConcurrentRotation_OnlyOneAllowed(t *testing.T) {
 
 // PH3-FIX: Test read access not blocked during rotation
 func TestKeyRotation_ReadAccess_NotBlocked(t *testing.T) {
-	job := &KeyRotationJob{
+	_ = &KeyRotationJob{
 		ID:        "job-123",
 		VaultID:   "vault-456",
 		Status:    KeyRotationStatusInProgress,
@@ -685,9 +693,9 @@ func TestKeyRotation_AlreadyInProgress_RejectsNew(t *testing.T) {
 func TestKeyRotation_InvalidVaultID_ReturnsError(t *testing.T) {
 	pool := NewMockPool()
 	auditSvc := &MockAuditService{}
-	service := NewKeyRotationService(pool, auditSvc)
+	_ = NewKeyRotationService(pool, auditSvc)
 
-	ctx := context.Background()
+	_ = context.Background()
 	userID := "user-123"
 	invalidVaultID := "" // Empty vault ID
 
@@ -873,9 +881,9 @@ func TestKeyRotation_ConcurrentProgress_NoRaceConditions(t *testing.T) {
 func TestKeyRotation_DatabaseError_Handling(t *testing.T) {
 	pool := NewMockPool()
 	auditSvc := &MockAuditService{}
-	service := NewKeyRotationService(pool, auditSvc)
+	_ = NewKeyRotationService(pool, auditSvc)
 
-	job := &KeyRotationJob{
+	_ = &KeyRotationJob{
 		ID:      "job-123",
 		VaultID: "vault-456",
 	}

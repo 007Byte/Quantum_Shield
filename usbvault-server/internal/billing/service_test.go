@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -252,8 +253,7 @@ func TestCheckAccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewBillingService("sk_test_123456789", nil)
-			ctx := context.Background()
+			_ = NewBillingService("sk_test_123456789", nil)
 
 			// Note: actual implementation would mock GetSubscription
 			// For this test, we verify the logic
@@ -339,12 +339,17 @@ func TestHandleWebhook(t *testing.T) {
 		},
 	}
 
+	webhookSecret := "test_webhook_secret"
+	os.Setenv("STRIPE_WEBHOOK_SECRET", webhookSecret)
+	defer os.Unsetenv("STRIPE_WEBHOOK_SECRET")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewBillingService("sk_test_123456789", nil)
 
 			payload, _ := json.Marshal(tt.eventPayload)
 			req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
+			req.Header.Set("Stripe-Signature", stripeSignature(payload, webhookSecret))
 			w := httptest.NewRecorder()
 
 			svc.HandleWebhook(w, req)
@@ -362,7 +367,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 	t.Parallel()
 
 	t.Run("creates customer with authenticated user", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789", nil)
+		svc := NewBillingService("placeholder_key", nil)
 		handler := HandleCreateCustomer(svc)
 
 		reqBody := CreateCustomerRequest{Email: "user@example.com"}
@@ -502,7 +507,15 @@ func TestHandleGetSubscription(t *testing.T) {
 // ============================================================================
 
 func TestMapTierToPrice(t *testing.T) {
-	t.Parallel()
+	// Set test price env vars
+	os.Setenv("STRIPE_PRICE_INDIVIDUAL", "price_individual_monthly")
+	os.Setenv("STRIPE_PRICE_TEAM", "price_team_monthly")
+	os.Setenv("STRIPE_PRICE_ENTERPRISE", "price_enterprise_monthly")
+	defer func() {
+		os.Unsetenv("STRIPE_PRICE_INDIVIDUAL")
+		os.Unsetenv("STRIPE_PRICE_TEAM")
+		os.Unsetenv("STRIPE_PRICE_ENTERPRISE")
+	}()
 
 	tests := []struct {
 		tier          string
@@ -522,17 +535,18 @@ func TestMapTierToPrice(t *testing.T) {
 		},
 		{
 			tier:          "unknown",
-			expectedPrice: "price_individual_monthly", // Default
+			expectedPrice: "", // Unknown tier returns empty
 		},
 		{
 			tier:          "",
-			expectedPrice: "price_individual_monthly", // Default
+			expectedPrice: "", // Empty tier returns empty
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.tier, func(t *testing.T) {
-			price := mapTierToPrice(tt.tier)
+			svc := NewBillingService("sk_test_123456789", nil)
+			price := svc.mapTierToPrice(tt.tier)
 			assert.Equal(t, tt.expectedPrice, price)
 		})
 	}

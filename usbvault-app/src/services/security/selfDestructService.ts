@@ -157,11 +157,12 @@ function writePendingAlerts(alerts: PendingAlert[]): void {
 function getClientIP(): string | undefined {
   if (!isWeb) return undefined;
   try {
-    const extWindow = window as ExtendedWindow;
+    const extWindow = window as unknown as ExtendedWindow;
     const RTCConstructor = extWindow.RTCPeerConnection || extWindow.webkitRTCPeerConnection;
     if (!RTCConstructor) return undefined;
-    const rtc = new RTCConstructor({ iceServers: [] });
-    return undefined; // Simplified: would require async callback
+    // Simplified: would require async callback for actual IP detection
+    void RTCConstructor;
+    return undefined;
   } catch {
     return undefined;
   }

@@ -336,7 +336,7 @@ func TestTokenFamily_TheftDetection(t *testing.T) {
 	// Legitimate user gets initial token pair
 	_, refreshToken1, _ := GenerateTokenPair(userID, deviceID)
 	claims1, _ := ValidateToken(refreshToken1)
-	familyID1 := claims1.FamilyID
+	_ = claims1.FamilyID
 
 	// User legitimately refreshes
 	_, refreshToken2, _ := RefreshAccessToken(mockRedis, refreshToken1)
