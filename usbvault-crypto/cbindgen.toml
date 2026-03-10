@@ -25,12 +25,6 @@ include = []
 # Tell cbindgen to expand the ffi feature so it sees FFI exports
 features = ["ffi"]
 
-[struct]
-derive_helper_methods = false
-
-[enum]
-derive_helper_methods = false
-
 [const]
 allow_static_const = false
 
