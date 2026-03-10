@@ -4,10 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors } from '@/components/dashboard2/styles';
 import { FileInfo } from '@/stores/vaultStore';
-import { useCallback } from 'react';
-
-// PH4-FIX: Web-only iframe type for PDF previews on web platform
-interface IFrameElement extends React.DetailedHTMLProps<React.IframeHTMLAttributes<HTMLIFrameElement>, HTMLIFrameElement> {}
+import type { PressableState } from '@/types/utilities';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -24,16 +21,16 @@ interface DecryptTempViewProps {
 export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
   if (!file) return null;
 
-  const isImageFile = useCallback((name: string, type: string): boolean => {
+  const isImageFile = (name: string, type: string): boolean => {
     if (type.startsWith('image/')) return true;
     const ext = name.split('.').pop()?.toLowerCase() || '';
     return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
-  }, []);
+  };
 
-  const isPdfFile = useCallback((name: string, type: string): boolean => {
+  const isPdfFile = (name: string, type: string): boolean => {
     if (type === 'application/pdf') return true;
     return name.toLowerCase().endsWith('.pdf');
-  }, []);
+  };
 
   const isTextFile = (name: string, type: string): boolean => {
     if (type.startsWith('text/')) return true;
@@ -95,7 +92,7 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
                   window.open(fileUri, '_blank');
                 }
               }}
-              style={(state: any) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover]}
+              style={(state: PressableState) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any}
             >
               <Feather name="external-link" size={14} color="#FFFFFF" />
               <Text style={styles.openExternalText}>Open in New Tab</Text>
@@ -128,7 +125,7 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
         {fileUri && Platform.OS === 'web' && (
           <Pressable
             onPress={() => window.open(fileUri, '_blank')}
-            style={(state: any) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover]}
+            style={(state: PressableState) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any}
           >
             <Feather name="external-link" size={14} color="#FFFFFF" />
             <Text style={styles.openExternalText}>Open in New Tab</Text>
@@ -151,7 +148,7 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
         </View>
         <Pressable
           onPress={onClose}
-          style={(state: any) => [styles.tempViewClose, state.hovered && styles.tempViewCloseHover]}
+          style={(state: PressableState) => [styles.tempViewClose, state.hovered && styles.tempViewCloseHover] as any}
         >
           <Feather name="x" size={16} color="#FFFFFF" />
           <Text style={styles.tempViewCloseText}>Close & Clear</Text>

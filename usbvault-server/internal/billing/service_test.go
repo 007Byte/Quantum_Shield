@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -128,7 +127,7 @@ func TestCreateSubscription(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Skip("NewBillingService requires *pgxpool.Pool which needs mocking")
-			svc := NewBillingService("sk_test_123456789")
+			svc := NewBillingService("sk_test_123456789", nil)
 			ctx := context.Background()
 
 			subscriptionID, err := svc.CreateSubscription(ctx, tt.userID, tt.tier)
@@ -199,7 +198,7 @@ func TestGetSubscription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewBillingService("sk_test_123456789")
+			svc := NewBillingService("sk_test_123456789", nil)
 			ctx := context.Background()
 
 			sub, err := svc.GetSubscription(ctx, tt.userID)
@@ -253,7 +252,7 @@ func TestCheckAccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewBillingService("sk_test_123456789")
+			svc := NewBillingService("sk_test_123456789", nil)
 			ctx := context.Background()
 
 			// Note: actual implementation would mock GetSubscription
@@ -342,7 +341,7 @@ func TestHandleWebhook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewBillingService("sk_test_123456789")
+			svc := NewBillingService("sk_test_123456789", nil)
 
 			payload, _ := json.Marshal(tt.eventPayload)
 			req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
@@ -363,7 +362,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 	t.Parallel()
 
 	t.Run("creates customer with authenticated user", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleCreateCustomer(svc)
 
 		reqBody := CreateCustomerRequest{Email: "user@example.com"}
@@ -384,7 +383,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 	})
 
 	t.Run("rejects unauthenticated request", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleCreateCustomer(svc)
 
 		reqBody := CreateCustomerRequest{Email: "user@example.com"}
@@ -400,7 +399,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 	})
 
 	t.Run("rejects invalid request body", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleCreateCustomer(svc)
 
 		req := httptest.NewRequest("POST", "/customers", bytes.NewReader([]byte("invalid")))
@@ -422,7 +421,7 @@ func TestHandleCreateSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("creates subscription for authenticated user", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleCreateSubscription(svc)
 
 		reqBody := CreateSubscriptionRequest{Tier: "individual"}
@@ -443,7 +442,7 @@ func TestHandleCreateSubscription(t *testing.T) {
 	})
 
 	t.Run("rejects unauthenticated request", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleCreateSubscription(svc)
 
 		reqBody := CreateSubscriptionRequest{Tier: "individual"}
@@ -467,7 +466,7 @@ func TestHandleGetSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("retrieves subscription for authenticated user", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleGetSubscription(svc)
 
 		req := httptest.NewRequest("GET", "/subscriptions", nil)
@@ -485,7 +484,7 @@ func TestHandleGetSubscription(t *testing.T) {
 	})
 
 	t.Run("rejects unauthenticated request", func(t *testing.T) {
-		svc := NewBillingService("sk_test_123456789")
+		svc := NewBillingService("sk_test_123456789", nil)
 		handler := HandleGetSubscription(svc)
 
 		req := httptest.NewRequest("GET", "/subscriptions", nil)

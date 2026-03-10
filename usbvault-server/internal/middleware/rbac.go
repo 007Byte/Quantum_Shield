@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -8,8 +9,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// RBACChecker defines the interface for checking permissions
+type RBACChecker interface {
+	CheckPermission(ctx context.Context, userID, vaultID string, perm auth.Permission) (bool, error)
+}
+
 // RequireVaultPermission extracts vault_id from URL parameters and checks RBAC permissions
-func RequireVaultPermission(rbac *auth.RBACService, perm auth.Permission) func(http.Handler) http.Handler {
+func RequireVaultPermission(rbac RBACChecker, perm auth.Permission) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract user ID from context
@@ -54,21 +60,21 @@ func RequireVaultPermission(rbac *auth.RBACService, perm auth.Permission) func(h
 }
 
 // VaultOwnerOnly is a shortcut for RequireVaultPermission with manage_members permission
-func VaultOwnerOnly(rbac *auth.RBACService) func(http.Handler) http.Handler {
+func VaultOwnerOnly(rbac RBACChecker) func(http.Handler) http.Handler {
 	return RequireVaultPermission(rbac, auth.PermManageMembers)
 }
 
 // RequireVaultRead checks if user can read a vault
-func RequireVaultRead(rbac *auth.RBACService) func(http.Handler) http.Handler {
+func RequireVaultRead(rbac RBACChecker) func(http.Handler) http.Handler {
 	return RequireVaultPermission(rbac, auth.PermRead)
 }
 
 // RequireVaultUpdate checks if user can update a vault
-func RequireVaultUpdate(rbac *auth.RBACService) func(http.Handler) http.Handler {
+func RequireVaultUpdate(rbac RBACChecker) func(http.Handler) http.Handler {
 	return RequireVaultPermission(rbac, auth.PermUpdate)
 }
 
 // RequireVaultDelete checks if user can delete a vault
-func RequireVaultDelete(rbac *auth.RBACService) func(http.Handler) http.Handler {
+func RequireVaultDelete(rbac RBACChecker) func(http.Handler) http.Handler {
 	return RequireVaultPermission(rbac, auth.PermDelete)
 }

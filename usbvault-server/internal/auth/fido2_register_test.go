@@ -31,7 +31,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupContext func(*http.Request)
-		setupDB      func(pgxmock.PgxConnIface)
+		setupDB      func(pgxmock.PgxPoolIface)
 		expectStatus int
 		expectError  string
 		validateResp func(*testing.T, []byte)
@@ -43,7 +43,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 				ctx := context.WithValue(r.Context(), "user_id", "user-123")
 				*r = *r.WithContext(ctx)
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT email_hash FROM users WHERE id").
 					WithArgs("user-123").
 					WillReturnRows(pgxmock.NewRows([]string{"email_hash"}).
@@ -68,7 +68,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 			setupContext: func(r *http.Request) {
 				// No user_id in context
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusUnauthorized,
@@ -80,7 +80,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 				ctx := context.WithValue(r.Context(), "user_id", "")
 				*r = *r.WithContext(ctx)
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusUnauthorized,
@@ -92,7 +92,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 				ctx := context.WithValue(r.Context(), "user_id", "nonexistent-user")
 				*r = *r.WithContext(ctx)
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT email_hash FROM users WHERE id").
 					WithArgs("nonexistent-user").
 					WillReturnError(pgx.ErrNoRows)
@@ -148,7 +148,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 		name         string
 		setupContext func(*http.Request)
 		setupRequest func() FIDO2RegisterVerifyRequest
-		setupDB      func(pgxmock.PgxConnIface)
+		setupDB      func(pgxmock.PgxPoolIface)
 		expectStatus int
 		expectError  string
 	}{
@@ -165,7 +165,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 					CredentialName:        "My Key",
 				}
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries - session lookup in Redis will fail
 			},
 			expectStatus: http.StatusUnauthorized,
@@ -184,7 +184,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 					CredentialName:        "My Key",
 				}
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// User already has 10 credentials - at limit
 				existingCreds := make([]webauthn.Credential, 10)
 				credsJSON, _ := json.Marshal(existingCreds)
@@ -243,7 +243,7 @@ func TestHandleFIDO2ListCredentials(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupContext func(*http.Request)
-		setupDB      func(pgxmock.PgxConnIface)
+		setupDB      func(pgxmock.PgxPoolIface)
 		expectStatus int
 		validateResp func(*testing.T, []byte)
 	}{
@@ -253,7 +253,7 @@ func TestHandleFIDO2ListCredentials(t *testing.T) {
 				ctx := context.WithValue(r.Context(), "user_id", "user-123")
 				*r = *r.WithContext(ctx)
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				creds := []FIDO2Credential{
 					{
 						ID:        "cred-1",
@@ -282,7 +282,7 @@ func TestHandleFIDO2ListCredentials(t *testing.T) {
 				ctx := context.WithValue(r.Context(), "user_id", "user-456")
 				*r = *r.WithContext(ctx)
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT.*credentials.*FROM users WHERE id").
 					WithArgs("user-456").
 					WillReturnRows(pgxmock.NewRows([]string{"fido2_credentials"}).
@@ -302,7 +302,7 @@ func TestHandleFIDO2ListCredentials(t *testing.T) {
 			setupContext: func(r *http.Request) {
 				// No user_id in context
 			},
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusUnauthorized,
@@ -349,7 +349,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 		name         string
 		setupContext func(*http.Request)
 		credentialID string
-		setupDB      func(pgxmock.PgxConnIface)
+		setupDB      func(pgxmock.PgxPoolIface)
 		expectStatus int
 		expectError  string
 	}{
@@ -360,7 +360,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "cred-1",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// Count credentials
 				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
 					WithArgs("user-123").
@@ -386,7 +386,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "cred-1",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// Only 1 credential
 				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
 					WithArgs("user-123").
@@ -402,7 +402,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "nonexistent",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// Count credentials
 				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
 					WithArgs("user-123").
@@ -423,7 +423,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 				// No user_id in context
 			},
 			credentialID: "cred-1",
-			setupDB: func(mock pgxmock.PgxConnIface) {
+			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
 			expectStatus: http.StatusUnauthorized,

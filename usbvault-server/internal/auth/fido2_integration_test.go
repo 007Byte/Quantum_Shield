@@ -175,8 +175,8 @@ func TestFIDO2BackupCodeIntegration(t *testing.T) {
 
 	t.Run("backup code hash is deterministic", func(t *testing.T) {
 		code := "ABCD1234"
-		hash1 := hashBackupCode(code)
-		hash2 := hashBackupCode(code)
+		hash1 := hashBackupCode(code, "test-salt")
+		hash2 := hashBackupCode(code, "test-salt")
 
 		if hash1 != hash2 {
 			t.Error("same code should produce same hash")
@@ -184,8 +184,8 @@ func TestFIDO2BackupCodeIntegration(t *testing.T) {
 	})
 
 	t.Run("different codes produce different hashes", func(t *testing.T) {
-		hash1 := hashBackupCode("ABCD1234")
-		hash2 := hashBackupCode("EFGH5678")
+		hash1 := hashBackupCode("ABCD1234", "test-salt")
+		hash2 := hashBackupCode("EFGH5678", "test-salt")
 
 		if hash1 == hash2 {
 			t.Error("different codes should produce different hashes")

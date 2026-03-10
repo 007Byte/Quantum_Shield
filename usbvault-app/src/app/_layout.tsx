@@ -8,8 +8,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
-import { useAppProtection } from '@/services/appProtection';
-import { checkDeviceIntegrity } from '@/services/deviceIntegrity';
+import { useAppProtection } from '@/services/security/appProtection';
+import { checkDeviceIntegrity } from '@/services/security/deviceIntegrity';
 import { logger } from '@/utils/logger';
 
 /**
@@ -138,7 +138,7 @@ export default function RootLayout() {
         if (result.isCompromised) {
           logger.warn('[RootLayout] Device integrity check failed:', result.riskLevel);
         }
-      }).catch((err) => {
+      }).catch((err: Error) => {
         logger.error('[RootLayout] Device integrity check error:', err);
       });
     }

@@ -7,9 +7,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
+
+// DBPool defines the interface for database pool operations
+type DBPool interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+}
 
 // SD-013 FIX: Key rotation status constants
 const (
@@ -36,14 +45,14 @@ type KeyRotationJob struct {
 
 // KeyRotationService manages encryption key rotation for vaults
 type KeyRotationService struct {
-	pool     *pgxpool.Pool
+	pool     DBPool
 	auditSvc interface {
 		LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 	}
 }
 
 // NewKeyRotationService creates a new key rotation service
-func NewKeyRotationService(pool *pgxpool.Pool, auditSvc interface {
+func NewKeyRotationService(pool DBPool, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) *KeyRotationService {
 	return &KeyRotationService{

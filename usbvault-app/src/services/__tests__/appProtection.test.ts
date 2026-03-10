@@ -1,5 +1,5 @@
 import { AppState, Clipboard, Platform } from 'react-native';
-import * as appProtection from '@/services/appProtection';
+import * as appProtection from '@/services/security/appProtection';
 
 jest.mock('react-native');
 jest.mock('expo-secure-store');

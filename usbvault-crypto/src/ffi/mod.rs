@@ -6,16 +6,17 @@ use crate::kdf::{derive_master_key, generate_salt};
 use crate::sharing::{self, SharePublicKey, ShareSecretKey};
 use std::panic;
 use std::slice;
+use zeroize::Zeroizing;
 
 // Platform-specific FFI modules
 #[cfg(target_os = "ios")]
-pub mod ios;
+mod ios;
 
 #[cfg(target_os = "android")]
-pub mod android;
+mod android;
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-pub mod desktop;
+mod desktop;
 
 /// FFI error codes matching CryptoError variants
 const ERR_SUCCESS: i32 = 0;
@@ -606,8 +607,8 @@ pub extern "C" fn usbvault_pqc_open(
             x25519_bytes.copy_from_slice(x25519_slice);
 
             let secret = HybridSecretKey {
-                x25519: zeroize::Zeroizing::new(x25519_bytes),
-                ml_kem: zeroize::Zeroizing::new(mlkem_slice.to_vec()),
+                x25519: Zeroizing::new(x25519_bytes),
+                ml_kem: Zeroizing::new(mlkem_slice.to_vec()),
             };
 
             match hybrid_open(&secret, sealed) {

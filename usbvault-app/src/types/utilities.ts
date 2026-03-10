@@ -148,11 +148,15 @@ export type ResultCallback<T> = {
 };
 
 /**
- * React Native Pressable state type for style callbacks
+ * React Native Pressable state callback type for style functions
+ * Extends both native PressableStateCallbackType and web hover state
  * Use instead of `state: any` in Pressable style callbacks
  * Example: style={(state: PressableState) => [...]}
+ *
+ * Note: React Native's Pressable provides 'pressed', web provides 'hovered'.
+ * This type safely handles both cases.
  */
 export type PressableState = {
-  hovered: boolean;
   pressed: boolean;
+  hovered?: boolean;
 };

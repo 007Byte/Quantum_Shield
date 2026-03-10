@@ -126,12 +126,12 @@ func TestBackupCodeVerificationWithInvalidCode(t *testing.T) {
 		// Create hashes
 		storedHashes := make([]string, len(validCodes))
 		for i, code := range validCodes {
-			storedHashes[i] = hashBackupCode(code)
+			storedHashes[i] = hashBackupCode(code, "test-salt")
 		}
 
 		// Try to verify an invalid code
 		invalidCode := "INVALID99"
-		invalidHash := hashBackupCode(invalidCode)
+		invalidHash := hashBackupCode(invalidCode, "test-salt")
 
 		// Check if invalid code is in stored hashes
 		found := false
@@ -157,7 +157,7 @@ func TestBackupCodeCannotBeReused(t *testing.T) {
 		}
 
 		usedCode := plainCodes[0]
-		usedCodeHash := hashBackupCode(usedCode)
+		usedCodeHash := hashBackupCode(usedCode, "test-salt")
 
 		// Simulate used codes tracking
 		usedCodes := make(map[string]bool)
@@ -235,7 +235,7 @@ func TestBackupCodeGenerationReturnsCorrectCount(t *testing.T) {
 func TestBackupCodeHashFormatIsHex(t *testing.T) {
 	t.Run("backup code hash format is lowercase hex", func(t *testing.T) {
 		code := "TEST1234"
-		hash := hashBackupCode(code)
+		hash := hashBackupCode(code, "test-salt")
 
 		// Check it's 64 characters (SHA-256)
 		if len(hash) != 64 {
@@ -298,8 +298,8 @@ func TestBackupCodeUsedCodesJSONMarshaling(t *testing.T) {
 
 		// Create used codes map
 		usedCodes := make(map[string]bool)
-		usedCodes[hashBackupCode(codes[0])] = true
-		usedCodes[hashBackupCode(codes[1])] = true
+		usedCodes[hashBackupCode(codes[0], "test-salt")] = true
+		usedCodes[hashBackupCode(codes[1], "test-salt")] = true
 
 		// Marshal to JSON
 		jsonBytes, err := json.Marshal(usedCodes)
@@ -372,8 +372,8 @@ func TestBackupCodeCaseSensitivity(t *testing.T) {
 		code1 := "ABC12345"
 		code2 := "abc12345"
 
-		hash1 := hashBackupCode(code1)
-		hash2 := hashBackupCode(code2)
+		hash1 := hashBackupCode(code1, "test-salt")
+		hash2 := hashBackupCode(code2, "test-salt")
 
 		if hash1 == hash2 {
 			t.Error("hashes should differ for different case inputs")

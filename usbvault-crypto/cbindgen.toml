@@ -1,13 +1,23 @@
 # cbindgen configuration for USBVault Crypto FFI
 # This file configures how Rust FFI exports are converted to C headers
 
+# Top-level settings
+language = "C"
+pragma_once = true
+includes = []
+sys_includes = ["stddef.h", "stdint.h", "stdbool.h"]
+documentation = true
+documentation_style = "c99"
+
 [export]
-# Only export #[no_mangle] extern "C" functions
 exclude = []
 include = []
 
+[export.rename]
+# Rename exports if needed
+# "RustTypeName" = "CTypeName"
+
 [parse]
-# Parse Rust code using cargo
 parse_deps = false
 include = []
 
@@ -31,20 +41,4 @@ allow_static_const = false
 [fn]
 rename_args = "None"
 
-[documentation]
-document_private_items = false
-style = "C99"
-
-[header]
-includes = []
-sys_includes = ["stddef.h", "stdint.h", "stdbool.h"]
-language = "C"
-pragma_once = true
-
 [defines]
-"FFI_VERSION" = "1"
-"USBVAULT_CRYPTO_H" = "1"
-
-[export.rename]
-# Rename exports if needed
-# "RustTypeName" = "CTypeName"
