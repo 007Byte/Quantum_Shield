@@ -4,7 +4,7 @@ updates:
   # Rust Cargo Dependencies
   # ============================================================
   - package-ecosystem: cargo
-    directory: "/Enterprise_Version/qav-crypto"
+    directory: "/usbvault-crypto"
     schedule:
       interval: weekly
       day: monday
@@ -35,7 +35,7 @@ updates:
   # Go Modules
   # ============================================================
   - package-ecosystem: gomod
-    directory: "/Enterprise_Version/qav-server"
+    directory: "/usbvault-server"
     schedule:
       interval: weekly
       day: monday
@@ -65,7 +65,7 @@ updates:
   # NPM Dependencies
   # ============================================================
   - package-ecosystem: npm
-    directory: "/Enterprise_Version/qav-app"
+    directory: "/usbvault-app"
     schedule:
       interval: weekly
       day: monday
