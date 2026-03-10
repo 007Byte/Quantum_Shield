@@ -1,0 +1,37 @@
+# PH11-FIX: Prometheus monitoring configuration (CWE-778)
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: "qav-api"
+    metrics_path: "/metrics"
+    scheme: "https"
+    tls_config:
+      insecure_skip_verify: false
+    static_configs:
+      - targets: ["qav-api:8080"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  - job_name: "postgresql"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]

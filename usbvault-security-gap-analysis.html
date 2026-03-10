@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Armor Vault — Security Architecture Gap Analysis</title>
+<style>
+  :root {
+    --bg: #0a0618; --card: #110b29; --border: rgba(139,92,246,0.3);
+    --cyan: #22d3ee; --purple: #a78bfa; --green: #34d399; --yellow: #fbbf24;
+    --red: #f87171; --orange: #fb923c; --text: #e2e8f0; --muted: #94a3b8; --dim: #475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 32px; max-width: 1200px; margin: 0 auto; line-height: 1.6; }
+  h1 { font-size: 28px; font-weight: 800; background: linear-gradient(90deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  .verdict { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
+  .verdict-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--yellow); }
+  .verdict p { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+  .verdict strong { color: var(--text); }
+  .kpi-row { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .kpi { flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-val { font-size: 28px; font-weight: 800; }
+  .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 16px; overflow: hidden; }
+  .sec-head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; cursor: pointer; user-select: none; }
+  .sec-head:hover { background: rgba(139,92,246,0.06); }
+  .sec-num { font-size: 12px; font-weight: 700; color: var(--purple); background: rgba(139,92,246,0.15); padding: 2px 10px; border-radius: 8px; }
+  .sec-title { flex: 1; font-size: 16px; font-weight: 700; }
+  .severity { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sev-critical { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .sev-high { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+  .sev-medium { background: rgba(251,191,36,0.15); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+  .sev-good { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+  .chevron { color: var(--dim); transition: transform 0.2s; font-size: 16px; }
+  .section.open .chevron { transform: rotate(180deg); }
+  .sec-body { display: none; padding: 0 24px 24px; }
+  .section.open .sec-body { display: block; }
+  .claim { background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .claim-label { font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .finding { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+  .finding-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .finding-label { font-size: 12px; font-weight: 700; color: var(--cyan); min-width: 80px; }
+  .finding-val { font-size: 13px; color: var(--muted); }
+  .code { font-family: 'JetBrains Mono', 'Fira Code', monospace; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--cyan); }
+  .rec { background: rgba(52,211,153,0.06); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 14px; border-radius: 0 8px 8px 0; }
+  .rec-title { font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+  .rec p { font-size: 13px; color: var(--muted); }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot-yes { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-partial { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .dot-no { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  table.matrix { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+  table.matrix th { text-align: left; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.matrix td { padding: 8px 10px; border-bottom: 1px solid rgba(139,92,246,0.1); vertical-align: top; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; margin-right: 4px; }
+  .tag-rust { background: rgba(255,107,107,0.12); color: #ff9f7f; }
+  .tag-go { background: rgba(52,211,153,0.12); color: var(--green); }
+  .tag-rn { background: rgba(96,165,250,0.12); color: #93bbfc; }
+</style>
+</head>
+<body>
+
+<h1>Security Architecture Gap Analysis</h1>
+<p class="subtitle">Quantum Armor Vault (QAV) · Code Audit Against External Security Review · March 8, 2026</p>
+
+<div class="verdict">
+  <div class="verdict-title">Bottom-Line Assessment</div>
+  <p><strong>The core cryptographic primitives are solid</strong> — Argon2id KDF, XChaCha20-Poly1305/AES-256-GCM-SIV AEAD, HMAC-SHA256 integrity, X25519 key exchange, SRP-6a zero-knowledge auth. The Rust implementation includes proper memory zeroing, constant-time comparisons, and fuzz testing.</p>
+  <p><strong>However, there are real gaps between documentation claims and code reality.</strong> The CNSA 2.0 compliance document claims ML-KEM-1024 and ML-DSA-87 implementations that <em>do not exist</em> in the Rust crypto core. The "zero-knowledge" claim is technically inaccurate — file names are stored as plaintext HashMap keys in the vault index, and the server sees sharing graphs, file sizes, and access patterns.</p>
+  <p><strong>The architecture is strongest as:</strong> an encrypted-storage system with strong client-side cryptography and a privacy-respecting server. <strong>It is weakest as:</strong> a literal "zero-knowledge" system where the server learns nothing about user activity.</p>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-val" style="color:var(--red)">3</div><div class="kpi-lbl">Critical Gaps</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--orange)">5</div><div class="kpi-lbl">High Gaps</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--yellow)">4</div><div class="kpi-lbl">Medium Gaps</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:var(--green)">7</div><div class="kpi-lbl">Solid Areas</div></div>
+</div>
+
+<!-- Section 1: PQC -->
+<div class="section open" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <span class="sec-title">Post-Quantum Cryptography (PQC)</span>
+    <span class="severity sev-critical">Critical Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="claim">
+      <div class="claim-label">Documentation vs. Reality Mismatch</div>
+      <p style="font-size:13px;color:var(--text)"><span class="code">CNSA_2_0_COMPLIANCE.md</span> claims "ML-KEM-1024 implementation" and "ML-DSA-87 (CRYSTALS-Dilithium)" in <span class="code">vault_pqc.py</span>. However, <span class="code">vault_pqc.py</span> is a <strong>Python module in the legacy codebase</strong>, not in the Rust Enterprise crypto core.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-row"><span class="finding-label">Cargo.toml</span><span class="finding-val">Line 59: <span class="code">pqc = []  # Post-quantum crypto (future: oqs crate)</span> — Feature flag is EMPTY, no crate dependency</span></div>
+      <div class="finding-row"><span class="finding-label">Rust Source</span><span class="finding-val">Zero references to ML-KEM, Kyber, Dilithium, or any PQC algorithm across all 16 .rs files</span></div>
+      <div class="finding-row"><span class="finding-label">X25519</span><span class="finding-val"><span class="code">sharing.rs</span> uses X25519 alone — NOT hybridized with any PQC KEM</span></div>
+      <div class="finding-row"><span class="finding-label">Signatures</span><span class="finding-val">Ed25519 only — no ML-DSA/Dilithium/Falcon</span></div>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Implement hybrid KEM: X25519 + ML-KEM-768 (FIPS 203) using the <span class="code">oqs</span> or <span class="code">pqcrypto</span> Rust crate. Combine shared secrets via HKDF as described in your own CNSA 2.0 doc (which is correct in theory, just not implemented). Until then, <strong>retract PQC claims from documentation</strong> to avoid misleading security auditors.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2: Key Management -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <span class="sec-title">Key Management & Key Hierarchy</span>
+    <span class="severity sev-high">High Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Master key generation</td><td><span class="status-dot dot-partial"></span>Password-derived</td><td><span class="code">kdf.rs</span>: Argon2id(65MB, 3 iter, 4 lanes) → 64 bytes split into enc_key + hmac_key</td></tr>
+      <tr><td>Key Encryption Key (KEK)</td><td><span class="status-dot dot-no"></span>Missing</td><td>No separate random master key wrapped by a password-derived KEK. Password directly determines all data keys.</td></tr>
+      <tr><td>Hardware security (TPM/Enclave)</td><td><span class="status-dot dot-no"></span>Missing</td><td>Rust core has no hardware integration. Only software mlock/munlock in <span class="code">memory.rs</span></td></tr>
+      <tr><td>Secure memory (zeroize)</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">Zeroizing&lt;Vec&lt;u8&gt;&gt;</span> wrapper on all key material</td></tr>
+      <tr><td>Memory locking (mlock)</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">memory.rs</span>: platform-specific mlock for Linux/macOS/Windows</td></tr>
+    </table>
+    <div class="claim" style="margin-top:14px">
+      <div class="claim-label">Weakness: Password = Single Point of Failure</div>
+      <p style="font-size:13px;color:var(--text)">The current design derives all vault keys directly from the password via Argon2id. A weak password compromises ALL data. Best practice is to generate a random master key, then wrap it with a password-derived key. This allows password changes without re-encrypting all data and enables future hardware key storage.</p>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Introduce a two-layer key hierarchy: (1) Random 256-bit Master Key generated at account creation, (2) Password-derived Key Encryption Key (KEK) via Argon2id that wraps the Master Key. Store the wrapped master key alongside the salt. On password change, only re-wrap — no data re-encryption needed. This also enables future TPM/Secure Enclave backing of the unwrapped master key.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Metadata Leakage -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <span class="sec-title">Metadata Leakage & "Zero-Knowledge" Claim</span>
+    <span class="severity sev-critical">Critical Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="claim">
+      <div class="claim-label">The "Zero-Knowledge" Claim Is Overstated</div>
+      <p style="font-size:13px;color:var(--text)">The server cannot read file <em>contents</em>, but it knows substantially more than "nothing" about user activity.</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Metadata Type</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>File contents</td><td><span class="status-dot dot-yes"></span>Encrypted</td><td>XChaCha20-Poly1305 or AES-256-GCM-SIV AEAD</td></tr>
+      <tr><td>File names</td><td><span class="status-dot dot-no"></span><strong>PLAINTEXT</strong></td><td><span class="code">vault/index.rs</span>: <span class="code">HashMap&lt;String, u64&gt;</span> — filenames are literal keys serialized as JSON</td></tr>
+      <tr><td>File sizes</td><td><span class="status-dot dot-no"></span>Visible</td><td>No padding applied. Encrypted blob size ≈ plaintext size + AEAD overhead</td></tr>
+      <tr><td>Access patterns</td><td><span class="status-dot dot-no"></span>Visible</td><td>S3 presigned URLs logged server-side. No ORAM or access obfuscation</td></tr>
+      <tr><td>Upload/download timing</td><td><span class="status-dot dot-no"></span>Visible</td><td>Server issues presigned URLs and sees all request timestamps</td></tr>
+      <tr><td>Sharing graph (who → whom)</td><td><span class="status-dot dot-no"></span>Visible</td><td>Server manages share records in PostgreSQL with sender/recipient IDs</td></tr>
+      <tr><td>Account existence</td><td><span class="status-dot dot-partial"></span>Protected</td><td>SRP has dummy computation + random delay for non-existent accounts</td></tr>
+      <tr><td>Device list</td><td><span class="status-dot dot-no"></span>Visible</td><td>deviceID passed to server as string</td></tr>
+      <tr><td>Number of files</td><td><span class="status-dot dot-no"></span>Visible</td><td>Vault CRUD exposes object count</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p><strong>Immediate:</strong> Change marketing language from "zero-knowledge" to "end-to-end encrypted with limited server knowledge" or "encrypted storage with privacy-respecting server." <strong>Short-term:</strong> Encrypt the vault index (file names + offsets) client-side before storing server-side. <strong>Long-term:</strong> Pad file sizes to fixed buckets, encrypt sharing metadata, and evaluate ORAM for access pattern obfuscation (high-latency trade-off).</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: AEAD & Encryption -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <span class="sec-title">AEAD, Nonce Strategy & Integrity</span>
+    <span class="severity sev-good">Solid</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>AEAD choice</td><td><span class="status-dot dot-yes"></span>Strong</td><td>XChaCha20-Poly1305 (24-byte nonce, misuse-resistant) + AES-256-GCM-SIV (nonce-misuse-resistant)</td></tr>
+      <tr><td>Nonce generation</td><td><span class="status-dot dot-yes"></span>Random</td><td><span class="code">cipher.rs</span>: <span class="code">rand::thread_rng()</span> per encryption, nonce prepended to ciphertext</td></tr>
+      <tr><td>Chunking for large files</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">streaming.rs</span>: 64KB chunks, per-chunk nonce via HKDF-SHA256(base_nonce XOR chunk_index)</td></tr>
+      <tr><td>Metadata authentication</td><td><span class="status-dot dot-yes"></span>Dual-layer</td><td>AEAD tag on metadata chunk + HMAC-SHA256 over entire record for truncation detection</td></tr>
+      <tr><td>Domain separation</td><td><span class="status-dot dot-partial"></span>Partial</td><td>HKDF info strings ("seal", "index_encryption") but not comprehensive across all key uses</td></tr>
+      <tr><td>Version/format tagging</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>V1=0x01, V2=0x02 version bytes in record headers</td></tr>
+      <tr><td>Rollback protection</td><td><span class="status-dot dot-no"></span>Missing</td><td>No per-file version counters. Server can replay old encrypted file versions</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Add a monotonic version counter per file entry, authenticated in the AEAD additional data. This prevents the server from silently rolling back a file to an older encrypted version. Also expand domain separation with unique HKDF context strings for each key derivation path.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5: Public Key Authenticity -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <span class="sec-title">Public Key Authenticity & MITM Resistance</span>
+    <span class="severity sev-high">High Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Key fingerprint generation</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">contact_verify.go</span>: SHA-256 fingerprint as colon-separated hex (A1:B2:C3:...)</td></tr>
+      <tr><td>Out-of-band verification</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">VerifyContact()</span> validates fingerprint, stores in <span class="code">contact_verifications</span> table</td></tr>
+      <tr><td>Verification status check</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">IsContactVerified()</span> checks before sharing</td></tr>
+      <tr><td>QR code verification</td><td><span class="status-dot dot-no"></span>Missing</td><td>No QR code generation/scanning in app</td></tr>
+      <tr><td>Server key substitution resistance</td><td><span class="status-dot dot-partial"></span>Partial</td><td>Ephemeral X25519 per message is good. But long-term keys stored on server — server CAN substitute for unverified contacts</td></tr>
+      <tr><td>Key change notifications</td><td><span class="status-dot dot-no"></span>Missing</td><td>No Signal-style "safety number changed" alert when a contact's key changes</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Add QR code key verification in the app (like Signal/WhatsApp safety numbers). Implement key-change notifications — if the server presents a different public key for a previously verified contact, warn the user prominently. Consider key transparency logs where public key history is append-only and auditable.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6: SRP-6a -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">06</span>
+    <span class="sec-title">SRP-6a Implementation</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Library</td><td><span class="status-dot dot-partial"></span>Custom</td><td>Manual BigInt via <span class="code">num-bigint 0.4</span> (Rust) and custom <span class="code">srp.go</span> (Go)</td></tr>
+      <tr><td>Group parameters</td><td><span class="status-dot dot-yes"></span>RFC 5054</td><td>3072-bit group (RFC 7919), hardcoded in both implementations</td></tr>
+      <tr><td>Parameter validation</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>Server: B ≠ 0 mod N; Client: 1 &lt; A &lt; N; k = H(PAD(N) || PAD(g))</td></tr>
+      <tr><td>Account enumeration</td><td><span class="status-dot dot-yes"></span>Protected</td><td>Dummy computation + random 0–100ms delay + constant-time comparison</td></tr>
+      <tr><td>Session binding to TLS</td><td><span class="status-dot dot-no"></span>Missing</td><td>No RFC 5929 channel binding. SRP proof not tied to transport</td></tr>
+      <tr><td>Password hash for verifier</td><td><span class="status-dot dot-partial"></span>SHA only</td><td>SRP verifier uses <span class="code">x = H(salt, H(identity:password))</span> — Argon2id used only for vault KDF, NOT for SRP password hash</td></tr>
+    </table>
+    <div class="claim">
+      <div class="claim-label">SRP Verifier Weakness</div>
+      <p style="font-size:13px;color:var(--text)">The SRP verifier is derived from a simple SHA hash of the password, not from Argon2id. If the verifier database is stolen, an attacker can brute-force weak passwords much faster than if Argon2id were used. This is a common oversight — the expensive KDF protects the vault keys but not the authentication credential.</p>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Use Argon2id as the inner hash for SRP verifier generation: <span class="code">x = Argon2id(password, salt) → SRP verifier</span>. This makes offline brute-force against stolen verifiers as expensive as attacking the vault keys. Also add TLS channel binding (tls-server-end-point) to prevent SRP session relay attacks.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 7: Device Trust -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">07</span>
+    <span class="sec-title">Device Trust & Multi-Device Enrollment</span>
+    <span class="severity sev-high">High Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Device enrollment protocol</td><td><span class="status-dot dot-no"></span>Missing</td><td>deviceID passed as string but not bound to hardware or verified</td></tr>
+      <tr><td>Web client (active code from server)</td><td><span class="status-dot dot-yes"></span>None (Good)</td><td>Native-only React Native app — no browser client serving JS from server</td></tr>
+      <tr><td>Code signing / update verification</td><td><span class="status-dot dot-no"></span>Missing</td><td>No signature verification on app updates</td></tr>
+      <tr><td>Remote attestation (SafetyNet/App Attest)</td><td><span class="status-dot dot-no"></span>Missing</td><td>No platform attestation integration</td></tr>
+      <tr><td>Reproducible builds</td><td><span class="status-dot dot-no"></span>Missing</td><td>No reproducible build infrastructure</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Implement device enrollment via QR code scanning (new device scans code displayed on trusted device). Each device gets its own key pair, with the master key re-encrypted for the new device's public key. Add iOS App Attest and Android Play Integrity for device attestation. For builds, configure deterministic compilation and publish build hashes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8: Recovery -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">08</span>
+    <span class="sec-title">Recovery, Reset & Password Change</span>
+    <span class="severity sev-high">High Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Password recovery mechanism</td><td><span class="status-dot dot-no"></span>None (by design)</td><td>Forgotten password = permanent data loss</td></tr>
+      <tr><td>Key escrow</td><td><span class="status-dot dot-yes"></span>None (Good)</td><td>Server never holds master keys — true zero-knowledge for key material</td></tr>
+      <tr><td>Recovery codes</td><td><span class="status-dot dot-no"></span>Missing</td><td>No backup recovery code system</td></tr>
+      <tr><td>Password change → data re-encryption</td><td><span class="status-dot dot-no"></span>Missing</td><td>SRP verifier updates but vault data is NOT re-encrypted with new key</td></tr>
+    </table>
+    <div class="claim">
+      <div class="claim-label">Usability vs. Security Trade-off</div>
+      <p style="font-size:13px;color:var(--text)">The "no recovery" design is maximally secure but will cause real data loss for real users. Enterprise customers typically require some recovery mechanism. Without one, a single forgotten password means losing all corporate encrypted data.</p>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Implement recovery codes: at account creation, generate a set of one-time codes that can unwrap the master key (this requires the two-layer key hierarchy from Section 02). These codes are displayed once, never stored on the server. For enterprise, consider organizational key escrow where a company admin holds a recovery share (Shamir's Secret Sharing). This preserves the zero-knowledge model while enabling business continuity.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 9: Forward Secrecy -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">09</span>
+    <span class="sec-title">Forward Secrecy & Key Rotation</span>
+    <span class="severity sev-high">High Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Per-file encryption keys</td><td><span class="status-dot dot-no"></span>Missing</td><td>All files encrypted with same master-derived key — no per-file key rotation</td></tr>
+      <tr><td>Share revocation re-encryption</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="code">RevokeShare()</span> removes server record only. Revoked user retains ciphertext</td></tr>
+      <tr><td>Double Ratchet for messaging</td><td><span class="status-dot dot-no"></span>Missing</td><td>No ratchet protocol found</td></tr>
+      <tr><td>Key rotation on password change</td><td><span class="status-dot dot-no"></span>Missing</td><td>Password change updates SRP verifier only, not vault keys</td></tr>
+      <tr><td>Ephemeral keys for sharing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>X25519 ephemeral keypair per share operation</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p><strong>Per-file keys:</strong> Generate a random file encryption key (FEK) per file, encrypt the FEK with the master key, store wrapped FEK alongside the blob. <strong>Revocation:</strong> On share revocation, re-encrypt the file with a new FEK and re-wrap for remaining authorized users. <strong>Messaging:</strong> If the Messages feature becomes a real E2E messaging system, implement Signal's Double Ratchet for forward secrecy and post-compromise security.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 10: Formal Verification -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">10</span>
+    <span class="sec-title">Formal Verification & Audit</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Formal verification (Kani/Verus)</td><td><span class="status-dot dot-no"></span>Missing</td><td>No formal verification tooling configured</td></tr>
+      <tr><td>Fuzz testing</td><td><span class="status-dot dot-yes"></span>Comprehensive</td><td>5 cargo-fuzz targets: cipher, streaming, vault_header, kdf, sharing</td></tr>
+      <tr><td>Property-based testing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>proptest crate for roundtrip and edge case verification</td></tr>
+      <tr><td>Constant-time verification</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">subtle</span> crate + <span class="code">crypto/subtle.ConstantTimeCompare</span></td></tr>
+      <tr><td>Independent security audit</td><td><span class="status-dot dot-no"></span>Not done</td><td>Phase 10 of roadmap (not yet reached)</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Before launch, commission an independent audit of the Rust crypto core from a firm like NCC Group, Cure53, or Trail of Bits. For formal verification, start with Kani on the AEAD encrypt/decrypt paths — these are bounded enough for automated verification. Property-based tests are a good intermediate step (already in place).</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 11: Client Integrity -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">11</span>
+    <span class="sec-title">Client Integrity & Update Model</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="finding">
+      <div class="finding-row"><span class="finding-label">Good news</span><span class="finding-val">No web client — the app is native React Native only. The server cannot serve malicious JavaScript.</span></div>
+      <div class="finding-row"><span class="finding-label">Bad news</span><span class="finding-val">No code signing verification, no reproducible builds, no remote attestation.</span></div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:12px">The reviewer's concern about "serve a malicious client update that exfiltrates keys" is valid. App store distribution provides some protection (Apple/Google review), but a compromised build pipeline or sideloaded APK could bypass this. The <span class="code">appProtection.ts</span> and <span class="code">deviceIntegrity.ts</span> services do basic integrity checks but don't verify the app binary itself.</p>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Implement binary transparency: publish build hashes to a public log. Add iOS App Attest for the crypto operations and Android Play Integrity API. For enterprise distribution, implement RASP (Runtime Application Self-Protection) to detect tampering. Configure reproducible builds in CI so independent parties can verify the published binary matches the source.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 12: What's Already Solid -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">12</span>
+    <span class="sec-title">What's Already Solid (Strengths)</span>
+    <span class="severity sev-good">Strong</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Area</th><th>Assessment</th></tr>
+      <tr><td>AEAD cipher selection</td><td><span class="status-dot dot-yes"></span>XChaCha20-Poly1305 + AES-256-GCM-SIV are both excellent, nonce-misuse-resistant choices</td></tr>
+      <tr><td>KDF parameters</td><td><span class="status-dot dot-yes"></span>Argon2id with 65MB memory, 3 iterations is well above minimum recommendations</td></tr>
+      <tr><td>Memory safety (Rust)</td><td><span class="status-dot dot-yes"></span>Zero unsafe blocks in crypto core, zeroize on all key material, mlock on sensitive pages</td></tr>
+      <tr><td>SRP-6a parameter validation</td><td><span class="status-dot dot-yes"></span>Proper B≠0, A-range validation, constant-time comparisons, anti-enumeration</td></tr>
+      <tr><td>Streaming encryption</td><td><span class="status-dot dot-yes"></span>64KB chunks with HKDF-derived per-chunk nonces — handles large files securely</td></tr>
+      <tr><td>Fuzz testing coverage</td><td><span class="status-dot dot-yes"></span>5 fuzz targets covering all major crypto operations</td></tr>
+      <tr><td>Audit logging</td><td><span class="status-dot dot-yes"></span>SHA-256 hash-chain with anomaly detection — tamper-evident and compliance-ready</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Priority Matrix -->
+<div class="section open" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">★</span>
+    <span class="sec-title">Prioritized Remediation Roadmap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>#</th><th>Action</th><th>Severity</th><th>Effort</th><th>Impact</th></tr>
+      <tr><td>1</td><td><strong>Retract PQC claims</strong> from CNSA 2.0 doc until Rust implementation exists</td><td><span class="severity sev-critical" style="font-size:10px">Critical</span></td><td>1 hour</td><td>Prevents audit misrepresentation</td></tr>
+      <tr><td>2</td><td><strong>Encrypt vault index</strong> client-side (file names are currently plaintext)</td><td><span class="severity sev-critical" style="font-size:10px">Critical</span></td><td>3–5 days</td><td>Fixes biggest metadata leak</td></tr>
+      <tr><td>3</td><td><strong>Two-layer key hierarchy</strong> (random master key + password-derived KEK)</td><td><span class="severity sev-high" style="font-size:10px">High</span></td><td>5–7 days</td><td>Enables password change, recovery codes, hardware keys</td></tr>
+      <tr><td>4</td><td><strong>Per-file encryption keys</strong> wrapped by master key</td><td><span class="severity sev-high" style="font-size:10px">High</span></td><td>3–5 days</td><td>Enables revocation re-encryption and key rotation</td></tr>
+      <tr><td>5</td><td><strong>Recovery codes</strong> via Shamir's Secret Sharing or one-time unwrap keys</td><td><span class="severity sev-high" style="font-size:10px">High</span></td><td>3–4 days</td><td>Prevents permanent data loss on forgotten password</td></tr>
+      <tr><td>6</td><td><strong>Argon2id for SRP verifier</strong> (not just for vault KDF)</td><td><span class="severity sev-high" style="font-size:10px">High</span></td><td>2–3 days</td><td>Protects against offline verifier brute-force</td></tr>
+      <tr><td>7</td><td><strong>Key change notifications</strong> for sharing contacts</td><td><span class="severity sev-high" style="font-size:10px">High</span></td><td>2–3 days</td><td>Prevents silent server key substitution</td></tr>
+      <tr><td>8</td><td><strong>Implement hybrid X25519 + ML-KEM</strong> in Rust crypto core</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>5–7 days</td><td>Actual PQC protection (not just documentation)</td></tr>
+      <tr><td>9</td><td><strong>Add rollback protection</strong> (monotonic version counter per file)</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>2–3 days</td><td>Prevents server-side file version rollback</td></tr>
+      <tr><td>10</td><td><strong>Device enrollment protocol</strong> with QR-code-based key exchange</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>5–7 days</td><td>Secure multi-device support</td></tr>
+      <tr><td>11</td><td><strong>Independent crypto audit</strong> of Rust core</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>External</td><td>Third-party validation before launch</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center;color:var(--dim);font-size:12px;margin-top:32px;padding-bottom:32px">
+  Quantum Armor Vault Security Gap Analysis · Generated March 8, 2026 · Based on code audit of qav-crypto, qav-server, qav-app
+</div>
+
+</body>
+</html>

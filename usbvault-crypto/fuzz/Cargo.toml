@@ -1,0 +1,46 @@
+[package]
+name = "usbvault-crypto-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dependencies]
+libfuzzer-sys = "0.4"
+usbvault_crypto = { path = ".." }
+arbitrary = { version = "1", features = ["derive"] }
+
+[[bin]]
+name = "fuzz_cipher"
+path = "fuzz_targets/fuzz_cipher.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_streaming"
+path = "fuzz_targets/fuzz_streaming.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_vault_header"
+path = "fuzz_targets/fuzz_vault_header.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_kdf"
+path = "fuzz_targets/fuzz_kdf.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_sharing"
+path = "fuzz_targets/fuzz_sharing.rs"
+test = false
+doc = false
+
+# Fuzzing profile
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

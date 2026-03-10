@@ -1,0 +1,163 @@
+title = "Quantum Armor Vault (QAV) Gitleaks Configuration"
+
+# Exit code when leaks are detected
+[scan]
+max_depth = 0
+timeout = 5m
+redact = true
+verbose = false
+
+# Rules for secret detection
+[rules.aws-access-key]
+description = "AWS Access Key"
+regex = '''(?i)aws_access_key_id\s*=\s*[A-Z0-9]{20}'''
+keywords = ["aws", "access_key"]
+entropy = 4.0
+secret = true
+
+[rules.aws-secret-key]
+description = "AWS Secret Access Key"
+regex = '''(?i)aws_secret_access_key\s*=\s*[A-Za-z0-9/+=]{40}'''
+keywords = ["aws", "secret"]
+entropy = 4.0
+secret = true
+
+[rules.github-token]
+description = "GitHub Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+keywords = ["github", "token", "pat"]
+entropy = 3.5
+secret = true
+
+[rules.github-oauth]
+description = "GitHub OAuth Token"
+regex = '''ghu_[0-9a-zA-Z]{36}'''
+keywords = ["github", "oauth"]
+entropy = 3.5
+secret = true
+
+[rules.slack-token]
+description = "Slack Token"
+regex = '''xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24,32}'''
+keywords = ["slack", "token", "api"]
+entropy = 3.0
+secret = true
+
+[rules.private-key]
+description = "Private Key (OpenSSH/RSA/DSA/ECDSA)"
+regex = '''-----BEGIN (?:RSA|DSA|ECDSA|OPENSSH|PGP|EC|ENCRYPTED RSA) PRIVATE KEY-----'''
+keywords = ["private", "key", "pem", "rsa"]
+entropy = 3.5
+secret = true
+multiline = true
+
+[rules.jwt]
+description = "JSON Web Token (JWT)"
+regex = '''eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.?[A-Za-z0-9_.-]*'''
+keywords = ["jwt", "token", "bearer"]
+entropy = 3.5
+secret = true
+
+[rules.api-key-generic]
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[=:]\s*[a-zA-Z0-9]{32,}'''
+keywords = ["api", "key"]
+entropy = 3.0
+secret = true
+
+[rules.password-assignment]
+description = "Password Assignment"
+regex = '''(?i)(password|passwd)\s*[=:]\s*[^\s"']{8,}'''
+keywords = ["password", "passwd"]
+entropy = 3.5
+secret = true
+
+[rules.connection-string]
+description = "Database Connection String"
+regex = '''(?i)(mongodb|postgresql|mysql|redis)://[^\s"']+'''
+keywords = ["connection", "database", "mongodb", "postgres"]
+entropy = 3.0
+secret = true
+
+# Allowlist for test fixtures and example keys
+[allowlists.test-fixtures]
+description = "Allow test fixtures and example keys"
+paths = [
+    '''test/.*\.key''',
+    '''tests/.*\.key''',
+    '''__tests__/.*\.key''',
+    '''fixtures/.*\.key''',
+    '''**/testdata/.*\.key''',
+    '''**/test_fixtures/.*''',
+    '''.*/test.*example.*''',
+    '''.*example.*key.*''',
+]
+regexes = [
+    '''test.*api.*key''',
+    '''example.*secret''',
+    '''dummy.*password''',
+    '''fake.*token''',
+]
+
+[allowlists.documentation]
+description = "Allow documentation files"
+paths = [
+    '''\.md$''',
+    '''README''',
+    '''EXAMPLE''',
+    '''doc/.*''',
+    '''docs/.*''',
+]
+
+[allowlists.configuration-examples]
+description = "Allow .env.example and configuration templates"
+paths = [
+    '''.env\.example''',
+    '''.env\.sample''',
+    '''\.example''',
+    '''template\..*''',
+    '''config\.example\..*''',
+]
+
+[allowlists.allowed-secrets]
+description = "Allow known-safe secrets for CI/CD and demo purposes"
+regexes = [
+    # CI/CD secret patterns that are intentionally public
+    '''GITHUB_TOKEN''',
+    '''github_token''',
+    # Example JWT from IETF RFC
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9''',
+    # Placeholder API keys in documentation
+    '''sk_test_[0-9a-z]{24}''',
+    '''pk_test_[0-9a-z]{24}''',
+]
+
+# Exclude patterns for files/directories
+[allowlists.excluded-paths]
+description = "Exclude non-source files"
+paths = [
+    '''\.git/''',
+    '''\.github/workflows/''',
+    '''node_modules/''',
+    '''target/''',
+    '''vendor/''',
+    '''\.venv/''',
+    '''venv/''',
+    '''\.idea/''',
+    '''\.vscode/''',
+    '''dist/''',
+    '''build/''',
+    '''\.DS_Store''',
+    '''package-lock\.json''',
+    '''yarn\.lock''',
+    '''Cargo\.lock''',
+    '''\.env\.local''',
+]
+
+# Unverified results (low confidence) - do not fail on these
+[allowlists.low-confidence]
+description = "Rules with lower confidence - review manually"
+regexes = [
+    # Generic patterns that may have false positives
+    '''(?i)secret\s*=\s*[a-zA-Z0-9]{8,16}$''',
+]

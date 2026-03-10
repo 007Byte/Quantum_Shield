@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Armor Vault (QAV) - Technical Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        header {
+            border-bottom: 4px solid #1B3A5C;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #1B3A5C;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #4A90D9;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .toc {
+            background-color: #D5E8F0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            border-left: 4px solid #4A90D9;
+        }
+
+        .toc h2 {
+            color: #1B3A5C;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .toc ol {
+            margin-left: 20px;
+        }
+
+        .toc li {
+            margin-bottom: 8px;
+            color: #1B3A5C;
+        }
+
+        .toc a {
+            color: #4A90D9;
+            text-decoration: none;
+            border-bottom: 1px solid #4A90D9;
+        }
+
+        .toc a:hover {
+            color: #1B3A5C;
+        }
+
+        section {
+            margin-bottom: 50px;
+            page-break-inside: avoid;
+        }
+
+        h2 {
+            color: #1B3A5C;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4A90D9;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #4A90D9;
+            font-size: 1.3em;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+
+        .diagram-container {
+            background-color: #f8f9fa;
+            border: 2px solid #D5E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .description {
+            background-color: #F0F7FF;
+            border-left: 4px solid #4A90D9;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 0.95em;
+            line-height: 1.7;
+        }
+
+        .code-block {
+            background-color: #2b2b2b;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #f8f9fa;
+        }
+
+        th {
+            background-color: #1B3A5C;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #D5E8F0;
+        }
+
+        tr:hover {
+            background-color: #D5E8F0;
+        }
+
+        .highlight {
+            background-color: #FFFACD;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .footer {
+            text-align: center;
+            color: #666;
+            padding-top: 20px;
+            border-top: 2px solid #D5E8F0;
+            margin-top: 40px;
+            font-size: 0.9em;
+        }
+
+        ul, ol {
+            margin-left: 25px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 20px;
+                box-shadow: none;
+            }
+
+            section {
+                page-break-inside: avoid;
+            }
+
+            h2 {
+                page-break-after: avoid;
+            }
+        }
+
+        .block {
+            fill: #4A90D9;
+            stroke: #1B3A5C;
+            stroke-width: 2;
+        }
+
+        .block-label {
+            fill: white;
+            font-size: 13px;
+            font-weight: 500;
+            text-anchor: middle;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .process {
+            fill: #D5E8F0;
+            stroke: #4A90D9;
+            stroke-width: 2;
+        }
+
+        .process-label {
+            fill: #1B3A5C;
+            font-size: 12px;
+            font-weight: 500;
+            text-anchor: middle;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .arrow {
+            stroke: #1B3A5C;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .text-label {
+            fill: #1B3A5C;
+            font-size: 11px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .title-label {
+            fill: #1B3A5C;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Segoe UI', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Quantum Armor Vault (QAV)</h1>
+            <p class="subtitle">Technical Architecture Document</p>
+            <p style="color: #666; margin-top: 10px;">Version 4.0 | March 2026</p>
+        </header>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h2>Table of Contents</h2>
+            <ol>
+                <li><a href="#key-derivation">Key Derivation Hierarchy</a></li>
+                <li><a href="#vault-format">Vault Format V4</a></li>
+                <li><a href="#authentication">Authentication Flow (SRP-6a)</a></li>
+                <li><a href="#sharing">Sharing Protocol (Sealed Box)</a></li>
+                <li><a href="#recovery">Recovery Flows</a></li>
+                <li><a href="#device-enrollment">Device Enrollment</a></li>
+                <li><a href="#rollback-protection">Rollback Protection</a></li>
+                <li><a href="#data-flow">Data Flow Overview</a></li>
+            </ol>
+        </div>
+
+        <!-- Section 1: Key Derivation -->
+        <section id="key-derivation">
+            <h2>1. Key Derivation Hierarchy</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> Quantum Armor Vault (QAV) uses a hierarchical key derivation system to manage cryptographic keys from the user's password. The system employs Argon2id for key derivation and HKDF for key separation, ensuring that compromise of one key does not affect others.
+            </div>
+
+            <h3>Key Hierarchy Structure</h3>
+            <div class="diagram-container">
+                <svg width="700" height="800" viewBox="0 0 700 800" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- User Password -->
+                    <rect x="200" y="20" width="300" height="50" class="block" rx="5"/>
+                    <text x="350" y="52" class="block-label">User Password</text>
+
+                    <!-- Arrow down -->
+                    <path d="M 350 70 L 350 100" class="arrow"/>
+                    <text x="360" y="85" class="text-label" font-size="10">Argon2id</text>
+                    <text x="360" y="98" class="text-label" font-size="10">64MiB, 3 iter</text>
+
+                    <!-- KEK -->
+                    <rect x="200" y="100" width="300" height="50" class="block" rx="5"/>
+                    <text x="350" y="132" class="block-label">KEK (32 bytes)</text>
+
+                    <!-- Double arrow down -->
+                    <path d="M 350 150 L 350 180" class="arrow"/>
+                    <text x="360" y="170" class="text-label" font-size="10">XChaCha20-Poly1305</text>
+
+                    <!-- MEK -->
+                    <rect x="200" y="180" width="300" height="50" class="block" rx="5"/>
+                    <text x="350" y="212" class="block-label">MEK (64 bytes)</text>
+                    <text x="350" y="225" class="text-label" font-size="11">32 enc + 32 HMAC</text>
+
+                    <!-- Arrow down -->
+                    <path d="M 350 230 L 350 260" class="arrow"/>
+
+                    <!-- Derived Keys Container -->
+                    <rect x="50" y="260" width="600" height="500" fill="none" stroke="#4A90D9" stroke-width="2" stroke-dasharray="5,5" rx="5"/>
+                    <text x="70" y="285" class="title-label">Derived Keys via HKDF</text>
+
+                    <!-- Key 1: Index Encryption -->
+                    <rect x="70" y="300" width="240" height="70" class="process" rx="5"/>
+                    <text x="190" y="325" class="process-label" font-weight="600">Index Encryption Key</text>
+                    <text x="190" y="343" class="process-label" font-size="11">HKDF("vault_index_encryption")</text>
+                    <text x="190" y="358" class="process-label" font-size="11">32 bytes</text>
+
+                    <!-- Key 2: Per-File Key -->
+                    <rect x="390" y="300" width="240" height="70" class="process" rx="5"/>
+                    <text x="510" y="325" class="process-label" font-weight="600">Per-File Key</text>
+                    <text x="510" y="343" class="process-label" font-size="11">HKDF("file_encryption:{id}")</text>
+                    <text x="510" y="358" class="process-label" font-size="11">32 bytes</text>
+
+                    <!-- Key 3: Sharing Key -->
+                    <rect x="70" y="400" width="240" height="70" class="process" rx="5"/>
+                    <text x="190" y="425" class="process-label" font-weight="600">Sharing Key</text>
+                    <text x="190" y="443" class="process-label" font-size="11">HKDF("seal")</text>
+                    <text x="190" y="458" class="process-label" font-size="11">32 bytes</text>
+
+                    <!-- Key 4: Audit Key -->
+                    <rect x="390" y="400" width="240" height="70" class="process" rx="5"/>
+                    <text x="510" y="425" class="process-label" font-weight="600">Audit Log Key</text>
+                    <text x="510" y="443" class="process-label" font-size="11">HKDF("audit")</text>
+                    <text x="510" y="458" class="process-label" font-size="11">32 bytes</text>
+
+                    <!-- Key 5: Shamir -->
+                    <rect x="180" y="500" width="340" height="70" class="process" rx="5"/>
+                    <text x="350" y="525" class="process-label" font-weight="600">Shamir's Secret Sharing</text>
+                    <text x="350" y="543" class="process-label" font-size="11">3-of-5 Backup Shares</text>
+                    <text x="350" y="558" class="process-label" font-size="11">Split MEK for recovery</text>
+
+                    <!-- Arrows from MEK to derived keys -->
+                    <path d="M 320 260 L 190 300" class="arrow"/>
+                    <path d="M 350 260 L 510 300" class="arrow"/>
+                    <path d="M 340 260 L 190 400" class="arrow"/>
+                    <path d="M 360 260 L 510 400" class="arrow"/>
+                    <path d="M 350 260 L 350 500" class="arrow"/>
+                </svg>
+            </div>
+
+            <h3>Cryptographic Parameters</h3>
+            <table>
+                <tr>
+                    <th>Component</th>
+                    <th>Algorithm</th>
+                    <th>Parameters</th>
+                    <th>Output Size</th>
+                </tr>
+                <tr>
+                    <td>Password → KEK</td>
+                    <td>Argon2id</td>
+                    <td>Memory: 64 MiB, Iterations: 3, Lanes: 4</td>
+                    <td>32 bytes</td>
+                </tr>
+                <tr>
+                    <td>KEK → MEK</td>
+                    <td>XChaCha20-Poly1305</td>
+                    <td>24-byte nonce (random)</td>
+                    <td>64 bytes</td>
+                </tr>
+                <tr>
+                    <td>MEK → Subkeys</td>
+                    <td>HKDF-SHA256</td>
+                    <td>Context: purpose string</td>
+                    <td>32 bytes each</td>
+                </tr>
+                <tr>
+                    <td>Shamir Sharing</td>
+                    <td>Shamir's Secret Sharing</td>
+                    <td>Threshold: 3, Total shares: 5</td>
+                    <td>64 bytes reconstructed</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Section 2: Vault Format -->
+        <section id="vault-format">
+            <h2>2. Vault Format V4</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> The V4 vault format is a carefully structured binary format that stores all encrypted data in a single file. It includes cryptographic verification, integrity protection, and metadata blocks for user identity and recovery.
+            </div>
+
+            <h3>Byte Layout</h3>
+            <div class="diagram-container">
+                <svg width="750" height="900" viewBox="0 0 750 900" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Header Section Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle">VAULT HEADER STRUCTURE</text>
+
+                    <!-- Row 1: Magic & Version -->
+                    <rect x="50" y="50" width="200" height="60" class="block" rx="3"/>
+                    <text x="150" y="75" class="block-label" font-size="12">Magic</text>
+                    <text x="150" y="92" class="block-label" font-size="11">USBVLT04</text>
+                    <text x="150" y="107" class="text-label" font-size="10">8 bytes</text>
+
+                    <rect x="275" y="50" width="200" height="60" class="block" rx="3"/>
+                    <text x="375" y="75" class="block-label" font-size="12">KDF/Cipher ID</text>
+                    <text x="375" y="92" class="block-label" font-size="11">Argon2id+XChaCha20</text>
+                    <text x="375" y="107" class="text-label" font-size="10">2 bytes</text>
+
+                    <rect x="500" y="50" width="200" height="60" class="block" rx="3"/>
+                    <text x="600" y="75" class="block-label" font-size="12">Flags</text>
+                    <text x="600" y="92" class="block-label" font-size="11">Format Flags</text>
+                    <text x="600" y="107" class="text-label" font-size="10">2 bytes</text>
+
+                    <!-- Row 2: Salt -->
+                    <rect x="50" y="130" width="650" height="60" class="block" rx="3"/>
+                    <text x="375" y="155" class="block-label" font-size="12">Argon2id Salt</text>
+                    <text x="375" y="172" class="block-label" font-size="11">Random, unique per vault</text>
+                    <text x="375" y="187" class="text-label" font-size="10">32 bytes</text>
+
+                    <!-- Row 3: Verification -->
+                    <rect x="50" y="210" width="300" height="60" class="block" rx="3"/>
+                    <text x="200" y="235" class="block-label" font-size="12">Verify Nonce</text>
+                    <text x="200" y="252" class="block-label" font-size="11">XChaCha20 Nonce</text>
+                    <text x="200" y="267" class="text-label" font-size="10">24 bytes</text>
+
+                    <rect x="400" y="210" width="300" height="60" class="block" rx="3"/>
+                    <text x="550" y="235" class="block-label" font-size="12">Verify Ciphertext</text>
+                    <text x="550" y="252" class="block-label" font-size="11">Encrypted verification</text>
+                    <text x="550" y="267" class="text-label" font-size="10">Variable</text>
+
+                    <!-- Row 4: HMAC -->
+                    <rect x="50" y="290" width="650" height="60" class="block" rx="3"/>
+                    <text x="375" y="315" class="block-label" font-size="12">HMAC-SHA256</text>
+                    <text x="375" y="332" class="block-label" font-size="11">Header integrity verification</text>
+                    <text x="375" y="347" class="text-label" font-size="10">32 bytes</text>
+
+                    <!-- Separator -->
+                    <line x1="50" y1="370" x2="700" y2="370" stroke="#4A90D9" stroke-width="2" stroke-dasharray="5,5"/>
+                    <text x="375" y="395" class="title-label" text-anchor="middle">METADATA BLOCKS</text>
+
+                    <!-- Row 5: Index Slots -->
+                    <rect x="50" y="410" width="300" height="60" class="process" rx="3"/>
+                    <text x="200" y="435" class="process-label" font-size="12">Index Slots</text>
+                    <text x="200" y="452" class="process-label" font-size="11">File references</text>
+                    <text x="200" y="467" class="text-label" font-size="10">Variable</text>
+
+                    <rect x="400" y="410" width="300" height="60" class="process" rx="3"/>
+                    <text x="550" y="435" class="process-label" font-size="12">Counters</text>
+                    <text x="550" y="452" class="process-label" font-size="11">Version, modify count</text>
+                    <text x="550" y="467" class="text-label" font-size="10">16 bytes</text>
+
+                    <!-- Row 6: Wrapped MEK -->
+                    <rect x="50" y="490" width="650" height="60" class="process" rx="3"/>
+                    <text x="375" y="515" class="process-label" font-size="12">Wrapped MEK</text>
+                    <text x="375" y="532" class="process-label" font-size="11">KEK-encrypted Master Encryption Key</text>
+                    <text x="375" y="547" class="text-label" font-size="10">104 bytes</text>
+
+                    <!-- Row 7: State Version -->
+                    <rect x="50" y="570" width="650" height="60" class="process" rx="3"/>
+                    <text x="375" y="595" class="process-label" font-size="12">State Version</text>
+                    <text x="375" y="612" class="process-label" font-size="11">Rollback protection counter</text>
+                    <text x="375" y="627" class="text-label" font-size="10">8 bytes</text>
+
+                    <!-- Row 8: Encrypted Index -->
+                    <rect x="50" y="650" width="650" height="60" class="process" rx="3"/>
+                    <text x="375" y="675" class="process-label" font-size="12">Encrypted Index</text>
+                    <text x="375" y="692" class="process-label" font-size="11">MEK-encrypted file metadata</text>
+                    <text x="375" y="707" class="text-label" font-size="10">Variable</text>
+
+                    <!-- Separator -->
+                    <line x1="50" y1="730" x2="700" y2="730" stroke="#4A90D9" stroke-width="2" stroke-dasharray="5,5"/>
+                    <text x="375" y="755" class="title-label" text-anchor="middle">SPECIAL BLOCKS (Encrypted)</text>
+
+                    <!-- Row 9: Identity & 2FA -->
+                    <rect x="50" y="770" width="300" height="60" class="block" rx="3"/>
+                    <text x="200" y="795" class="block-label" font-size="12">Identity Block</text>
+                    <text x="200" y="812" class="block-label" font-size="11">User metadata</text>
+                    <text x="200" y="827" class="text-label" font-size="10">Variable</text>
+
+                    <rect x="400" y="770" width="300" height="60" class="block" rx="3"/>
+                    <text x="550" y="795" class="block-label" font-size="12">2FA + Recovery</text>
+                    <text x="550" y="812" class="block-label" font-size="11">Backup codes, Shamir</text>
+                    <text x="550" y="827" class="text-label" font-size="10">Variable</text>
+                </svg>
+            </div>
+
+            <h3>Format Details</h3>
+            <ul>
+                <li><strong>Magic Number:</strong> "USBVLT04" identifies the vault format version and enables format detection</li>
+                <li><strong>Salt:</strong> 32-byte cryptographically random value used in Argon2id, prevents rainbow table attacks</li>
+                <li><strong>Verification:</strong> Plaintext marker encrypted to verify correct password derivation</li>
+                <li><strong>Wrapped MEK:</strong> Master Encryption Key encrypted with KEK + HMAC, ensures integrity</li>
+                <li><strong>State Version:</strong> 64-bit counter for rollback protection, incremented on each change</li>
+                <li><strong>Encrypted Index:</strong> All file metadata encrypted with Index Encryption Key</li>
+            </ul>
+        </section>
+
+        <!-- Section 3: Authentication -->
+        <section id="authentication">
+            <h2>3. Authentication Flow (SRP-6a)</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> Quantum Armor Vault uses SRP-6a (Secure Remote Password) to authenticate users without transmitting passwords. The KEK is derived from the password and used to verify the user's identity to the server.
+            </div>
+
+            <h3>SRP-6a Protocol Exchange</h3>
+            <div class="diagram-container">
+                <svg width="750" height="700" viewBox="0 0 750 700" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle" font-size="16">SRP-6a Authentication Flow</text>
+
+                    <!-- Client Column -->
+                    <text x="100" y="65" class="title-label">CLIENT</text>
+                    <line x1="100" y1="75" x2="100" y2="650" stroke="#4A90D9" stroke-width="2" stroke-dasharray="3,3"/>
+
+                    <!-- Server Column -->
+                    <text x="650" y="65" class="title-label" text-anchor="end">SERVER</text>
+                    <line x1="650" y1="75" x2="650" y2="650" stroke="#4A90D9" stroke-width="2" stroke-dasharray="3,3"/>
+
+                    <!-- Step 1: Email request -->
+                    <rect x="30" y="100" width="140" height="50" class="process" rx="3"/>
+                    <text x="100" y="120" class="process-label" font-size="11" font-weight="600">Requests</text>
+                    <text x="100" y="135" class="process-label" font-size="10">authentication</text>
+
+                    <path d="M 170 125 L 570 125" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="370" y="115" class="text-label" font-size="10">Email</text>
+
+                    <!-- Step 2: Lookup (server side) -->
+                    <rect x="580" y="100" width="140" height="50" class="process" rx="3"/>
+                    <text x="650" y="120" class="process-label" font-size="11" font-weight="600">Lookup</text>
+                    <text x="650" y="135" class="process-label" font-size="10">salt, verifier</text>
+
+                    <!-- Step 3: Response with salt and B -->
+                    <path d="M 570 155 L 170 180" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="370" y="165" class="text-label" font-size="10">Salt, B (server public)</text>
+
+                    <!-- Step 4: Client derives KEK -->
+                    <rect x="30" y="180" width="140" height="60" class="process" rx="3"/>
+                    <text x="100" y="200" class="process-label" font-size="11" font-weight="600">Derive KEK</text>
+                    <text x="100" y="215" class="process-label" font-size="10">Argon2id</text>
+                    <text x="100" y="228" class="process-label" font-size="9">(password + salt)</text>
+
+                    <!-- Step 5: Compute A and M1 -->
+                    <rect x="30" y="260" width="140" height="80" class="process" rx="3"/>
+                    <text x="100" y="280" class="process-label" font-size="11" font-weight="600">Compute:</text>
+                    <text x="100" y="295" class="process-label" font-size="10">- A (client public)</text>
+                    <text x="100" y="308" class="process-label" font-size="10">- u = H(A|B)</text>
+                    <text x="100" y="321" class="process-label" font-size="10">- S = (B-kg^x)^(a+ux)</text>
+                    <text x="100" y="334" class="process-label" font-size="10">- M1 = H(H(N)|H(g)|I|s|A|B|K)</text>
+
+                    <!-- Step 6: Send A and M1 -->
+                    <path d="M 170 300 L 570 320" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="370" y="310" class="text-label" font-size="10">A, M1, email</text>
+
+                    <!-- Step 7: Server verifies -->
+                    <rect x="580" y="250" width="140" height="90" class="process" rx="3"/>
+                    <text x="650" y="270" class="process-label" font-size="11" font-weight="600">Verify:</text>
+                    <text x="650" y="285" class="process-label" font-size="10">- Compute S from A</text>
+                    <text x="650" y="298" class="process-label" font-size="10">- Recompute M1</text>
+                    <text x="650" y="311" class="process-label" font-size="10">- Verify M1 matches</text>
+                    <text x="650" y="324" class="process-label" font-size="10">- Compute M2</text>
+
+                    <!-- Step 8: Success response -->
+                    <path d="M 570 360 L 170 390" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="370" y="375" class="text-label" font-size="10">M2, JWT Token</text>
+
+                    <!-- Step 9: Client verification -->
+                    <rect x="30" y="390" width="140" height="60" class="process" rx="3"/>
+                    <text x="100" y="410" class="process-label" font-size="11" font-weight="600">Client:</text>
+                    <text x="100" y="425" class="process-label" font-size="10">- Verify M2</text>
+                    <text x="100" y="438" class="process-label" font-size="10">- Unwrap MEK</text>
+
+                    <!-- Step 10: Ready -->
+                    <rect x="30" y="480" width="140" height="50" class="block" rx="3"/>
+                    <text x="100" y="505" class="block-label" font-size="11" font-weight="600">AUTHENTICATED</text>
+                    <text x="100" y="520" class="block-label" font-size="10">Ready for vault</text>
+
+                    <!-- Legend -->
+                    <text x="50" y="600" class="text-label" font-weight="600">Key Terms:</text>
+                    <text x="50" y="618" class="text-label" font-size="10">• I = Identity (email)</text>
+                    <text x="50" y="633" class="text-label" font-size="10">• s = Salt</text>
+                    <text x="50" y="648" class="text-label" font-size="10">• x = H(s|I|p) where p = password</text>
+                    <text x="400" y="618" class="text-label" font-size="10">• K = shared secret</text>
+                    <text x="400" y="633" class="text-label" font-size="10">• M1 = client proof</text>
+                    <text x="400" y="648" class="text-label" font-size="10">• M2 = server proof</text>
+                </svg>
+            </div>
+
+            <h3>Security Properties</h3>
+            <table>
+                <tr>
+                    <th>Property</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>Zero-Knowledge Proof</td>
+                    <td>Server never sees the password or KEK, only the SRP verifier hash</td>
+                </tr>
+                <tr>
+                    <td>Mutual Authentication</td>
+                    <td>Both client and server prove knowledge of the shared secret (M1 and M2)</td>
+                </tr>
+                <tr>
+                    <td>Perfect Forward Secrecy</td>
+                    <td>SRP session keys are ephemeral and not reused across sessions</td>
+                </tr>
+                <tr>
+                    <td>Strong Password Hashing</td>
+                    <td>Argon2id with 64 MiB memory makes brute force attacks expensive</td>
+                </tr>
+                <tr>
+                    <td>Replay Protection</td>
+                    <td>JWT tokens include timestamp and device fingerprint claims</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Section 4: Sharing Protocol -->
+        <section id="sharing">
+            <h2>4. Sharing Protocol (Sealed Box)</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> Quantum Armor Vault uses public-key cryptography (X25519) for encrypted sharing without key exchange. The protocol is based on the sealed box pattern, ensuring forward secrecy and authentication. Optional post-quantum ML-KEM-1024 support provides hybrid quantum-resistant encryption.
+            </div>
+
+            <h3>Sealed Box Encryption Flow</h3>
+            <div class="diagram-container">
+                <svg width="800" height="750" viewBox="0 0 800 750" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="400" y="30" class="title-label" text-anchor="middle" font-size="16">Sealed Box Sharing Protocol</text>
+
+                    <!-- Sender Section -->
+                    <rect x="30" y="60" width="300" height="30" class="block" rx="3"/>
+                    <text x="180" y="80" class="block-label" font-size="14" font-weight="600">SENDER</text>
+
+                    <!-- Step 1: Generate ephemeral -->
+                    <rect x="30" y="110" width="300" height="70" class="process" rx="3"/>
+                    <text x="180" y="130" class="process-label" font-size="11" font-weight="600">1. Generate ephemeral</text>
+                    <text x="180" y="145" class="process-label" font-size="10">X25519 keypair</text>
+                    <text x="180" y="158" class="process-label" font-size="10">(ephemeral_secret, eph_pub)</text>
+                    <text x="180" y="171" class="process-label" font-size="9">32 + 32 bytes</text>
+
+                    <!-- Step 2: ECDH -->
+                    <rect x="30" y="200" width="300" height="80" class="process" rx="3"/>
+                    <text x="180" y="220" class="process-label" font-size="11" font-weight="600">2. Perform ECDH</text>
+                    <text x="180" y="235" class="process-label" font-size="10">ECDH(ephemeral_secret,</text>
+                    <text x="180" y="248" class="process-label" font-size="10">recipient_public_key)</text>
+                    <text x="180" y="261" class="process-label" font-size="9">→ 32-byte shared_secret</text>
+                    <text x="180" y="274" class="process-label" font-size="9">[+ML-KEM if hybrid mode]</text>
+
+                    <!-- Step 3: HKDF -->
+                    <rect x="30" y="300" width="300" height="70" class="process" rx="3"/>
+                    <text x="180" y="320" class="process-label" font-size="11" font-weight="600">3. Derive encryption key</text>
+                    <text x="180" y="335" class="process-label" font-size="10">HKDF(shared_secret,</text>
+                    <text x="180" y="348" class="process-label" font-size="10">info="seal")</text>
+                    <text x="180" y="361" class="process-label" font-size="9">→ 32-byte encryption_key</text>
+
+                    <!-- Step 4: Encrypt -->
+                    <rect x="30" y="390" width="300" height="80" class="process" rx="3"/>
+                    <text x="180" y="410" class="process-label" font-size="11" font-weight="600">4. Encrypt plaintext</text>
+                    <text x="180" y="425" class="process-label" font-size="10">nonce = random(24 bytes)</text>
+                    <text x="180" y="438" class="process-label" font-size="10">XChaCha20-Poly1305</text>
+                    <text x="180" y="451" class="process-label" font-size="10">(plaintext, encryption_key)</text>
+                    <text x="180" y="464" class="process-label" font-size="9">→ ciphertext + tag(16)</text>
+
+                    <!-- Arrow to transmission -->
+                    <path d="M 330 430 L 470 430" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="390" y="420" class="text-label" font-size="10">sealed_blob</text>
+
+                    <!-- Transmission format -->
+                    <rect x="470" y="360" width="300" height="140" class="block" rx="3"/>
+                    <text x="620" y="380" class="block-label" font-size="11" font-weight="600">Sealed Blob</text>
+                    <text x="620" y="395" class="block-label" font-size="10">Format:</text>
+                    <text x="480" y="415" class="text-label" font-size="9">eph_pub (32B) ||</text>
+                    <text x="480" y="428" class="text-label" font-size="9">[mlkem_ct (1184B)] ||</text>
+                    <text x="480" y="441" class="text-label" font-size="9">nonce (24B) ||</text>
+                    <text x="480" y="454" class="text-label" font-size="9">ciphertext (variable) ||</text>
+                    <text x="480" y="467" class="text-label" font-size="9">tag (16B)</text>
+                    <text x="620" y="490" class="block-label" font-size="9">(~100+ bytes)</text>
+
+                    <!-- Recipient Section -->
+                    <rect x="470" y="60" width="300" height="30" class="block" rx="3"/>
+                    <text x="620" y="80" class="block-label" font-size="14" font-weight="600">RECIPIENT</text>
+
+                    <!-- Arrow to recipient -->
+                    <path d="M 620 360 L 620 300" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="640" y="330" class="text-label" font-size="10">sealed_blob</text>
+
+                    <!-- Step R1: Receive -->
+                    <rect x="470" y="110" width="300" height="70" class="process" rx="3"/>
+                    <text x="620" y="130" class="process-label" font-size="11" font-weight="600">1. Parse blob</text>
+                    <text x="620" y="145" class="process-label" font-size="10">Extract:</text>
+                    <text x="620" y="158" class="process-label" font-size="9">eph_pub, mlkem_ct?, nonce,</text>
+                    <text x="620" y="171" class="process-label" font-size="9">ciphertext, tag</text>
+
+                    <!-- Step R2: ECDH -->
+                    <rect x="470" y="200" width="300" height="80" class="process" rx="3"/>
+                    <text x="620" y="220" class="process-label" font-size="11" font-weight="600">2. Perform ECDH</text>
+                    <text x="620" y="235" class="process-label" font-size="10">ECDH(recipient_secret,</text>
+                    <text x="620" y="248" class="process-label" font-size="10">eph_pub)</text>
+                    <text x="620" y="261" class="process-label" font-size="9">→ 32-byte shared_secret</text>
+                    <text x="620" y="274" class="process-label" font-size="9">[+ML-KEM decapsulate]</text>
+
+                    <!-- Legend -->
+                    <text x="50" y="620" class="text-label" font-weight="600" font-size="12">Security Properties:</text>
+                    <text x="50" y="638" class="text-label" font-size="10">✓ No key exchange needed</text>
+                    <text x="50" y="653" class="text-label" font-size="10">✓ Forward secrecy (ephemeral key)</text>
+                    <text x="50" y="668" class="text-label" font-size="10">✓ Authenticated encryption</text>
+                    <text x="50" y="683" class="text-label" font-size="10">✓ Post-quantum ready (hybrid)</text>
+
+                    <text x="450" y="620" class="text-label" font-weight="600" font-size="12">Algorithms:</text>
+                    <text x="450" y="638" class="text-label" font-size="10">• X25519: ECDH key exchange</text>
+                    <text x="450" y="653" class="text-label" font-size="10">• ML-KEM-1024: Post-quantum KEMs</text>
+                    <text x="450" y="668" class="text-label" font-size="10">• HKDF-SHA256: Key derivation</text>
+                    <text x="450" y="683" class="text-label" font-size="10">• XChaCha20-Poly1305: AEAD</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- Section 5: Recovery -->
+        <section id="recovery">
+            <h2>5. Recovery Flows</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> Quantum Armor Vault provides two complementary recovery mechanisms for users who lose their password. Recovery codes offer a single-factor recovery option, while Shamir's Secret Sharing provides threshold-based recovery distributed to trusted contacts.
+            </div>
+
+            <h3>Path A: Recovery Code Recovery</h3>
+            <div class="diagram-container">
+                <svg width="750" height="500" viewBox="0 0 750 500" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle" font-size="15">Recovery Code Flow</text>
+
+                    <!-- Step 1 -->
+                    <rect x="50" y="70" width="150" height="70" class="block" rx="5"/>
+                    <text x="125" y="90" class="block-label" font-size="12" font-weight="600">User</text>
+                    <text x="125" y="105" class="block-label" font-size="10">Lost Password</text>
+                    <text x="125" y="118" class="block-label" font-size="9">(still has device)</text>
+
+                    <!-- Arrow 1 -->
+                    <path d="M 200 105 L 280 105" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 2 -->
+                    <rect x="280" y="70" width="150" height="70" class="process" rx="5"/>
+                    <text x="355" y="90" class="process-label" font-size="12" font-weight="600">Enter</text>
+                    <text x="355" y="105" class="process-label" font-size="10">Recovery Code</text>
+                    <text x="355" y="118" class="process-label" font-size="9">(12-16 chars)</text>
+
+                    <!-- Arrow 2 -->
+                    <path d="M 430 105 L 510 105" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 3 -->
+                    <rect x="510" y="70" width="190" height="70" class="process" rx="5"/>
+                    <text x="605" y="90" class="process-label" font-size="12" font-weight="600">Server</text>
+                    <text x="605" y="105" class="process-label" font-size="10">Hash & compare</text>
+                    <text x="605" y="118" class="process-label" font-size="9">Recovery code hash</text>
+
+                    <!-- Arrow 3 -->
+                    <path d="M 605 140 L 605 200" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 4 -->
+                    <rect x="510" y="200" width="190" height="70" class="process" rx="5"/>
+                    <text x="605" y="220" class="process-label" font-size="12" font-weight="600">Return Wrapped</text>
+                    <text x="605" y="235" class="process-label" font-size="10">MEK (encrypted with</text>
+                    <text x="605" y="248" class="process-label" font-size="9">recovery key)</text>
+
+                    <!-- Arrow 4 -->
+                    <path d="M 510 235 L 430 235" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 5 -->
+                    <rect x="280" y="200" width="150" height="70" class="process" rx="5"/>
+                    <text x="355" y="220" class="process-label" font-size="12" font-weight="600">Unwrap MEK</text>
+                    <text x="355" y="235" class="process-label" font-size="10">Decrypt with</text>
+                    <text x="355" y="248" class="process-label" font-size="9">recovery key</text>
+
+                    <!-- Arrow 5 -->
+                    <path d="M 200 235 L 120 235" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 6 -->
+                    <rect x="30" y="200" width="190" height="70" class="process" rx="5"/>
+                    <text x="125" y="220" class="process-label" font-size="12" font-weight="600">User</text>
+                    <text x="125" y="235" class="process-label" font-size="10">Enter new password</text>
+                    <text x="125" y="248" class="process-label" font-size="9">Derive new KEK</text>
+
+                    <!-- Arrow 6 -->
+                    <path d="M 125 270 L 125 330" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 7 -->
+                    <rect x="30" y="330" width="190" height="70" class="process" rx="5"/>
+                    <text x="125" y="350" class="process-label" font-size="12" font-weight="600">Re-wrap MEK</text>
+                    <text x="125" y="365" class="process-label" font-size="10">XChaCha20-Poly1305</text>
+                    <text x="125" y="378" class="process-label" font-size="9">(new KEK)</text>
+
+                    <!-- Arrow 7 -->
+                    <path d="M 220 365 L 300 365" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 8 -->
+                    <rect x="300" y="330" width="400" height="70" class="block" rx="5"/>
+                    <text x="500" y="350" class="block-label" font-size="12" font-weight="600">Update Vault Header</text>
+                    <text x="500" y="365" class="block-label" font-size="10">New wrapped MEK, state_version++</text>
+                    <text x="500" y="378" class="block-label" font-size="9">User regains access with new password</text>
+                </svg>
+            </div>
+
+            <h3>Path B: Shamir's Secret Sharing Recovery</h3>
+            <div class="diagram-container">
+                <svg width="750" height="600" viewBox="0 0 750 600" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle" font-size="15">Shamir's Secret Sharing Recovery</text>
+
+                    <!-- Step 1 -->
+                    <rect x="280" y="70" width="190" height="70" class="block" rx="5"/>
+                    <text x="375" y="90" class="block-label" font-size="12" font-weight="600">User</text>
+                    <text x="375" y="105" class="block-label" font-size="10">Lost Password</text>
+                    <text x="375" y="118" class="block-label" font-size="9">(no backup device)</text>
+
+                    <!-- Arrow 1 -->
+                    <path d="M 375 140 L 375 200" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 2 -->
+                    <rect x="280" y="200" width="190" height="70" class="process" rx="5"/>
+                    <text x="375" y="220" class="process-label" font-size="12" font-weight="600">Initiate Recovery</text>
+                    <text x="375" y="235" class="process-label" font-size="10">Server begins</text>
+                    <text x="375" y="248" class="process-label" font-size="9">Shamir share collection</text>
+
+                    <!-- Arrow 2 -->
+                    <path d="M 375 270 L 375 330" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 3 -->
+                    <rect x="50" y="330" width="120" height="70" class="process" rx="5"/>
+                    <text x="110" y="350" class="process-label" font-size="11" font-weight="600">Share 1</text>
+                    <text x="110" y="365" class="process-label" font-size="9">Trusted</text>
+                    <text x="110" y="376" class="process-label" font-size="9">Contact A</text>
+
+                    <rect x="200" y="330" width="120" height="70" class="process" rx="5"/>
+                    <text x="260" y="350" class="process-label" font-size="11" font-weight="600">Share 2</text>
+                    <text x="260" y="365" class="process-label" font-size="9">Trusted</text>
+                    <text x="260" y="376" class="process-label" font-size="9">Contact B</text>
+
+                    <rect x="350" y="330" width="120" height="70" class="process" rx="5"/>
+                    <text x="410" y="350" class="process-label" font-size="11" font-weight="600">Share 3</text>
+                    <text x="410" y="365" class="process-label" font-size="9">Trusted</text>
+                    <text x="410" y="376" class="process-label" font-size="9">Contact C</text>
+
+                    <rect x="500" y="330" width="120" height="70" class="process" rx="5"/>
+                    <text x="560" y="350" class="process-label" font-size="11" font-weight="600">Share 4</text>
+                    <text x="560" y="365" class="process-label" font-size="9">Trusted</text>
+                    <text x="560" y="376" class="process-label" font-size="9">Contact D</text>
+
+                    <rect x="650" y="330" width="80" height="70" class="process" rx="5"/>
+                    <text x="690" y="350" class="process-label" font-size="11" font-weight="600">Share 5</text>
+                    <text x="690" y="365" class="process-label" font-size="9">Trusted</text>
+                    <text x="690" y="376" class="process-label" font-size="9">Contact E</text>
+
+                    <!-- Text indicating 3-of-5 needed -->
+                    <text x="375" y="430" class="text-label" font-size="11" font-weight="600" text-anchor="middle">Need any 3 of 5 shares to reconstruct</text>
+
+                    <!-- Arrows from shares to reconstruction -->
+                    <path d="M 110 400 L 200 470" class="arrow" marker-end="url(#arrowhead)" stroke-dasharray="3,3"/>
+                    <path d="M 260 400 L 300 470" class="arrow" marker-end="url(#arrowhead)" stroke-dasharray="3,3"/>
+                    <path d="M 410 400 L 400 470" class="arrow" marker-end="url(#arrowhead)" stroke-dasharray="3,3"/>
+
+                    <!-- Step 4: Reconstruction -->
+                    <rect x="150" y="470" width="450" height="70" class="process" rx="5"/>
+                    <text x="375" y="490" class="process-label" font-size="12" font-weight="600">Reconstruct MEK</text>
+                    <text x="375" y="505" class="process-label" font-size="10">Shamir's Secret Sharing algorithm</text>
+                    <text x="375" y="518" class="process-label" font-size="9">(polynomial reconstruction)</text>
+
+                    <!-- Legend -->
+                    <text x="50" y="580" class="text-label" font-size="11" font-weight="600">Advantages:</text>
+                    <text x="50" y="595" class="text-label" font-size="10">✓ Distributed trust (no single point of failure)</text>
+                    <text x="350" y="580" class="text-label" font-size="11" font-weight="600">Key Details:</text>
+                    <text x="350" y="595" class="text-label" font-size="10">✓ User can set threshold (2, 3, or 4 of 5)</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- Section 6: Device Enrollment -->
+        <section id="device-enrollment">
+            <h2>6. Device Enrollment Flow</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> New devices must be enrolled in the vault system before they can access vaults. This prevents unauthorized devices from gaining access and allows administrators to control which devices are trusted.
+            </div>
+
+            <h3>Device Enrollment Process</h3>
+            <div class="diagram-container">
+                <svg width="750" height="600" viewBox="0 0 750 600" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle" font-size="15">Device Enrollment Workflow</text>
+
+                    <!-- Device Column -->
+                    <text x="150" y="70" class="title-label" font-size="12" font-weight="600">NEW DEVICE</text>
+                    <line x1="150" y1="80" x2="150" y2="550" stroke="#4A90D9" stroke-width="1" stroke-dasharray="3,3"/>
+
+                    <!-- Server Column -->
+                    <text x="600" y="70" class="title-label" text-anchor="end" font-size="12" font-weight="600">SERVER</text>
+                    <line x1="600" y1="80" x2="600" y2="550" stroke="#4A90D9" stroke-width="1" stroke-dasharray="3,3"/>
+
+                    <!-- Step 1: Generate fingerprint -->
+                    <rect x="30" y="110" width="240" height="70" class="process" rx="5"/>
+                    <text x="150" y="130" class="process-label" font-size="11" font-weight="600">Generate Device</text>
+                    <text x="150" y="145" class="process-label" font-size="10">Fingerprint (SHA-256):</text>
+                    <text x="150" y="158" class="process-label" font-size="9">H(deviceId+osVersion)</text>
+                    <text x="150" y="171" class="process-label" font-size="9">+ ECDH keypair</text>
+
+                    <!-- Arrow 1 -->
+                    <path d="M 270 145 L 430 145" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="340" y="135" class="text-label" font-size="9">Register request</text>
+
+                    <!-- Step 2: Register -->
+                    <rect x="430" y="110" width="240" height="70" class="process" rx="5"/>
+                    <text x="550" y="130" class="process-label" font-size="11" font-weight="600">Register Device</text>
+                    <text x="550" y="145" class="process-label" font-size="10">Store fingerprint &</text>
+                    <text x="550" y="158" class="process-label" font-size="10">public key</text>
+                    <text x="550" y="171" class="process-label" font-size="9">Status: PENDING</text>
+
+                    <!-- Arrow 2 -->
+                    <path d="M 430 200 L 270 230" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="320" y="215" class="text-label" font-size="9">Pending confirmation</text>
+
+                    <!-- Step 3: Waiting -->
+                    <rect x="30" y="230" width="240" height="70" class="process" rx="5"/>
+                    <text x="150" y="250" class="process-label" font-size="11" font-weight="600">Waiting for</text>
+                    <text x="150" y="265" class="process-label" font-size="10">Admin Approval</text>
+                    <text x="150" y="278" class="process-label" font-size="9">(email notification sent)</text>
+                    <text x="150" y="291" class="process-label" font-size="9">via server</text>
+
+                    <!-- Step 4: Admin approves -->
+                    <rect x="430" y="230" width="240" height="70" class="block" rx="5"/>
+                    <text x="550" y="250" class="block-label" font-size="11" font-weight="600">Admin</text>
+                    <text x="550" y="265" class="block-label" font-size="10">Reviews & Approves</text>
+                    <text x="550" y="278" class="block-label" font-size="9">Device request</text>
+                    <text x="550" y="291" class="block-label" font-size="9">Status: TRUSTED</text>
+
+                    <!-- Arrow 3 -->
+                    <path d="M 430 290 L 270 320" class="arrow" marker-end="url(#arrowhead)"/>
+                    <text x="320" y="305" class="text-label" font-size="9">Approval notification</text>
+
+                    <!-- Step 5: Device trusted -->
+                    <rect x="30" y="320" width="240" height="70" class="block" rx="5"/>
+                    <text x="150" y="340" class="block-label" font-size="11" font-weight="600">Device TRUSTED</text>
+                    <text x="150" y="355" class="block-label" font-size="10">Can now access</text>
+                    <text x="150" y="368" class="block-label" font-size="10">vaults</text>
+                    <text x="150" y="381" class="block-label" font-size="9">Fingerprint in claims</text>
+
+                    <!-- Step 6: JWT with fingerprint -->
+                    <rect x="430" y="320" width="240" height="100" class="process" rx="5"/>
+                    <text x="550" y="340" class="process-label" font-size="11" font-weight="600">JWT Token</text>
+                    <text x="550" y="357" class="process-label" font-size="9">Claims:</text>
+                    <text x="460" y="372" class="text-label" font-size="9">• sub: user_id</text>
+                    <text x="460" y="385" class="text-label" font-size="9">• device_fingerprint: hash</text>
+                    <text x="460" y="398" class="text-label" font-size="9">• exp: expiration</text>
+                    <text x="460" y="411" class="text-label" font-size="9">• iat: issued_at</text>
+
+                    <!-- Subsequent access -->
+                    <text x="375" y="460" class="text-label" text-anchor="middle" font-size="12" font-weight="600">Subsequent Requests</text>
+
+                    <!-- Step 7: Access request -->
+                    <rect x="30" y="485" width="240" height="70" class="process" rx="5"/>
+                    <text x="150" y="505" class="process-label" font-size="11" font-weight="600">Client Request</text>
+                    <text x="150" y="520" class="process-label" font-size="10">Include JWT with</text>
+                    <text x="150" y="533" class="process-label" font-size="9">device_fingerprint</text>
+                    <text x="150" y="546" class="process-label" font-size="9">claim</text>
+
+                    <!-- Arrow 4 -->
+                    <path d="M 270 520 L 430 520" class="arrow" marker-end="url(#arrowhead)"/>
+
+                    <!-- Step 8: Verify -->
+                    <rect x="430" y="485" width="240" height="70" class="process" rx="5"/>
+                    <text x="550" y="505" class="process-label" font-size="11" font-weight="600">Server Verifies</text>
+                    <text x="550" y="520" class="process-label" font-size="10">Fingerprint matches</text>
+                    <text x="550" y="533" class="process-label" font-size="9">registered device</text>
+                    <text x="550" y="546" class="process-label" font-size="9">→ ALLOW/DENY</text>
+                </svg>
+            </div>
+
+            <h3>Device Fingerprint Composition</h3>
+            <div class="description">
+                The device fingerprint is computed as:<br>
+                <code style="background: #f0f0f0; padding: 5px; border-radius: 3px;">fingerprint = SHA-256(device_id || os_version || model_name || architecture)</code><br>
+                This identifies a unique device without relying on MAC addresses or serial numbers that may change.
+            </div>
+        </section>
+
+        <!-- Section 7: Rollback Protection -->
+        <section id="rollback-protection">
+            <h2>7. Rollback Protection</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> Quantum Armor Vault prevents attackers from rolling back vault state to an older version by maintaining a state version counter both client-side and server-side. Every vault modification increments this counter, and the server rejects updates with lower version numbers.
+            </div>
+
+            <h3>Rollback Detection Flow</h3>
+            <div class="diagram-container">
+                <svg width="750" height="700" viewBox="0 0 750 700" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="375" y="30" class="title-label" text-anchor="middle" font-size="15">Rollback Protection Mechanism</text>
+
+                    <!-- Timeline -->
+                    <line x1="100" y1="80" x2="700" y2="80" stroke="#1B3A5C" stroke-width="2"/>
+
+                    <!-- Event 1 -->
+                    <circle cx="150" cy="80" r="8" fill="#4A90D9" stroke="#1B3A5C" stroke-width="2"/>
+                    <text x="150" y="115" class="text-label" text-anchor="middle" font-size="11" font-weight="600">State v1</text>
+                    <rect x="80" y="130" width="140" height="70" class="process" rx="3"/>
+                    <text x="150" y="150" class="process-label" font-size="10">Initial vault</text>
+                    <text x="150" y="165" class="process-label" font-size="9">state_version: 0</text>
+                    <text x="150" y="178" class="process-label" font-size="9">max_state_v: 0</text>
+
+                    <!-- Event 2 -->
+                    <circle cx="300" cy="80" r="8" fill="#4A90D9" stroke="#1B3A5C" stroke-width="2"/>
+                    <text x="300" y="115" class="text-label" text-anchor="middle" font-size="11" font-weight="600">State v2</text>
+                    <rect x="230" y="130" width="140" height="70" class="process" rx="3"/>
+                    <text x="300" y="150" class="process-label" font-size="10">User adds file A</text>
+                    <text x="300" y="165" class="process-label" font-size="9">state_version: 1</text>
+                    <text x="300" y="178" class="process-label" font-size="9">max_state_v: 1</text>
+
+                    <!-- Event 3 -->
+                    <circle cx="450" cy="80" r="8" fill="#4A90D9" stroke="#1B3A5C" stroke-width="2"/>
+                    <text x="450" y="115" class="text-label" text-anchor="middle" font-size="11" font-weight="600">State v3</text>
+                    <rect x="380" y="130" width="140" height="70" class="process" rx="3"/>
+                    <text x="450" y="150" class="process-label" font-size="10">User adds file B</text>
+                    <text x="450" y="165" class="process-label" font-size="9">state_version: 2</text>
+                    <text x="450" y="178" class="process-label" font-size="9">max_state_v: 2</text>
+
+                    <!-- Event 4 (Attack) -->
+                    <circle cx="600" cy="80" r="8" fill="#d9534f" stroke="#1B3A5C" stroke-width="2"/>
+                    <text x="600" y="115" class="text-label" text-anchor="middle" font-size="11" font-weight="600">Attack</text>
+                    <rect x="530" y="130" width="140" height="70" class="block" rx="3" fill="#ffcccc" stroke="#d9534f" stroke-width="2"/>
+                    <text x="600" y="150" class="block-label" font-size="10" fill="#d9534f">Attacker tries to</text>
+                    <text x="600" y="165" class="block-label" font-size="9" fill="#d9534f">restore state_v: 1</text>
+                    <text x="600" y="178" class="block-label" font-size="9" fill="#d9534f">(remove file B)</text>
+
+                    <!-- Detailed attack scenario -->
+                    <text x="50" y="250" class="title-label" font-size="12" font-weight="600">Attack Scenario: Rollback Attempt</text>
+
+                    <!-- Client side -->
+                    <rect x="50" y="280" width="320" height="350" fill="none" stroke="#4A90D9" stroke-width="2" stroke-dasharray="5,5" rx="5"/>
+                    <text x="70" y="305" class="process-label" font-size="12" font-weight="600">CLIENT</text>
+
+                    <rect x="70" y="320" width="280" height="50" class="process" rx="3"/>
+                    <text x="210" y="340" class="process-label" font-size="11">1. Create vault update</text>
+                    <text x="210" y="353" class="process-label" font-size="9">with state_version: 1</text>
+
+                    <rect x="70" y="390" width="280" height="50" class="process" rx="3"/>
+                    <text x="210" y="410" class="process-label" font-size="11">2. Increment state_version</text>
+                    <text x="210" y="423" class="process-label" font-size="9">Include in header</text>
+
+                    <rect x="70" y="460" width="280" height="50" class="process" rx="3"/>
+                    <text x="210" y="480" class="process-label" font-size="11">3. Upload to server</text>
+                    <text x="210" y="493" class="process-label" font-size="9">with state_version: 1</text>
+
+                    <rect x="70" y="530" width="280" height="50" class="block" rx="3" fill="#ffcccc" stroke="#d9534f" stroke-width="2"/>
+                    <text x="210" y="550" class="block-label" font-size="11" fill="#d9534f">4. REJECTED</text>
+                    <text x="210" y="563" class="block-label" font-size="9" fill="#d9534f">(version regression)</text>
+
+                    <!-- Server side -->
+                    <rect x="400" y="280" width="320" height="350" fill="none" stroke="#1B3A5C" stroke-width="2" stroke-dasharray="5,5" rx="5"/>
+                    <text x="420" y="305" class="block-label" font-size="12" font-weight="600">SERVER</text>
+
+                    <rect x="420" y="320" width="280" height="50" class="process" rx="3"/>
+                    <text x="560" y="340" class="process-label" font-size="11">1. Receive update</text>
+                    <text x="560" y="353" class="process-label" font-size="9">state_version: 1</text>
+
+                    <rect x="420" y="390" width="280" height="50" class="process" rx="3"/>
+                    <text x="560" y="410" class="process-label" font-size="11">2. Check max_state_version</text>
+                    <text x="560" y="423" class="process-label" font-size="9">stored: 2 (current)</text>
+
+                    <rect x="420" y="460" width="280" height="80" class="block" rx="3" fill="#ffcccc" stroke="#d9534f" stroke-width="2"/>
+                    <text x="560" y="480" class="block-label" font-size="11" fill="#d9534f">3. Verify:</text>
+                    <text x="430" y="498" class="text-label" font-size="9" fill="#d9534f">if (state_v: 1) &lt;= (max: 2)</text>
+                    <text x="430" y="513" class="text-label" font-size="9" fill="#d9534f">→ REJECT (rollback)</text>
+                    <text x="430" y="528" class="text-label" font-size="9" fill="#d9534f">Don't accept version 1</text>
+
+                    <!-- Valid update -->
+                    <text x="50" y="680" class="text-label" font-size="11">✓ Valid update: new state_version (3) > max_state_version (2) → ACCEPT</text>
+                </svg>
+            </div>
+
+            <h3>Protection Mechanism Details</h3>
+            <ul>
+                <li><strong>State Version Field:</strong> 64-bit counter in vault header, incremented with every modification</li>
+                <li><strong>Server-Side Tracking:</strong> max_state_version stored per vault, only increases monotonically</li>
+                <li><strong>Rejection Criteria:</strong> Updates with state_version ≤ max_state_version are rejected immediately</li>
+                <li><strong>Integrity:</strong> Prevents attackers from using older vault backups to overwrite newer changes</li>
+                <li><strong>Limitation:</strong> Protects against overwrite attacks, not against unauthorized deletion of entire vaults</li>
+            </ul>
+        </section>
+
+        <!-- Section 8: Data Flow Overview -->
+        <section id="data-flow">
+            <h2>8. Data Flow Overview</h2>
+
+            <div class="description">
+                <strong>Overview:</strong> This section shows the complete system architecture with all major components and their interactions through a block diagram.
+            </div>
+
+            <h3>System Architecture</h3>
+            <div class="diagram-container">
+                <svg width="800" height="700" viewBox="0 0 800 700" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#1B3A5C"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Title -->
+                    <text x="400" y="30" class="title-label" text-anchor="middle" font-size="16">Quantum Armor Vault (QAV) System Architecture</text>
+
+                    <!-- Client Layer -->
+                    <rect x="30" y="70" width="250" height="280" fill="none" stroke="#4A90D9" stroke-width="2" rx="5"/>
+                    <text x="50" y="95" class="title-label" font-size="13">CLIENT LAYER</text>
+
+                    <rect x="50" y="110" width="210" height="70" class="block" rx="3"/>
+                    <text x="155" y="130" class="block-label" font-size="11" font-weight="600">Client Applications</text>
+                    <text x="155" y="145" class="block-label" font-size="9">iOS / Android / Desktop</text>
+                    <text x="155" y="158" class="block-label" font-size="9">WebUI</text>
+                    <text x="155" y="171" class="block-label" font-size="9">CLI Tools</text>
+
+                    <rect x="50" y="200" width="210" height="120" class="process" rx="3"/>
+                    <text x="155" y="220" class="process-label" font-size="11" font-weight="600">Rust Crypto Core</text>
+                    <text x="60" y="238" class="text-label" font-size="9">• Argon2id (key deriv)</text>
+                    <text x="60" y="251" class="text-label" font-size="9">• XChaCha20-Poly1305</text>
+                    <text x="60" y="264" class="text-label" font-size="9">• X25519 (ECDH)</text>
+                    <text x="60" y="277" class="text-label" font-size="9">• ML-KEM-1024 (PQC)</text>
+                    <text x="60" y="290" class="text-label" font-size="9">• SHA-256 (HMAC)</text>
+                    <text x="60" y="303" class="text-label" font-size="9">• Shamir SSS</text>
+
+                    <!-- API Layer -->
+                    <rect x="320" y="70" width="280" height="400" fill="none" stroke="#1B3A5C" stroke-width="2" rx="5"/>
+                    <text x="340" y="95" class="title-label" font-size="13">API SERVER LAYER (Go)</text>
+
+                    <rect x="340" y="110" width="240" height="70" class="block" rx="3"/>
+                    <text x="460" y="130" class="block-label" font-size="11" font-weight="600">TLS 1.3 Endpoints</text>
+                    <text x="460" y="145" class="block-label" font-size="9">REST API / gRPC</text>
+                    <text x="460" y="158" class="block-label" font-size="9">Request validation</text>
+                    <text x="460" y="171" class="block-label" font-size="9">Rate limiting</text>
+
+                    <rect x="340" y="200" width="240" height="80" class="process" rx="3"/>
+                    <text x="460" y="220" class="process-label" font-size="11" font-weight="600">Authentication</text>
+                    <text x="460" y="235" class="process-label" font-size="9">• SRP-6a verification</text>
+                    <text x="460" y="248" class="process-label" font-size="9">• JWT generation</text>
+                    <text x="460" y="261" class="process-label" font-size="9">• Device fingerprint</text>
+                    <text x="460" y="274" class="process-label" font-size="9">• RBAC enforcement</text>
+
+                    <rect x="340" y="300" width="240" height="80" class="process" rx="3"/>
+                    <text x="460" y="320" class="process-label" font-size="11" font-weight="600">Vault Operations</text>
+                    <text x="460" y="335" class="process-label" font-size="9">• Blob store access</text>
+                    <text x="460" y="348" class="process-label" font-size="9">• State version check</text>
+                    <text x="460" y="361" class="process-label" font-size="9">• Sharing management</text>
+                    <text x="460" y="374" class="process-label" font-size="9">• Recovery handling</text>
+
+                    <rect x="340" y="400" width="240" height="70" class="process" rx="3"/>
+                    <text x="460" y="420" class="process-label" font-size="11" font-weight="600">Audit & Logging</text>
+                    <text x="460" y="435" class="process-label" font-size="9">• Event logging</text>
+                    <text x="460" y="448" class="process-label" font-size="9">• Access tracking</text>
+
+                    <!-- Data Layer -->
+                    <rect x="640" y="70" width="140" height="400" fill="none" stroke="#4A90D9" stroke-width="2" rx="5"/>
+                    <text x="660" y="95" class="title-label" font-size="13">DATA LAYER</text>
+
+                    <rect x="660" y="110" width="100" height="80" class="block" rx="3"/>
+                    <text x="710" y="135" class="block-label" font-size="10" font-weight="600">PostgreSQL</text>
+                    <text x="710" y="150" class="block-label" font-size="8">• Users</text>
+                    <text x="710" y="161" class="block-label" font-size="8">• Vaults</text>
+                    <text x="710" y="172" class="block-label" font-size="8">• Devices</text>
+                    <text x="710" y="183" class="block-label" font-size="8">• Sharing</text>
+
+                    <rect x="660" y="210" width="100" height="80" class="block" rx="3"/>
+                    <text x="710" y="235" class="block-label" font-size="10" font-weight="600">Blob Storage</text>
+                    <text x="710" y="250" class="block-label" font-size="8">• S3-compatible</text>
+                    <text x="710" y="261" class="block-label" font-size="8">• Encrypted vaults</text>
+                    <text x="710" y="272" class="block-label" font-size="8">• Versioning</text>
+                    <text x="710" y="283" class="block-label" font-size="8">• Redundancy</text>
+
+                    <rect x="660" y="310" width="100" height="80" class="block" rx="3"/>
+                    <text x="710" y="335" class="block-label" font-size="10" font-weight="600">Redis Cache</text>
+                    <text x="710" y="350" class="block-label" font-size="8">• Session cache</text>
+                    <text x="710" y="361" class="block-label" font-size="8">• Rate limiting</text>
+                    <text x="710" y="372" class="block-label" font-size="8">• Locks</text>
+                    <text x="710" y="383" class="block-label" font-size="8">• Temp tokens</text>
+
+                    <!-- Arrows between layers -->
+                    <!-- Client to API -->
+                    <path d="M 280 180 L 320 180" class="arrow" marker-end="url(#arrowhead)" stroke-width="3"/>
+                    <text x="295" y="170" class="text-label" font-size="9">TLS</text>
+
+                    <!-- API to Data -->
+                    <path d="M 560 250 L 640 250" class="arrow" marker-end="url(#arrowhead)" stroke-width="3"/>
+                    <text x="590" y="240" class="text-label" font-size="9">SQL/API</text>
+
+                    <!-- Data security notes -->
+                    <rect x="30" y="380" width="250" height="90" class="process" rx="3"/>
+                    <text x="50" y="400" class="process-label" font-size="11" font-weight="600">Client-Side Security:</text>
+                    <text x="50" y="418" class="text-label" font-size="9">✓ All encryption on device</text>
+                    <text x="50" y="431" class="text-label" font-size="9">✓ Server never sees plaintext</text>
+                    <text x="50" y="444" class="text-label" font-size="9">✓ FFI to Rust core (native)</text>
+                    <text x="50" y="457" class="text-label" font-size="9">✓ Secure memory handling</text>
+
+                    <!-- Server security notes -->
+                    <rect x="340" y="490" width="240" height="90" class="process" rx="3"/>
+                    <text x="360" y="510" class="process-label" font-size="11" font-weight="600">Server-Side Security:</text>
+                    <text x="360" y="528" class="text-label" font-size="9">✓ Zero-knowledge architecture</text>
+                    <text x="360" y="541" class="text-label" font-size="9">✓ Rate limiting & DDoS protection</text>
+                    <text x="360" y="554" class="text-label" font-size="9">✓ Comprehensive audit logging</text>
+                    <text x="360" y="567" class="text-label" font-size="9">✓ Device fingerprinting</text>
+
+                    <!-- Data redundancy -->
+                    <rect x="660" y="410" width="100" height="70" class="process" rx="3"/>
+                    <text x="710" y="430" class="process-label" font-size="10" font-weight="600">Data Protection</text>
+                    <text x="710" y="445" class="process-label" font-size="8">✓ Encrypted at rest</text>
+                    <text x="710" y="457" class="process-label" font-size="8">✓ Geo-redundant</text>
+                    <text x="710" y="469" class="process-label" font-size="8">✓ Backup copies</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Quantum Armor Vault (QAV) Technical Architecture Document</p>
+            <p>Version 4.0 | March 2026</p>
+            <p style="margin-top: 15px; font-size: 0.8em;">This document is confidential and proprietary. Unauthorized reproduction or distribution is prohibited.</p>
+        </div>
+    </div>
+</body>
+</html>

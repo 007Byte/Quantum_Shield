@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# PH2-FIX: Backup encryption key management
+# Rotates backup encryption keys and stores in secure location
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+echo "=== QAV Backup Key Rotation ==="
+echo "This script generates a new backup encryption key."
+echo "Store the key in your secrets manager (AWS Secrets Manager, Vault, etc.)"
+echo ""
+
+# Generate a new 256-bit key
+NEW_KEY=$(openssl rand -hex 32)
+KEY_ID="backup-key-$(date +%Y%m%d-%H%M%S)"
+
+echo "Key ID: $KEY_ID"
+echo "Key:    $NEW_KEY"
+echo ""
+echo "INSTALLATION INSTRUCTIONS:"
+echo "============================"
+echo ""
+echo "1. AWS Secrets Manager:"
+echo "   aws secretsmanager create-secret --name 'qav/backup-encryption-key' \\"
+echo "     --secret-string '$NEW_KEY'"
+echo ""
+echo "2. HashiCorp Vault:"
+echo "   vault kv put secret/qav/backup encryption_key='$NEW_KEY'"
+echo ""
+echo "3. GitHub Secrets:"
+echo "   gh secret set BACKUP_ENCRYPTION_KEY --body '$NEW_KEY'"
+echo ""
+echo "4. Environment Variable (Development Only - Not Recommended for Production):"
+echo "   export BACKUP_ENCRYPTION_KEY='$NEW_KEY'"
+echo ""
+echo "WARNING: Key Rotation Best Practices"
+echo "===================================="
+echo ""
+echo "1. Keep the old key available until all backups encrypted with it expire"
+echo "2. Document key rotation date and ID: $KEY_ID"
+echo "3. Update BACKUP_ENCRYPTION_KEY environment variable in:"
+echo "   - GitHub Secrets (for CI/CD)"
+echo "   - Deployment configuration"
+echo "   - .env files (development only)"
+echo ""
+echo "4. Re-encrypt old backups with new key if rotation policy requires:"
+echo "   for backup in /var/backups/qav/*.sql.gz.enc; do"
+echo "     openssl enc -aes-256-cbc -d -in \"\$backup\" \\"
+echo "       -pass env:OLD_BACKUP_ENCRYPTION_KEY | \\"
+echo "     openssl enc -aes-256-cbc -out \"\${backup%.enc}.new.enc\" \\"
+echo "       -pass env:BACKUP_ENCRYPTION_KEY"
+echo "   done"
+echo ""
+echo "5. After verifying success, remove old backups:"
+echo "   rm -f /var/backups/qav/*.sql.gz.enc"
+echo ""
+echo "6. Maintain audit trail of key rotation events"

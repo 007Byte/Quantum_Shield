@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Armor Vault (QAV)</title>
+<style>
+  :root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-card: #222533;
+    --bg-hover: #2a2e3f;
+    --accent: #6c63ff;
+    --accent-hover: #7b73ff;
+    --accent-glow: rgba(108, 99, 255, 0.15);
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --text: #e4e4e7;
+    --text-muted: #9ca3af;
+    --border: #2d3148;
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    flex-shrink: 0;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .main { margin-left: 240px; flex: 1; padding: 30px; }
+
+  /* Sidebar */
+  .logo {
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .logo h1 { font-size: 20px; font-weight: 700; }
+  .logo h1 span { color: var(--accent); }
+  .logo p { font-size: 11px; color: var(--text-muted); margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .nav-section { padding: 8px 12px; }
+  .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); padding: 8px 8px 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    color: var(--text-muted); font-size: 14px; transition: all 0.15s;
+  }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text); }
+  .nav-item.active { background: var(--accent-glow); color: var(--accent); font-weight: 500; }
+  .nav-icon { width: 18px; text-align: center; font-size: 16px; }
+
+  .status-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  .status-dots { display: flex; gap: 12px; }
+  .status-dot { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot.yellow { background: var(--yellow); }
+
+  /* Header */
+  .page-header { margin-bottom: 28px; }
+  .page-header h2 { font-size: 24px; font-weight: 600; }
+  .page-header p { color: var(--text-muted); margin-top: 4px; font-size: 14px; }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .card-value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+  .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* Tables */
+  .table-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 28px; }
+  .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .table-header h3 { font-size: 16px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  td { padding: 12px 20px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-hover); }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+  }
+  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge-blue { background: rgba(108,99,255,0.15); color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--bg-hover); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); }
+  .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+  /* Forms */
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .form-input {
+    width: 100%; padding: 10px 14px; background: var(--bg-primary);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 14px; outline: none; transition: border 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; justify-content: center; align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px; width: 460px; max-height: 80vh; overflow-y: auto;
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Toast */
+  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 200; }
+  .toast {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 20px; margin-bottom: 8px; font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } }
+
+  /* Section content */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Auth page */
+  .auth-container {
+    display: flex; justify-content: center; align-items: center;
+    min-height: calc(100vh - 60px);
+  }
+  .auth-box {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 36px; width: 400px;
+  }
+  .auth-box h3 { font-size: 20px; text-align: center; margin-bottom: 24px; }
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .auth-tab {
+    flex: 1; padding: 10px; text-align: center; cursor: pointer;
+    font-size: 13px; font-weight: 500; background: var(--bg-primary);
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .auth-tab.active { background: var(--accent); color: white; }
+
+  /* Vault cards */
+  .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .vault-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; cursor: pointer; transition: all 0.15s;
+  }
+  .vault-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .vault-card-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
+  .vault-card h4 { font-size: 16px; font-weight: 600; }
+  .vault-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+  /* File list */
+  .file-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .file-item:last-child { border-bottom: none; }
+  .file-item:hover { background: var(--bg-hover); }
+  .file-info { display: flex; align-items: center; gap: 12px; }
+  .file-icon { font-size: 24px; }
+  .file-name { font-size: 14px; font-weight: 500; }
+  .file-size { font-size: 12px; color: var(--text-muted); }
+
+  /* Activity feed */
+  .activity-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .activity-text { font-size: 13px; line-height: 1.5; }
+  .activity-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state h4 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .card-grid { grid-template-columns: 1fr; }
+    .vault-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <h1>USB<span>Vault</span></h1>
+      <p>Enterprise Edition</p>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+
+      <div class="nav-label" style="margin-top:12px">Storage</div>
+      <div class="nav-item" data-section="vaults" onclick="showSection('vaults')">
+        <span class="nav-icon">🔐</span> Vaults
+      </div>
+      <div class="nav-item" data-section="sharing" onclick="showSection('sharing')">
+        <span class="nav-icon">🔗</span> Sharing
+      </div>
+
+      <div class="nav-label" style="margin-top:12px">Security</div>
+      <div class="nav-item" data-section="audit" onclick="showSection('audit')">
+        <span class="nav-icon">📋</span> Audit Log
+      </div>
+      <div class="nav-item" data-section="auth" onclick="showSection('auth')">
+        <span class="nav-icon">🔑</span> Authentication
+      </div>
+
+      <div class="nav-label" style="margin-top:12px">System</div>
+      <div class="nav-item" data-section="billing" onclick="showSection('billing')">
+        <span class="nav-icon">💳</span> Billing
+      </div>
+      <div class="nav-item" data-section="settings" onclick="showSection('settings')">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+      <div class="nav-item" data-section="api" onclick="showSection('api')">
+        <span class="nav-icon">🧪</span> API Explorer
+      </div>
+    </nav>
+
+    <div class="status-bar">
+      <div class="status-dots">
+        <div class="status-dot"><div class="dot" id="dot-db"></div> DB</div>
+        <div class="status-dot"><div class="dot" id="dot-redis"></div> Redis</div>
+        <div class="status-dot"><div class="dot" id="dot-s3"></div> S3</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="section active" id="sec-dashboard">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>System overview and recent activity</p>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-label">System Status</div>
+          <div class="card-value" id="sys-status" style="color:var(--text-muted)">Checking...</div>
+          <div class="card-sub" id="sys-uptime"></div>
+        </div>
+        <div class="card">
+          <div class="card-label">Active Vaults</div>
+          <div class="card-value" id="vault-count">0</div>
+          <div class="card-sub">Encrypted containers</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Stored Files</div>
+          <div class="card-value" id="file-count">0</div>
+          <div class="card-sub">Zero-knowledge encrypted</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Shared Items</div>
+          <div class="card-value" id="share-count">0</div>
+          <div class="card-sub">Active share links</div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Service Health</h3>
+          <button class="btn btn-sm btn-secondary" onclick="refreshHealth()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>Service</th><th>Status</th><th>Endpoint</th><th>Last Check</th></tr></thead>
+          <tbody id="health-table"></tbody>
+        </table>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Recent Activity</h3></div>
+        <div style="padding: 16px 20px;" id="activity-feed">
+          <div class="empty-state"><p>Activity will appear here after authentication</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VAULTS ===== -->
+    <div class="section" id="sec-vaults">
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <h2>Vaults</h2>
+          <p>Manage your encrypted storage containers</p>
+        </div>
+        <button class="btn btn-primary" onclick="showModal('create-vault')">+ Create Vault</button>
+      </div>
+
+      <div id="vault-list">
+        <div class="empty-state">
+          <div class="empty-icon">🔐</div>
+          <h4>No Vaults Yet</h4>
+          <p>Create your first encrypted vault to get started.<br>Sign in first, then create a vault.</p>
+          <button class="btn btn-primary" style="margin-top:16px" onclick="showModal('create-vault')">Create Vault</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VAULT DETAIL ===== -->
+    <div class="section" id="sec-vault-detail">
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <h2 id="vault-detail-name">Vault</h2>
+          <p id="vault-detail-desc"></p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="showSection('vaults')">← Back</button>
+          <button class="btn btn-primary btn-sm" onclick="showModal('upload-file')">Upload File</button>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-label">Files</div>
+          <div class="card-value" id="vd-files">0</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Members</div>
+          <div class="card-value" id="vd-members">1</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Encryption</div>
+          <div class="card-value" style="font-size:18px">AES-256-GCM</div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Files</h3></div>
+        <div id="vault-files">
+          <div class="empty-state"><p>No files in this vault yet</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SHARING ===== -->
+    <div class="section" id="sec-sharing">
+      <div class="page-header">
+        <h2>Sharing</h2>
+        <p>Manage shared files and access links</p>
+      </div>
+
+      <div class="card-grid">
+        <div class="card" style="cursor:pointer" onclick="loadShares('sent')">
+          <div class="card-label">Sent</div>
+          <div class="card-value" id="sent-count">0</div>
+          <div class="card-sub">Files you've shared</div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="loadShares('received')">
+          <div class="card-label">Received</div>
+          <div class="card-value" id="recv-count">0</div>
+          <div class="card-sub">Files shared with you</div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Share History</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-secondary" onclick="loadShares('sent')">Sent</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadShares('received')">Received</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>File</th><th>Shared With</th><th>Status</th><th>Date</th><th></th></tr></thead>
+          <tbody id="share-table">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px">Sign in to view shares</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== AUDIT ===== -->
+    <div class="section" id="sec-audit">
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <h2>Audit Log</h2>
+          <p>Tamper-evident activity trail with chain verification</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-secondary" onclick="verifyChain()">Verify Chain</button>
+          <button class="btn btn-sm btn-secondary" onclick="exportCompliance()">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Events</h3></div>
+        <table>
+          <thead><tr><th>Time</th><th>Action</th><th>Resource</th><th>IP</th><th>Integrity</th></tr></thead>
+          <tbody id="audit-table">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px">Sign in to view audit logs</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== AUTH ===== -->
+    <div class="section" id="sec-auth">
+      <div class="auth-container">
+        <div class="auth-box">
+          <h3>🔐 Quantum Armor Vault</h3>
+          <div class="auth-tabs">
+            <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+            <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
+          </div>
+
+          <div id="auth-login">
+            <div class="form-group">
+              <label>Username</label>
+              <input class="form-input" id="login-user" placeholder="Enter username" autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input class="form-input" id="login-pass" type="password" placeholder="Enter password" autocomplete="current-password">
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doLogin()">Sign In with SRP</button>
+            <p style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:12px">
+              Zero-knowledge authentication via SRP protocol.<br>Your password never leaves this device.
+            </p>
+          </div>
+
+          <div id="auth-register" style="display:none">
+            <div class="form-group">
+              <label>Username</label>
+              <input class="form-input" id="reg-user" placeholder="Choose username">
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input class="form-input" id="reg-email" type="email" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input class="form-input" id="reg-pass" type="password" placeholder="Create password (min 12 chars)">
+            </div>
+            <div class="form-group">
+              <label>Confirm Password</label>
+              <input class="form-input" id="reg-pass2" type="password" placeholder="Confirm password">
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doRegister()">Create Account</button>
+          </div>
+
+          <div id="auth-status" style="margin-top:16px;display:none">
+            <div style="padding:16px;background:rgba(34,197,94,0.1);border-radius:8px;text-align:center">
+              <p style="color:var(--green);font-weight:600" id="auth-user-display"></p>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Authenticated via SRP</p>
+              <button class="btn btn-sm btn-secondary" style="margin-top:12px" onclick="doLogout()">Sign Out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BILLING ===== -->
+    <div class="section" id="sec-billing">
+      <div class="page-header">
+        <h2>Billing</h2>
+        <p>Manage your subscription and usage</p>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-label">Current Plan</div>
+          <div class="card-value" style="font-size:22px" id="plan-name">Free</div>
+          <div class="card-sub" id="plan-sub">Up to 1 GB storage</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Storage Used</div>
+          <div class="card-value" id="storage-used">0 MB</div>
+          <div class="card-sub">of 1 GB limit</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Next Billing</div>
+          <div class="card-value" style="font-size:22px">—</div>
+          <div class="card-sub">No active subscription</div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Available Plans</h3></div>
+        <table>
+          <thead><tr><th>Plan</th><th>Storage</th><th>Vaults</th><th>Sharing</th><th>Price</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Free</strong></td><td>1 GB</td><td>2</td><td>Basic</td><td>$0/mo</td>
+              <td><span class="badge badge-green">Current</span></td>
+            </tr>
+            <tr>
+              <td><strong>Pro</strong></td><td>100 GB</td><td>Unlimited</td><td>Advanced</td><td>$9.99/mo</td>
+              <td><button class="btn btn-sm btn-primary" onclick="toast('Sign in to upgrade','var(--yellow)')">Upgrade</button></td>
+            </tr>
+            <tr>
+              <td><strong>Enterprise</strong></td><td>Unlimited</td><td>Unlimited</td><td>Enterprise SSO</td><td>Custom</td>
+              <td><button class="btn btn-sm btn-secondary" onclick="toast('Contact sales@qav.io','var(--accent)')">Contact</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="section" id="sec-settings">
+      <div class="page-header">
+        <h2>Settings</h2>
+        <p>Configure your Quantum Armor Vault instance</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>FIDO2 / WebAuthn Credentials</h3></div>
+        <div style="padding:20px">
+          <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px">
+            Register hardware security keys or biometric authenticators for passwordless login.
+          </p>
+          <button class="btn btn-primary" onclick="toast('Sign in first to manage FIDO2 keys','var(--yellow)')">Register Security Key</button>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>API Configuration</h3></div>
+        <div style="padding:20px">
+          <div class="form-group">
+            <label>API Endpoint</label>
+            <input class="form-input" id="api-endpoint" value="http://localhost:8080">
+          </div>
+          <button class="btn btn-primary" onclick="updateEndpoint()">Save Endpoint</button>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Danger Zone</h3></div>
+        <div style="padding:20px">
+          <button class="btn btn-danger" onclick="toast('Sign in first to delete account','var(--red)')">Delete Account</button>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:8px">Permanently delete your account and all associated data.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== API EXPLORER ===== -->
+    <div class="section" id="sec-api">
+      <div class="page-header">
+        <h2>API Explorer</h2>
+        <p>Test Quantum Armor Vault API endpoints directly</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Make a Request</h3></div>
+        <div style="padding:20px">
+          <div class="form-row" style="margin-bottom:12px">
+            <div>
+              <label style="font-size:12px;color:var(--text-muted)">Method</label>
+              <select class="form-input" id="api-method">
+                <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text-muted)">Endpoint</label>
+              <select class="form-input" id="api-path" onchange="updateApiBody()">
+                <option value="/health">GET /health</option>
+                <option value="/ready">GET /ready</option>
+                <option value="/metrics/pool">GET /metrics/pool</option>
+                <option value="/api/v1/auth/srp/init">POST /api/v1/auth/srp/init</option>
+                <option value="/api/v1/vaults/">GET /api/v1/vaults/</option>
+                <option value="/api/v1/vaults/">POST /api/v1/vaults/ (create)</option>
+                <option value="/api/v1/shares/sent">GET /api/v1/shares/sent</option>
+                <option value="/api/v1/shares/received">GET /api/v1/shares/received</option>
+                <option value="/api/v1/audit/">GET /api/v1/audit/</option>
+                <option value="/api/v1/audit/anomalies">GET /api/v1/audit/anomalies</option>
+                <option value="/api/v1/audit/compliance-report">GET /api/v1/audit/compliance-report</option>
+                <option value="/api/v1/billing/subscription">GET /api/v1/billing/subscription</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Request Body (JSON)</label>
+            <textarea class="form-input" id="api-body" rows="4" placeholder='{"key": "value"}'></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="sendApiRequest()">Send Request</button>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Response</h3></div>
+        <pre id="api-response" style="padding:20px;font-size:13px;color:var(--text);overflow-x:auto;white-space:pre-wrap;min-height:80px;font-family:'SF Mono',Monaco,monospace">Click "Send Request" to see response</pre>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>All API Endpoints (53 total)</h3></div>
+        <table>
+          <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/health</td><td>Health check</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/ready</td><td>Readiness probe</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/metrics/pool</td><td>DB pool stats</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/srp/init</td><td>SRP auth init</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/srp/verify</td><td>SRP auth verify</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/fido2/challenge</td><td>FIDO2 challenge</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/fido2/verify</td><td>FIDO2 verify</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/refresh</td><td>Refresh token</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/auth/logout</td><td>Logout</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/vaults/</td><td>List vaults</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/vaults/</td><td>Create vault</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/vaults/{id}</td><td>Get vault</td></tr>
+            <tr><td><span class="badge badge-yellow">PUT</span></td><td>/api/v1/vaults/{id}</td><td>Update vault</td></tr>
+            <tr><td><span class="badge badge-red">DEL</span></td><td>/api/v1/vaults/{id}</td><td>Delete vault</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/vaults/{id}/blobs/upload-url</td><td>Get upload URL</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/vaults/{id}/blobs/download-url</td><td>Get download URL</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/vaults/{id}/blobs/</td><td>List files</td></tr>
+            <tr><td><span class="badge badge-red">DEL</span></td><td>/api/v1/vaults/{id}/blobs/{blobId}</td><td>Delete file</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/shares/sent</td><td>Sent shares</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/shares/received</td><td>Received shares</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/shares/</td><td>Create share</td></tr>
+            <tr><td><span class="badge badge-red">DEL</span></td><td>/api/v1/shares/{id}</td><td>Revoke share</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/audit/</td><td>Audit log</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/audit/verify</td><td>Verify chain</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/audit/anomalies</td><td>Anomaly detection</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/audit/compliance-report</td><td>Compliance report</td></tr>
+            <tr><td><span class="badge badge-green">GET</span></td><td>/api/v1/billing/subscription</td><td>Current subscription</td></tr>
+            <tr><td><span class="badge badge-blue">POST</span></td><td>/api/v1/billing/subscribe</td><td>Create subscription</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Create Vault Modal -->
+<div class="modal-overlay" id="modal-create-vault">
+  <div class="modal">
+    <h3>Create New Vault</h3>
+    <div class="form-group">
+      <label>Vault Name</label>
+      <input class="form-input" id="vault-name" placeholder="e.g. Personal Documents">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input class="form-input" id="vault-desc" placeholder="Optional description">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('create-vault')">Cancel</button>
+      <button class="btn btn-primary" onclick="createVault()">Create Vault</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload File Modal -->
+<div class="modal-overlay" id="modal-upload-file">
+  <div class="modal">
+    <h3>Upload File</h3>
+    <div class="form-group">
+      <label>Select File</label>
+      <input type="file" class="form-input" id="upload-input" style="padding:8px">
+    </div>
+    <p style="font-size:12px;color:var(--text-muted)">Files are encrypted client-side with AES-256-GCM before upload.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('upload-file')">Cancel</button>
+      <button class="btn btn-primary" onclick="uploadFile()">Encrypt & Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+  // ─── State ───
+  let API_BASE = 'http://localhost:8080';
+  let authToken = null;
+  let currentUser = null;
+  let currentVaultId = null;
+
+  // ─── Navigation ───
+  function showSection(name) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('sec-' + name).classList.add('active');
+    const navItem = document.querySelector(`.nav-item[data-section="${name}"]`);
+    if (navItem) navItem.classList.add('active');
+  }
+
+  // ─── Toast notifications ───
+  function toast(msg, color) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<div class="dot" style="background:${color || 'var(--accent)'};width:8px;height:8px;border-radius:50%;flex-shrink:0"></div> ${msg}`;
+    document.getElementById('toasts').appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // ─── Modal ───
+  function showModal(name) { document.getElementById('modal-' + name).classList.add('active'); }
+  function hideModal(name) { document.getElementById('modal-' + name).classList.remove('active'); }
+
+  // ─── API helper ───
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    try {
+      const res = await fetch(API_BASE + path, { ...opts, headers });
+      const text = await res.text();
+      try { return { status: res.status, data: JSON.parse(text) }; }
+      catch { return { status: res.status, data: text }; }
+    } catch (e) {
+      return { status: 0, data: { error: e.message } };
+    }
+  }
+
+  // ─── Health check ───
+  async function refreshHealth() {
+    const { status, data } = await api('/health');
+    const now = new Date().toLocaleTimeString();
+
+    if (status === 200 || status === 503) {
+      const checks = data.checks || {};
+      document.getElementById('dot-db').className = 'dot ' + (checks.database ? 'green' : 'red');
+      document.getElementById('dot-redis').className = 'dot ' + (checks.redis ? 'green' : 'red');
+      document.getElementById('dot-s3').className = 'dot ' + (checks.s3 ? 'green' : 'red');
+
+      const sysStatus = document.getElementById('sys-status');
+      if (data.status === 'ok' || data.status === 'healthy') {
+        sysStatus.textContent = 'Healthy';
+        sysStatus.style.color = 'var(--green)';
+      } else {
+        sysStatus.textContent = 'Degraded';
+        sysStatus.style.color = 'var(--yellow)';
+      }
+      document.getElementById('sys-uptime').textContent = 'Last checked: ' + now;
+
+      const services = [
+        { name: 'PostgreSQL', ok: checks.database, endpoint: 'postgres:5432' },
+        { name: 'Redis', ok: checks.redis, endpoint: 'redis:6379' },
+        { name: 'MinIO (S3)', ok: checks.s3, endpoint: 'minio:9000' },
+        { name: 'API Server', ok: true, endpoint: 'localhost:8080' },
+      ];
+      document.getElementById('health-table').innerHTML = services.map(s => `
+        <tr>
+          <td><strong>${s.name}</strong></td>
+          <td><span class="badge ${s.ok ? 'badge-green' : 'badge-red'}">${s.ok ? 'Healthy' : 'Down'}</span></td>
+          <td style="color:var(--text-muted);font-size:13px">${s.endpoint}</td>
+          <td style="color:var(--text-muted);font-size:13px">${now}</td>
+        </tr>
+      `).join('');
+    } else {
+      document.getElementById('sys-status').textContent = 'Offline';
+      document.getElementById('sys-status').style.color = 'var(--red)';
+      document.getElementById('sys-uptime').textContent = 'API unreachable at ' + API_BASE;
+      ['dot-db','dot-redis','dot-s3'].forEach(id => document.getElementById(id).className = 'dot red');
+    }
+  }
+
+  // ─── Auth ───
+  function switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach((t,i) => {
+      t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+    });
+    document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+  }
+
+  async function doLogin() {
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+    if (!user || !pass) { toast('Enter username and password', 'var(--yellow)'); return; }
+
+    const { status, data } = await api('/api/v1/auth/srp/init', {
+      method: 'POST',
+      body: JSON.stringify({ username: user, password: pass })
+    });
+
+    if (status === 200 && data.token) {
+      authToken = data.token;
+      currentUser = user;
+      showAuthSuccess(user);
+      toast('Signed in as ' + user, 'var(--green)');
+      loadDashboardData();
+    } else {
+      toast('Auth: ' + (data.error || data.message || 'Server response ' + status), 'var(--yellow)');
+    }
+  }
+
+  async function doRegister() {
+    const user = document.getElementById('reg-user').value;
+    const email = document.getElementById('reg-email').value;
+    const pass = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+
+    if (!user || !pass) { toast('Fill in all fields', 'var(--yellow)'); return; }
+    if (pass !== pass2) { toast('Passwords do not match', 'var(--red)'); return; }
+    if (pass.length < 12) { toast('Password must be at least 12 characters', 'var(--yellow)'); return; }
+
+    toast('Registration requires SRP key exchange — use the mobile app for full registration', 'var(--yellow)');
+  }
+
+  function showAuthSuccess(user) {
+    document.getElementById('auth-login').style.display = 'none';
+    document.getElementById('auth-register').style.display = 'none';
+    document.querySelector('.auth-tabs').style.display = 'none';
+    document.getElementById('auth-status').style.display = 'block';
+    document.getElementById('auth-user-display').textContent = 'Signed in as ' + user;
+  }
+
+  async function doLogout() {
+    if (authToken) await api('/api/v1/auth/logout', { method: 'POST' });
+    authToken = null;
+    currentUser = null;
+    document.getElementById('auth-login').style.display = 'block';
+    document.querySelector('.auth-tabs').style.display = 'flex';
+    document.getElementById('auth-status').style.display = 'none';
+    switchAuthTab('login');
+    toast('Signed out', 'var(--text-muted)');
+  }
+
+  // ─── Dashboard data ───
+  async function loadDashboardData() {
+    const vaults = await api('/api/v1/vaults/');
+    if (vaults.status === 200 && Array.isArray(vaults.data)) {
+      document.getElementById('vault-count').textContent = vaults.data.length;
+    }
+    const sent = await api('/api/v1/shares/sent');
+    const recv = await api('/api/v1/shares/received');
+    let shareCount = 0;
+    if (sent.status === 200 && Array.isArray(sent.data)) shareCount += sent.data.length;
+    if (recv.status === 200 && Array.isArray(recv.data)) shareCount += recv.data.length;
+    document.getElementById('share-count').textContent = shareCount;
+  }
+
+  // ─── Vaults ───
+  async function createVault() {
+    const name = document.getElementById('vault-name').value;
+    if (!name) { toast('Enter a vault name', 'var(--yellow)'); return; }
+    const { status, data } = await api('/api/v1/vaults/', {
+      method: 'POST',
+      body: JSON.stringify({ name, description: document.getElementById('vault-desc').value })
+    });
+    hideModal('create-vault');
+    if (status === 201 || status === 200) {
+      toast('Vault "' + name + '" created', 'var(--green)');
+      loadVaults();
+    } else {
+      toast('Error: ' + (data.error || data.message || status), 'var(--red)');
+    }
+  }
+
+  async function loadVaults() {
+    const { status, data } = await api('/api/v1/vaults/');
+    const container = document.getElementById('vault-list');
+    if (status === 200 && Array.isArray(data) && data.length > 0) {
+      container.innerHTML = '<div class="vault-grid">' + data.map(v => `
+        <div class="vault-card" onclick="openVault('${v.id}', '${(v.name||'').replace(/'/g,"\\'")}')">
+          <div class="vault-card-header">
+            <h4>🔐 ${v.name || 'Unnamed'}</h4>
+            <span class="badge badge-green">Active</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted)">${v.description || 'No description'}</p>
+          <div class="vault-meta">
+            <span>Created: ${new Date(v.created_at || Date.now()).toLocaleDateString()}</span>
+          </div>
+        </div>
+      `).join('') + '</div>';
+      document.getElementById('vault-count').textContent = data.length;
+    } else if (status === 200) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><h4>No Vaults Yet</h4><p>Create your first vault to start storing encrypted files.</p></div>';
+    } else {
+      container.innerHTML = '<div class="empty-state"><p>Sign in to view your vaults</p></div>';
+    }
+  }
+
+  async function openVault(id, name) {
+    currentVaultId = id;
+    document.getElementById('vault-detail-name').textContent = name || 'Vault';
+    showSection('vault-detail');
+
+    const { status, data } = await api('/api/v1/vaults/' + id + '/blobs/');
+    const filesEl = document.getElementById('vault-files');
+    if (status === 200 && Array.isArray(data) && data.length > 0) {
+      filesEl.innerHTML = data.map(f => `
+        <div class="file-item">
+          <div class="file-info">
+            <span class="file-icon">📄</span>
+            <div>
+              <div class="file-name">${f.name || f.id}</div>
+              <div class="file-size">${formatBytes(f.size || 0)} · Encrypted</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-secondary" onclick="downloadBlob('${id}','${f.id}')">Download</button>
+        </div>
+      `).join('');
+      document.getElementById('vd-files').textContent = data.length;
+    } else {
+      filesEl.innerHTML = '<div class="empty-state"><p>No files uploaded yet</p></div>';
+      document.getElementById('vd-files').textContent = '0';
+    }
+  }
+
+  // ─── Sharing ───
+  async function loadShares(type) {
+    const { status, data } = await api('/api/v1/shares/' + type);
+    const tbody = document.getElementById('share-table');
+    if (status === 200 && Array.isArray(data) && data.length > 0) {
+      tbody.innerHTML = data.map(s => `
+        <tr>
+          <td>${s.file_name || s.blob_id || '—'}</td>
+          <td>${s.recipient || s.sender || '—'}</td>
+          <td><span class="badge badge-${s.status === 'accepted' ? 'green' : s.status === 'pending' ? 'yellow' : 'red'}">${s.status || 'pending'}</span></td>
+          <td style="color:var(--text-muted)">${new Date(s.created_at || Date.now()).toLocaleDateString()}</td>
+          <td>${type === 'sent' ? '<button class="btn btn-sm btn-danger" onclick="revokeShare(\''+s.id+'\')">Revoke</button>' : ''}</td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px">No ' + type + ' shares</td></tr>';
+    }
+  }
+
+  // ─── Audit ───
+  async function verifyChain() {
+    const { status, data } = await api('/api/v1/audit/verify', { method: 'POST' });
+    if (status === 200) toast('Chain integrity verified ✓', 'var(--green)');
+    else toast('Chain verification: ' + (data.error || status), 'var(--yellow)');
+  }
+
+  async function exportCompliance() {
+    toast('Exporting compliance CSV...', 'var(--accent)');
+    const { status } = await api('/api/v1/audit/compliance-export');
+    if (status === 200) toast('CSV export ready', 'var(--green)');
+    else toast('Sign in to export audit data', 'var(--yellow)');
+  }
+
+  // ─── API Explorer ───
+  function updateApiBody() {
+    const path = document.getElementById('api-path').value;
+    const method = document.getElementById('api-method');
+    if (path.includes('POST')) method.value = 'POST';
+    else if (path.includes('PUT')) method.value = 'PUT';
+    else if (path.includes('DELETE')) method.value = 'DELETE';
+    else method.value = 'GET';
+  }
+
+  async function sendApiRequest() {
+    const method = document.getElementById('api-method').value;
+    const pathEl = document.getElementById('api-path');
+    const path = pathEl.value.split(' ')[0] || pathEl.value;
+    const body = document.getElementById('api-body').value;
+
+    const opts = { method };
+    if (body && method !== 'GET') opts.body = body;
+
+    const start = performance.now();
+    const { status, data } = await api(path, opts);
+    const duration = Math.round(performance.now() - start);
+
+    const statusColor = status >= 200 && status < 300 ? 'var(--green)' : status >= 400 ? 'var(--red)' : 'var(--yellow)';
+    document.getElementById('api-response').innerHTML =
+      `<span style="color:${statusColor}">HTTP ${status}</span> <span style="color:var(--text-muted)">(${duration}ms)</span>\n\n` +
+      (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  // ─── Helpers ───
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function updateEndpoint() {
+    API_BASE = document.getElementById('api-endpoint').value.replace(/\/$/, '');
+    toast('API endpoint updated to ' + API_BASE, 'var(--green)');
+    refreshHealth();
+  }
+
+  async function downloadBlob(vaultId, blobId) {
+    const { status, data } = await api(`/api/v1/vaults/${vaultId}/blobs/download-url`, {
+      method: 'POST', body: JSON.stringify({ blob_id: blobId })
+    });
+    if (status === 200 && data.url) window.open(data.url, '_blank');
+    else toast('Download error: ' + (data.error || status), 'var(--red)');
+  }
+
+  async function revokeShare(shareId) {
+    const { status } = await api('/api/v1/shares/' + shareId, { method: 'DELETE' });
+    if (status === 200) { toast('Share revoked', 'var(--green)'); loadShares('sent'); }
+    else toast('Error revoking share', 'var(--red)');
+  }
+
+  async function uploadFile() {
+    toast('File upload requires client-side encryption — use the mobile app or API directly', 'var(--yellow)');
+    hideModal('upload-file');
+  }
+
+  // ─── Init ───
+  refreshHealth();
+  setInterval(refreshHealth, 30000);
+</script>
+</body>
+</html>

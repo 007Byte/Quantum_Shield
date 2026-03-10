@@ -1,0 +1,379 @@
+name: FFI Build Matrix
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'qav-crypto/src/**'
+      - 'qav-crypto/Cargo.toml'
+      - '.github/workflows/ffi-build.yml'
+      - 'scripts/build-ffi.sh'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'qav-crypto/src/**'
+      - 'qav-crypto/Cargo.toml'
+      - '.github/workflows/ffi-build.yml'
+      - 'scripts/build-ffi.sh'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-matrix:
+    name: Build FFI ${{ matrix.target }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # iOS builds (macOS only)
+          - os: macos-latest
+            target: aarch64-apple-ios
+            platform: ios
+            cargo_target: aarch64-apple-ios
+            artifact_name: libqav_crypto.a
+
+          - os: macos-latest
+            target: aarch64-apple-ios-sim
+            platform: ios
+            cargo_target: aarch64-apple-ios-sim
+            artifact_name: libqav_crypto.a
+
+          # macOS universal binary (includes Intel and Apple Silicon)
+          - os: macos-latest
+            target: macos-universal
+            platform: macos
+            cargo_targets: "aarch64-apple-darwin x86_64-apple-darwin"
+            artifact_name: libqav_crypto.a
+
+          # Android builds (Linux host)
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            platform: android
+            cargo_target: aarch64-linux-android
+            artifact_name: libqav_crypto.so
+
+          - os: ubuntu-latest
+            target: armv7-linux-androideabi
+            platform: android
+            cargo_target: armv7-linux-androideabi
+            artifact_name: libqav_crypto.so
+
+          - os: ubuntu-latest
+            target: x86_64-linux-android
+            platform: android
+            cargo_target: x86_64-linux-android
+            artifact_name: libqav_crypto.so
+
+          - os: ubuntu-latest
+            target: i686-linux-android
+            platform: android
+            cargo_target: i686-linux-android
+            artifact_name: libqav_crypto.so
+
+          # Windows MSVC build
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+            cargo_target: x86_64-pc-windows-msvc
+            artifact_name: qav_crypto.dll
+
+          # Linux builds
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            cargo_target: x86_64-unknown-linux-gnu
+            artifact_name: libqav_crypto.so
+
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            cargo_target: aarch64-unknown-linux-gnu
+            artifact_name: libqav_crypto.so
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: qav-crypto/target
+          key: ${{ runner.os }}-cargo-build-target-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-${{ matrix.target }}-
+
+      # iOS setup
+      - name: Install iOS targets
+        if: matrix.platform == 'ios'
+        run: |
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Build iOS device library
+        if: matrix.target == 'aarch64-apple-ios'
+        working-directory: qav-crypto
+        run: |
+          cargo build --release \
+            --target aarch64-apple-ios \
+            --lib \
+            --features ffi
+
+      - name: Build iOS simulator library
+        if: matrix.target == 'aarch64-apple-ios-sim'
+        working-directory: qav-crypto
+        run: |
+          cargo build --release \
+            --target aarch64-apple-ios-sim \
+            --lib \
+            --features ffi
+
+      # macOS universal binary
+      - name: Install macOS targets
+        if: matrix.platform == 'macos'
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Build macOS universal binary
+        if: matrix.platform == 'macos'
+        working-directory: qav-crypto
+        run: |
+          cargo build --release --target aarch64-apple-darwin --lib --features ffi
+          cargo build --release --target x86_64-apple-darwin --lib --features ffi
+          mkdir -p target/universal/release
+          lipo -create \
+            target/aarch64-apple-darwin/release/libqav_crypto.a \
+            target/x86_64-apple-darwin/release/libqav_crypto.a \
+            -output target/universal/release/libqav_crypto.a
+
+      # Android setup
+      - name: Install Android NDK
+        if: matrix.platform == 'android'
+        uses: ndk-build/ndk-build@v1.2.4
+        with:
+          ndk-version: r26b
+          add-to-path: true
+
+      - name: Install cargo-ndk
+        if: matrix.platform == 'android'
+        run: cargo install cargo-ndk
+
+      - name: Add Android targets
+        if: matrix.platform == 'android'
+        run: |
+          rustup target add \
+            aarch64-linux-android \
+            armv7-linux-androideabi \
+            x86_64-linux-android \
+            i686-linux-android
+
+      - name: Build Android library
+        if: matrix.platform == 'android'
+        working-directory: qav-crypto
+        run: |
+          cargo ndk \
+            --manifest-path Cargo.toml \
+            -t arm64-v8a \
+            -t armeabi-v7a \
+            -t x86_64 \
+            -t x86 \
+            -o ../android_libs \
+            build --release --features ffi
+
+      # Windows build
+      - name: Build Windows library
+        if: matrix.platform == 'windows'
+        working-directory: qav-crypto
+        run: |
+          cargo build --release `
+            --target x86_64-pc-windows-msvc `
+            --lib `
+            --features ffi
+        shell: pwsh
+
+      # Linux setup
+      - name: Install Linux cross-compilation tools
+        if: matrix.platform == 'linux' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Add Linux targets
+        if: matrix.platform == 'linux'
+        run: |
+          rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+
+      - name: Build Linux library
+        if: matrix.platform == 'linux'
+        working-directory: qav-crypto
+        run: |
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+          cargo build --release \
+            --target ${{ matrix.cargo_target }} \
+            --lib \
+            --features ffi
+
+      # Common artifact handling
+      - name: Prepare artifacts (Unix)
+        if: runner.os != 'Windows'
+        working-directory: qav-crypto
+        run: |
+          mkdir -p ../ffi-artifacts/${{ matrix.target }}
+
+          # Handle universal binary
+          if [ -f "target/universal/release/${{ matrix.artifact_name }}" ]; then
+            cp target/universal/release/${{ matrix.artifact_name }} ../ffi-artifacts/${{ matrix.target }}/
+          elif [ -f "target/${{ matrix.cargo_target }}/release/${{ matrix.artifact_name }}" ]; then
+            cp target/${{ matrix.cargo_target }}/release/${{ matrix.artifact_name }} ../ffi-artifacts/${{ matrix.target }}/
+          fi
+
+      - name: Prepare artifacts (Windows)
+        if: runner.os == 'Windows'
+        working-directory: qav-crypto
+        shell: pwsh
+        run: |
+          New-Item -Type Directory -Path ../ffi-artifacts/${{ matrix.target }} -Force
+          Copy-Item target/${{ matrix.cargo_target }}/release/${{ matrix.artifact_name }} ../ffi-artifacts/${{ matrix.target }}/
+
+      - name: Handle Android JNI artifacts
+        if: matrix.platform == 'android'
+        run: |
+          mkdir -p ffi-artifacts/${{ matrix.target }}
+          if [ -d "android_libs" ]; then
+            cp -r android_libs/* ffi-artifacts/${{ matrix.target }}/
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ffi-libs-${{ matrix.target }}
+          path: ffi-artifacts/${{ matrix.target }}/
+          retention-days: 30
+
+  # iOS xcframework assembly
+  build-ios-xcframework:
+    name: Build iOS xcframework
+    runs-on: macos-latest
+    needs: [build-matrix]
+    if: |
+      always() &&
+      (needs.build-matrix.result == 'success' || needs.build-matrix.result == 'failure')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download iOS device artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ffi-libs-aarch64-apple-ios
+          path: ios-device
+
+      - name: Download iOS simulator artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ffi-libs-aarch64-apple-ios-sim
+          path: ios-simulator
+
+      - name: Build xcframework
+        run: |
+          mkdir -p ffi-artifacts/ios-xcframework
+
+          xcodebuild -create-xcframework \
+            -library ios-device/libqav_crypto.a \
+            -library ios-simulator/libqav_crypto.a \
+            -output ffi-artifacts/ios-xcframework/QAVCrypto.xcframework
+
+      - name: Upload xcframework
+        uses: actions/upload-artifact@v3
+        with:
+          name: ffi-libs-ios-xcframework
+          path: ffi-artifacts/ios-xcframework/
+          retention-days: 30
+
+  # Test FFI exports
+  test-ffi:
+    name: Test FFI exports
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run FFI tests
+        working-directory: qav-crypto
+        run: |
+          cargo test --lib ffi --features ffi --verbose
+
+  # Generate FFI headers
+  generate-headers:
+    name: Generate C headers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cbindgen
+        run: cargo install cbindgen
+
+      - name: Generate headers
+        working-directory: qav-crypto
+        run: cbindgen --output ../ffi-artifacts/qav_crypto.h
+
+      - name: Upload headers
+        uses: actions/upload-artifact@v3
+        with:
+          name: ffi-headers
+          path: ffi-artifacts/qav_crypto.h
+          retention-days: 30
+
+  # Summary job
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-matrix, build-ios-xcframework, test-ffi, generate-headers]
+    if: always()
+    steps:
+      - name: Check build status
+        run: |
+          if [ "${{ needs.build-matrix.result }}" = "success" ]; then
+            echo "✓ All FFI builds completed successfully"
+          else
+            echo "✗ Some FFI builds failed"
+            exit 1
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: all-artifacts
+
+      - name: List artifacts
+        run: |
+          echo "=== FFI Build Artifacts ==="
+          find all-artifacts -type f | sort

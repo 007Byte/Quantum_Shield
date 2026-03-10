@@ -1,0 +1,28 @@
+{
+  "root": true,
+  "extends": [
+    "expo",
+    "prettier"
+  ],
+  "plugins": [
+    "prettier"
+  ],
+  "rules": {
+    "prettier/prettier": "error",
+    "no-unused-vars": "warn",
+    "no-console": [
+      "warn",
+      {
+        "allow": [
+          "warn",
+          "error"
+        ]
+      }
+    ]
+  },
+  "env": {
+    "react-native/react-native": true,
+    "node": true,
+    "es2021": true
+  }
+}

@@ -1,0 +1,2542 @@
+openapi: 3.0.3
+info:
+  title: QAV API
+  version: 1.0.0
+  description: Quantum-resistant Access Vault API - Secure encrypted file storage and sharing with end-to-end encryption
+  contact:
+    name: QAV Support
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.qav.io
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication endpoints
+
+  schemas:
+    # ====== Authentication Schemas ======
+    SRPInitRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    SRPInitResponse:
+      type: object
+      properties:
+        salt:
+          type: string
+          description: Base64-encoded salt for client-side hashing
+          example: "aBc1De2Fg3Hi4Jk5Lm6No7Pq8Rs9Tu0Vw1Xy2Za3="
+        B:
+          type: string
+          description: Server's ephemeral value for SRP
+          example: "fEhKJ7vKL8mN9oP0qR1sT2uV3wX4yZ5aB6cD7eF8gH9iJ0kL1mN2oP3qR4sTu5vW6xY7zA8bC9dE0fG1hI2jK3lM4nO5pQ6rS7tU8vW9xY0zAaA=="
+        session_id:
+          type: string
+          format: uuid
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+    SRPVerifyRequest:
+      type: object
+      required:
+        - session_id
+        - A
+        - M1
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        A:
+          type: string
+          description: Client's ephemeral value for SRP
+        M1:
+          type: string
+          description: Client proof of password knowledge
+
+    SRPVerifyResponse:
+      type: object
+      properties:
+        M2:
+          type: string
+          description: Server proof of password knowledge
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token for obtaining new access tokens
+
+    FIDO2ChallengeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    FIDO2ChallengeResponse:
+      type: object
+      properties:
+        challenge:
+          type: string
+          description: Base64-encoded WebAuthn challenge
+        session_id:
+          type: string
+          format: uuid
+
+    FIDO2VerifyRequest:
+      type: object
+      required:
+        - session_id
+        - assertion_response
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        assertion_response:
+          type: string
+          description: JSON-encoded WebAuthn assertion response
+
+    FIDO2VerifyResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+
+    FIDO2Credential:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "YubiKey 5"
+        created_at:
+          type: string
+          format: date-time
+
+    # ====== Vault Schemas ======
+    VaultSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        encrypted_metadata:
+          type: string
+          description: Base64-encoded encrypted vault metadata
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateVaultRequest:
+      type: object
+      required:
+        - encrypted_metadata
+      properties:
+        encrypted_metadata:
+          type: string
+          description: Base64-encoded encrypted metadata
+
+    CreateVaultResponse:
+      type: object
+      properties:
+        vault_id:
+          type: string
+          format: uuid
+
+    UpdateVaultRequest:
+      type: object
+      required:
+        - encrypted_metadata
+      properties:
+        encrypted_metadata:
+          type: string
+
+    # ====== Key Hierarchy Schemas ======
+    KeyHierarchyRequest:
+      type: object
+      required:
+        - wrapped_mek
+        - kek_salt
+      properties:
+        wrapped_mek:
+          type: string
+          description: Base64-encoded wrapped master encryption key
+        kek_salt:
+          type: string
+          description: Base64-encoded key encryption key salt
+
+    KeyHierarchyResponse:
+      type: object
+      properties:
+        wrapped_mek:
+          type: string
+        kek_salt:
+          type: string
+
+    # ====== File/Blob Schemas ======
+    BlobInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        vault_id:
+          type: string
+          format: uuid
+        size_bytes:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+
+    GenerateUploadURLRequest:
+      type: object
+      required:
+        - blob_id
+      properties:
+        blob_id:
+          type: string
+          format: uuid
+
+    GenerateUploadURLResponse:
+      type: object
+      properties:
+        upload_url:
+          type: string
+          format: uri
+
+    GenerateDownloadURLRequest:
+      type: object
+      required:
+        - blob_id
+      properties:
+        blob_id:
+          type: string
+          format: uuid
+
+    GenerateDownloadURLResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+
+    # ====== Multipart Upload Schemas ======
+    InitiateMultipartRequest:
+      type: object
+      properties:
+        blob_id:
+          type: string
+          format: uuid
+
+    InitiateMultipartResponse:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          format: uuid
+        parts_required:
+          type: integer
+
+    GetPartURLResponse:
+      type: object
+      properties:
+        part_url:
+          type: string
+          format: uri
+        part_number:
+          type: integer
+
+    CompletePartRequest:
+      type: object
+      required:
+        - part_number
+        - etag
+      properties:
+        part_number:
+          type: integer
+        etag:
+          type: string
+
+    FinalizeUploadRequest:
+      type: object
+      required:
+        - parts
+      properties:
+        parts:
+          type: array
+          items:
+            type: object
+            properties:
+              part_number:
+                type: integer
+              etag:
+                type: string
+
+    FinalizeUploadResponse:
+      type: object
+      properties:
+        blob_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: "completed"
+
+    UploadProgressResponse:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          format: uuid
+        completed_parts:
+          type: integer
+        total_parts:
+          type: integer
+        percentage:
+          type: number
+
+    # ====== Vault Member/RBAC Schemas ======
+    VaultMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, editor, viewer]
+        joined_at:
+          type: string
+          format: date-time
+
+    AddMemberRequest:
+      type: object
+      required:
+        - user_id
+        - role
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, editor, viewer]
+
+    TransferOwnershipRequest:
+      type: object
+      required:
+        - new_owner_id
+      properties:
+        new_owner_id:
+          type: string
+          format: uuid
+
+    # ====== Key Rotation Schemas ======
+    InitiateKeyRotationRequest:
+      type: object
+      required:
+        - new_wrapped_mek
+        - new_kek_salt
+      properties:
+        new_wrapped_mek:
+          type: string
+        new_kek_salt:
+          type: string
+
+    KeyRotationStatus:
+      type: object
+      properties:
+        rotation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    # ====== Sharing Schemas ======
+    CreateShareRequest:
+      type: object
+      required:
+        - recipient_id
+        - blob_id
+        - encrypted_key
+      properties:
+        recipient_id:
+          type: string
+          format: uuid
+        blob_id:
+          type: string
+          format: uuid
+        encrypted_key:
+          type: string
+          description: Base64-encoded sealed box with encrypted key
+
+    ShareRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        recipient_id:
+          type: string
+          format: uuid
+        blob_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    PublicKeyRequest:
+      type: object
+      required:
+        - public_key
+      properties:
+        public_key:
+          type: string
+          description: Base64-encoded public key for key derivation
+
+    PublicKeyResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        public_key:
+          type: string
+
+    KeyFingerprintResponse:
+      type: object
+      properties:
+        fingerprint:
+          type: string
+          example: "SHA256:Hu25ZvxvQMl/7DkH+Z7BWP+uzmTm+XaANMKvZeGDiNQ"
+        user_id:
+          type: string
+          format: uuid
+
+    VerifyContactRequest:
+      type: object
+      required:
+        - email
+        - verification_code
+      properties:
+        email:
+          type: string
+          format: email
+        verification_code:
+          type: string
+
+    # ====== Billing Schemas ======
+    CreateCustomerRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    CreateCustomerResponse:
+      type: object
+      properties:
+        customer_id:
+          type: string
+
+    CreateSubscriptionRequest:
+      type: object
+      required:
+        - tier
+        - payment_method_id
+      properties:
+        tier:
+          type: string
+          enum: [free, individual, team, enterprise]
+        payment_method_id:
+          type: string
+          description: Stripe payment method ID
+
+    Subscription:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+        user_id:
+          type: string
+        tier:
+          type: string
+        status:
+          type: string
+          enum: [active, past_due, cancelled]
+        current_period_end:
+          type: string
+          format: date-time
+        cancelled_at:
+          type: string
+          format: date-time
+
+    UpgradeSubscriptionRequest:
+      type: object
+      required:
+        - tier
+      properties:
+        tier:
+          type: string
+          enum: [individual, team, enterprise]
+
+    DowngradeSubscriptionRequest:
+      type: object
+      required:
+        - tier
+      properties:
+        tier:
+          type: string
+          enum: [free, individual, team]
+
+    # ====== Audit Schemas ======
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: string
+        action_type:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        hash_hex:
+          type: string
+
+    SecurityEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+          enum:
+            - AUTH_LOGIN
+            - AUTH_LOGOUT
+            - AUTH_FAILED
+            - TOKEN_REFRESH
+            - TOKEN_THEFT
+            - KEY_ROTATION
+            - PERMISSION_CHANGE
+            - PERMISSION_DENIED
+            - DATA_ACCESS
+            - DATA_EXPORT
+            - CONFIG_CHANGE
+            - ACCOUNT_CREATED
+            - ACCOUNT_DELETED
+        severity:
+          type: string
+          enum: [INFO, WARN, CRITICAL]
+        source_ip:
+          type: string
+        user_agent:
+          type: string
+        user_id:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+        outcome:
+          type: string
+          enum: [success, failure]
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditLogResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+        total_count:
+          type: integer
+
+    ComplianceReport:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        total_events:
+          type: integer
+        security_incidents:
+          type: integer
+        compliance_status:
+          type: string
+
+    AnomalyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+        anomaly_type:
+          type: string
+        severity:
+          type: string
+        detected_at:
+          type: string
+          format: date-time
+        details:
+          type: string
+
+    # ====== Notification Schemas ======
+    RegisterDeviceRequest:
+      type: object
+      required:
+        - device_token
+        - platform
+      properties:
+        device_token:
+          type: string
+          example: "ExponentPushToken[abc123...]"
+        platform:
+          type: string
+          enum: [ios, android, web]
+
+    # ====== Health Check Schemas ======
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            database:
+              type: boolean
+            redis:
+              type: boolean
+            s3:
+              type: boolean
+        circuit_breakers:
+          type: object
+          properties:
+            database:
+              type: string
+            redis:
+              type: string
+            s3:
+              type: string
+
+    ReadyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ready"
+
+    PoolStatsResponse:
+      type: object
+      properties:
+        total_conns:
+          type: integer
+        idle_conns:
+          type: integer
+        acquired_conns:
+          type: integer
+        max_conns:
+          type: integer
+        constructing_conns:
+          type: integer
+
+    # ====== Error Schemas ======
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code for programmatic handling
+        message:
+          type: string
+        details:
+          type: object
+
+    ValidationError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+        fields:
+          type: object
+
+    UnauthorizedError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
+
+    ForbiddenError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "FORBIDDEN"
+        message:
+          type: string
+
+paths:
+  # ====== Health Checks ======
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Checks connectivity to all critical dependencies
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service degraded - one or more dependencies unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe for Kubernetes
+      security: []
+      responses:
+        '200':
+          description: Ready to serve requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics/pool:
+    get:
+      tags:
+        - Health
+      summary: Database connection pool statistics
+      security: []
+      responses:
+        '200':
+          description: Pool statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoolStatsResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+
+  # ====== Authentication ======
+  /api/v1/auth/srp/init:
+    post:
+      tags:
+        - Auth
+      summary: Initialize SRP authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SRPInitRequest'
+      responses:
+        '200':
+          description: SRP session initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SRPInitResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '429':
+          description: Rate limited
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/srp/verify:
+    post:
+      tags:
+        - Auth
+      summary: Verify SRP authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SRPVerifyRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SRPVerifyResponse'
+        '400':
+          description: Invalid SRP proof
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication failed
+        '429':
+          description: Rate limited or account locked
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/fido2/challenge:
+    post:
+      tags:
+        - Auth
+      summary: Get WebAuthn challenge for passwordless login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FIDO2ChallengeRequest'
+      responses:
+        '200':
+          description: Challenge generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FIDO2ChallengeResponse'
+        '404':
+          description: User not found
+        '400':
+          description: User has no FIDO2 credentials registered
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/fido2/verify:
+    post:
+      tags:
+        - Auth
+      summary: Verify WebAuthn assertion for login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FIDO2VerifyRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FIDO2VerifyResponse'
+        '400':
+          description: Invalid assertion
+        '401':
+          description: Authentication failed
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/fido2/manage/register/init:
+    post:
+      tags:
+        - Auth
+      summary: Initialize FIDO2 credential registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "YubiKey 5"
+      responses:
+        '200':
+          description: Registration challenge generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenge:
+                    type: string
+                  session_id:
+                    type: string
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/fido2/manage/register/verify:
+    post:
+      tags:
+        - Auth
+      summary: Verify FIDO2 credential registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - attestation_response
+              properties:
+                session_id:
+                  type: string
+                attestation_response:
+                  type: string
+      responses:
+        '201':
+          description: Credential registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential_id:
+                    type: string
+        '400':
+          description: Invalid attestation
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/fido2/manage/credentials:
+    get:
+      tags:
+        - Auth
+      summary: List registered FIDO2 credentials
+      responses:
+        '200':
+          description: List of credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credentials:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FIDO2Credential'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+    delete:
+      tags:
+        - Auth
+      summary: Delete a FIDO2 credential
+      parameters:
+        - name: credential_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Credential deleted
+        '400':
+          description: Invalid credential
+        '401':
+          description: Unauthorized
+        '404':
+          description: Credential not found
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+        '401':
+          description: Invalid or expired refresh token
+        '500':
+          description: Internal server error
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout and revoke tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "logged_out"
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  # ====== Vaults ======
+  /api/v1/vaults:
+    post:
+      tags:
+        - Vaults
+      summary: Create a new vault
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVaultRequest'
+      responses:
+        '201':
+          description: Vault created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateVaultResponse'
+        '400':
+          description: Invalid metadata
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+    get:
+      tags:
+        - Vaults
+      summary: List user's vaults
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of vaults
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vaults:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VaultSummary'
+                  total_count:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}:
+    get:
+      tags:
+        - Vaults
+      summary: Get vault details
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vault details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaultSummary'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+    put:
+      tags:
+        - Vaults
+      summary: Update vault metadata
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVaultRequest'
+      responses:
+        '200':
+          description: Vault updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "updated"
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+    delete:
+      tags:
+        - Vaults
+      summary: Delete vault (soft delete)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Vault deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+  # ====== Key Hierarchy ======
+  /api/v1/vaults/{vaultID}/key-hierarchy:
+    post:
+      tags:
+        - Vaults
+      summary: Store vault key hierarchy (wrapped keys)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyHierarchyRequest'
+      responses:
+        '201':
+          description: Key hierarchy stored
+        '400':
+          description: Invalid key data
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+    get:
+      tags:
+        - Vaults
+      summary: Retrieve vault key hierarchy
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Key hierarchy data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyHierarchyResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault or keys not found
+        '500':
+          description: Internal server error
+
+  # ====== Files/Blobs ======
+  /api/v1/vaults/{vaultID}/blobs:
+    get:
+      tags:
+        - Files
+      summary: List blobs in vault
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of blobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlobInfo'
+                  total_count:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/blobs/upload-url:
+    post:
+      tags:
+        - Files
+      summary: Generate presigned upload URL for blob
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateUploadURLRequest'
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateUploadURLResponse'
+        '400':
+          description: Invalid blob ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/blobs/download-url:
+    post:
+      tags:
+        - Files
+      summary: Generate presigned download URL for blob
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateDownloadURLRequest'
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateDownloadURLResponse'
+        '400':
+          description: Invalid blob ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault or blob not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/blobs/{blobID}:
+    delete:
+      tags:
+        - Files
+      summary: Delete blob from vault
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blobID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Blob deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault or blob not found
+        '500':
+          description: Internal server error
+
+  # ====== Multipart Upload ======
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart:
+    post:
+      tags:
+        - Files
+      summary: Initiate multipart upload
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateMultipartRequest'
+      responses:
+        '201':
+          description: Multipart upload initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateMultipartResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart/{uploadID}/part/{partNumber}:
+    get:
+      tags:
+        - Files
+      summary: Get presigned URL for uploading specific part
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: partNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Presigned URL for part upload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPartURLResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Upload or part not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart/{uploadID}/part:
+    post:
+      tags:
+        - Files
+      summary: Mark part as uploaded
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePartRequest'
+      responses:
+        '200':
+          description: Part marked complete
+        '400':
+          description: Invalid part number or ETag
+        '401':
+          description: Unauthorized
+        '404':
+          description: Upload not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart/{uploadID}/complete:
+    post:
+      tags:
+        - Files
+      summary: Finalize multipart upload
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeUploadRequest'
+      responses:
+        '200':
+          description: Upload completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalizeUploadResponse'
+        '400':
+          description: Invalid part list
+        '401':
+          description: Unauthorized
+        '404':
+          description: Upload not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart/{uploadID}:
+    delete:
+      tags:
+        - Files
+      summary: Abort multipart upload
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Upload aborted
+        '401':
+          description: Unauthorized
+        '404':
+          description: Upload not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/files/{fileID}/multipart/{uploadID}/progress:
+    get:
+      tags:
+        - Files
+      summary: Get multipart upload progress
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Upload progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadProgressResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Upload not found
+        '500':
+          description: Internal server error
+
+  # ====== Vault Members ======
+  /api/v1/vaults/{vaultID}/members:
+    get:
+      tags:
+        - Vaults
+      summary: List vault members
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VaultMember'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+    post:
+      tags:
+        - Vaults
+      summary: Add member to vault (vault owner only)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "member_added"
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not vault owner
+        '404':
+          description: Vault or user not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/members/{memberUserID}:
+    delete:
+      tags:
+        - Vaults
+      summary: Remove member from vault (vault owner only)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberUserID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not vault owner
+        '404':
+          description: Vault or member not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/members/transfer-ownership:
+    post:
+      tags:
+        - Vaults
+      summary: Transfer vault ownership (vault owner only)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferOwnershipRequest'
+      responses:
+        '200':
+          description: Ownership transferred
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ownership_transferred"
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not vault owner
+        '404':
+          description: Vault or user not found
+        '500':
+          description: Internal server error
+
+  # ====== Key Rotation ======
+  /api/v1/vaults/{vaultID}/rotate:
+    post:
+      tags:
+        - Vaults
+      summary: Initiate vault key rotation (vault owner only)
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateKeyRotationRequest'
+      responses:
+        '202':
+          description: Key rotation initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rotation_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not vault owner
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+  /api/v1/vaults/{vaultID}/rotation-status:
+    get:
+      tags:
+        - Vaults
+      summary: Get vault key rotation status
+      parameters:
+        - name: vaultID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rotation status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyRotationStatus'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Vault not found
+        '500':
+          description: Internal server error
+
+  # ====== Sharing ======
+  /api/v1/shares:
+    post:
+      tags:
+        - Sharing
+      summary: Create a share
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShareRequest'
+      responses:
+        '201':
+          description: Share created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/sent:
+    get:
+      tags:
+        - Sharing
+      summary: List shares sent by user
+      responses:
+        '200':
+          description: List of sent shares
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShareRecord'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/received:
+    get:
+      tags:
+        - Sharing
+      summary: List shares received by user
+      responses:
+        '200':
+          description: List of received shares
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShareRecord'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/{shareID}:
+    delete:
+      tags:
+        - Sharing
+      summary: Revoke a share (sender only)
+      parameters:
+        - name: shareID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Share revoked
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not share sender
+        '404':
+          description: Share not found
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/{shareID}/accept:
+    post:
+      tags:
+        - Sharing
+      summary: Accept a received share
+      parameters:
+        - name: shareID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Share accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "accepted"
+        '401':
+          description: Unauthorized
+        '404':
+          description: Share not found
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/{shareID}/reject:
+    post:
+      tags:
+        - Sharing
+      summary: Reject a received share
+      parameters:
+        - name: shareID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Share rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "rejected"
+        '401':
+          description: Unauthorized
+        '404':
+          description: Share not found
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/public-key/{userID}:
+    get:
+      tags:
+        - Sharing
+      summary: Get user's public key for encryption
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security: []
+      responses:
+        '200':
+          description: Public key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicKeyResponse'
+        '404':
+          description: User or public key not found
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/public-key:
+    post:
+      tags:
+        - Sharing
+      summary: Publish user's public key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicKeyRequest'
+      responses:
+        '201':
+          description: Public key published
+        '400':
+          description: Invalid key
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/fingerprint/{userID}:
+    get:
+      tags:
+        - Sharing
+      summary: Get user's key fingerprint for verification
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security: []
+      responses:
+        '200':
+          description: Key fingerprint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyFingerprintResponse'
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+
+  /api/v1/shares/verify-contact:
+    post:
+      tags:
+        - Sharing
+      summary: Verify contact email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyContactRequest'
+      responses:
+        '200':
+          description: Contact verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "verified"
+        '400':
+          description: Invalid verification code
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  # ====== Billing ======
+  /api/v1/billing/webhook:
+    post:
+      tags:
+        - Billing
+      summary: Stripe webhook endpoint (no auth)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "received"
+        '400':
+          description: Invalid webhook signature
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/customer:
+    post:
+      tags:
+        - Billing
+      summary: Create billing customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCustomerResponse'
+        '400':
+          description: Invalid email
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/subscribe:
+    post:
+      tags:
+        - Billing
+      summary: Create subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/subscription:
+    get:
+      tags:
+        - Billing
+      summary: Get current subscription
+      responses:
+        '200':
+          description: Current subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          description: Unauthorized
+        '404':
+          description: No subscription found
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/upgrade:
+    post:
+      tags:
+        - Billing
+      summary: Upgrade subscription tier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpgradeSubscriptionRequest'
+      responses:
+        '200':
+          description: Subscription upgraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid tier
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/downgrade:
+    post:
+      tags:
+        - Billing
+      summary: Downgrade subscription tier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DowngradeSubscriptionRequest'
+      responses:
+        '200':
+          description: Subscription downgraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid tier
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/billing/cancel:
+    post:
+      tags:
+        - Billing
+      summary: Cancel subscription
+      responses:
+        '200':
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "cancelled"
+        '401':
+          description: Unauthorized
+        '404':
+          description: No subscription found
+        '500':
+          description: Internal server error
+
+  # ====== Audit ======
+  /api/v1/audit:
+    get:
+      tags:
+        - Audit
+      summary: List audit log entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: action_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/audit/verify:
+    post:
+      tags:
+        - Audit
+      summary: Verify audit log chain integrity
+      responses:
+        '200':
+          description: Chain verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  entries_checked:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/audit/anomalies:
+    get:
+      tags:
+        - Audit
+      summary: Get detected anomalies
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of anomalies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anomalies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnomalyResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/audit/compliance-report:
+    get:
+      tags:
+        - Audit
+      summary: Generate compliance report
+      parameters:
+        - name: period_days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Compliance report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceReport'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /api/v1/audit/compliance-export:
+    get:
+      tags:
+        - Audit
+      summary: Export compliance data as CSV (Pro tier required)
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Feature not available in current tier
+        '500':
+          description: Internal server error
+
+  # ====== Notifications ======
+  /api/v1/notify/register-device:
+    post:
+      tags:
+        - Notifications
+      summary: Register device for push notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+      responses:
+        '201':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "registered"
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  # ====== User Account ======
+  /api/v1/user/account:
+    delete:
+      tags:
+        - User
+      summary: Delete user account (irreversible)
+      responses:
+        '204':
+          description: Account deleted
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  # ====== Sync ======
+  /api/v1/sync:
+    get:
+      tags:
+        - Sync
+      summary: WebSocket endpoint for real-time sync
+      description: Upgrade to WebSocket for real-time vault updates
+      responses:
+        '101':
+          description: Switching to WebSocket
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  # ====== Admin ======
+  /api/v1/admin/rotate-jwt-keys:
+    post:
+      tags:
+        - Admin
+      summary: Rotate JWT signing keys (admin only)
+      responses:
+        '200':
+          description: Keys rotated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "rotated"
+                  new_kid:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Not admin
+        '500':
+          description: Internal server error

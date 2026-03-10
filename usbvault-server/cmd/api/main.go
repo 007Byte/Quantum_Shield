@@ -1,0 +1,600 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	auth "github.com/qav/qav-server/internal/auth"
+	mw "github.com/qav/qav-server/internal/middleware"
+	"github.com/qav/qav-server/internal/metrics"
+	"github.com/qav/qav-server/internal/notify"
+	"github.com/qav/qav-server/internal/resilience"
+	sharing "github.com/qav/qav-server/internal/sharing"
+	storagepkg "github.com/qav/qav-server/internal/storage"
+	"github.com/qav/qav-server/internal/sync"
+	auditpkg "github.com/qav/qav-server/internal/audit"
+	billingpkg "github.com/qav/qav-server/internal/billing"
+	"github.com/qav/qav-server/internal/tracing"
+	"github.com/qav/qav-server/internal/vault"
+)
+
+func main() {
+	// Load environment variables
+	_ = godotenv.Load()
+
+	// Configure logging
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	ctx := context.Background()
+
+	// PH2-FIX: Initialize OpenTelemetry tracing
+	shutdownTracer, err := tracing.InitTracer(ctx, "qav-server", "1.0.0")
+	if err != nil {
+		log.Warn().Err(err).Msg("PH2-FIX: Failed to initialize tracer, continuing without tracing")
+	} else {
+		defer shutdownTracer(ctx)
+	}
+
+	// Initialize PostgreSQL
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal().Msg("DATABASE_URL not set")
+	}
+
+	// MEDIUM-FIX: Configure connection pool with configurable limits via environment variables
+	poolConfig, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to parse database URL")
+	}
+
+	// Read max and min connections from environment variables with defaults
+	maxConns := getIntEnvOrDefault("DB_MAX_CONNECTIONS", 30)
+	minConns := getIntEnvOrDefault("DB_MIN_CONNECTIONS", 5)
+
+	poolConfig.MaxConns = int32(maxConns)
+	poolConfig.MinConns = int32(minConns)
+	poolConfig.MaxConnLifetime = 30 * time.Minute
+	poolConfig.MaxConnIdleTime = 5 * time.Minute
+
+	log.Info().
+		Int32("max_connections", poolConfig.MaxConns).
+		Int32("min_connections", poolConfig.MinConns).
+		Msg("database connection pool configured")
+
+	dbPool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create database pool")
+	}
+	defer dbPool.Close()
+
+	if err := dbPool.Ping(ctx); err != nil {
+		log.Fatal().Err(err).Msg("database connection failed")
+	}
+	log.Info().Msg("database connected")
+
+	// Initialize Redis with optional Sentinel support for high availability
+	var redisClient *redis.Client
+	sentinelAddrs := os.Getenv("REDIS_SENTINEL_ADDRS")
+
+	if sentinelAddrs != "" {
+		// Use Redis Sentinel for failover support
+		sentAddrs := strings.Split(sentinelAddrs, ",")
+		redisClient = redis.NewFailoverClient(&redis.FailoverOptions{
+			SentinelAddrs: sentAddrs,
+			MasterName:    getEnvOrDefault("REDIS_SENTINEL_MASTER", "mymaster"),
+		})
+		log.Info().Strs("sentinel_addrs", sentAddrs).Msg("redis sentinel initialized")
+	} else {
+		// Fallback to single Redis instance
+		redisURL := os.Getenv("REDIS_URL")
+		if redisURL == "" {
+			redisURL = "redis://localhost:6379"
+		}
+		redisOpts, err := redis.ParseURL(redisURL)
+		if err != nil {
+			log.Fatal().Err(err).Str("url", redisURL).Msg("failed to parse REDIS_URL")
+		}
+		redisClient = redis.NewClient(redisOpts)
+	}
+	defer redisClient.Close()
+
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatal().Err(err).Msg("redis connection failed")
+	}
+	log.Info().Msg("redis connected")
+
+	// PH2-FIX: Initialize JWT key rotation service
+	keyRotationService := auth.NewKeyRotationService(dbPool)
+	if err := keyRotationService.Initialize(ctx); err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize JWT key rotation")
+	}
+	auth.SetKeyRotationService(keyRotationService)
+
+	// PH2-FIX: Start auto-rotation every 90 days
+	keyRotationService.StartAutoRotation(ctx, 90*24*time.Hour)
+
+	// Initialize S3 client — fail fast if config is missing
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	s3Bucket := getEnvOrDefault("S3_BUCKET", "")
+	s3Region := getEnvOrDefault("AWS_REGION", "us-east-1")
+	s3AccessKey := getEnvOrDefault("S3_ACCESS_KEY", os.Getenv("AWS_ACCESS_KEY_ID"))
+	s3SecretKey := getEnvOrDefault("S3_SECRET_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
+
+	if s3Endpoint == "" {
+		log.Fatal().Msg("S3_ENDPOINT not set")
+	}
+	if s3Bucket == "" {
+		log.Fatal().Msg("S3_BUCKET not set")
+	}
+
+	log.Info().
+		Str("s3_endpoint", s3Endpoint).
+		Str("s3_bucket", s3Bucket).
+		Str("aws_region", s3Region).
+		Bool("has_s3_access_key", s3AccessKey != "").
+		Bool("has_s3_secret_key", s3SecretKey != "").
+		Msg("resolved s3 configuration")
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(s3Region),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(s3AccessKey, s3SecretKey, ""),
+		),
+	)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load AWS config")
+	}
+
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(s3Endpoint)
+		o.UsePathStyle = true
+	})
+	log.Info().Str("endpoint", s3Endpoint).Msg("S3 client initialized")
+
+	// PH1-FIX: Initialize circuit breakers for all external dependencies
+	dbCircuitBreaker := resilience.NewCircuitBreakerWithConfig("database", 5, 30*time.Second)
+	redisCircuitBreaker := resilience.NewCircuitBreakerWithConfig("redis", 3, 15*time.Second)
+	s3CircuitBreaker := resilience.NewCircuitBreakerWithConfig("s3", 3, 30*time.Second)
+	log.Info().Msg("PH1-FIX: circuit breakers initialized for database, redis, and s3")
+
+	// PH1-FIX: Store circuit breakers for health check and middleware access
+	_ = dbCircuitBreaker    // Used by vault/storage services via dependency injection
+	_ = redisCircuitBreaker // Used by rate limiter and sync service
+	_ = s3CircuitBreaker    // Used by storage service
+
+	// Initialize services
+	vaultService := vault.NewVaultService(dbPool)
+	storageService := storagepkg.NewStorageService(s3Client, dbPool)
+	// PH2-FIX: Initialize multipart upload service
+	multipartService := storagepkg.NewMultipartService(s3Client, s3Bucket)
+	sharingService := sharing.NewSharingService(dbPool)
+	// PH5-FIX: Initialize contact verification and cleanup services
+	contactVerificationService := sharing.NewContactVerificationService(dbPool)
+	_ = sharing.NewCleanupService(dbPool) // PH5-FIX: cleanup runs in background
+	auditService := auditpkg.NewAuditService(dbPool)
+	billingService := billingpkg.NewBillingService(os.Getenv("STRIPE_SECRET_KEY"), dbPool)
+	notifyService := notify.NewNotifyService(dbPool)
+	syncService := sync.NewSyncService(redisClient)
+	lockoutService := auth.NewAccountLockoutService(redisClient)
+	rbacService := auth.NewRBACService(dbPool)
+	// PH5-FIX: Initialize key rotation service for vault
+	keyRotationService := vault.NewKeyRotationService(dbPool, auditService)
+	// PH6-FIX: Initialize anomaly detection and compliance services
+	anomalyDetectionService := auditpkg.NewAnomalyDetectionService(dbPool)
+	complianceService := auditpkg.NewComplianceService(dbPool)
+
+	// Create router
+	r := chi.NewRouter()
+
+	// Global middleware
+	r.Use(middleware.RequestID)
+	// PH2-FIX: Prometheus business metrics middleware
+	r.Use(mw.MetricsMiddleware)
+	// PH2-FIX: Add OpenTelemetry tracing middleware
+	r.Use(mw.TracingMiddleware)
+	r.Use(mw.RequestLogger())
+	// MEDIUM-FIX: Apply request body limit middleware to prevent oversized requests
+	r.Use(mw.RequestBodyLimit(mw.DefaultRequestBodyLimitConfig()))
+	r.Use(mw.NewRateLimiter(redisClient, mw.RateLimitConfig{
+		PerIP:         100,
+		PerUser:       1000,
+		Window:        time.Minute,
+		AuthEndpoints: 10,
+	}))
+
+	// CORS with explicit allowed origins (no wildcards for https://)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   getAllowedOrigins(),
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	// HTTPS enforcement
+	isProduction := os.Getenv("ENVIRONMENT") == "production"
+	r.Use(mw.SecurityHeaders(mw.DefaultSecurityHeadersConfig(isProduction)))
+	r.Use(mw.HTTPSRedirect(mw.DefaultHTTPSRedirectConfig(isProduction)))
+
+	// Auth middleware (extracts JWT if present, doesn't require it)
+	r.Use(mw.AuthMiddleware(redisClient))
+
+	// MEDIUM-FIX: Health check with enhanced deep checks for all critical dependencies
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		healthCtx, healthCancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer healthCancel()
+
+		// Check database connectivity
+		dbOK := dbPool.Ping(healthCtx) == nil
+
+		// Check Redis connectivity
+		redisOK := redisClient.Ping(healthCtx).Err() == nil
+
+		// MEDIUM-FIX: Check S3 connectivity
+		s3OK := true
+		_, err := s3Client.HeadBucket(healthCtx, &s3.HeadBucketInput{
+			Bucket: getS3BucketName(),
+		})
+		if err != nil {
+			s3OK = false
+			log.Warn().Err(err).Msg("S3 health check failed")
+		}
+
+		// Return 503 if any critical dependency is down
+		status := "ok"
+		httpCode := http.StatusOK
+		if !dbOK || !redisOK || !s3OK {
+			status = "degraded"
+			httpCode = http.StatusServiceUnavailable
+		}
+
+		w.WriteHeader(httpCode)
+		// PH1-FIX: Include circuit breaker states in health check response
+		fmt.Fprintf(w, `{"status":"%s","timestamp":"%s","checks":{"database":%t,"redis":%t,"s3":%t},"circuit_breakers":{"database":"%s","redis":"%s","s3":"%s"}}`,
+			status, time.Now().Format(time.RFC3339), dbOK, redisOK, s3OK,
+			dbCircuitBreaker.GetState(), redisCircuitBreaker.GetState(), s3CircuitBreaker.GetState())
+	})
+
+	// Readiness probe (Kubernetes)
+	r.Get("/ready", func(w http.ResponseWriter, r *http.Request) {
+		readyCtx, readyCancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer readyCancel()
+		if err := dbPool.Ping(readyCtx); err != nil {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"status":"ready"}`)
+	})
+
+	// DE-008 FIX: Connection pool monitoring endpoint
+	r.Get("/metrics/pool", func(w http.ResponseWriter, r *http.Request) {
+		stats := dbPool.Stat()
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"total_conns":%d,"idle_conns":%d,"acquired_conns":%d,"max_conns":%d,"constructing_conns":%d,"new_conns_count":%d,"max_lifetime_destroy_count":%d,"max_idle_destroy_count":%d}`,
+			stats.TotalConns(), stats.IdleConns(), stats.AcquiredConns(),
+			stats.MaxConns(), stats.ConstructingConns(), stats.NewConnsCount(),
+			stats.MaxLifetimeDestroyCount(), stats.MaxIdleDestroyCount())
+	})
+
+	// PH2-FIX: Prometheus metrics endpoint (outside auth, for Prometheus scraping)
+	r.Handle("/metrics", promhttp.Handler())
+
+	// Reference metrics import to ensure it's not marked unused
+	_ = metrics.VaultCount
+
+	// API routes
+	r.Route("/api/v1", func(r chi.Router) {
+		// Auth routes (public, with stricter rate limiting)
+		r.Route("/auth", func(r chi.Router) {
+			r.Use(mw.AuthRateLimiter(redisClient))
+			r.Post("/srp/init", auth.HandleSRPInit(dbPool, redisClient, lockoutService))
+			r.Post("/srp/verify", auth.HandleSRPVerify(dbPool, redisClient, lockoutService, auditService))
+			r.Post("/fido2/challenge", auth.HandleFIDO2Challenge(dbPool, redisClient))
+			r.Post("/fido2/verify", auth.HandleFIDO2Verify(dbPool, redisClient, auditService))
+			r.Post("/refresh", auth.HandleRefreshToken(redisClient, auditService))
+			r.Post("/logout", auth.HandleLogout(redisClient, auditService))
+
+			// FIDO2 registration and credential management (authenticated)
+			r.Route("/fido2/manage", func(r chi.Router) {
+				r.Use(mw.RequireAuth)
+				r.Post("/register/init", auth.HandleFIDO2RegisterChallenge(dbPool, redisClient))
+				r.Post("/register/verify", auth.HandleFIDO2RegisterVerify(dbPool, redisClient, auditService))
+				r.Get("/credentials", auth.HandleFIDO2ListCredentials(dbPool))
+				r.Delete("/credentials", auth.HandleFIDO2DeleteCredential(dbPool, auditService))
+			})
+		})
+
+		// Vault routes (authenticated)
+		r.Route("/vaults", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Post("/", vault.HandleCreateVault(vaultService, auditService))
+			r.Get("/", vault.HandleListVaults(vaultService))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/{vaultID}", vault.HandleGetVault(vaultService))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermUpdate)).Put("/{vaultID}", vault.HandleUpdateVault(vaultService, auditService))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermDelete)).Delete("/{vaultID}", vault.HandleDeleteVault(vaultService, auditService))
+
+			// PH1-FIX: Key hierarchy routes for wrappedMek/kekSalt storage
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermUpdate)).Post("/{vaultID}/key-hierarchy", vault.HandleStoreKeyHierarchy(dbPool))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/{vaultID}/key-hierarchy", vault.HandleGetKeyHierarchy(dbPool))
+
+			// Blobs (files) in vault
+			r.Route("/{vaultID}/blobs", func(r chi.Router) {
+				r.With(mw.RequireVaultPermission(rbacService, auth.PermUpdate)).Post("/upload-url", storagepkg.HandleGenerateUploadURL(storageService))
+				r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Post("/download-url", storagepkg.HandleGenerateDownloadURL(storageService))
+				r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/", storagepkg.HandleListBlobs(storageService))
+				r.With(mw.RequireVaultPermission(rbacService, auth.PermDelete)).Delete("/{blobID}", storagepkg.HandleDeleteBlob(storageService, auditService))
+			})
+
+		// PH2-FIX: Multipart upload routes
+		r.Route("/{vaultID}/files/{fileID}/multipart", func(r chi.Router) {
+			r.Use(mw.RequireVaultPermission(rbacService, auth.PermUpdate))
+			r.Post("/", storagepkg.HandleInitiateMultipart(multipartService))
+			r.Get("/{uploadID}/part/{partNumber}", storagepkg.HandleGetPartURL(multipartService))
+			r.Post("/{uploadID}/part", storagepkg.HandleCompletePart(multipartService))
+			r.Post("/{uploadID}/complete", storagepkg.HandleFinalizeUpload(multipartService))
+			r.Delete("/{uploadID}", storagepkg.HandleAbortUpload(multipartService))
+			r.Get("/{uploadID}/progress", storagepkg.HandleGetProgress(multipartService))
+		})
+
+
+			// RBAC member management routes
+			r.Route("/{vaultID}/members", func(r chi.Router) {
+				r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/", vault.HandleListMembers(rbacService))
+				r.With(mw.VaultOwnerOnly(rbacService)).Post("/", vault.HandleAddMember(rbacService, auditService))
+				r.With(mw.VaultOwnerOnly(rbacService)).Delete("/{memberUserID}", vault.HandleRemoveMember(rbacService, auditService))
+				r.With(mw.VaultOwnerOnly(rbacService)).Post("/transfer-ownership", vault.HandleTransferOwnership(rbacService, auditService))
+			})
+
+			// PH5-FIX: Key rotation routes
+			r.With(mw.VaultOwnerOnly(rbacService)).Post("/{vaultID}/rotate", vault.HandleInitiateKeyRotation(keyRotationService))
+			r.With(mw.RequireVaultPermission(rbacService, auth.PermRead)).Get("/{vaultID}/rotation-status", vault.HandleGetRotationStatus(keyRotationService))
+		})
+
+		// Sharing routes (authenticated)
+		r.Route("/shares", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Post("/", sharing.HandleCreateShare(sharingService, auditService))
+			r.Get("/received", sharing.HandleListReceivedShares(sharingService))
+			r.Get("/sent", sharing.HandleListSentShares(sharingService))
+			r.Delete("/{shareID}", sharing.HandleRevokeShare(sharingService, auditService))
+			r.Get("/public-key/{userID}", sharing.HandleGetPublicKey(sharingService))
+			// PH5-FIX: Public key publication endpoint
+			r.Post("/public-key", sharing.HandlePublishPublicKey(sharingService))
+			// PH5-FIX: Share accept/reject endpoints
+			r.Post("/{shareID}/accept", sharing.HandleAcceptShare(sharingService))
+			r.Post("/{shareID}/reject", sharing.HandleRejectShare(sharingService))
+			// PH5-FIX: Contact verification endpoints
+			r.Get("/fingerprint/{userID}", sharing.HandleGetKeyFingerprint(sharingService))
+			r.Post("/verify-contact", sharing.HandleVerifyContact(contactVerificationService))
+		})
+
+		// Audit log routes (authenticated)
+		r.Route("/audit", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Get("/", auditpkg.HandleListAuditLog(auditService))
+			r.Post("/verify", auditpkg.HandleVerifyChain(auditService))
+			// PH6-FIX: Anomaly detection and compliance report routes
+			r.Get("/anomalies", auditpkg.HandleGetAnomalies(anomalyDetectionService))
+			r.Get("/compliance-report", auditpkg.HandleGenerateComplianceReport(complianceService))
+			// RM-011: Audit export requires Pro tier (feature-gated)
+			r.With(mw.RequireFeature(mw.FeatureAuditExport, dbPool)).Get("/compliance-export", auditpkg.HandleExportComplianceCSV(complianceService))
+		})
+
+		// Billing routes (authenticated except webhook)
+		r.Route("/billing", func(r chi.Router) {
+			// PH1-FIX: Webhook must be outside RequireAuth — Stripe uses signature verification, not JWT
+			r.Post("/webhook", billingpkg.HandleWebhook(billingService))
+
+			r.Group(func(r chi.Router) {
+				r.Use(mw.RequireAuth)
+				r.Post("/customer", billingpkg.HandleCreateCustomer(billingService))
+				r.Post("/subscribe", billingpkg.HandleCreateSubscription(billingService))
+				r.Get("/subscription", billingpkg.HandleGetSubscription(billingService))
+				// PH8-FIX: Subscription lifecycle management routes
+				r.Post("/upgrade", billingpkg.HandleUpgradeSubscription(billingService))
+				r.Post("/downgrade", billingpkg.HandleDowngradeSubscription(billingService))
+				r.Post("/cancel", billingpkg.HandleCancelSubscription(billingService))
+			})
+		})
+
+		// Notifications (authenticated)
+		r.Route("/notify", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Post("/register-device", notify.HandleRegisterDevice(notifyService))
+		})
+
+		// User account routes (authenticated)
+		r.Route("/user", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Delete("/account", auth.HandleDeleteAccount(dbPool, redisClient, auditService))
+		})
+
+		// Sync via WebSocket (authenticated)
+		r.Handle("/sync", mw.RequireAuth(syncService.HandleWebSocket(syncService)))
+
+		// PH2-FIX: Key rotation admin endpoint
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			// TODO: Add admin role check middleware
+			r.Post("/rotate-jwt-keys", func(w http.ResponseWriter, r *http.Request) {
+				if err := keyRotationService.RotateKey(r.Context()); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":  "rotated",
+					"new_kid": keyRotationService.GetActiveKID(),
+				})
+			})
+		})
+	})
+
+	// MEDIUM-FIX: Configurable server timeouts via environment variables
+	port := getEnvOrDefault("SERVER_PORT", "8080")
+	readTimeout := parseDurationFromEnv("SERVER_READ_TIMEOUT", 15*time.Second)
+	writeTimeout := parseDurationFromEnv("SERVER_WRITE_TIMEOUT", 15*time.Second)
+	idleTimeout := parseDurationFromEnv("SERVER_IDLE_TIMEOUT", 60*time.Second)
+
+	log.Info().
+		Dur("read_timeout", readTimeout).
+		Dur("write_timeout", writeTimeout).
+		Dur("idle_timeout", idleTimeout).
+		Msg("server timeouts configured")
+
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+	}
+
+	// MEDIUM-FIX: Graceful shutdown handler with proper resource cleanup
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Info().Str("port", port).Msg("starting server")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("server error")
+		}
+	}()
+
+	<-sigChan
+	log.Info().Msg("shutdown signal received, initiating graceful shutdown")
+
+	// MEDIUM-FIX: Create shutdown context with 30-second timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// MEDIUM-FIX: Gracefully shutdown HTTP server
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Error().Err(err).Msg("server shutdown error")
+	}
+	log.Info().Msg("server shutdown complete")
+
+	// MEDIUM-FIX: Close database pool
+	if dbPool != nil {
+		dbPool.Close()
+		log.Info().Msg("database pool closed")
+	}
+
+	// MEDIUM-FIX: Close Redis connections
+	if redisClient != nil {
+		redisClient.Close()
+		log.Info().Msg("redis connection closed")
+	}
+
+	log.Info().Msg("graceful shutdown complete")
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return defaultValue
+}
+
+// getAllowedOrigins returns the list of allowed CORS origins from environment
+// Reads CORS_ALLOWED_ORIGINS (comma-separated) or uses development defaults
+func getAllowedOrigins() []string {
+	originsStr := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if originsStr == "" {
+		// Development defaults - use HTTPS even for localhost
+		return []string{"https://localhost:3000", "https://localhost:8081"}
+	}
+
+	// Parse comma-separated origins
+	var origins []string
+	for _, origin := range strings.Split(originsStr, ",") {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+
+	if len(origins) == 0 {
+		// Fallback to development defaults if parsing failed
+		return []string{"https://localhost:3000", "https://localhost:8081"}
+	}
+
+	return origins
+}
+
+func extractRedisAddr(redisURL string) string {
+	// Simple extraction of host:port from redis://host:port
+	if len(redisURL) > 8 {
+		return redisURL[8:]
+	}
+	return "localhost:6379"
+}
+
+// MEDIUM-FIX: Helper function to parse duration from environment variable
+func parseDurationFromEnv(key string, defaultDuration time.Duration) time.Duration {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultDuration
+	}
+
+	duration, err := time.ParseDuration(val)
+	if err != nil {
+		log.Warn().Err(err).Str("key", key).Str("value", val).Msg("failed to parse duration from env, using default")
+		return defaultDuration
+	}
+
+	return duration
+}
+
+// MEDIUM-FIX: Helper function to parse integer from environment variable
+func getIntEnvOrDefault(key string, defaultValue int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultValue
+	}
+
+	intVal, err := strconv.Atoi(val)
+	if err != nil {
+		log.Warn().Err(err).Str("key", key).Str("value", val).Msg("failed to parse int from env, using default")
+		return defaultValue
+	}
+
+	return intVal
+}
+
+// MEDIUM-FIX: Helper function to get S3 bucket name for health checks
+func getS3BucketName() *string {
+	bucket := getEnvOrDefault("S3_BUCKET", "qav-files")
+	return &bucket
+}

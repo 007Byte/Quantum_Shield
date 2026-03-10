@@ -1,0 +1,329 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Enterprise_Version/qav-crypto/**'
+      - 'Enterprise_Version/qav-server/**'
+      - 'Enterprise_Version/qav-app/**'
+      - '.github/workflows/security.yml'
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run every Monday at 02:00 UTC
+    - cron: '0 2 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  # ============================================================
+  # SAST: Go - gosec
+  # ============================================================
+  gosec:
+    name: SAST - Go (gosec)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Enterprise_Version/qav-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Run gosec security scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-results.json ./...'
+          working-directory: Enterprise_Version/qav-server
+
+      - name: Check gosec results
+        run: |
+          if grep -q '"severity":"HIGH"' gosec-results.json || grep -q '"severity":"CRITICAL"' gosec-results.json; then
+            echo "High or Critical vulnerabilities found by gosec!"
+            cat gosec-results.json
+            exit 1
+          fi
+
+      - name: Upload gosec report
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        if: always()
+        with:
+          name: gosec-results
+          path: Enterprise_Version/qav-server/gosec-results.json
+          retention-days: 30
+
+  # ============================================================
+  # SAST: Rust - cargo-audit
+  # ============================================================
+  cargo-audit:
+    name: SAST - Rust (cargo-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Enterprise_Version/qav-crypto
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1482605bafe5805bec0e8148bef273352f24fcc7 # stable
+
+      - name: Run cargo-audit
+        uses: rustsec/audit-check-action@d5f00ef1c25ba4c6ba51f29ba9176edf2b08ce30 # v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # SAST: TypeScript/React - ESLint with Security Plugin
+  # ============================================================
+  eslint-security:
+    name: SAST - TypeScript/React (ESLint Security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Enterprise_Version/qav-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af4d1f7 # v4.0.2
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Enterprise_Version/qav-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint with security rules
+        run: |
+          npx eslint . \
+            --ext .ts,.tsx,.js,.jsx \
+            --format json \
+            --output-file eslint-security-report.json || true
+
+      - name: Check for security issues
+        run: |
+          if grep -q '"security' eslint-security-report.json; then
+            echo "ESLint security issues found!"
+            cat eslint-security-report.json
+            exit 1
+          fi
+
+      - name: Upload ESLint security report
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        if: always()
+        with:
+          name: eslint-security-report
+          path: Enterprise_Version/qav-app/eslint-security-report.json
+          retention-days: 30
+
+  # ============================================================
+  # SCA: Dependency Scanning - Snyk
+  # ============================================================
+  snyk-scan:
+    name: SCA - Snyk Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        manifest-path:
+          - 'Enterprise_Version/qav-crypto/Cargo.toml'
+          - 'Enterprise_Version/qav-server/go.mod'
+          - 'Enterprise_Version/qav-app/package.json'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Run Snyk scan
+        uses: snyk/actions/setup@master
+        with:
+          snyk-version: latest
+
+      - name: Snyk test
+        run: snyk test --file=${{ matrix.manifest-path }} --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload Snyk results
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        if: always()
+        with:
+          name: snyk-results-${{ hashFiles(matrix.manifest-path) }}
+          path: snyk-results.json
+          retention-days: 30
+
+  # ============================================================
+  # Secret Detection - gitleaks
+  # ============================================================
+  gitleaks:
+    name: Secret Detection (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: .gitleaks.toml
+          source: .
+          verbose: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # Container Scanning - Trivy (if Dockerfile present)
+  # ============================================================
+  trivy-scan:
+    name: Container Scanning (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: hashFiles('Enterprise_Version/qav-server/Dockerfile') != ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'Enterprise_Version/qav-server/Dockerfile'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy image scan (high severity check)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: 'docker.io/qav/server:latest'
+          format: 'json'
+          output: 'trivy-image-results.json'
+        continue-on-error: true
+
+  # ============================================================
+  # CISA KEV Check - Known Exploited Vulnerabilities
+  # ============================================================
+  cisa-kev-check:
+    name: CISA KEV Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        package-manager:
+          - 'cargo'
+          - 'gomod'
+          - 'npm'
+        include:
+          - package-manager: 'cargo'
+            manifest-path: 'Enterprise_Version/qav-crypto/Cargo.lock'
+          - package-manager: 'gomod'
+            manifest-path: 'Enterprise_Version/qav-server/go.sum'
+          - package-manager: 'npm'
+            manifest-path: 'Enterprise_Version/qav-app/package-lock.json'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Install CISA KEV checker
+        run: |
+          pip install --upgrade pip
+          pip install cisa-kev-checker
+
+      - name: Check dependencies against CISA KEV
+        run: |
+          cisa-kev-check --manifest ${{ matrix.manifest-path }} --package-manager ${{ matrix.package-manager }}
+        continue-on-error: true
+
+  # ============================================================
+  # SBOM: Software Bill of Materials Generation
+  # ============================================================
+  sbom-generation:
+    name: SBOM Generation (Syft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM for Rust crate
+        run: |
+          syft dir:Enterprise_Version/qav-crypto \
+            -o spdx-json=sbom-rust.spdx.json \
+            -o cyclonedx-json=sbom-rust.cdx.json
+
+      - name: Generate SBOM for Go module
+        run: |
+          syft dir:Enterprise_Version/qav-server \
+            -o spdx-json=sbom-go.spdx.json \
+            -o cyclonedx-json=sbom-go.cdx.json
+
+      - name: Generate SBOM for React Native app
+        run: |
+          syft dir:Enterprise_Version/qav-app \
+            -o spdx-json=sbom-app.spdx.json \
+            -o cyclonedx-json=sbom-app.cdx.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e98f4d # v4.0.0
+        with:
+          name: sbom-reports
+          path: |
+            sbom-*.spdx.json
+            sbom-*.cdx.json
+          retention-days: 90
+
+  # ============================================================
+  # SUMMARY: Aggregate Security Results
+  # ============================================================
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs: [gosec, cargo-audit, eslint-security, snyk-scan, gitleaks, trivy-scan, cisa-kev-check, sbom-generation]
+    if: always()
+
+    steps:
+      - name: Check security scan results
+        run: |
+          if [[ "${{ needs.gosec.result }}" == "failure" || \
+                "${{ needs.cargo-audit.result }}" == "failure" || \
+                "${{ needs.eslint-security.result }}" == "failure" || \
+                "${{ needs.gitleaks.result }}" == "failure" ]]; then
+            echo "Security scans FAILED - Critical or High severity issues detected"
+            exit 1
+          fi
+          echo "Security scans PASSED"

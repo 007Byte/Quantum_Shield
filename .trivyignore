@@ -1,0 +1,9 @@
+# USBVault Enterprise - Trivy False Positive Suppressions
+# Each entry requires justification and review date
+
+# Alpine base image - acceptable risk for non-root containers
+# Review date: 2026-03-07
+# CVE-XXXX-XXXX  # Template for future suppressions
+
+# Note: All suppressions must be reviewed quarterly
+# Next review: 2026-06-07
