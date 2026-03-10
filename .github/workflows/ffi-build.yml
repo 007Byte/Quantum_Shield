@@ -33,65 +33,65 @@ jobs:
             target: aarch64-apple-ios
             platform: ios
             cargo_target: aarch64-apple-ios
-            artifact_name: libqav_crypto.a
+            artifact_name: libusbvault_crypto.a
 
           - os: macos-latest
             target: aarch64-apple-ios-sim
             platform: ios
             cargo_target: aarch64-apple-ios-sim
-            artifact_name: libqav_crypto.a
+            artifact_name: libusbvault_crypto.a
 
           # macOS universal binary (includes Intel and Apple Silicon)
           - os: macos-latest
             target: macos-universal
             platform: macos
             cargo_targets: "aarch64-apple-darwin x86_64-apple-darwin"
-            artifact_name: libqav_crypto.a
+            artifact_name: libusbvault_crypto.a
 
           # Android builds (Linux host)
           - os: ubuntu-latest
             target: aarch64-linux-android
             platform: android
             cargo_target: aarch64-linux-android
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: armv7-linux-androideabi
             platform: android
             cargo_target: armv7-linux-androideabi
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: x86_64-linux-android
             platform: android
             cargo_target: x86_64-linux-android
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: i686-linux-android
             platform: android
             cargo_target: i686-linux-android
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
           # Windows MSVC build
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform: windows
             cargo_target: x86_64-pc-windows-msvc
-            artifact_name: qav_crypto.dll
+            artifact_name: usbvault_crypto.dll
 
           # Linux builds
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             platform: linux
             cargo_target: x86_64-unknown-linux-gnu
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             platform: linux
             cargo_target: aarch64-unknown-linux-gnu
-            artifact_name: libqav_crypto.so
+            artifact_name: libusbvault_crypto.so
 
     steps:
       - name: Checkout repository
@@ -162,16 +162,16 @@ jobs:
           cargo build --release --target x86_64-apple-darwin --lib --features ffi
           mkdir -p target/universal/release
           lipo -create \
-            target/aarch64-apple-darwin/release/libqav_crypto.a \
-            target/x86_64-apple-darwin/release/libqav_crypto.a \
-            -output target/universal/release/libqav_crypto.a
+            target/aarch64-apple-darwin/release/libusbvault_crypto.a \
+            target/x86_64-apple-darwin/release/libusbvault_crypto.a \
+            -output target/universal/release/libusbvault_crypto.a
 
       # Android setup
       - name: Install Android NDK
         if: matrix.platform == 'android'
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r26b
+          ndk-version: r27
 
       - name: Install cargo-ndk
         if: matrix.platform == 'android'
@@ -299,9 +299,9 @@ jobs:
           mkdir -p ffi-artifacts/ios-xcframework
 
           xcodebuild -create-xcframework \
-            -library ios-device/libqav_crypto.a \
-            -library ios-simulator/libqav_crypto.a \
-            -output ffi-artifacts/ios-xcframework/QAVCrypto.xcframework
+            -library ios-device/libusbvault_crypto.a \
+            -library ios-simulator/libusbvault_crypto.a \
+            -output ffi-artifacts/ios-xcframework/USBVaultCrypto.xcframework
 
       - name: Upload xcframework
         uses: actions/upload-artifact@v4
@@ -345,14 +345,14 @@ jobs:
         working-directory: usbvault-crypto
         run: |
           mkdir -p ../ffi-artifacts
-          cbindgen --output ../ffi-artifacts/qav_crypto.h
+          cbindgen --output ../ffi-artifacts/usbvault_crypto.h
         continue-on-error: true
 
       - name: Upload headers
         uses: actions/upload-artifact@v4
         with:
           name: ffi-headers
-          path: ffi-artifacts/qav_crypto.h
+          path: ffi-artifacts/usbvault_crypto.h
           retention-days: 30
 
   # Summary job
