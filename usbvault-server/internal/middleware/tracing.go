@@ -18,7 +18,7 @@ func TracingMiddleware(next http.Handler) http.Handler {
 		propagator := otel.GetTextMapPropagator()
 		ctx := propagator.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 
-		tracer := otel.Tracer("qav-server-http")
+		tracer := otel.Tracer("usbvault-server-http")
 		spanName := r.Method + " " + r.URL.Path
 
 		ctx, span := tracer.Start(ctx, spanName,
