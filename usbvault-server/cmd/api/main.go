@@ -54,7 +54,7 @@ func main() {
 	ctx := context.Background()
 
 	// PH2-FIX: Initialize OpenTelemetry tracing
-	shutdownTracer, err := tracing.InitTracer(ctx, "qav-server", "1.0.0")
+	shutdownTracer, err := tracing.InitTracer(ctx, "usbvault-server", "1.0.0")
 	if err != nil {
 		log.Warn().Err(err).Msg("PH2-FIX: Failed to initialize tracer, continuing without tracing")
 	} else {

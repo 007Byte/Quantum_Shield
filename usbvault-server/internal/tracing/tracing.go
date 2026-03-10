@@ -70,7 +70,7 @@ func InitTracer(ctx context.Context, serviceName, serviceVersion string) (func(c
 // Tracer returns the global tracer instance
 func Tracer() trace.Tracer {
 	if tracer == nil {
-		tracer = otel.Tracer("qav-server")
+		tracer = otel.Tracer("usbvault-server")
 	}
 	return tracer
 }
