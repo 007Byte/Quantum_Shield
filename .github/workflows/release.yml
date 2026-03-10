@@ -82,8 +82,11 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        os: [linux, linux]
-        arch: [amd64, arm64]
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
 
     defaults:
       run:
@@ -162,7 +165,7 @@ jobs:
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: usbvault-server
-          file: Enterprise_Version/Dockerfile
+          file: usbvault-server/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

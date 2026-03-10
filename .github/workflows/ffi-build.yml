@@ -53,24 +53,28 @@ jobs:
             target: aarch64-linux-android
             platform: android
             cargo_target: aarch64-linux-android
+            ndk_abi: arm64-v8a
             artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: armv7-linux-androideabi
             platform: android
             cargo_target: armv7-linux-androideabi
+            ndk_abi: armeabi-v7a
             artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: x86_64-linux-android
             platform: android
             cargo_target: x86_64-linux-android
+            ndk_abi: x86_64
             artifact_name: libusbvault_crypto.so
 
           - os: ubuntu-latest
             target: i686-linux-android
             platform: android
             cargo_target: i686-linux-android
+            ndk_abi: x86
             artifact_name: libusbvault_crypto.so
 
           # Windows MSVC build
@@ -177,14 +181,9 @@ jobs:
         if: matrix.platform == 'android'
         run: cargo install cargo-ndk
 
-      - name: Add Android targets
+      - name: Add Android target
         if: matrix.platform == 'android'
-        run: |
-          rustup target add \
-            aarch64-linux-android \
-            armv7-linux-androideabi \
-            x86_64-linux-android \
-            i686-linux-android
+        run: rustup target add ${{ matrix.cargo_target }}
 
       - name: Build Android library
         if: matrix.platform == 'android'
@@ -192,10 +191,7 @@ jobs:
         run: |
           cargo ndk \
             --manifest-path Cargo.toml \
-            -t arm64-v8a \
-            -t armeabi-v7a \
-            -t x86_64 \
-            -t x86 \
+            -t ${{ matrix.ndk_abi }} \
             -o ../android_libs \
             build --release --features ffi
 
@@ -258,8 +254,22 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mkdir -p ffi-artifacts/${{ matrix.target }}
-          if [ -d "android_libs" ]; then
-            cp -r android_libs/* ffi-artifacts/${{ matrix.target }}/
+          # cargo-ndk outputs to android_libs/<abi>/libusbvault_crypto.so
+          if [ -d "android_libs/${{ matrix.ndk_abi }}" ]; then
+            cp -r android_libs/${{ matrix.ndk_abi }}/* ffi-artifacts/${{ matrix.target }}/
+          elif [ -d "android_libs" ]; then
+            # Fallback: copy everything if ABI subdir doesn't exist
+            find android_libs -name "*.so" -exec cp {} ffi-artifacts/${{ matrix.target }}/ \;
+          fi
+
+      - name: Verify artifacts exist
+        shell: bash
+        run: |
+          echo "=== Artifact directory contents ==="
+          ls -R ffi-artifacts/${{ matrix.target }}/ 2>/dev/null || true
+          if ! find "ffi-artifacts/${{ matrix.target }}" -type f 2>/dev/null | grep -q .; then
+            echo "::error::No artifacts found for ${{ matrix.target }} — build likely failed"
+            exit 1
           fi
 
       - name: Upload artifacts
@@ -274,9 +284,7 @@ jobs:
     name: Build iOS xcframework
     runs-on: macos-latest
     needs: [build-matrix]
-    if: |
-      always() &&
-      (needs.build-matrix.result == 'success' || needs.build-matrix.result == 'failure')
+    if: needs.build-matrix.result == 'success'
 
     steps:
       - name: Checkout repository
@@ -323,8 +331,7 @@ jobs:
 
       - name: Run FFI tests
         working-directory: usbvault-crypto
-        run: |
-          cargo test --lib ffi --features ffi --verbose
+        run: cargo test --lib --features ffi --verbose
         continue-on-error: true
 
   # Generate FFI headers
