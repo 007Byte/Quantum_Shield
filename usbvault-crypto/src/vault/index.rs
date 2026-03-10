@@ -51,7 +51,7 @@ impl VaultIndex {
             serde_json::from_slice(data).map_err(|_| CryptoError::SerializationError)?;
 
         let files = legacy.into_iter().map(|(name, offset)| {
-            (name, FileEntry { offset, encrypted_file_key: None })
+            (name, FileEntry { offset, encrypted_file_key: None, version: 0 })
         }).collect();
 
         Ok(VaultIndex { files })
