@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Enterprise_Version/qav-crypto/**'
-      - 'Enterprise_Version/qav-server/**'
-      - 'Enterprise_Version/qav-app/**'
+      - 'usbvault-crypto/**'
+      - 'usbvault-server/**'
+      - 'usbvault-app/**'
       - '.github/workflows/security.yml'
   pull_request:
     branches: [main]
@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: Enterprise_Version/qav-server
+        working-directory: usbvault-server
 
     steps:
       - name: Checkout code
@@ -43,7 +43,7 @@ jobs:
         uses: securego/gosec@master
         with:
           args: '-no-fail -fmt json -out gosec-results.json ./...'
-          working-directory: Enterprise_Version/qav-server
+          working-directory: usbvault-server
 
       - name: Check gosec results
         run: |
@@ -58,7 +58,7 @@ jobs:
         if: always()
         with:
           name: gosec-results
-          path: Enterprise_Version/qav-server/gosec-results.json
+          path: usbvault-server/gosec-results.json
           retention-days: 30
 
   # ============================================================
@@ -70,7 +70,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: Enterprise_Version/qav-crypto
+        working-directory: usbvault-crypto
 
     steps:
       - name: Checkout code
@@ -93,7 +93,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: Enterprise_Version/qav-app
+        working-directory: usbvault-app
 
     steps:
       - name: Checkout code
@@ -104,7 +104,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'Enterprise_Version/qav-app/package-lock.json'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -129,7 +129,7 @@ jobs:
         if: always()
         with:
           name: eslint-security-report
-          path: Enterprise_Version/qav-app/eslint-security-report.json
+          path: usbvault-app/eslint-security-report.json
           retention-days: 30
 
   # ============================================================
@@ -142,9 +142,9 @@ jobs:
     strategy:
       matrix:
         manifest-path:
-          - 'Enterprise_Version/qav-crypto/Cargo.toml'
-          - 'Enterprise_Version/qav-server/go.mod'
-          - 'Enterprise_Version/qav-app/package.json'
+          - 'usbvault-crypto/Cargo.toml'
+          - 'usbvault-server/go.mod'
+          - 'usbvault-app/package.json'
 
     steps:
       - name: Checkout code
@@ -199,7 +199,7 @@ jobs:
     name: Container Scanning (Trivy)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: hashFiles('Enterprise_Version/qav-server/Dockerfile') != ''
+    if: hashFiles('usbvault-server/Dockerfile') != ''
 
     steps:
       - name: Checkout code
@@ -209,7 +209,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
-          scan-ref: 'Enterprise_Version/qav-server/Dockerfile'
+          scan-ref: 'usbvault-server/Dockerfile'
           format: 'sarif'
           output: 'trivy-results.sarif'
 
@@ -243,11 +243,11 @@ jobs:
           - 'npm'
         include:
           - package-manager: 'cargo'
-            manifest-path: 'Enterprise_Version/qav-crypto/Cargo.lock'
+            manifest-path: 'usbvault-crypto/Cargo.lock'
           - package-manager: 'gomod'
-            manifest-path: 'Enterprise_Version/qav-server/go.sum'
+            manifest-path: 'usbvault-server/go.sum'
           - package-manager: 'npm'
-            manifest-path: 'Enterprise_Version/qav-app/package-lock.json'
+            manifest-path: 'usbvault-app/package-lock.json'
 
     steps:
       - name: Checkout code
@@ -282,19 +282,19 @@ jobs:
 
       - name: Generate SBOM for Rust crate
         run: |
-          syft dir:Enterprise_Version/qav-crypto \
+          syft dir:usbvault-crypto \
             -o spdx-json=sbom-rust.spdx.json \
             -o cyclonedx-json=sbom-rust.cdx.json
 
       - name: Generate SBOM for Go module
         run: |
-          syft dir:Enterprise_Version/qav-server \
+          syft dir:usbvault-server \
             -o spdx-json=sbom-go.spdx.json \
             -o cyclonedx-json=sbom-go.cdx.json
 
       - name: Generate SBOM for React Native app
         run: |
-          syft dir:Enterprise_Version/qav-app \
+          syft dir:usbvault-app \
             -o spdx-json=sbom-app.spdx.json \
             -o cyclonedx-json=sbom-app.cdx.json
 
