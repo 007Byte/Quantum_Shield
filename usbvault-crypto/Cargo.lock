@@ -1226,7 +1226,7 @@ dependencies = [
  "num-bigint",
  "once_cell",
  "proptest",
- "rand 0.8.5",
+ "rand 0.9.2",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
