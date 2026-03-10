@@ -27,13 +27,9 @@ features = ["ffi"]
 
 [struct]
 derive_helper_methods = false
-derive_eq = false
-derive_neq = false
 
 [enum]
 derive_helper_methods = false
-derive_eq = false
-derive_neq = false
 
 [const]
 allow_static_const = false
