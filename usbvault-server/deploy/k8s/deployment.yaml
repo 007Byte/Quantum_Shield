@@ -1,17 +1,17 @@
-# PH11-FIX: Kubernetes deployment for QAV API server (CWE-1188)
+# PH11-FIX: Kubernetes deployment for USBVault API server (CWE-1188)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: qav-api
-  namespace: qav
+  name: usbvault-api
+  namespace: usbvault
   labels:
-    app: qav-api
+    app: usbvault-api
     version: v1
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: qav-api
+      app: usbvault-api
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -20,10 +20,10 @@ spec:
   template:
     metadata:
       labels:
-        app: qav-api
+        app: usbvault-api
         version: v1
     spec:
-      serviceAccountName: qav-api
+      serviceAccountName: usbvault-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -32,7 +32,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: qav/api:latest
+          image: usbvault/api:latest
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -42,27 +42,27 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: qav-secrets
+                  name: usbvault-secrets
                   key: database-url
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
-                  name: qav-secrets
+                  name: usbvault-secrets
                   key: redis-url
             - name: JWT_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
-                  name: qav-secrets
+                  name: usbvault-secrets
                   key: jwt-signing-key
             - name: STRIPE_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: qav-secrets
+                  name: usbvault-secrets
                   key: stripe-secret-key
             - name: STRIPE_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: qav-secrets
+                  name: usbvault-secrets
                   key: stripe-webhook-secret
           resources:
             requests:
@@ -100,5 +100,5 @@ spec:
                   matchExpressions:
                     - key: app
                       operator: In
-                      values: ["qav-api"]
+                      values: ["usbvault-api"]
                 topologyKey: kubernetes.io/hostname

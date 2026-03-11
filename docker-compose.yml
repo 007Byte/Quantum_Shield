@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: qav-postgres
+    container_name: usbvault-postgres
     environment:
-      POSTGRES_USER: qav
+      POSTGRES_USER: usbvault
       POSTGRES_PASSWORD: dev_password_change_me
-      POSTGRES_DB: qav_dev
+      POSTGRES_DB: usbvault_dev
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
       - "5432:5432"
@@ -13,19 +13,19 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qav -d qav_dev"]
+      test: ["CMD-SHELL", "pg_isready -U usbvault -d usbvault_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - qav-network
+      - usbvault-network
 
   pgbouncer:
     # PH2-FIX: PgBouncer connection pooling service
     image: edoburu/pgbouncer:1.22.0
-    container_name: qav-pgbouncer
+    container_name: usbvault-pgbouncer
     environment:
-      PGBOUNCER_USER: qav
+      PGBOUNCER_USER: usbvault
       PGBOUNCER_PASSWORD: dev_password_change_me
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
@@ -37,7 +37,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - qav-network
+      - usbvault-network
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
       interval: 10s
@@ -46,7 +46,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: qav-redis
+    container_name: usbvault-redis
     command: >
       redis-server
       --requirepass dev_redis_pass
@@ -66,11 +66,11 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - qav-network
+      - usbvault-network
 
   minio:
     image: minio/minio:latest
-    container_name: qav-minio
+    container_name: usbvault-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin_secret
@@ -86,68 +86,70 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - qav-network
+      - usbvault-network
 
   createbuckets:
     image: minio/mc:latest
-    container_name: qav-createbuckets
+    container_name: usbvault-createbuckets
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin_secret;
-      /usr/bin/mc mb myminio/qav-encrypted-blobs;
-      /usr/bin/mc version enable myminio/qav-encrypted-blobs;
+      /usr/bin/mc mb myminio/usbvault-encrypted-blobs;
+      /usr/bin/mc version enable myminio/usbvault-encrypted-blobs;
       exit 0;
       "
     depends_on:
       minio:
         condition: service_healthy
     networks:
-      - qav-network
+      - usbvault-network
 
   jaeger:
     image: jaegertracing/all-in-one:1.53
-    container_name: qav-jaeger
+    container_name: usbvault-jaeger
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686"  # Jaeger UI
       - "4318:4318"    # OTLP HTTP
     networks:
-      - qav-network
+      - usbvault-network
     profiles:
       - observability
 
   prometheus:
     image: prom/prometheus:v2.48.1
-    container_name: qav-prometheus
+    container_name: usbvault-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
-      - qav-network
+      - usbvault-network
     profiles:
       - observability
 
   api:
     build:
-      context: ./qav-server
+      context: ./usbvault-server
       dockerfile: Dockerfile
-    container_name: qav-api
+    container_name: usbvault-api
     environment:
       # PH2-FIX: Point to PgBouncer instead of direct postgres connection
-      DATABASE_URL: postgres://qav:dev_password_change_me@pgbouncer:6432/qav?sslmode=disable
+      # sslmode=disable is acceptable for local dev via Docker internal network
+      # For production, use sslmode=require or sslmode=verify-full
+      DATABASE_URL: postgres://usbvault:dev_password_change_me@pgbouncer:6432/usbvault_dev?sslmode=disable
       REDIS_URL: redis://:dev_redis_pass@redis:6379
       AWS_ENDPOINT: http://minio:9000
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin_secret
       AWS_REGION: us-east-1
-      S3_BUCKET: qav-encrypted-blobs
+      S3_BUCKET: usbvault-encrypted-blobs
       SERVER_PORT: 8080
       LOG_LEVEL: debug
       ENVIRONMENT: development
       FIDO2_RELYING_PARTY_ID: localhost
-      FIDO2_RELYING_PARTY_NAME: QAV Dev
+      FIDO2_RELYING_PARTY_NAME: USBVault Dev
       FIDO2_RELYING_PARTY_ORIGIN: http://localhost:8080
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-placeholder_change_me}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder_change_me}
@@ -155,6 +157,7 @@ services:
       STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-price_team_dev}
       STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE:-price_enterprise_dev}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-jaeger:4318}
+      MIGRATIONS_DIR: /app/migrations
     ports:
       - "8080:8080"
     depends_on:
@@ -174,10 +177,10 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - qav-network
+      - usbvault-network
 
 networks:
-  qav-network:
+  usbvault-network:
     driver: bridge
 
 volumes:

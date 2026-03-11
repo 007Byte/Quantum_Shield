@@ -6,11 +6,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOG_FILE="${PROJECT_ROOT}/logs/backup-verify-$(date +%Y%m%d-%H%M%S).log"
-STAGING_DB="qav_backup_verify_$$"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/qav}"
+STAGING_DB="usbvault_backup_verify_$$"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/usbvault}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-DB_USER="${DB_USER:-qav}"
+DB_USER="${DB_USER:-usbvault}"
 RESTORE_START=""
 RESTORE_END=""
 
@@ -33,7 +33,7 @@ trap cleanup EXIT
 
 mkdir -p "$(dirname "$LOG_FILE")"
 
-log "=== QAV Backup Verification ==="
+log "=== USBVault Backup Verification ==="
 log "Staging DB: $STAGING_DB"
 log "Database Host: $DB_HOST"
 

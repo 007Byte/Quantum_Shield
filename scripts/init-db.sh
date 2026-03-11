@@ -1,15 +1,14 @@
 #!/bin/sh
-# Database initialization script for QAV
+# Database initialization script for USBVault Enterprise
 # This script runs automatically when the PostgreSQL container starts
 
 set -e
 
 echo "==================================="
-echo "QAV Database Initialization"
+echo "USBVault Database Initialization"
 echo "==================================="
 
 # The following SQL will run as the postgres superuser
-
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- Create required extensions
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

@@ -1,6 +1,6 @@
-# PH11-FIX: Prometheus alert rules for QAV
+# PH11-FIX: Prometheus alert rules for USBVault
 groups:
-  - name: qav_api
+  - name: usbvault_api
     rules:
       - alert: HighErrorRate
         expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
@@ -8,7 +8,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "High error rate on QAV API"
+          summary: "High error rate on USBVault API"
           description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
 
       - alert: HighLatency

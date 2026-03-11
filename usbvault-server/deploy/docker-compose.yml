@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: qav-postgres
+    container_name: usbvault-postgres
     environment:
-      POSTGRES_DB: qav
-      POSTGRES_USER: qav
+      POSTGRES_DB: usbvault_dev
+      POSTGRES_USER: usbvault
       POSTGRES_PASSWORD: dev_password_change_me
       PGTZ: UTC
     ports:
@@ -13,14 +13,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qav"]
+      test: ["CMD-SHELL", "pg_isready -U usbvault"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: qav-redis
+    container_name: usbvault-redis
     ports:
       - "6379:6379"
     volumes:
@@ -33,7 +33,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: qav-minio
+    container_name: usbvault-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -51,15 +51,15 @@ services:
 
   createbuckets:
     image: minio/mc:latest
-    container_name: qav-createbuckets
+    container_name: usbvault-createbuckets
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
       mc alias set myminio http://minio:9000 minioadmin minioadmin;
-      mc mb --ignore-existing myminio/qav-encrypted-blobs;
-      mc version enable myminio/qav-encrypted-blobs;
+      mc mb --ignore-existing myminio/usbvault-encrypted-blobs;
+      mc version enable myminio/usbvault-encrypted-blobs;
       exit 0;
       "
 
@@ -67,7 +67,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    container_name: qav-api
+    container_name: usbvault-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,10 +78,12 @@ services:
       createbuckets:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://qav:dev_password_change_me@postgres:5432/qav?sslmode=disable
+      # sslmode=disable is acceptable for local dev via Docker internal network
+      # For production, use sslmode=require or sslmode=verify-full
+      DATABASE_URL: postgres://usbvault:dev_password_change_me@postgres:5432/usbvault_dev?sslmode=disable
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
-      S3_BUCKET: qav-encrypted-blobs
+      S3_BUCKET: usbvault-encrypted-blobs
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       AWS_ACCESS_KEY_ID: minioadmin
@@ -91,10 +93,11 @@ services:
       LOG_LEVEL: debug
       ENVIRONMENT: development
       FIDO2_RELYING_PARTY_ID: localhost
-      FIDO2_RELYING_PARTY_NAME: QAV Dev
+      FIDO2_RELYING_PARTY_NAME: USBVault Dev
       FIDO2_RELYING_PARTY_ORIGIN: http://localhost:3000
       JWT_ED25519_PRIVATE_KEY: ""
       JWT_ED25519_PUBLIC_KEY: ""
+      MIGRATIONS_DIR: /app/migrations
     ports:
       - "8080:8080"
     healthcheck:
@@ -110,4 +113,4 @@ volumes:
 
 networks:
   default:
-    name: qav-network
+    name: usbvault-network

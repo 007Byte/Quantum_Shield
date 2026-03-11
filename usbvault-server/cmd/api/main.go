@@ -39,6 +39,7 @@ import (
 	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
 	"github.com/usbvault/usbvault-server/internal/tracing"
 	"github.com/usbvault/usbvault-server/internal/vault"
+	"github.com/usbvault/usbvault-server/migrations"
 )
 
 func main() {
@@ -98,6 +99,20 @@ func main() {
 		log.Fatal().Err(err).Msg("database connection failed")
 	}
 	log.Info().Msg("database connected")
+
+	// Run database migrations on startup
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() {
+		migrator := migrations.NewMigrator(dbPool, migrationsDir)
+		if err := migrator.Migrate(ctx); err != nil {
+			log.Fatal().Err(err).Msg("database migration failed")
+		}
+	} else {
+		log.Warn().Str("dir", migrationsDir).Msg("migrations directory not found, skipping auto-migration")
+	}
 
 	// Initialize Redis with optional Sentinel support for high availability
 	var redisClient *redis.Client

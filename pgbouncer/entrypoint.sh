@@ -3,7 +3,7 @@
 set -e
 
 # Generate userlist from environment
-PGBOUNCER_USER=${PGBOUNCER_USER:-qav}
+PGBOUNCER_USER=${PGBOUNCER_USER:-usbvault}
 PGBOUNCER_PASSWORD=${PGBOUNCER_PASSWORD:-dev_password_change_me}
 
 # Generate MD5 password
