@@ -1,5 +1,5 @@
 #!/bin/bash
-# Health check script for QAV development environment
+# Health check script for USBVault development environment
 # This script verifies all services are running and healthy
 
 set -e
@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo "================================"
-echo "QAV Health Check"
+echo "USBVault Health Check"
 echo "================================"
 echo ""
 
@@ -74,7 +74,7 @@ echo ""
 # Test Database connection
 echo "Database Connection:"
 echo "===================="
-if docker-compose exec -T postgres psql -U qav -d qav_dev -c "SELECT 1" > /dev/null 2>&1; then
+if docker-compose exec -T postgres psql -U usbvault -d usbvault_dev -c "SELECT 1" > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} PostgreSQL connection successful"
     checks_passed=$((checks_passed + 1))
 else

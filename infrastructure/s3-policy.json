@@ -7,8 +7,8 @@
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/*"
       ],
       "Condition": {
         "Bool": {
@@ -21,7 +21,7 @@
       "Effect": "Deny",
       "Principal": "*",
       "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::qav-prod/*",
+      "Resource": "arn:aws:s3:::usbvault-prod/*",
       "Condition": {
         "StringNotEquals": {
           "s3:x-amz-server-side-encryption": [
@@ -36,7 +36,7 @@
       "Effect": "Deny",
       "Principal": "*",
       "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::qav-prod/*",
+      "Resource": "arn:aws:s3:::usbvault-prod/*",
       "Condition": {
         "StringNotLike": {
           "s3:x-amz-server-side-encryption": "*"
@@ -52,8 +52,8 @@
         "s3:PutBucketAcl"
       ],
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/*"
       ],
       "Condition": {
         "StringLike": {
@@ -71,8 +71,8 @@
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/*"
       ],
       "Condition": {
         "StringNotEquals": {
@@ -89,7 +89,7 @@
         "s3:PutObject",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::qav-prod/vaults/*",
+      "Resource": "arn:aws:s3:::usbvault-prod/vaults/*",
       "Condition": {
         "Bool": {
           "aws:SecureTransport": "true"
@@ -100,7 +100,7 @@
       "Sid": "AllowServerAccess",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::ACCOUNT_ID:role/qav-api-server-role"
+        "AWS": "arn:aws:iam::ACCOUNT_ID:role/usbvault-api-server-role"
       },
       "Action": [
         "s3:GetObject",
@@ -110,8 +110,8 @@
         "s3:HeadObject"
       ],
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/vaults/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/vaults/*"
       ]
     },
     {
@@ -119,7 +119,7 @@
       "Effect": "Deny",
       "Principal": "*",
       "Action": "s3:DeleteBucket",
-      "Resource": "arn:aws:s3:::qav-prod",
+      "Resource": "arn:aws:s3:::usbvault-prod",
       "Condition": {
         "Bool": {
           "aws:MultiFactorAuthPresent": "false"
@@ -130,12 +130,12 @@
       "Sid": "DenyAccessOutsideVaultsPrefix",
       "Effect": "Deny",
       "Principal": {
-        "AWS": "arn:aws:iam::ACCOUNT_ID:role/qav-api-server-role"
+        "AWS": "arn:aws:iam::ACCOUNT_ID:role/usbvault-api-server-role"
       },
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/*"
       ],
       "Condition": {
         "StringNotLike": {
@@ -152,8 +152,8 @@
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::qav-prod",
-        "arn:aws:s3:::qav-prod/*"
+        "arn:aws:s3:::usbvault-prod",
+        "arn:aws:s3:::usbvault-prod/*"
       ],
       "Condition": {
         "StringEquals": {

@@ -1,12 +1,12 @@
-# PH11-FIX: Kubernetes service for QAV API
+# PH11-FIX: Kubernetes service for USBVault API
 apiVersion: v1
 kind: Service
 metadata:
-  name: qav-api
-  namespace: qav
+  name: usbvault-api
+  namespace: usbvault
 spec:
   selector:
-    app: qav-api
+    app: usbvault-api
   ports:
     - port: 443
       targetPort: 8080
@@ -17,12 +17,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: qav-api-netpol
-  namespace: qav
+  name: usbvault-api-netpol
+  namespace: usbvault
 spec:
   podSelector:
     matchLabels:
-      app: qav-api
+      app: usbvault-api
   policyTypes:
     - Ingress
     - Egress

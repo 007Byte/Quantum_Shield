@@ -13,13 +13,13 @@ alerting:
         - targets: ["alertmanager:9093"]
 
 scrape_configs:
-  - job_name: "qav-api"
+  - job_name: "usbvault-api"
     metrics_path: "/metrics"
     scheme: "https"
     tls_config:
       insecure_skip_verify: false
     static_configs:
-      - targets: ["qav-api:8080"]
+      - targets: ["usbvault-api:8080"]
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

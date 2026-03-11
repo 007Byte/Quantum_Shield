@@ -4,20 +4,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/qav}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/usbvault}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-qav}"
-DB_USER="${DB_USER:-qav}"
+DB_NAME="${DB_NAME:-usbvault}"
+DB_USER="${DB_USER:-usbvault}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/qav_${TIMESTAMP}.sql.gz.enc"
+BACKUP_FILE="$BACKUP_DIR/usbvault_${TIMESTAMP}.sql.gz.enc"
 
 # Ensure backup directory exists with restricted permissions
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
-echo "[$(date)] Starting QAV database backup..."
+echo "[$(date)] Starting USBVault database backup..."
 
 # Create compressed, encrypted backup
 # Uses pg_dump for consistent snapshot, gzip for compression, openssl for AES-256 encryption
@@ -52,8 +52,8 @@ if [ -n "${S3_BACKUP_BUCKET:-}" ]; then
 fi
 
 # Cleanup old backups (local)
-find "$BACKUP_DIR" -name "qav_*.sql.gz.enc" -mtime +${RETENTION_DAYS} -delete
-find "$BACKUP_DIR" -name "qav_*.sha256" -mtime +${RETENTION_DAYS} -delete
+find "$BACKUP_DIR" -name "usbvault_*.sql.gz.enc" -mtime +${RETENTION_DAYS} -delete
+find "$BACKUP_DIR" -name "usbvault_*.sha256" -mtime +${RETENTION_DAYS} -delete
 echo "[$(date)] Cleaned up backups older than ${RETENTION_DAYS} days"
 
 echo "[$(date)] Backup complete"

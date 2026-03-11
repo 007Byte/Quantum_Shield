@@ -1,10 +1,10 @@
-# PH2-FIX: Prometheus scrape configuration for QAV
+# PH2-FIX: Prometheus scrape configuration for USBVault
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'qav-server'
+  - job_name: 'usbvault-server'
     static_configs:
       - targets: ['api:8080']
     metrics_path: /metrics
