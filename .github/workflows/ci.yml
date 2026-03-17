@@ -137,7 +137,7 @@ jobs:
         continue-on-error: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           working-directory: usbvault-server
