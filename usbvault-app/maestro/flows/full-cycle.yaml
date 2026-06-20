@@ -1,0 +1,132 @@
+# Full Cycle Flow — USBVault Enterprise
+# Compound flow: Login -> Encrypt -> Decrypt -> Logout
+# Runs the complete user journey end-to-end.
+appId: com.usbvault.enterprise
+
+---
+
+# ─── Phase 1: Login ─────────────────────────────────────────────────────
+
+# Launch the app with a clean state
+- launchApp:
+    clearState: true
+
+- waitForAnimationToEnd
+
+# Assert login screen
+- assertVisible: "USBVault"
+- assertVisible: "Sign In"
+
+# Enter credentials
+- tapOn:
+    id: "login-email-input"
+- inputText: "test@usbvault.io"
+
+- tapOn:
+    id: "login-password-input"
+- inputText: "TestPassword123!"
+
+- hideKeyboard
+
+# Tap Sign In
+- tapOn:
+    id: "login-button"
+
+# Wait for dashboard
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 15000
+- assertVisible: "Dashboard"
+
+# ─── Phase 2: Encrypt a File ────────────────────────────────────────────
+
+# Navigate to Encrypt & Store
+- tapOn: "Encrypt & Store"
+- waitForAnimationToEnd
+- assertVisible: "Encrypt & Store"
+
+# Select a file
+- tapOn: "Select File"
+- waitForAnimationToEnd
+
+# Choose algorithm
+- assertVisible: "Choose Algorithm"
+- tapOn: "AES-256-GCM-SIV"
+- waitForAnimationToEnd
+
+# Choose security level
+- assertVisible: "Choose Security Level"
+- tapOn: "Standard"
+- waitForAnimationToEnd
+
+# Execute encryption
+- tapOn: "Encrypt & Store"
+- extendedWaitUntil:
+    visible: "encrypted"
+    timeout: 30000
+- assertVisible: "encrypted"
+
+# ─── Phase 3: Decrypt the File ──────────────────────────────────────────
+
+# Navigate to Decrypt & Export
+- tapOn: "Decrypt & Export"
+- waitForAnimationToEnd
+- assertVisible: "Decrypt & Export"
+
+# Select first file
+- tapOn:
+    index: 0
+    below: "Decrypt & Export"
+
+# Set mode and decrypt
+- tapOn: "Save to Device"
+- waitForAnimationToEnd
+- tapOn: "Decrypt"
+
+# Enter vault password when prompted
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Password"
+    timeout: 10000
+- inputText: "TestPassword123!"
+- tapOn: "Decrypt"
+
+# Wait for success
+- extendedWaitUntil:
+    visible:
+      anyOf:
+        - "saved"
+        - "decrypted"
+        - "Decrypted"
+        - "Files Saved"
+    timeout: 30000
+
+# ─── Phase 4: Logout ────────────────────────────────────────────────────
+
+# Navigate to Settings
+- tapOn: "Settings"
+- waitForAnimationToEnd
+- assertVisible: "Settings"
+
+# Scroll to and tap Sign Out
+- scrollUntilVisible:
+    element: "Sign Out"
+    direction: DOWN
+    timeout: 10000
+
+- tapOn: "Sign Out"
+- waitForAnimationToEnd
+
+# Confirm sign out in the confirmation dialog
+- tapOn: "Sign Out"
+
+# Wait for redirect to login screen
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Sign In"
+    timeout: 10000
+
+# Assert we are back on the login screen
+- assertVisible: "Sign In"
+- assertVisible: "USBVault"

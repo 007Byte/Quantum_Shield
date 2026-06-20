@@ -146,12 +146,18 @@ impl StreamingEncryptor {
     }
 
     /// Derive per-chunk nonce using base nonce and chunk index
+    /// C-2 FIX: Use HKDF-Expand to derive independent nonces instead of XOR
     fn derive_chunk_nonce(&self, index: u64) -> [u8; 24] {
-        let mut nonce = self.base_nonce;
-        let index_bytes = index.to_le_bytes();
-        for i in 0..8 {
-            nonce[16 + i] ^= index_bytes[i];
-        }
+        use hkdf::Hkdf;
+        use sha2::Sha256;
+
+        let hkdf = Hkdf::<Sha256>::new(Some(&self.base_nonce[..]), self.master_key.as_ref());
+        let mut info = Vec::with_capacity(20 + 8);
+        info.extend_from_slice(b"stream_chunk_nonce:");
+        info.extend_from_slice(&index.to_le_bytes());
+        let mut nonce = [0u8; 24];
+        hkdf.expand(&info, &mut nonce)
+            .expect("HKDF expand should not fail for 24-byte output");
         nonce
     }
 
@@ -189,17 +195,25 @@ impl StreamingEncryptor {
             CipherId::Aes256GcmSiv => {
                 use aes_gcm_siv::{aead::Aead, aead::KeyInit, Aes256GcmSiv};
                 use generic_array::GenericArray;
+                use hkdf::Hkdf;
+                use sha2::Sha256;
+
+                // CR-1 FIX: Derive proper 12-byte nonce via HKDF instead of truncating
+                let hkdf = Hkdf::<Sha256>::new(None, nonce);
+                let mut gcm_nonce = [0u8; 12];
+                hkdf.expand(b"aes_gcm_siv_nonce", &mut gcm_nonce)
+                    .expect("HKDF expand should not fail for 12-byte output");
+                let nonce_array = GenericArray::from_slice(&gcm_nonce);
 
                 let cipher = Aes256GcmSiv::new(GenericArray::from_slice(&chunk_key));
-                let nonce_array = GenericArray::from_slice(&nonce[0..12]);
 
                 let ciphertext = cipher
                     .encrypt(nonce_array, plaintext)
                     .map_err(|_| CryptoError::DecryptionFailed)?;
 
-                // Return: nonce || ciphertext || tag
-                let mut result = Vec::with_capacity(12 + ciphertext.len());
-                result.extend_from_slice(&nonce[0..12]);
+                // CR-1 FIX: Prepend full 24-byte nonce so decryptor can re-derive 12-byte GCM nonce
+                let mut result = Vec::with_capacity(24 + ciphertext.len());
+                result.extend_from_slice(nonce);
                 result.extend_from_slice(&ciphertext);
                 Ok(result)
             }
@@ -291,6 +305,7 @@ impl StreamingDecryptor {
 
         match format_version {
             0x02 => Self::decrypt_v2(cipher_id, key, record),
+            #[allow(deprecated)]
             0x01 => Self::decrypt_v1(cipher_id, key, record),
             _ => Err(CryptoError::InvalidVersion),
         }
@@ -306,12 +321,16 @@ impl StreamingDecryptor {
         }
 
         // Extract base nonce
-        let base_nonce: [u8; 24] = record[5..29].try_into().unwrap();
+        let base_nonce: [u8; 24] = record[5..29]
+            .try_into()
+            .map_err(|_| CryptoError::InvalidHeader)?;
 
         // Verify final HMAC using constant-time comparison
         let hmac_start = record.len() - 32;
         let record_data = &record[..hmac_start];
-        let received_hmac: [u8; 32] = record[hmac_start..].try_into().unwrap();
+        let received_hmac: [u8; 32] = record[hmac_start..]
+            .try_into()
+            .map_err(|_| CryptoError::InvalidHeader)?;
 
         let expected_hmac = Self::compute_final_hmac(key, record_data)?;
         use subtle::ConstantTimeEq;
@@ -370,8 +389,16 @@ impl StreamingDecryptor {
         Ok((filename, plaintext))
     }
 
-    /// Decrypt V1 format record (backward compatibility)
+    /// Decrypt V1 format record (backward compatibility).
+    ///
+    /// **DEPRECATED**: V1 uses a static key for all chunks (no per-chunk key
+    /// derivation) and lacks a final HMAC integrity check.  New vaults MUST
+    /// use V2 (`V2RC` magic).  This path exists only so that legacy vaults
+    /// created before the V2 migration can still be read.
+    #[deprecated(note = "V1 streaming format lacks per-chunk keys and HMAC. Migrate vaults to V2.")]
     fn decrypt_v1(cipher_id: CipherId, key: &[u8; 32], record: &[u8]) -> Result<(String, Vec<u8>)> {
+        #[cfg(debug_assertions)]
+        eprintln!("[WARN] decrypting V1 streaming record — migrate this vault to V2 format");
         const HEADER_SIZE: usize = 4 + 24; // magic + base_nonce (no version byte in V1)
 
         if record.len() < HEADER_SIZE {
@@ -498,16 +525,23 @@ impl StreamingDecryptor {
                     .map_err(|_| CryptoError::DecryptionFailed)
             }
             CipherId::Aes256GcmSiv => {
-                const NONCE_SIZE: usize = 12;
+                const NONCE_SIZE: usize = 24; // CR-1 FIX: Read full 24-byte nonce
                 if data.len() < NONCE_SIZE {
                     return Err(CryptoError::InvalidNonce);
                 }
 
                 use aes_gcm_siv::{aead::Aead, aead::KeyInit, Aes256GcmSiv};
                 use generic_array::GenericArray;
+                use hkdf::Hkdf;
+                use sha2::Sha256;
 
                 let (nonce_bytes, ciphertext) = data.split_at(NONCE_SIZE);
-                let nonce: &GenericArray<u8, _> = GenericArray::from_slice(nonce_bytes);
+                // CR-1 FIX: Derive 12-byte GCM nonce from 24-byte nonce via HKDF
+                let hkdf = Hkdf::<Sha256>::new(None, nonce_bytes);
+                let mut gcm_nonce = [0u8; 12];
+                hkdf.expand(b"aes_gcm_siv_nonce", &mut gcm_nonce)
+                    .expect("HKDF expand should not fail for 12-byte output");
+                let nonce: &GenericArray<u8, _> = GenericArray::from_slice(&gcm_nonce);
                 let cipher = Aes256GcmSiv::new(GenericArray::from_slice(key));
 
                 cipher
@@ -529,14 +563,16 @@ impl StreamingDecryptor {
         use hkdf::Hkdf;
         use sha2::Sha256;
 
-        let hkdf = Hkdf::<Sha256>::new(Some(base_nonce), master_key);
+        // C-2 FIX: Use HKDF to derive per-chunk nonce instead of XOR
+        let hkdf_nonce = Hkdf::<Sha256>::new(Some(base_nonce), master_key);
+        let mut nonce_info = Vec::with_capacity(20 + 8);
+        nonce_info.extend_from_slice(b"stream_chunk_nonce:");
+        nonce_info.extend_from_slice(&chunk_index.to_le_bytes());
+        let mut nonce = [0u8; 24];
+        hkdf_nonce.expand(&nonce_info, &mut nonce)
+            .expect("HKDF expand should not fail for 24-byte output");
 
-        // SG-013: Derive the per-chunk nonce first, then domain-separate
-        let mut nonce = *base_nonce;
-        let index_bytes = chunk_index.to_le_bytes();
-        for i in 0..8 {
-            nonce[16 + i] ^= index_bytes[i];
-        }
+        let hkdf = Hkdf::<Sha256>::new(Some(base_nonce), master_key);
 
         let mut info = Vec::with_capacity(17 + 24);
         info.extend_from_slice(b"stream_chunk_key:");

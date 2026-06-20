@@ -46,8 +46,14 @@ describe('API Client', () => {
 
       await api.storeTokens('access-token-123', 'refresh-token-456');
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('usbvault_access_token', 'access-token-123');
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('usbvault_refresh_token', 'refresh-token-456');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        'usbvault_access_token',
+        'access-token-123'
+      );
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        'usbvault_refresh_token',
+        'refresh-token-456'
+      );
     });
 
     it('should clear tokens from secure store', async () => {
@@ -60,13 +66,9 @@ describe('API Client', () => {
     });
 
     it('should throw error if storeTokens fails', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(
-        new Error('Storage error')
-      );
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
-      await expect(
-        api.storeTokens('access-token', 'refresh-token')
-      ).rejects.toThrow();
+      await expect(api.storeTokens('access-token', 'refresh-token')).rejects.toThrow();
     });
   });
 
@@ -162,13 +164,9 @@ describe('API Client', () => {
     });
 
     it('should handle storage errors when storing tokens', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(
-        new Error('Storage error')
-      );
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
-      await expect(
-        api.storeTokens('access-token', 'refresh-token')
-      ).rejects.toThrow();
+      await expect(api.storeTokens('access-token', 'refresh-token')).rejects.toThrow();
     });
   });
 });

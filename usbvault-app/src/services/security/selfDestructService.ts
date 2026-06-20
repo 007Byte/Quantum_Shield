@@ -12,6 +12,7 @@
 import { Platform } from 'react-native';
 import { auditService } from './auditService';
 import { generateSecureId } from '@/utils/generateId';
+import { securitySettings } from '@/services/settingsStorage';
 
 // PH4-FIX: Type definitions for RTCPeerConnection web API
 interface RTCPeerConnectionOptions {
@@ -19,7 +20,7 @@ interface RTCPeerConnectionOptions {
 }
 
 interface RTCPeerConnection {
-  new(options?: RTCPeerConnectionOptions): RTCPeerConnection;
+  new (options?: RTCPeerConnectionOptions): RTCPeerConnection;
 }
 
 // PH4-FIX: Extended window interface for web APIs
@@ -76,12 +77,21 @@ const isWeb = Platform.OS === 'web';
 
 /**
  * Read config from storage.
+ * Policy fields (isArmed, failThreshold) are sourced from securitySettings;
+ * operational fields (currentFailCount, email config) remain in localStorage.
  */
 function readConfig(): SelfDestructConfig {
   if (!isWeb) return DEFAULT_CONFIG;
   try {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
-    return raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw) } : DEFAULT_CONFIG;
+    const stored = raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw) } : { ...DEFAULT_CONFIG };
+
+    // Overlay policy fields from security settings storage
+    const sec = securitySettings.load();
+    stored.isArmed = sec.selfDestructEnabled;
+    stored.failThreshold = sec.selfDestructAttempts;
+
+    return stored;
   } catch {
     return DEFAULT_CONFIG;
   }
@@ -89,6 +99,7 @@ function readConfig(): SelfDestructConfig {
 
 /**
  * Write config to storage.
+ * Policy fields are persisted to securitySettings; operational fields to localStorage.
  */
 function writeConfig(config: SelfDestructConfig): void {
   if (!isWeb) return;
@@ -97,6 +108,12 @@ function writeConfig(config: SelfDestructConfig): void {
   } catch {
     // localStorage full or unavailable
   }
+
+  // Sync policy fields to security settings storage
+  securitySettings.save({
+    selfDestructEnabled: config.isArmed,
+    selfDestructAttempts: config.failThreshold,
+  });
 }
 
 /**
@@ -249,7 +266,7 @@ class SelfDestructServiceImpl {
     try {
       // Enumerate all keys and remove vault-related data
       const keys = Object.keys(localStorage);
-      const vaultKeys = keys.filter((k) => k.startsWith('usbvault:'));
+      const vaultKeys = keys.filter(k => k.startsWith('usbvault:'));
 
       for (const key of vaultKeys) {
         localStorage.removeItem(key);
@@ -265,7 +282,12 @@ class SelfDestructServiceImpl {
         this.sendAlert('self_destruct_triggered');
       }
     } catch (err) {
-      auditService.log('system', 'vault', { action: 'self_destruct_failed', error: String(err) }, 'error');
+      auditService.log(
+        'system',
+        'vault',
+        { action: 'self_destruct_failed', error: String(err) },
+        'error'
+      );
     }
   }
 
@@ -330,7 +352,7 @@ class SelfDestructServiceImpl {
    */
   markAlertSent(alertId: string): void {
     const alerts = readPendingAlerts();
-    const alert = alerts.find((a) => a.id === alertId);
+    const alert = alerts.find(a => a.id === alertId);
     if (alert) {
       alert.sent = true;
       writePendingAlerts(alerts);

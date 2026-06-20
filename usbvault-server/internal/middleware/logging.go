@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 type ResponseWriter struct {
@@ -40,7 +41,7 @@ func RequestLogger() func(http.Handler) http.Handler {
 			}
 
 			// Extract user ID if authenticated
-			userID, _ := r.Context().Value("user_id").(string)
+			userID, _ := r.Context().Value(ctxkeys.UserID).(string)
 
 			// Wrap response writer to capture status code
 			wrapped := &ResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}

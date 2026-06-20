@@ -1,0 +1,46 @@
+===========================================================================
+  USBVault Enterprise has been deployed!
+===========================================================================
+
+Release:     {{ .Release.Name }}
+Namespace:   {{ .Release.Namespace }}
+Environment: {{ .Values.global.environment }}
+
+{{- if .Values.ingress.enabled }}
+
+Access the API via Ingress:
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+{{- else }}
+
+Access the API via port-forward:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} \
+    -l "{{ include "usbvault.selectorLabels" . | replace "\n" "," }}" \
+    -o jsonpath="{.items[0].metadata.name}")
+
+  kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME 8080:{{ .Values.api.port }}
+
+  Then visit: http://localhost:8080/health
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+
+Autoscaling is enabled:
+  Min replicas: {{ .Values.autoscaling.minReplicas }}
+  Max replicas: {{ .Values.autoscaling.maxReplicas }}
+{{- else }}
+
+Replicas: {{ .Values.api.replicaCount }}
+{{- end }}
+
+{{- if .Values.serviceMonitor.enabled }}
+
+Prometheus ServiceMonitor is enabled.
+  Metrics endpoint: /metrics on port {{ .Values.serviceMonitor.port }}
+{{- end }}
+
+Verify the deployment:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"
+  kubectl logs --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}" --tail=50

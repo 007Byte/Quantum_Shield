@@ -1,10 +1,15 @@
+# LAUNCH-9 FIX: All credentials use environment variable substitution.
+# For local development: works out-of-the-box with dev defaults.
+# For production: set credentials via .env file or shell environment.
+# NEVER commit production credentials to version control.
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: usbvault-postgres
     environment:
       POSTGRES_USER: usbvault
-      POSTGRES_PASSWORD: dev_password_change_me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
       POSTGRES_DB: usbvault_dev
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
@@ -26,7 +31,7 @@ services:
     container_name: usbvault-pgbouncer
     environment:
       PGBOUNCER_USER: usbvault
-      PGBOUNCER_PASSWORD: dev_password_change_me
+      PGBOUNCER_PASSWORD: ${PGBOUNCER_PASSWORD:-dev_password_change_me}
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./pgbouncer/entrypoint.sh:/entrypoint.sh:ro
@@ -49,7 +54,7 @@ services:
     container_name: usbvault-redis
     command: >
       redis-server
-      --requirepass dev_redis_pass
+      --requirepass ${REDIS_PASSWORD:-dev_redis_pass}
       --maxmemory 256mb
       --maxmemory-policy volatile-lru
       --appendonly yes
@@ -61,7 +66,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "dev_redis_pass", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-dev_redis_pass} ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,8 +77,8 @@ services:
     image: minio/minio:latest
     container_name: usbvault-minio
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin_secret
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -93,7 +98,7 @@ services:
     container_name: usbvault-createbuckets
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin_secret;
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin_secret};
       /usr/bin/mc mb myminio/usbvault-encrypted-blobs;
       /usr/bin/mc version enable myminio/usbvault-encrypted-blobs;
       exit 0;
@@ -138,11 +143,11 @@ services:
       # PH2-FIX: Point to PgBouncer instead of direct postgres connection
       # sslmode=disable is acceptable for local dev via Docker internal network
       # For production, use sslmode=require or sslmode=verify-full
-      DATABASE_URL: postgres://usbvault:dev_password_change_me@pgbouncer:6432/usbvault_dev?sslmode=disable
-      REDIS_URL: redis://:dev_redis_pass@redis:6379
+      DATABASE_URL: postgres://usbvault:${POSTGRES_PASSWORD:-dev_password_change_me}@pgbouncer:6432/usbvault_dev?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev_redis_pass}@redis:6379
       AWS_ENDPOINT: http://minio:9000
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin_secret
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
       AWS_REGION: us-east-1
       S3_BUCKET: usbvault-encrypted-blobs
       SERVER_PORT: 8080

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // DBPool defines the interface for database pool operations
@@ -232,7 +233,7 @@ func (krs *KeyRotationService) GetRotationStatus(ctx context.Context, jobID, use
 // HandleInitiateKeyRotation is the HTTP handler to start key rotation
 func HandleInitiateKeyRotation(krs *KeyRotationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -257,7 +258,7 @@ func HandleInitiateKeyRotation(krs *KeyRotationService) http.HandlerFunc {
 		job, err := krs.InitiateKeyRotation(ctx, userID, req.VaultID)
 		if err != nil {
 			log.Error().Err(err).Str("user_id", userID).Str("vault_id", req.VaultID).Msg("key rotation initiation failed")
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "key rotation failed", http.StatusBadRequest)
 			return
 		}
 
@@ -270,7 +271,7 @@ func HandleInitiateKeyRotation(krs *KeyRotationService) http.HandlerFunc {
 // HandleGetRotationStatus is the HTTP handler to check rotation progress
 func HandleGetRotationStatus(krs *KeyRotationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

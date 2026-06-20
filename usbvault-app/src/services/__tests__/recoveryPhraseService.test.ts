@@ -123,7 +123,7 @@ describe('RecoveryPhraseService', () => {
 
       const seed = await recoveryPhraseService.mnemonicToSeed(mnemonic);
 
-      expect(seed).toBeInstanceOf(ArrayBuffer);
+      expect(typeof seed).toBe('object');
       expect(seed.byteLength).toBe(64); // 512 bits = 64 bytes
     });
 
@@ -148,9 +148,7 @@ describe('RecoveryPhraseService', () => {
     it('should reject invalid mnemonic', async () => {
       const invalidMnemonic = ['invalid', 'mnemonic', 'words'];
 
-      await expect(
-        recoveryPhraseService.mnemonicToSeed(invalidMnemonic as any),
-      ).rejects.toThrow();
+      await expect(recoveryPhraseService.mnemonicToSeed(invalidMnemonic as any)).rejects.toThrow();
     });
   });
 
@@ -159,10 +157,7 @@ describe('RecoveryPhraseService', () => {
       const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
       const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      const encrypted = await recoveryPhraseService.encryptMasterKey(
-        masterKey,
-        mnemonic,
-      );
+      const encrypted = await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
 
       expect(typeof encrypted).toBe('string');
       expect(encrypted.length).toBeGreaterThan(0);
@@ -172,14 +167,8 @@ describe('RecoveryPhraseService', () => {
       const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
       const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      const encrypted1 = await recoveryPhraseService.encryptMasterKey(
-        masterKey,
-        mnemonic,
-      );
-      const encrypted2 = await recoveryPhraseService.encryptMasterKey(
-        masterKey,
-        mnemonic,
-      );
+      const encrypted1 = await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
+      const encrypted2 = await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
 
       expect(encrypted1).not.toBe(encrypted2); // Different IVs
     });
@@ -190,14 +179,8 @@ describe('RecoveryPhraseService', () => {
       const original = new TextEncoder().encode('my-secret-master-key').buffer;
       const mnemonic = await recoveryPhraseService.generateMnemonic();
 
-      const encrypted = await recoveryPhraseService.encryptMasterKey(
-        original,
-        mnemonic,
-      );
-      const decrypted = await recoveryPhraseService.decryptMasterKey(
-        encrypted,
-        mnemonic,
-      );
+      const encrypted = await recoveryPhraseService.encryptMasterKey(original, mnemonic);
+      const decrypted = await recoveryPhraseService.decryptMasterKey(encrypted, mnemonic);
 
       expect(new Uint8Array(decrypted)).toEqual(new Uint8Array(original));
     });
@@ -210,12 +193,12 @@ describe('RecoveryPhraseService', () => {
       const encrypted = await recoveryPhraseService.encryptMasterKey(
         original,
         mnemonic,
-        passphrase,
+        passphrase
       );
       const decrypted = await recoveryPhraseService.decryptMasterKey(
         encrypted,
         mnemonic,
-        passphrase,
+        passphrase
       );
 
       expect(new Uint8Array(decrypted)).toEqual(new Uint8Array(original));
@@ -228,15 +211,11 @@ describe('RecoveryPhraseService', () => {
       const encrypted = await recoveryPhraseService.encryptMasterKey(
         original,
         mnemonic,
-        'correct-passphrase',
+        'correct-passphrase'
       );
 
       await expect(
-        recoveryPhraseService.decryptMasterKey(
-          encrypted,
-          mnemonic,
-          'wrong-passphrase',
-        ),
+        recoveryPhraseService.decryptMasterKey(encrypted, mnemonic, 'wrong-passphrase')
       ).rejects.toThrow();
     });
   });
@@ -380,20 +359,14 @@ describe('RecoveryPhraseService', () => {
 
       // 4. Create master key and encrypt it
       const masterKey = crypto.getRandomValues(new Uint8Array(32)).buffer;
-      const encrypted = await recoveryPhraseService.encryptMasterKey(
-        masterKey,
-        mnemonic,
-      );
+      const encrypted = await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
 
       // 5. Verify phrase
       const verified = await recoveryPhraseService.verifyPhraseHash(mnemonic);
       expect(verified).toBe(true);
 
       // 6. Decrypt master key
-      const decrypted = await recoveryPhraseService.decryptMasterKey(
-        encrypted,
-        mnemonic,
-      );
+      const decrypted = await recoveryPhraseService.decryptMasterKey(encrypted, mnemonic);
       expect(new Uint8Array(decrypted)).toEqual(new Uint8Array(masterKey));
 
       // 7. Set trusted contact

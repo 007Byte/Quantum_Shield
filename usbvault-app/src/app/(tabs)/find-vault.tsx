@@ -1,13 +1,13 @@
 import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
-import {
-  dashboardLayout,
-  dashboardSpacing,
-} from '@/components/dashboard2/styles';
+import { dashboardLayout, dashboardSpacing } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import { usbService } from '@/services/usbService';
 
 type VaultStatus = 'healthy' | 'corrupted' | 'locked';
 
@@ -24,61 +24,62 @@ interface KnownLocation {
   path: string;
 }
 
-export default function FindVaultScreen() {
+function FindVaultScreen() {
+  const { t } = useLanguage();
   const [isScanning, setIsScanning] = useState(false);
   const [currentScanPath, setCurrentScanPath] = useState('');
-  const [detectedVaults] = useState<DetectedVault[]>([
-    {
-      id: '1',
-      name: 'Personal.vault',
-      path: 'E:\\USBVault\\Personal.vault',
-      size: '2.4 GB',
-      status: 'healthy',
-    },
-    {
-      id: '2',
-      name: 'Work_Files.vault',
-      path: 'F:\\Backups\\Work_Files.vault',
-      size: '8.7 GB',
-      status: 'healthy',
-    },
-    {
-      id: '3',
-      name: 'Archive_2024.vault',
-      path: 'G:\\Storage\\Archive_2024.vault',
-      size: '5.2 GB',
-      status: 'corrupted',
-    },
-    {
-      id: '4',
-      name: 'Secure_Docs.vault',
-      path: 'H:\\Encrypted\\Secure_Docs.vault',
-      size: '1.8 GB',
-      status: 'locked',
-    },
-  ]);
-  const [knownLocations, setKnownLocations] = useState<KnownLocation[]>([
-    { id: '1', path: 'E:\\USBVault' },
-    { id: '2', path: 'F:\\Backups' },
-    { id: '3', path: 'G:\\Storage' },
-  ]);
+  const [detectedVaults, setDetectedVaults] = useState<DetectedVault[]>([]);
+  const [knownLocations, setKnownLocations] = useState<KnownLocation[]>([]);
 
-  const handleScanAll = () => {
+  const handleScanAll = useCallback(async () => {
     setIsScanning(true);
-    const drives = ['C:', 'D:', 'E:', 'F:', 'G:', 'H:'];
-    let driveIndex = 0;
+    setCurrentScanPath(t('findVault.scanningDrives') || 'Scanning USB drives...');
+    try {
+      const discovered = await usbService.discoverVaults();
+      const vaults: DetectedVault[] = [];
+      const locations: KnownLocation[] = [];
 
-    const scanInterval = setInterval(() => {
-      if (driveIndex < drives.length) {
-        setCurrentScanPath(`${drives[driveIndex]}\\`);
-        driveIndex++;
-      } else {
-        setIsScanning(false);
-        setCurrentScanPath('');
-        clearInterval(scanInterval);
+      for (const drive of discovered) {
+        const vaultPartitions = drive.partitions?.filter(p => p.hasVault) ?? [];
+        if (vaultPartitions.length > 0) {
+          for (const p of vaultPartitions) {
+            const mountPath = p.mountPoint ?? p.mountpoint ?? drive.device;
+            vaults.push({
+              id: drive.driveId,
+              name: p.label || drive.driveName,
+              path: mountPath,
+              size: drive.capacity,
+              status: 'healthy',
+            });
+            locations.push({ id: drive.driveId, path: mountPath });
+          }
+        } else {
+          vaults.push({
+            id: drive.driveId,
+            name: drive.driveName,
+            path: drive.device,
+            size: drive.capacity,
+            status: 'locked',
+          });
+          locations.push({ id: drive.driveId, path: drive.device });
+        }
       }
-    }, 1200);
-  };
+
+      setDetectedVaults(vaults);
+      setKnownLocations(locations);
+    } catch {
+      // Companion may not be running — show empty state
+      setDetectedVaults([]);
+    } finally {
+      setIsScanning(false);
+      setCurrentScanPath('');
+    }
+  }, [t]);
+
+  // Auto-scan on mount
+  useEffect(() => {
+    handleScanAll();
+  }, [handleScanAll]);
 
   const getStatusColor = (status: VaultStatus) => {
     switch (status) {
@@ -96,13 +97,13 @@ export default function FindVaultScreen() {
   const getStatusLabel = (status: VaultStatus) => {
     switch (status) {
       case 'healthy':
-        return 'Healthy';
+        return t('findVault.statusHealthy');
       case 'corrupted':
-        return 'Corrupted';
+        return t('findVault.statusCorrupted');
       case 'locked':
-        return 'Locked';
+        return t('findVault.statusLocked');
       default:
-        return 'Unknown';
+        return t('findVault.statusUnknown');
     }
   };
 
@@ -112,7 +113,11 @@ export default function FindVaultScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
 
@@ -124,22 +129,22 @@ export default function FindVaultScreen() {
             <View style={styles.contentArea}>
               {/* Header Section */}
               <View style={styles.headerSection}>
-                <Text style={styles.pageTitle}>Find Vault</Text>
-                <Text style={styles.pageSubtitle}>Scan drives to locate vault files</Text>
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('findVault.pageTitle')}
+                </Text>
+                <Text style={styles.pageSubtitle}>{t('findVault.pageSubtitle')}</Text>
               </View>
 
               {/* Scan All Drives Button */}
               <Pressable
-                style={({ pressed }) => [
-                  styles.scanButton,
-                  pressed && styles.scanButtonPressed,
-                ]}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.scanButton, pressed && styles.scanButtonPressed]}
                 onPress={handleScanAll}
                 disabled={isScanning}
               >
                 <View style={styles.scanButtonGradient}>
                   <Feather name="search" size={20} color="#ffffff" style={styles.scanIcon} />
-                  <Text style={styles.scanButtonText}>Scan All Drives</Text>
+                  <Text style={styles.scanButtonText}>{t('findVault.scanAllDrives')}</Text>
                 </View>
               </Pressable>
 
@@ -147,13 +152,9 @@ export default function FindVaultScreen() {
               {isScanning && (
                 <View style={styles.scanningContainer}>
                   <View style={styles.scanningContent}>
-                    <ActivityIndicator
-                      size="large"
-                      color="#06b6d4"
-                      style={styles.spinner}
-                    />
-                    <Text style={styles.scanningText}>Scanning drive {currentScanPath}</Text>
-                    <Text style={styles.scanningSubtext}>Please wait...</Text>
+                    <ActivityIndicator size="large" color="#06b6d4" style={styles.spinner} />
+                    <Text style={styles.scanningText}>{t('findVault.scanningDrive', { drive: currentScanPath })}</Text>
+                    <Text style={styles.scanningSubtext}>{t('findVault.pleaseWait')}</Text>
                   </View>
                 </View>
               )}
@@ -163,12 +164,14 @@ export default function FindVaultScreen() {
                 <>
                   <View style={styles.sectionHeader}>
                     <Feather name="box" size={18} color="#d4d4d8" />
-                    <Text style={styles.sectionTitle}>Detected Vaults</Text>
+                    <Text style={styles.sectionTitle} accessibilityRole="header">
+                      {t('findVault.detectedVaults')}
+                    </Text>
                     <Text style={styles.vaultCount}>{detectedVaults.length}</Text>
                   </View>
 
                   <View style={styles.vaultsList}>
-                    {detectedVaults.map((vault) => (
+                    {detectedVaults.map(vault => (
                       <View key={vault.id} style={styles.vaultCard}>
                         {/* Vault Icon and Info */}
                         <View style={styles.vaultHeader}>
@@ -202,11 +205,10 @@ export default function FindVaultScreen() {
 
                         {/* Action Button */}
                         <Pressable
+                          accessibilityRole="button"
                           style={({ pressed }) => [
                             styles.actionButton,
-                            vault.status === 'healthy'
-                              ? styles.openButton
-                              : styles.repairButton,
+                            vault.status === 'healthy' ? styles.openButton : styles.repairButton,
                             pressed && styles.actionButtonPressed,
                           ]}
                         >
@@ -216,7 +218,7 @@ export default function FindVaultScreen() {
                             color="#ffffff"
                           />
                           <Text style={styles.actionButtonText}>
-                            {vault.status === 'healthy' ? 'Open' : 'Repair'}
+                            {vault.status === 'healthy' ? t('findVault.open') : t('findVault.repair')}
                           </Text>
                         </Pressable>
                       </View>
@@ -229,18 +231,21 @@ export default function FindVaultScreen() {
               <View style={styles.knownLocationsSection}>
                 <View style={styles.sectionHeader}>
                   <Feather name="folder" size={18} color="#d4d4d8" />
-                  <Text style={styles.sectionTitle}>Known Locations</Text>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('findVault.knownLocations')}
+                  </Text>
                   <Text style={styles.locationCount}>{knownLocations.length}</Text>
                 </View>
 
                 <View style={styles.locationsList}>
-                  {knownLocations.map((location) => (
+                  {knownLocations.map(location => (
                     <View key={location.id} style={styles.locationCard}>
                       <View style={styles.locationContent}>
                         <Feather name="folder" size={18} color="#60a5fa" />
                         <Text style={styles.locationPath}>{location.path}</Text>
                       </View>
                       <Pressable
+                        accessibilityRole="button"
                         style={({ pressed }) => [
                           styles.removeButton,
                           pressed && styles.removeButtonPressed,
@@ -254,13 +259,14 @@ export default function FindVaultScreen() {
                 </View>
 
                 <Pressable
+                  accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.addLocationButton,
                     pressed && styles.addLocationButtonPressed,
                   ]}
                 >
                   <Feather name="plus" size={16} color="#06b6d4" />
-                  <Text style={styles.addLocationButtonText}>Add Location</Text>
+                  <Text style={styles.addLocationButtonText}>{t('findVault.addLocation')}</Text>
                 </Pressable>
               </View>
 
@@ -269,11 +275,12 @@ export default function FindVaultScreen() {
                 <View style={styles.lastScanContent}>
                   <Feather name="clock" size={16} color="#a78bfa" />
                   <View style={styles.lastScanText}>
-                    <Text style={styles.lastScanLabel}>Last scanned:</Text>
-                    <Text style={styles.lastScanTime}>March 9, 2026 at 10:42 AM</Text>
+                    <Text style={styles.lastScanLabel}>{t('findVault.lastScanned')}</Text>
+                    <Text style={styles.lastScanTime}>{t('findVault.lastScanTime')}</Text>
                   </View>
                 </View>
                 <Pressable
+                  accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.refreshButton,
                     pressed && styles.refreshButtonPressed,
@@ -319,8 +326,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
@@ -673,3 +682,5 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+export default withErrorBoundary(FindVaultScreen, 'FindVault');

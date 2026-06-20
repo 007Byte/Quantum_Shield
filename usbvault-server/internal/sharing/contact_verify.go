@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH5-FIX: ComputeKeyFingerprint computes SHA-256 fingerprint of a public key
@@ -142,7 +143,7 @@ type VerifyContactRequest struct {
 // PH5-FIX: HandleVerifyContact is an HTTP handler that verifies a contact after out-of-band confirmation
 func HandleVerifyContact(cvs *ContactVerificationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -169,7 +170,7 @@ func HandleVerifyContact(cvs *ContactVerificationService) http.HandlerFunc {
 		// PH5-FIX: Verify the contact
 		if err := cvs.VerifyContact(r.Context(), userUUID, contactUUID, req.Fingerprint); err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Str("contact_id", req.ContactID).Msg("contact verification failed")
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "contact verification failed", http.StatusBadRequest)
 			return
 		}
 

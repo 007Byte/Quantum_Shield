@@ -131,7 +131,7 @@ describe('TierService', () => {
         'dedicated_support',
       ];
 
-      features.forEach((feature) => {
+      features.forEach(feature => {
         const result = tierService.checkFeature(feature);
         expect(result.allowed).toBe(true);
       });
@@ -196,7 +196,7 @@ describe('TierService', () => {
 
       tierService.setCurrentTier('pro');
 
-      limits.forEach((limit) => {
+      limits.forEach(limit => {
         const result = tierService.checkLimit(limit, 100);
         expect(result.allowed || !result.allowed).toBe(true);
       });
@@ -332,10 +332,10 @@ describe('TierService', () => {
       tierService.setCurrentTier('free');
       const features = tierService.getFeatureList();
 
-      const basicEncryption = features.find((f) => f.feature === 'basic_encryption');
+      const basicEncryption = features.find(f => f.feature === 'basic_encryption');
       expect(basicEncryption?.available).toBe(true);
 
-      const ghostMessages = features.find((f) => f.feature === 'ghost_messages');
+      const ghostMessages = features.find(f => f.feature === 'ghost_messages');
       expect(ghostMessages?.available).toBe(false);
     });
 
@@ -343,21 +343,21 @@ describe('TierService', () => {
       tierService.setCurrentTier('enterprise');
       const features = tierService.getFeatureList();
 
-      const unavailable = features.filter((f) => !f.available);
+      const unavailable = features.filter(f => !f.available);
       expect(unavailable.length).toBe(0);
     });
 
     it('should return feature list for specified tier', () => {
       const features = tierService.getFeatureList('pro');
 
-      const ghostMessages = features.find((f) => f.feature === 'ghost_messages');
+      const ghostMessages = features.find(f => f.feature === 'ghost_messages');
       expect(ghostMessages?.available).toBe(true);
     });
 
     it('should include human-readable labels', () => {
       const features = tierService.getFeatureList();
 
-      features.forEach((f) => {
+      features.forEach(f => {
         expect(f.label.length).toBeGreaterThan(0);
         expect(typeof f.label).toBe('string');
       });

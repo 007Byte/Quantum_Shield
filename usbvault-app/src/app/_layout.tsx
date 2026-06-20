@@ -8,8 +8,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { useAppProtection } from '@/services/security/appProtection';
 import { checkDeviceIntegrity } from '@/services/security/deviceIntegrity';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { logger } from '@/utils/logger';
 
 /**
@@ -25,11 +27,35 @@ const TransparentTheme = {
   },
 };
 
-// Single source of truth: the canonical project assets folder
-const BACKGROUND_IMAGE = require('../../assets/background.png');
+// Background images — independent per theme
+const BACKGROUND_DARK = require('../../assets/background.png');
+const BACKGROUND_LIGHT = require('../../assets/background-light.png');
+
+/**
+ * Resolve a Metro asset require() result into a URL string.
+ */
+function resolveAssetUri(asset: unknown): string | null {
+  try {
+    if (typeof asset === 'number') {
+      const { getAssetByID } = require('react-native-web/dist/modules/AssetRegistry');
+      const meta = getAssetByID(asset);
+      if (meta) {
+        return meta.httpServerLocation + '/' + meta.name + '.' + meta.type;
+      }
+    } else if (typeof asset === 'string') {
+      return asset;
+    } else if (asset && typeof asset === 'object' && 'uri' in asset) {
+      return (asset as { uri: string }).uri;
+    }
+  } catch {
+    // silent fallback
+  }
+  return null;
+}
 
 /**
  * On web, inject the background image as a CSS `body::before` pseudo-element.
+ * Switches between dark/light background images based on theme.
  *
  * Why not use React Native's ImageBackground or CSS background-image on a View?
  * react-native-web applies `z-index: 0` and `position: relative` to EVERY View,
@@ -37,36 +63,30 @@ const BACKGROUND_IMAGE = require('../../assets/background.png');
  * The only reliable approach is to place the image outside React's DOM tree entirely.
  */
 function useWebBackground() {
+  const colorScheme = useThemeStore(s => s.colorScheme);
+
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
-    // Resolve the Metro asset URI from the require() result
-    let uri: string | null = null;
-    try {
-      if (typeof BACKGROUND_IMAGE === 'number') {
-        const { getAssetByID } = require('react-native-web/dist/modules/AssetRegistry');
-        const asset = getAssetByID(BACKGROUND_IMAGE);
-        if (asset) {
-          uri = asset.httpServerLocation + '/' + asset.name + '.' + asset.type;
-        }
-      } else if (typeof BACKGROUND_IMAGE === 'string') {
-        uri = BACKGROUND_IMAGE;
-      } else if (BACKGROUND_IMAGE?.uri) {
-        uri = BACKGROUND_IMAGE.uri;
-      }
-    } catch {
-      // silent fallback
-    }
-
+    const bgAsset = colorScheme === 'light' ? BACKGROUND_LIGHT : BACKGROUND_DARK;
+    const uri = resolveAssetUri(bgAsset);
     if (!uri) return;
 
-    const styleId = 'usbvault-global-bg';
-    // Don't inject twice on hot reload
-    if (document.getElementById(styleId)) return;
+    // Overlay tint: dark mode gets a subtle dark veil, light mode gets a subtle white veil
+    const overlayColor =
+      colorScheme === 'light'
+        ? 'rgba(237, 232, 245, 0.08)'
+        : 'rgba(5, 2, 15, 0.08)';
 
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
+    const styleId = 'usbvault-global-bg';
+    let el = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement('style');
+      el.id = styleId;
+      document.head.appendChild(el);
+    }
+
+    el.textContent = `
       body::before {
         content: '';
         position: fixed;
@@ -80,8 +100,8 @@ function useWebBackground() {
         background-repeat: no-repeat;
         z-index: 0;
         pointer-events: none;
+        transition: background-image 0.3s ease;
       }
-      /* Subtle dark overlay on top of the image */
       body::after {
         content: '';
         position: fixed;
@@ -89,29 +109,27 @@ function useWebBackground() {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background-color: rgba(5, 2, 15, 0.08);
+        background-color: ${overlayColor};
         z-index: 0;
         pointer-events: none;
       }
-      /* Make sure #root sits above the pseudo-elements */
       #root {
         position: relative;
         z-index: 1;
       }
     `;
-    document.head.appendChild(style);
 
     return () => {
-      const el = document.getElementById(styleId);
-      if (el) el.remove();
+      // Only remove on unmount, not on theme change
     };
-  }, []);
+  }, [colorScheme]);
 }
 
 export default function RootLayout() {
-  const checkAuth = useAuthStore((state) => state.checkAuth);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const lockVault = useAuthStore((state) => state.lockVault);
+  const checkAuth = useAuthStore(state => state.checkAuth);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const lockVault = useAuthStore(state => state.lockVault);
+  const colorScheme = useThemeStore(s => s.colorScheme);
 
   useWebBackground();
 
@@ -134,56 +152,71 @@ export default function RootLayout() {
 
     // RM-005: Run device integrity check on app startup
     if (Platform.OS !== 'web') {
-      checkDeviceIntegrity().then((result) => {
-        if (result.isCompromised) {
-          logger.warn('[RootLayout] Device integrity check failed:', result.riskLevel);
-        }
-      }).catch((err: Error) => {
-        logger.error('[RootLayout] Device integrity check error:', err);
-      });
+      checkDeviceIntegrity()
+        .then(result => {
+          if (result.isCompromised) {
+            logger.warn('[RootLayout] Device integrity check failed:', result.riskLevel);
+          }
+        })
+        .catch((err: Error) => {
+          logger.error('[RootLayout] Device integrity check error:', err);
+        });
     }
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      {/* On native only: absolutely-positioned Image (CSS pseudo-elements don't exist) */}
-      {Platform.OS !== 'web' && (
-        <>
-          <Image
-            source={BACKGROUND_IMAGE}
-            resizeMode="cover"
-            style={styles.backgroundImage}
-          />
-          <View pointerEvents="none" style={styles.nativeOverlay} />
-        </>
-      )}
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        logger.error('[RootLayout] Uncaught error:', error);
+        logger.error('[RootLayout] Component stack:', errorInfo);
+      }}
+    >
+      <GestureHandlerRootView style={styles.container}>
+        {/* On native only: absolutely-positioned Image (CSS pseudo-elements don't exist) */}
+        {Platform.OS !== 'web' && (
+          <>
+            <Image
+              source={colorScheme === 'light' ? BACKGROUND_LIGHT : BACKGROUND_DARK}
+              resizeMode="cover"
+              style={styles.backgroundImage}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                styles.nativeOverlay,
+                colorScheme === 'light' && styles.nativeOverlayLight,
+              ]}
+            />
+          </>
+        )}
 
-      {/* ThemeProvider overrides React Navigation's default rgb(242,242,242) background */}
-      <ThemeProvider value={TransparentTheme}>
-        <View style={styles.appShell}>
-          <SafeAreaProvider style={styles.provider}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: {
-                  backgroundColor: 'transparent',
-                },
-              }}
-            >
-              {isAuthenticated ? (
-                <>
-                  <Stack.Screen name="(tabs)" />
-                </>
-              ) : (
-                <>
-                  <Stack.Screen name="(auth)" />
-                </>
-              )}
-            </Stack>
-          </SafeAreaProvider>
-        </View>
-      </ThemeProvider>
-    </GestureHandlerRootView>
+        {/* ThemeProvider overrides React Navigation's default rgb(242,242,242) background */}
+        <ThemeProvider value={TransparentTheme}>
+          <View style={styles.appShell}>
+            <SafeAreaProvider style={styles.provider}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: {
+                    backgroundColor: 'transparent',
+                  },
+                }}
+              >
+                {isAuthenticated ? (
+                  <>
+                    <Stack.Screen name="(tabs)" />
+                  </>
+                ) : (
+                  <>
+                    <Stack.Screen name="(auth)" />
+                  </>
+                )}
+              </Stack>
+            </SafeAreaProvider>
+          </View>
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 
@@ -203,6 +236,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(5, 2, 15, 0.08)',
     zIndex: 1,
+  },
+  nativeOverlayLight: {
+    backgroundColor: 'rgba(237, 232, 245, 0.08)',
   },
   appShell: {
     flex: 1,

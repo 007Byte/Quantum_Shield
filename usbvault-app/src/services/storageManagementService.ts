@@ -131,7 +131,7 @@ class StorageManagementService {
   }
 
   async findDuplicates(): Promise<DuplicateGroup[]> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       setTimeout(() => {
         const duplicates: DuplicateGroup[] = [
           {
@@ -248,9 +248,9 @@ class StorageManagementService {
   }
 
   async executeCleanup(recommendationId: string): Promise<{ freed: number; filesRemoved: number }> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const recommendations = this.getCleanupRecommendations();
-      const recommendation = recommendations.find((r) => r.id === recommendationId);
+      const recommendation = recommendations.find(r => r.id === recommendationId);
 
       if (!recommendation) {
         resolve({ freed: 0, filesRemoved: 0 });
@@ -285,7 +285,7 @@ class StorageManagementService {
   }
 
   async executeAllCleanups(): Promise<{ totalFreed: number; totalFilesRemoved: number }> {
-    return new Promise(async (resolve) => {
+    return new Promise(async resolve => {
       const recommendations = this.getCleanupRecommendations();
       let totalFreed = 0;
       let totalFilesRemoved = 0;
@@ -306,7 +306,7 @@ class StorageManagementService {
   }
 
   async runCompaction(): Promise<CompactionStats> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const stats = this.getStorageStats();
       const beforeSize = stats.totalUsed;
 
@@ -387,7 +387,7 @@ class StorageManagementService {
     }
 
     const duplicates = this.findDuplicates();
-    duplicates.then((dups) => {
+    duplicates.then(dups => {
       if (dups.length > 0) {
         const totalWasted = dups.reduce((sum, g) => sum + g.totalWastedSpace, 0);
         if (totalWasted > 1073741824) {
@@ -421,7 +421,11 @@ class StorageManagementService {
     return JSON.stringify(report, null, 2);
   }
 
-  private recordCleanupHistory(recommendationId: string, freed: number, filesRemoved: number): void {
+  private recordCleanupHistory(
+    recommendationId: string,
+    freed: number,
+    filesRemoved: number
+  ): void {
     if (Platform.OS === 'web') {
       const history = localStorage.getItem(this.CLEANUP_HISTORY_KEY);
       const cleanupHistory = history ? JSON.parse(history) : [];

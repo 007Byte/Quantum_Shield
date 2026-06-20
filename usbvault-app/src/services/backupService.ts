@@ -88,19 +88,12 @@ class BackupServiceImpl {
   /**
    * Create a backup of current vault data.
    */
-  async createBackup(includePasswords?: boolean): Promise<BackupData> {
-    let vaults: unknown[] = [];
-    let files: unknown[] = [];
+  async createBackup(
+    includePasswords?: boolean,
+    vaults: unknown[] = [],
+    files: unknown[] = []
+  ): Promise<BackupData> {
     let settings: unknown = {};
-
-    try {
-      const vaultStore = require('@/stores/vaultStore').useVaultStore;
-      const state = vaultStore.getState();
-      vaults = state.vaults || [];
-      files = state.files || [];
-    } catch {
-      // Vault store not available
-    }
 
     try {
       const settingsService = require('@/services/settingsService').settingsService;
@@ -275,7 +268,7 @@ class BackupServiceImpl {
    * Delete a backup history entry by ID.
    */
   deleteBackupHistory(id: string): void {
-    const history = this.getBackupHistory().filter((h) => h.id !== id);
+    const history = this.getBackupHistory().filter(h => h.id !== id);
     try {
       localStorage.setItem(BACKUP_HISTORY_KEY, JSON.stringify(history));
     } catch {

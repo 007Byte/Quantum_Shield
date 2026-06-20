@@ -45,9 +45,14 @@ type Pool interface {
 type VaultRepository interface {
 	CreateVault(ctx context.Context, ownerID string, encryptedMetadata []byte) (string, error)
 	GetVault(ctx context.Context, vaultID string) (*VaultRecord, error)
+	GetVaultWithAccess(ctx context.Context, vaultID string, userID string) (*VaultRecord, error)
 	ListVaults(ctx context.Context, ownerID string) ([]VaultRecord, error)
+	ListVaultsPaginated(ctx context.Context, ownerID string, cursor string, limit int) ([]VaultRecord, error)
 	UpdateVault(ctx context.Context, vaultID string, encryptedMetadata []byte) error
+	UpdateVaultByOwner(ctx context.Context, vaultID string, ownerID string, encryptedMetadata []byte) error
 	DeleteVault(ctx context.Context, vaultID string) error
+	DeleteVaultByOwner(ctx context.Context, vaultID string, ownerID string) error
+	CheckRollback(ctx context.Context, vaultID string, newStateVersion int64) error
 }
 
 // VaultRecord represents a vault record retrieved from the database.
@@ -64,4 +69,37 @@ type VaultRecord struct {
 	EncryptedMetadata []byte
 	CreatedAt         string
 	UpdatedAt         string
+}
+
+// ShareRepository defines data access operations for share records.
+// PH4-FIX: Repository pattern for share operations with interface-based abstraction.
+type ShareRepository interface {
+	CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error)
+	ListReceivedShares(ctx context.Context, recipientID string) ([]ShareRecord, error)
+	ListSentShares(ctx context.Context, senderID string) ([]ShareRecord, error)
+	RevokeShare(ctx context.Context, senderID, shareID string) error
+	GetPublicKey(ctx context.Context, userID string) ([]byte, error)
+	PublishPublicKey(ctx context.Context, userID string, publicKeyBytes []byte) error
+	AcceptShare(ctx context.Context, recipientID, shareID string) error
+	RejectShare(ctx context.Context, recipientID, shareID string) error
+}
+
+// ShareRecord represents a share record retrieved from the database.
+//
+// Fields:
+//   - ID: Share unique identifier
+//   - SenderID: User who sent the share
+//   - RecipientID: User who received the share
+//   - BlobID: Blob being shared
+//   - EncryptedKey: Binary encrypted key
+//   - CreatedAt: ISO 8601 creation timestamp
+//   - ExpiresAt: Optional ISO 8601 expiration timestamp
+type ShareRecord struct {
+	ID           string
+	SenderID     string
+	RecipientID  string
+	BlobID       string
+	EncryptedKey []byte
+	CreatedAt    string
+	ExpiresAt    *string
 }

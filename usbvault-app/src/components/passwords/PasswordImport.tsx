@@ -3,7 +3,15 @@ import { StyleSheet, Text, View, Pressable, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRef } from 'react';
 import { webOnly } from '@/utils/webStyle';
-import { dashboardSpacing, dashboardColors, dashboardLayout, glassPanelBase, webOnlyGlass, webOnlyTransition } from '@/components/dashboard2/styles';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  dashboardLayout,
+  glassPanelBase,
+  webOnlyGlass,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { ImportProgress, ImportResult } from '@/services/importService';
 
 const SUPPORTED_IMPORT_FORMATS = [
@@ -29,6 +37,7 @@ export function PasswordImport({
   onClose,
   onFileSelect,
 }: PasswordImportProps) {
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importDragOver, setImportDragOver] = React.useState(false);
 
@@ -71,16 +80,22 @@ export function PasswordImport({
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, glassPanelBase, webOnlyGlass]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Import Passwords</Text>
-            <Pressable style={(state: any) => [state.hovered && styles.modalCloseHover]} onPress={onClose}>
+            <Text style={styles.modalTitle} accessibilityRole="header">
+              {t('passwords.importTitle')}
+            </Text>
+            <Pressable
+              style={(state: any) => [state.hovered && styles.modalCloseHover]}
+              onPress={onClose}
+              accessibilityRole="button"
+            >
               <Feather name="x" size={24} color={dashboardColors.textSecondary} />
             </Pressable>
           </View>
 
           <View style={styles.modalBody}>
-            <Text style={styles.importSubtitle}>Supported Formats</Text>
+            <Text style={styles.importSubtitle}>{t('passwords.supportedFormats')}</Text>
             <View style={styles.importFormatList}>
-              {SUPPORTED_IMPORT_FORMATS.map((fmt) => (
+              {SUPPORTED_IMPORT_FORMATS.map(fmt => (
                 <View key={fmt} style={styles.importFormatItem}>
                   <Feather name="check-circle" size={14} color="#34D399" />
                   <Text style={styles.importFormatText}>{fmt}</Text>
@@ -90,25 +105,36 @@ export function PasswordImport({
 
             {/* Drop zone / File picker */}
             <Pressable
+              accessibilityRole="button"
               style={(state: any) => [
                 styles.importDropZone,
                 importDragOver && styles.importDropZoneActive,
                 state.hovered && styles.importDropZoneHover,
               ]}
               onPress={() => fileInputRef.current?.click()}
-              {...({ onDrop: handleDrop, onDragOver: handleDragOver, onDragLeave: handleDragLeave } as any)}
+              {...({
+                onDrop: handleDrop,
+                onDragOver: handleDragOver,
+                onDragLeave: handleDragLeave,
+              } as any)}
             >
-              <Feather name="upload-cloud" size={32} color={importDragOver ? '#22D3EE' : 'rgba(139,92,246,0.5)'} />
+              <Feather
+                name="upload-cloud"
+                size={32}
+                color={importDragOver ? '#22D3EE' : 'rgba(139,92,246,0.5)'}
+              />
               <Text style={styles.importDropText}>
-                {importDragOver ? 'Drop file here' : 'Click to select or drag & drop'}
+                {importDragOver ? t('passwords.dropFileHere') : t('passwords.clickToSelect')}
               </Text>
-              <Text style={styles.importDropHint}>.csv or .json file from your password manager</Text>
+              <Text style={styles.importDropHint}>
+                {t('passwords.csvOrJson')}
+              </Text>
             </Pressable>
 
             {/* Hidden file input (web only) */}
             {typeof document !== 'undefined' && (
               <input
-                ref={(el) => {
+                ref={el => {
                   fileInputRef.current = el;
                 }}
                 type="file"
@@ -122,7 +148,12 @@ export function PasswordImport({
             {importProgress && (
               <View style={styles.importProgressContainer}>
                 <View style={styles.importProgressBarBg}>
-                  <View style={[styles.importProgressBarFill, { width: `${importProgress.percentage}%` } as any]} />
+                  <View
+                    style={[
+                      styles.importProgressBarFill,
+                      { width: `${importProgress.percentage}%` } as any,
+                    ]}
+                  />
                 </View>
                 <Text style={styles.importProgressText}>
                   {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
@@ -135,19 +166,21 @@ export function PasswordImport({
               <View style={styles.importResultCard}>
                 <View style={styles.importResultRow}>
                   <Feather name="check-circle" size={16} color="#34D399" />
-                  <Text style={styles.importResultText}>{importResult.imported} imported</Text>
+                  <Text style={styles.importResultText}>{t('passwords.imported', { count: importResult.imported })}</Text>
                 </View>
                 {importResult.duplicates > 0 && (
                   <View style={styles.importResultRow}>
                     <Feather name="copy" size={16} color="#FBBF24" />
-                    <Text style={styles.importResultText}>{importResult.duplicates} duplicates skipped</Text>
+                    <Text style={styles.importResultText}>
+                      {t('passwords.duplicatesSkipped', { count: importResult.duplicates })}
+                    </Text>
                   </View>
                 )}
                 {importResult.skipped > importResult.duplicates && (
                   <View style={styles.importResultRow}>
                     <Feather name="skip-forward" size={16} color={dashboardColors.textSecondary} />
                     <Text style={styles.importResultText}>
-                      {importResult.skipped - importResult.duplicates} empty entries skipped
+                      {t('passwords.emptySkipped', { count: importResult.skipped - importResult.duplicates })}
                     </Text>
                   </View>
                 )}
@@ -157,10 +190,15 @@ export function PasswordImport({
 
           <View style={styles.modalFooter}>
             <Pressable
-              style={(state: any) => [styles.modalCancelButton, webOnlyTransition, state.hovered && styles.modalCancelButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.modalCancelButton,
+                webOnlyTransition,
+                state.hovered && styles.modalCancelButtonHover,
+              ]}
               onPress={onClose}
             >
-              <Text style={styles.modalCancelButtonText}>Close</Text>
+              <Text style={styles.modalCancelButtonText}>{t('common.close')}</Text>
             </Pressable>
           </View>
         </View>

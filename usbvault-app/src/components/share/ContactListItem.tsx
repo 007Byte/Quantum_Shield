@@ -1,14 +1,9 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ContactListItemProps {
   id: string;
@@ -85,9 +80,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const getStatusColor = (
-  status: string
-): { bg: string; text: string } => {
+const getStatusColor = (status: string): { bg: string; text: string } => {
   switch (status) {
     case 'shared':
       return { bg: 'rgba(124, 58, 237, 0.1)', text: colors.accentPrimary };
@@ -100,16 +93,17 @@ const getStatusColor = (
   }
 };
 
-const getStatusLabel = (status?: string): string => {
+const getStatusLabel = (status?: string, t?: (key: string) => string): string => {
+  if (!t) return 'Unknown';
   switch (status) {
     case 'shared':
-      return 'Shared';
+      return t('share.statusShared');
     case 'accepted':
-      return 'Accepted';
+      return t('share.statusAccepted');
     case 'pending':
-      return 'Pending';
+      return t('share.statusPending');
     default:
-      return 'Unknown';
+      return t('share.statusUnknown');
   }
 };
 
@@ -125,16 +119,18 @@ export const ContactListItem: React.FC<ContactListItemProps> = ({
   style,
   testID,
 }) => {
+  const { t } = useLanguage();
+
   const displayInitials =
     initials ||
     name
       .split(' ')
-      .map((n) => n[0])
+      .map(n => n[0])
       .join('')
       .toUpperCase();
 
   const statusColor = getStatusColor(status);
-  const statusLabel = getStatusLabel(status);
+  const statusLabel = getStatusLabel(status, t);
 
   return (
     <TouchableOpacity
@@ -155,12 +151,8 @@ export const ContactListItem: React.FC<ContactListItemProps> = ({
       </View>
 
       {/* Status Badge */}
-      <View
-        style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}
-      >
-        <Text style={[styles.statusText, { color: statusColor.text }]}>
-          {statusLabel}
-        </Text>
+      <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
+        <Text style={[styles.statusText, { color: statusColor.text }]}>{statusLabel}</Text>
       </View>
 
       {/* Arrow */}

@@ -22,12 +22,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // JWT TTL constants for token expiration and event tracking
@@ -42,8 +44,10 @@ const (
 )
 
 var (
-	jwtPrivateKey ed25519.PrivateKey
-	jwtPublicKey  ed25519.PublicKey
+	// CR-3 FIX: Mutex protects JWT key globals during key rotation
+	jwtKeyMu       sync.RWMutex
+	jwtPrivateKey  ed25519.PrivateKey
+	jwtPublicKey   ed25519.PublicKey
 	// PH2-FIX: Key rotation service instance
 	keyRotationSvc *KeyRotationService
 )
@@ -57,6 +61,9 @@ func init() {
 //
 // PH2-FIX: Key rotation service support with kid header for token versioning.
 func SetKeyRotationService(svc *KeyRotationService) {
+	// CR-3 FIX: Protect keyRotationSvc assignment with write lock
+	jwtKeyMu.Lock()
+	defer jwtKeyMu.Unlock()
 	keyRotationSvc = svc
 }
 
@@ -98,8 +105,11 @@ func loadOrGenerateKeys() {
 			log.Fatal().Int("got", len(pubBytes)).Int("want", ed25519.PublicKeySize).Msg("JWT public key file has wrong size")
 		}
 
+		// CR-3 FIX: Protect key assignments with write lock for key rotation safety
+		jwtKeyMu.Lock()
 		jwtPrivateKey = ed25519.PrivateKey(privBytes)
 		jwtPublicKey = ed25519.PublicKey(pubBytes)
+		jwtKeyMu.Unlock()
 		log.Info().Msg("loaded ED25519 JWT keys from key files (secure)")
 		return
 	}
@@ -126,8 +136,11 @@ func loadOrGenerateKeys() {
 			log.Fatal().Int("got", len(pubBytes)).Int("want", ed25519.PublicKeySize).Msg("JWT_ED25519_PUBLIC_KEY has wrong size")
 		}
 
+		// CR-3 FIX: Protect key assignments with write lock for key rotation safety
+		jwtKeyMu.Lock()
 		jwtPrivateKey = ed25519.PrivateKey(privBytes)
 		jwtPublicKey = ed25519.PublicKey(pubBytes)
+		jwtKeyMu.Unlock()
 		log.Info().Msg("loaded ED25519 JWT keys from environment variables")
 		return
 	}
@@ -144,8 +157,11 @@ func loadOrGenerateKeys() {
 		log.Fatal().Err(err).Msg("failed to generate ED25519 keys")
 	}
 
+	// CR-3 FIX: Protect key assignments with write lock for key rotation safety
+	jwtKeyMu.Lock()
 	jwtPrivateKey = priv
 	jwtPublicKey = pub
+	jwtKeyMu.Unlock()
 	log.Warn().
 		Msg("generated ephemeral ED25519 keys — tokens will not survive restart. Set JWT_ED25519_PRIVATE_KEY_FILE for persistence.")
 }
@@ -192,6 +208,12 @@ func GenerateTokenPairWithFingerprint(userID, deviceID, deviceFingerprint string
 // TD-004 FIX: New function to preserve family ID during token rotation
 // GenerateTokenPairWithFamily creates a token pair while preserving the family chain for theft detection
 func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID string) (accessToken, refreshToken string, err error) {
+	// CR-3 FIX: Acquire read lock to copy key values, then release before JWT operations
+	jwtKeyMu.RLock()
+	privKey := jwtPrivateKey
+	rotSvc := keyRotationSvc
+	jwtKeyMu.RUnlock()
+
 	now := time.Now()
 	// Use crypto-random UUID for JTI instead of predictable timestamp
 	jti := uuid.New().String()
@@ -219,10 +241,11 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodEdDSA, accessClaims)
 	// PH2-FIX: Add kid header for key versioning
-	if keyRotationSvc != nil {
-		accessTokenObj.Header["kid"] = keyRotationSvc.GetActiveKID()
+	// CR-3 FIX: Use local copy of rotSvc instead of global
+	if rotSvc != nil {
+		accessTokenObj.Header["kid"] = rotSvc.GetActiveKID()
 	}
-	accessToken, err = accessTokenObj.SignedString(jwtPrivateKey)
+	accessToken, err = accessTokenObj.SignedString(privKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -246,10 +269,11 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 
 	refreshTokenObj := jwt.NewWithClaims(jwt.SigningMethodEdDSA, refreshClaims)
 	// PH2-FIX: Add kid header for key versioning
-	if keyRotationSvc != nil {
-		refreshTokenObj.Header["kid"] = keyRotationSvc.GetActiveKID()
+	// CR-3 FIX: Use local copy of rotSvc instead of global
+	if rotSvc != nil {
+		refreshTokenObj.Header["kid"] = rotSvc.GetActiveKID()
 	}
-	refreshToken, err = refreshTokenObj.SignedString(jwtPrivateKey)
+	refreshToken, err = refreshTokenObj.SignedString(privKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -261,16 +285,30 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 // Used for JTI, family IDs, and other security-sensitive identifiers. Panics on rand.Read failure.
 func randomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	// Use crypto/rand for secure random generation, not math/rand
-	_, err := rand.Read(b)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to generate random string")
+	const charsetLen = byte(len(charset)) // 62
+	// Rejection threshold: largest multiple of 62 that fits in a byte (248 = 62*4)
+	// Values >= 248 are rejected to eliminate modular bias
+	const maxUnbiased = 248
+	result := make([]byte, length)
+	buf := make([]byte, length*2) // over-allocate to reduce retry rounds
+	filled := 0
+	for filled < length {
+		_, err := rand.Read(buf)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to generate random string")
+		}
+		for _, b := range buf {
+			if b >= maxUnbiased {
+				continue // reject biased values
+			}
+			result[filled] = charset[b%charsetLen]
+			filled++
+			if filled >= length {
+				break
+			}
+		}
 	}
-	for i := range b {
-		b[i] = charset[b[i] % byte(len(charset))]
-	}
-	return string(b)
+	return string(result)
 }
 
 // ValidateToken verifies a token's Ed25519 signature and extracts claims.
@@ -285,6 +323,12 @@ func randomString(length int) string {
 //   - Token has expired
 //   - Token type is neither "access" nor "refresh"
 func ValidateToken(tokenString string) (*Claims, error) {
+	// CR-3 FIX: Acquire read lock to copy key values
+	jwtKeyMu.RLock()
+	pubKey := jwtPublicKey
+	rotSvc := keyRotationSvc
+	jwtKeyMu.RUnlock()
+
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -292,15 +336,16 @@ func ValidateToken(tokenString string) (*Claims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		// PH2-FIX: Support key rotation - check kid header for verification key
-		if kid, ok := token.Header["kid"].(string); ok && keyRotationSvc != nil {
-			pubKey, err := keyRotationSvc.GetVerificationKey(kid)
+		// CR-3 FIX: Use local copy of rotSvc instead of global
+		if kid, ok := token.Header["kid"].(string); ok && rotSvc != nil {
+			verKey, err := rotSvc.GetVerificationKey(kid)
 			if err != nil {
 				return nil, fmt.Errorf("key lookup failed: %w", err)
 			}
-			return pubKey, nil
+			return verKey, nil
 		}
-		// Fallback to global key for tokens without kid header
-		return jwtPublicKey, nil
+		// Fallback to local key copy for tokens without kid header
+		return pubKey, nil
 	})
 
 	if err != nil {
@@ -560,7 +605,7 @@ func HandleLogout(redisClient *redis.Client, auditSvc interface {
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context (set by AuthMiddleware)
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -615,5 +660,9 @@ func HandleLogout(redisClient *redis.Client, auditSvc interface {
 // GetPublicKey returns the Ed25519 public key for offline token verification by clients.
 // This is typically exposed via a JWKS endpoint for client-side token validation.
 func GetPublicKey() []byte {
-	return []byte(jwtPublicKey)
+	// CR-3 FIX: Acquire read lock to safely copy public key
+	jwtKeyMu.RLock()
+	pubKey := jwtPublicKey
+	jwtKeyMu.RUnlock()
+	return []byte(pubKey)
 }

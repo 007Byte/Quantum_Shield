@@ -166,7 +166,7 @@ class BulkOperationsServiceImpl {
    */
   getActiveOperations(): BulkOperation[] {
     return Array.from(this._activeOperations.values()).filter(
-      op => op.status === 'in-progress' || op.status === 'pending',
+      op => op.status === 'in-progress' || op.status === 'pending'
     );
   }
 
@@ -205,11 +205,12 @@ class BulkOperationsServiceImpl {
     }
 
     // Audit log
-    auditService.log(
-      'bulk_operation_cancelled' as any,
-      `bulk-${op.type}`,
-      { operationId: id, filesCount: op.fileIds.length },
-    ).catch(() => {});
+    auditService
+      .log('bulk_operation_cancelled' as any, `bulk-${op.type}`, {
+        operationId: id,
+        filesCount: op.fileIds.length,
+      })
+      .catch(() => {});
 
     // Move to history
     this._moveToHistory(op);
@@ -260,7 +261,7 @@ class BulkOperationsServiceImpl {
    */
   private async _createAndStartOperation(
     type: BulkOperationType,
-    fileIds: string[],
+    fileIds: string[]
   ): Promise<BulkOperation> {
     const op: BulkOperation = {
       id: generateId('bulk'),
@@ -276,14 +277,10 @@ class BulkOperationsServiceImpl {
     this._persistActive();
 
     // Audit log
-    await auditService.log(
-      'bulk_operation_started' as any,
-      `bulk-${type}`,
-      {
-        operationId: op.id,
-        filesCount: fileIds.length,
-      },
-    );
+    await auditService.log('bulk_operation_started' as any, `bulk-${type}`, {
+      operationId: op.id,
+      filesCount: fileIds.length,
+    });
 
     // Simulate progress increments
     this._simulateProgress(op.id);
@@ -335,15 +332,13 @@ class BulkOperationsServiceImpl {
         this._progressTrackers.delete(operationId);
 
         // Audit log completion
-        auditService.log(
-          'bulk_operation_completed' as any,
-          `bulk-${op.type}`,
-          {
+        auditService
+          .log('bulk_operation_completed' as any, `bulk-${op.type}`, {
             operationId,
             filesCount: op.fileIds.length,
             errorCount: op.errors.length,
-          },
-        ).catch(() => {});
+          })
+          .catch(() => {});
 
         // Move to history
         this._moveToHistory(op);

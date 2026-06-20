@@ -55,7 +55,9 @@ func HandleFIDO2Challenge(pool *pgxpool.Pool, redisClient *redis.Client) http.Ha
 
 		if err != nil {
 			log.Debug().Err(err).Str("email", req.Email).Msg("user not found for FIDO2")
-			http.Error(w, "user not found", http.StatusNotFound)
+			// Constant-time delay to prevent timing-based user enumeration
+			time.Sleep(50 * time.Millisecond)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
@@ -227,10 +229,13 @@ func HandleFIDO2Verify(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc i
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
-			pool.Exec(ctx,
+			if _, execErr := pool.Exec(ctx,
 				`UPDATE users SET webauthn_credentials = $1 WHERE id = $2`,
 				updatedJSON, userID,
-			)
+			); execErr != nil {
+				log.Error().Err(execErr).Str("user_id", userID).Msg("failed to update FIDO2 credential sign count")
+				// Non-fatal: login succeeds but cloning detection may be weakened
+			}
 		}
 
 		// 7. Issue tokens only after successful cryptographic verification

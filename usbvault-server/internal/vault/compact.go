@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // VaultCompactionService handles vault compaction without loading all files into memory
@@ -361,7 +362,7 @@ func HandleCompactVault(compactService *VaultCompactionService, auditService int
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Verify authentication
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

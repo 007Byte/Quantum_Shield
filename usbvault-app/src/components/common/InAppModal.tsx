@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal, View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ export function useInAppModal() {
     message: string,
     onConfirm: () => void,
     confirmText = 'Confirm',
-    confirmStyle: 'default' | 'destructive' = 'default',
+    confirmStyle: 'default' | 'destructive' = 'default'
   ) => {
     setModal({
       visible: true,
@@ -88,7 +89,14 @@ export function useInAppModal() {
       message,
       buttons: [
         { text: 'Cancel', style: 'cancel', onPress: () => setModal(EMPTY_MODAL) },
-        { text: confirmText, style: confirmStyle, onPress: () => { setModal(EMPTY_MODAL); onConfirm(); } },
+        {
+          text: confirmText,
+          style: confirmStyle,
+          onPress: () => {
+            setModal(EMPTY_MODAL);
+            onConfirm();
+          },
+        },
       ],
     });
   };
@@ -97,16 +105,17 @@ export function useInAppModal() {
     title: string,
     fields: PromptField[],
     onSubmit: (values: Record<string, string>) => void,
-    _submitText = 'Submit',
+    _submitText = 'Submit'
   ) => {
     setModal({
       visible: true,
       title,
       fields,
-      onSubmitFields: (vals) => { setModal(EMPTY_MODAL); onSubmit(vals); },
-      buttons: [
-        { text: 'Cancel', style: 'cancel', onPress: () => setModal(EMPTY_MODAL) },
-      ],
+      onSubmitFields: vals => {
+        setModal(EMPTY_MODAL);
+        onSubmit(vals);
+      },
+      buttons: [{ text: 'Cancel', style: 'cancel', onPress: () => setModal(EMPTY_MODAL) }],
     });
   };
 
@@ -117,14 +126,34 @@ export function useInAppModal() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function InAppModal({ config, onDismiss }: { config: InAppModalConfig; onDismiss?: () => void }) {
+export function InAppModal({
+  config,
+  onDismiss,
+}: {
+  config: InAppModalConfig;
+  onDismiss?: () => void;
+}) {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+
+  const handleCloseForTrap = () => {
+    onDismiss?.();
+    const cancelBtn = config.buttons?.find(b => b.style === 'cancel');
+    if (cancelBtn?.onPress) {
+      cancelBtn.onPress();
+    } else {
+      config.buttons?.[0]?.onPress?.();
+    }
+  };
+
+  const focusTrapRef = useFocusTrap(config.visible, handleCloseForTrap);
 
   // Reset field values when modal opens
   useEffect(() => {
     if (config.visible && config.fields) {
       const initial: Record<string, string> = {};
-      config.fields.forEach((f) => { initial[f.key] = f.defaultValue || ''; });
+      config.fields.forEach(f => {
+        initial[f.key] = f.defaultValue || '';
+      });
       setFieldValues(initial);
     }
   }, [config.visible]);
@@ -143,24 +172,20 @@ export function InAppModal({ config, onDismiss }: { config: InAppModalConfig; on
 
   if (!config.visible) return null;
 
-  const handleClose = () => {
-    onDismiss?.();
-    const cancelBtn = config.buttons?.find((b) => b.style === 'cancel');
-    if (cancelBtn?.onPress) {
-      cancelBtn.onPress();
-    } else {
-      config.buttons?.[0]?.onPress?.();
-    }
-  };
+  const handleClose = handleCloseForTrap;
 
   const hasFields = config.fields && config.fields.length > 0;
 
   return (
     <Modal transparent animationType="fade" visible={config.visible} onRequestClose={handleClose}>
-      <Pressable style={s.overlay} onPress={handleClose}>
-        <Pressable style={s.card} onPress={(e) => e.stopPropagation?.()}>
+      <Pressable style={s.overlay} onPress={handleClose} ref={focusTrapRef}>
+        <Pressable style={s.card} onPress={e => e.stopPropagation?.()} accessibilityRole="button">
           {/* Close button */}
-          <Pressable style={(state: any) => [s.closeBtn, state.hovered && s.closeBtnHover]} onPress={handleClose}>
+          <Pressable
+            style={(state: any) => [s.closeBtn, state.hovered && s.closeBtnHover]}
+            onPress={handleClose}
+            accessibilityRole="button"
+          >
             <Feather name="x" size={16} color="rgba(255,255,255,0.5)" />
           </Pressable>
 
@@ -180,15 +205,14 @@ export function InAppModal({ config, onDismiss }: { config: InAppModalConfig; on
           {/* Fields (for prompt-style modals) */}
           {hasFields && (
             <View style={s.fieldsWrap}>
-              {config.fields!.map((field) => (
+              {config.fields!.map(field => (
                 <View key={field.key} style={s.fieldGroup}>
                   <Text style={s.fieldLabel}>{field.label}</Text>
                   <TextInput
+                    accessibilityLabel="Text input"
                     style={s.fieldInput}
                     value={fieldValues[field.key] || ''}
-                    onChangeText={(text) =>
-                      setFieldValues((prev) => ({ ...prev, [field.key]: text }))
-                    }
+                    onChangeText={text => setFieldValues(prev => ({ ...prev, [field.key]: text }))}
                     placeholder={field.placeholder || ''}
                     placeholderTextColor="rgba(255,255,255,0.25)"
                     secureTextEntry={field.secure}
@@ -209,13 +233,19 @@ export function InAppModal({ config, onDismiss }: { config: InAppModalConfig; on
 
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={i}
                   style={(state: any) => [
                     s.button,
                     isCancel && s.buttonCancel,
                     isDestructive && s.buttonDestructive,
                     isPrimary && s.buttonPrimary,
-                    state.hovered && (isCancel ? s.buttonCancelHover : isDestructive ? s.buttonDestructiveHover : s.buttonPrimaryHover),
+                    state.hovered &&
+                      (isCancel
+                        ? s.buttonCancelHover
+                        : isDestructive
+                          ? s.buttonDestructiveHover
+                          : s.buttonPrimaryHover),
                   ]}
                   onPress={() => btn.onPress?.()}
                 >
@@ -235,7 +265,12 @@ export function InAppModal({ config, onDismiss }: { config: InAppModalConfig; on
             {/* Submit button for field modals */}
             {hasFields && config.onSubmitFields && (
               <Pressable
-                style={(state: any) => [s.button, s.buttonPrimary, state.hovered && s.buttonPrimaryHover]}
+                accessibilityRole="button"
+                style={(state: any) => [
+                  s.button,
+                  s.buttonPrimary,
+                  state.hovered && s.buttonPrimaryHover,
+                ]}
                 onPress={() => config.onSubmitFields?.(fieldValues)}
               >
                 <Text style={s.buttonText}>Submit</Text>

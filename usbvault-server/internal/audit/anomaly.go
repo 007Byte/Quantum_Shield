@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH6-FIX: Anomaly detection service for detecting unusual access patterns
@@ -213,7 +214,7 @@ func (ads *AnomalyDetectionService) RecordAnomaly(ctx context.Context, alert Ano
 // PH6-FIX: HandleGetAnomalies is the HTTP handler for listing anomalies
 func HandleGetAnomalies(ads *AnomalyDetectionService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

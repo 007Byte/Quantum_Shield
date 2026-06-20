@@ -2,6 +2,7 @@
 import { StyleSheet, Text, View, Pressable, type TextProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
+import { useLanguage } from '@/hooks/useLanguage';
 import { dashboardSpacing, dashboardColors, dashboardLayout } from '@/components/dashboard2/styles';
 import type { PressableState } from '@/types/utilities';
 
@@ -28,9 +29,15 @@ export function DecryptToolbar({
   allSelected,
   onSelectAll,
 }: DecryptToolbarProps) {
+  const { t } = useLanguage();
   return (
     <View style={styles.toolbar}>
-      <Pressable style={(state: PressableState) => [styles.searchBox, state.hovered && styles.searchBoxHover] as any}>
+      <Pressable
+        style={(state: PressableState) =>
+          [styles.searchBox, state.hovered && styles.searchBoxHover] as any
+        }
+        accessibilityRole="button"
+      >
         <Feather name="search" size={16} color={dashboardColors.textSecondary} />
         <View style={styles.searchInputWrap}>
           {/* PH4-FIX: Replaced @ts-ignore with proper ContentEditable type */}
@@ -38,21 +45,31 @@ export function DecryptToolbar({
             style={styles.searchInput}
             contentEditable
             suppressContentEditableWarning
-            onInput={(e: React.FormEvent<HTMLDivElement>) => onSearchChange((e.target as HTMLDivElement)?.innerText || '')}
+            onInput={(e: React.FormEvent<HTMLDivElement>) =>
+              onSearchChange((e.target as HTMLDivElement)?.innerText || '')
+            }
             {...({} as ContentEditableTextProps)}
           >
             {searchQuery || ''}
           </Text>
         </View>
-        {!searchQuery && <Text style={styles.searchPlaceholder}>Search files...</Text>}
+        {!searchQuery && <Text style={styles.searchPlaceholder}>{t('decrypt.searchFiles')}</Text>}
       </Pressable>
-      <Pressable onPress={onSelectAll} style={(state: PressableState) => [styles.selectAllButton, state.hovered && styles.selectAllButtonHover] as any}>
+      <Pressable
+        onPress={onSelectAll}
+        style={(state: PressableState) =>
+          [styles.selectAllButton, state.hovered && styles.selectAllButtonHover] as any
+        }
+        accessibilityRole="button"
+      >
         <Feather
           name={allSelected && totalCount > 0 ? 'check-square' : 'square'}
           size={16}
           color={dashboardColors.cyan}
         />
-        <Text style={styles.selectAllText}>{allSelected && totalCount > 0 ? 'Deselect All' : 'Select All'}</Text>
+        <Text style={styles.selectAllText}>
+          {allSelected && totalCount > 0 ? t('decrypt.deselectAll') : t('decrypt.selectAll')}
+        </Text>
       </Pressable>
     </View>
   );
@@ -83,7 +100,12 @@ const styles = StyleSheet.create({
     borderColor: dashboardColors.borderPurple,
     backgroundColor: 'rgba(18,12,40,0.6)',
     position: 'relative',
-    ...webOnly({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', transition: 'all 0.15s ease', cursor: 'text' }),
+    ...webOnly({
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      transition: 'all 0.15s ease',
+      cursor: 'text',
+    }),
   },
   searchInputWrap: {
     flex: 1,

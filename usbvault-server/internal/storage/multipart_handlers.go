@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH2-FIX: HTTP handlers for multipart upload API
@@ -14,7 +15,7 @@ import (
 // HandleInitiateMultipart starts a new multipart upload
 func HandleInitiateMultipart(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -38,7 +39,7 @@ func HandleInitiateMultipart(ms *MultipartService) http.HandlerFunc {
 		upload, err := ms.InitiateUpload(r.Context(), userID, vaultID, fileID, req.TotalSize)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to initiate multipart upload")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "failed to initiate upload", http.StatusInternalServerError)
 			return
 		}
 
@@ -62,7 +63,7 @@ func HandleInitiateMultipart(ms *MultipartService) http.HandlerFunc {
 // HandleGetPartURL generates a presigned URL for uploading a part
 func HandleGetPartURL(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -80,7 +81,7 @@ func HandleGetPartURL(ms *MultipartService) http.HandlerFunc {
 		url, err := ms.GeneratePresignedPartURL(r.Context(), uploadID, partNumber)
 		if err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to generate presigned part URL")
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, "upload not found", http.StatusNotFound)
 			return
 		}
 
@@ -101,7 +102,7 @@ func HandleGetPartURL(ms *MultipartService) http.HandlerFunc {
 // HandleCompletePart records a completed part upload
 func HandleCompletePart(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -136,7 +137,7 @@ func HandleCompletePart(ms *MultipartService) http.HandlerFunc {
 
 		if err := ms.CompletePart(r.Context(), uploadID, req.PartNumber, req.ETag, req.Size); err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to record part completion")
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, "upload not found or part invalid", http.StatusNotFound)
 			return
 		}
 
@@ -155,7 +156,7 @@ func HandleCompletePart(ms *MultipartService) http.HandlerFunc {
 // HandleFinalizeUpload completes a multipart upload
 func HandleFinalizeUpload(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -165,7 +166,7 @@ func HandleFinalizeUpload(ms *MultipartService) http.HandlerFunc {
 
 		if err := ms.FinalizeUpload(r.Context(), uploadID); err != nil {
 			log.Error().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to finalize multipart upload")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "failed to finalize upload", http.StatusInternalServerError)
 			return
 		}
 
@@ -183,7 +184,7 @@ func HandleFinalizeUpload(ms *MultipartService) http.HandlerFunc {
 // HandleAbortUpload cancels a multipart upload
 func HandleAbortUpload(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -193,7 +194,7 @@ func HandleAbortUpload(ms *MultipartService) http.HandlerFunc {
 
 		if err := ms.AbortUpload(r.Context(), uploadID); err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to abort multipart upload")
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, "upload not found", http.StatusNotFound)
 			return
 		}
 
@@ -211,7 +212,7 @@ func HandleAbortUpload(ms *MultipartService) http.HandlerFunc {
 // HandleGetProgress returns upload progress
 func HandleGetProgress(ms *MultipartService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -222,7 +223,7 @@ func HandleGetProgress(ms *MultipartService) http.HandlerFunc {
 		upload, err := ms.GetUploadProgress(uploadID)
 		if err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("upload not found for progress check")
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, "upload not found", http.StatusNotFound)
 			return
 		}
 

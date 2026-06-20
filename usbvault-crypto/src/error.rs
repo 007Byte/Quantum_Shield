@@ -70,4 +70,31 @@ pub enum CryptoError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Password verification failed")]
+    PasswordWrong,
+
+    #[error("Fail counter HMAC tampered")]
+    FailCounterTampered,
+
+    #[error("Maximum unlock attempts exceeded")]
+    FailCounterExceeded,
+
+    #[error("Vault self-destructed: header has been wiped")]
+    SelfDestructed,
+
+    #[error("Disk full: no space left on device")]
+    DiskFull,
+
+    #[error("File not found in vault index")]
+    FileNotFound,
+
+    #[error("Two-factor authentication failed")]
+    TfaFailed,
+
+    #[error("No authenticator device detected")]
+    NoAuthenticator,
+
+    #[error("Account locked out due to excessive failures")]
+    LockedOut,
 }

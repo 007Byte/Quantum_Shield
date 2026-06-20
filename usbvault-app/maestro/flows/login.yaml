@@ -1,0 +1,42 @@
+# Login Flow — USBVault Enterprise
+# Launches the app, waits for the login screen, enters credentials, and asserts dashboard is visible.
+appId: com.usbvault.enterprise
+
+---
+
+# Step 1: Launch the app fresh
+- launchApp:
+    clearState: true
+
+# Step 2: Wait for login screen to fully render
+- waitForAnimationToEnd
+
+# Step 3: Assert the login screen is visible
+- assertVisible: "USBVault"
+- assertVisible: "Sign In"
+
+# Step 4: Enter email address
+- tapOn:
+    id: "login-email-input"
+- inputText: "test@usbvault.io"
+
+# Step 5: Enter password
+- tapOn:
+    id: "login-password-input"
+- inputText: "TestPassword123!"
+
+# Step 6: Dismiss keyboard if open
+- hideKeyboard
+
+# Step 7: Tap the Sign In button
+- tapOn:
+    id: "login-button"
+
+# Step 8: Wait for navigation and dashboard to load
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 15000
+
+# Step 9: Assert we landed on the dashboard
+- assertVisible: "Dashboard"

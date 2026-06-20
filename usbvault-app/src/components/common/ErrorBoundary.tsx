@@ -72,7 +72,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <Text style={styles.errorTitle}>Something went wrong</Text>
 
             <Text style={styles.errorMessage}>
-              An unexpected error occurred. Please try again or contact support if the problem persists.
+              An unexpected error occurred. Please try again or contact support if the problem
+              persists.
             </Text>
 
             {this.state.error && (
@@ -83,10 +84,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             )}
 
             <Pressable
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed && styles.retryButtonPressed,
-              ]}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
               onPress={this.handleRetry}
             >
               <Feather name="refresh-cw" size={18} color="#FFFFFF" />
@@ -94,6 +93,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             </Pressable>
 
             <Pressable
+              accessibilityRole="button"
               style={({ pressed }) => [
                 styles.supportButton,
                 pressed && styles.supportButtonPressed,
@@ -144,7 +144,8 @@ const styles = StyleSheet.create({
     ...webOnly({
       backdropFilter: 'blur(16px)',
       background: 'linear-gradient(160deg, rgba(139,92,246,0.15), rgba(34,211,238,0.08))',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.6), 0 0 24px rgba(139,92,246,0.25), inset 0 0 26px rgba(139,92,246,0.15)',
+      boxShadow:
+        '0 10px 40px rgba(0,0,0,0.6), 0 0 24px rgba(139,92,246,0.25), inset 0 0 26px rgba(139,92,246,0.15)',
     }),
     zIndex: 10,
   },

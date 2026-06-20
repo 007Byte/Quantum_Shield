@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Animated,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 /**
@@ -78,15 +72,8 @@ export const OfflineIndicator: React.FC = () => {
       ]}
     >
       <View style={styles.content}>
-        <Feather
-          name="wifi-off"
-          size={16}
-          color="#F59E0B"
-          style={{ marginRight: 10 }}
-        />
-        <Text style={styles.message}>
-          You're offline. Changes will sync when reconnected.
-        </Text>
+        <Feather name="wifi-off" size={16} color="#F59E0B" style={{ marginRight: 10 }} />
+        <Text style={styles.message}>You're offline. Changes will sync when reconnected.</Text>
       </View>
     </Animated.View>
   );

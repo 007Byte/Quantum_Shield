@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 // Minimum sealed-box size: ephemeral_pk(32) + nonce(24) + min_ciphertext(1) + tag(16) = 73 bytes
@@ -34,209 +35,120 @@ type ShareRecord struct {
 
 // SharingService manages secure file sharing with encrypted key exchange.
 type SharingService struct {
-	pool *pgxpool.Pool
+	repo database.ShareRepository
 }
 
 // NewSharingService creates a new sharing service for managing encrypted file shares.
-func NewSharingService(pool *pgxpool.Pool) *SharingService {
-	return &SharingService{pool: pool}
+func NewSharingService(repo database.ShareRepository) *SharingService {
+	return &SharingService{repo: repo}
 }
 
 // CreateShare creates a new share record with a 30-day expiration by default.
 func (ss *SharingService) CreateShare(ctx context.Context, senderID, recipientID, blobID uuid.UUID, encryptedKey []byte) (uuid.UUID, error) {
-	shareID := uuid.New()
-	expiresAt := time.Now().Add(shareDefaultTTL)
-
-	err := ss.pool.QueryRow(ctx,
-		`INSERT INTO share_records (id, sender_id, recipient_id, blob_id, encrypted_key, created_at, expires_at)
-         VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-         RETURNING id`,
-		shareID, senderID, recipientID, blobID, encryptedKey, expiresAt,
-	).Scan(&shareID)
-
+	shareID, err := ss.repo.CreateShare(ctx, senderID.String(), recipientID.String(), blobID.String(), encryptedKey)
 	if err != nil {
-		log.Error().Err(err).Str("sender_id", senderID.String()).Msg("failed to create share")
 		return uuid.Nil, err
 	}
 
-	log.Info().Str("share_id", shareID.String()).Str("sender_id", senderID.String()).Str("recipient_id", recipientID.String()).Msg("share created")
-	return shareID, nil
+	return uuid.Parse(shareID)
 }
 
 // ListReceivedShares lists all shares received by a user that haven't expired.
 func (ss *SharingService) ListReceivedShares(ctx context.Context, userID uuid.UUID) ([]ShareRecord, error) {
-	rows, err := ss.pool.Query(ctx,
-		`SELECT id, sender_id, recipient_id, blob_id, created_at, expires_at
-         FROM share_records
-         WHERE recipient_id = $1 AND (expires_at IS NULL OR expires_at > NOW())
-         ORDER BY created_at DESC`,
-		userID,
-	)
+	records, err := ss.repo.ListReceivedShares(ctx, userID.String())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var shares []ShareRecord
-	for rows.Next() {
-		var s ShareRecord
-		if err := rows.Scan(&s.ID, &s.SenderID, &s.RecipientID, &s.BlobID, &s.CreatedAt, &s.ExpiresAt); err != nil {
-			return nil, err
+	for _, record := range records {
+		id, _ := uuid.Parse(record.ID)
+		senderID, _ := uuid.Parse(record.SenderID)
+		recipientID, _ := uuid.Parse(record.RecipientID)
+		blobID, _ := uuid.Parse(record.BlobID)
+		createdAt, _ := time.Parse(time.RFC3339, record.CreatedAt)
+
+		var expiresAt *time.Time
+		if record.ExpiresAt != nil {
+			t, _ := time.Parse(time.RFC3339, *record.ExpiresAt)
+			expiresAt = &t
 		}
-		shares = append(shares, s)
+
+		shares = append(shares, ShareRecord{
+			ID:          id,
+			SenderID:    senderID,
+			RecipientID: recipientID,
+			BlobID:      blobID,
+			CreatedAt:   createdAt,
+			ExpiresAt:   expiresAt,
+		})
 	}
 
-	return shares, rows.Err()
+	return shares, nil
 }
 
 // ListSentShares lists all shares sent by a user.
 func (ss *SharingService) ListSentShares(ctx context.Context, userID uuid.UUID) ([]ShareRecord, error) {
-	rows, err := ss.pool.Query(ctx,
-		`SELECT id, sender_id, recipient_id, blob_id, created_at, expires_at
-         FROM share_records
-         WHERE sender_id = $1
-         ORDER BY created_at DESC`,
-		userID,
-	)
+	records, err := ss.repo.ListSentShares(ctx, userID.String())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var shares []ShareRecord
-	for rows.Next() {
-		var s ShareRecord
-		if err := rows.Scan(&s.ID, &s.SenderID, &s.RecipientID, &s.BlobID, &s.CreatedAt, &s.ExpiresAt); err != nil {
-			return nil, err
+	for _, record := range records {
+		id, _ := uuid.Parse(record.ID)
+		senderID, _ := uuid.Parse(record.SenderID)
+		recipientID, _ := uuid.Parse(record.RecipientID)
+		blobID, _ := uuid.Parse(record.BlobID)
+		createdAt, _ := time.Parse(time.RFC3339, record.CreatedAt)
+
+		var expiresAt *time.Time
+		if record.ExpiresAt != nil {
+			t, _ := time.Parse(time.RFC3339, *record.ExpiresAt)
+			expiresAt = &t
 		}
-		shares = append(shares, s)
+
+		shares = append(shares, ShareRecord{
+			ID:          id,
+			SenderID:    senderID,
+			RecipientID: recipientID,
+			BlobID:      blobID,
+			CreatedAt:   createdAt,
+			ExpiresAt:   expiresAt,
+		})
 	}
 
-	return shares, rows.Err()
+	return shares, nil
 }
 
 // RevokeShare revokes a share record (only the sender can revoke).
 // Returns ErrShareNotFound if the share does not exist or sender is not the owner.
 func (ss *SharingService) RevokeShare(ctx context.Context, senderID, shareID uuid.UUID) error {
-	result, err := ss.pool.Exec(ctx,
-		`DELETE FROM share_records WHERE id = $1 AND sender_id = $2`,
-		shareID, senderID,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrShareNotFound
-	}
-
-	log.Info().Str("share_id", shareID.String()).Msg("share revoked")
-	return nil
+	return ss.repo.RevokeShare(ctx, senderID.String(), shareID.String())
 }
 
 // GetPublicKey retrieves a user's public key for encrypting shares to them.
 // Returns the most recently created public key for the user.
 func (ss *SharingService) GetPublicKey(ctx context.Context, userID uuid.UUID) ([]byte, error) {
-	var publicKey []byte
-
-	err := ss.pool.QueryRow(ctx,
-		`SELECT public_key_bytes FROM public_keys WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-		userID,
-	).Scan(&publicKey)
-
-	if err != nil {
-		log.Debug().Err(err).Str("user_id", userID.String()).Msg("public key not found")
-		return nil, err
-	}
-
-	return publicKey, nil
+	return ss.repo.GetPublicKey(ctx, userID.String())
 }
 
 // PH5-FIX: PublishPublicKey stores a user's public key for encryption
 // Validates that the key is exactly 32 bytes (X25519 standard) and not all zeros/ones
 func (ss *SharingService) PublishPublicKey(ctx context.Context, userID uuid.UUID, publicKeyBytes []byte) error {
-	// PH5-FIX: Validate key is exactly 32 bytes (X25519 public key size)
-	if len(publicKeyBytes) != 32 {
-		return fmt.Errorf("invalid public key size: expected 32 bytes, got %d", len(publicKeyBytes))
-	}
-
-	// PH5-FIX: Validate key is not all zeros or all 0xFF
-	allZeros := true
-	allOnes := true
-	for _, b := range publicKeyBytes {
-		if b != 0 {
-			allZeros = false
-		}
-		if b != 0xFF {
-			allOnes = false
-		}
-	}
-
-	if allZeros {
-		return fmt.Errorf("public key is all zeros (invalid)")
-	}
-	if allOnes {
-		return fmt.Errorf("public key is all ones (invalid)")
-	}
-
-	// PH5-FIX: Insert into public_keys table
-	err := ss.pool.QueryRow(ctx,
-		`INSERT INTO public_keys (user_id, key_type, public_key_bytes, created_at)
-		 VALUES ($1, $2, $3, NOW())
-		 RETURNING user_id`,
-		userID, "x25519", publicKeyBytes,
-	).Scan(&userID)
-
-	if err != nil {
-		log.Error().Err(err).Str("user_id", userID.String()).Msg("failed to publish public key")
-		return err
-	}
-
-	log.Info().Str("user_id", userID.String()).Msg("public key published")
-	return nil
+	return ss.repo.PublishPublicKey(ctx, userID.String(), publicKeyBytes)
 }
 
 // PH5-FIX: AcceptShare marks a share as accepted by the recipient
 // Only the recipient can accept a share
 func (ss *SharingService) AcceptShare(ctx context.Context, recipientID, shareID uuid.UUID) error {
-	result, err := ss.pool.Exec(ctx,
-		`UPDATE share_records SET accepted_at = NOW() WHERE id = $1 AND recipient_id = $2`,
-		shareID, recipientID,
-	)
-
-	if err != nil {
-		log.Error().Err(err).Str("share_id", shareID.String()).Str("recipient_id", recipientID.String()).Msg("failed to accept share")
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrShareNotFound
-	}
-
-	log.Info().Str("share_id", shareID.String()).Str("recipient_id", recipientID.String()).Msg("share accepted")
-	return nil
+	return ss.repo.AcceptShare(ctx, recipientID.String(), shareID.String())
 }
 
 // PH5-FIX: RejectShare deletes a share record or marks it as rejected
 // Only the recipient can reject a share
 func (ss *SharingService) RejectShare(ctx context.Context, recipientID, shareID uuid.UUID) error {
-	result, err := ss.pool.Exec(ctx,
-		`DELETE FROM share_records WHERE id = $1 AND recipient_id = $2`,
-		shareID, recipientID,
-	)
-
-	if err != nil {
-		log.Error().Err(err).Str("share_id", shareID.String()).Str("recipient_id", recipientID.String()).Msg("failed to reject share")
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrShareNotFound
-	}
-
-	log.Info().Str("share_id", shareID.String()).Str("recipient_id", recipientID.String()).Msg("share rejected")
-	return nil
+	return ss.repo.RejectShare(ctx, recipientID.String(), shareID.String())
 }
 
 // HTTP Handlers
@@ -265,7 +177,7 @@ func HandleCreateShare(ss *SharingService, auditSvc interface {
 			return
 		}
 
-		senderID, ok := r.Context().Value("user_id").(string)
+		senderID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -340,7 +252,7 @@ encryptedKey, err := decodeFromBase64(req.EncryptedKey)
 // HandleListReceivedShares is an HTTP handler that lists shares received by the authenticated user.
 func HandleListReceivedShares(ss *SharingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -366,7 +278,7 @@ func HandleListReceivedShares(ss *SharingService) http.HandlerFunc {
 // HandleListSentShares is an HTTP handler that lists shares sent by the authenticated user.
 func HandleListSentShares(ss *SharingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -395,7 +307,7 @@ func HandleRevokeShare(ss *SharingService, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -460,7 +372,7 @@ type PublishPublicKeyRequest struct {
 // PH5-FIX: HandlePublishPublicKey is an HTTP handler that publishes a user's public key
 func HandlePublishPublicKey(ss *SharingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -487,7 +399,7 @@ func HandlePublishPublicKey(ss *SharingService) http.HandlerFunc {
 		// PH5-FIX: Call PublishPublicKey to validate and store
 		if err := ss.PublishPublicKey(r.Context(), userUUID, publicKeyBytes); err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("failed to publish public key")
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "failed to publish public key", http.StatusBadRequest)
 			return
 		}
 
@@ -503,7 +415,7 @@ func HandlePublishPublicKey(ss *SharingService) http.HandlerFunc {
 // PH5-FIX: HandleAcceptShare is an HTTP handler that accepts a share
 func HandleAcceptShare(ss *SharingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		recipientID, ok := r.Context().Value("user_id").(string)
+		recipientID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -538,7 +450,7 @@ func HandleAcceptShare(ss *SharingService) http.HandlerFunc {
 // PH5-FIX: HandleRejectShare is an HTTP handler that rejects a share
 func HandleRejectShare(ss *SharingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		recipientID, ok := r.Context().Value("user_id").(string)
+		recipientID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

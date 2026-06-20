@@ -306,7 +306,12 @@ class FreeTierShowcaseService {
     ];
   }
 
-  getHighlightedFeatures(): Array<{ name: string; description: string; icon: string; freeIncluded: boolean }> {
+  getHighlightedFeatures(): Array<{
+    name: string;
+    description: string;
+    icon: string;
+    freeIncluded: boolean;
+  }> {
     return [
       {
         name: 'Quantum-Safe Encryption',
@@ -359,7 +364,12 @@ class FreeTierShowcaseService {
     ];
   }
 
-  getTierComparison(): Array<{ feature: string; free: boolean | string; pro: boolean | string; enterprise: boolean | string }> {
+  getTierComparison(): Array<{
+    feature: string;
+    free: boolean | string;
+    pro: boolean | string;
+    enterprise: boolean | string;
+  }> {
     return [
       { feature: 'Storage', free: '50 GB', pro: '500 GB', enterprise: 'Unlimited' },
       { feature: 'End-to-End Encryption', free: true, pro: true, enterprise: true },

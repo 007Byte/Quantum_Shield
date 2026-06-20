@@ -131,13 +131,9 @@ class RecoveryPhraseService {
       const saltBuffer = new TextEncoder().encode(saltString);
 
       // Import key for PBKDF2
-      const key = await crypto.subtle.importKey(
-        'raw',
-        mnemonicBuffer,
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits']
-      );
+      const key = await crypto.subtle.importKey('raw', mnemonicBuffer, { name: 'PBKDF2' }, false, [
+        'deriveBits',
+      ]);
 
       // Derive 512-bit seed
       const seed = await crypto.subtle.deriveBits(
@@ -437,11 +433,7 @@ class RecoveryPhraseService {
       );
 
       // Encrypt with contact's public key
-      const encryptedData = await crypto.subtle.encrypt(
-        { name: 'RSA-OAEP' },
-        publicKey,
-        data
-      );
+      const encryptedData = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, data);
 
       const escrowShard = this.toBase64(encryptedData);
       logger.info('[FEAT-02] Created escrow shard for trusted contact');
@@ -503,7 +495,11 @@ class RecoveryPhraseService {
   /**
    * Combine entropy and checksum bits into a byte array.
    */
-  private combineBitsToBytes(entropy: Uint8Array, checksumBuffer: Uint8Array, checksumBits: number): Uint8Array {
+  private combineBitsToBytes(
+    entropy: Uint8Array,
+    checksumBuffer: Uint8Array,
+    checksumBits: number
+  ): Uint8Array {
     const totalBits = entropy.length * 8 + checksumBits;
     const totalBytes = Math.ceil(totalBits / 8);
     const combined = new Uint8Array(totalBytes);
@@ -574,7 +570,7 @@ class RecoveryPhraseService {
       }
 
       // Extract entropy and checksum
-      const entropyLength = (BIP39_CONFIG.ENTROPY_BITS / 8);
+      const entropyLength = BIP39_CONFIG.ENTROPY_BITS / 8;
       const checksumLength = BIP39_CONFIG.ENTROPY_BITS / 32;
       const entropy = new Uint8Array(entropyLength);
 

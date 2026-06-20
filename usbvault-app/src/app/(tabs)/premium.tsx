@@ -8,6 +8,7 @@
 import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
 import {
@@ -24,6 +25,7 @@ import { tierService, SubscriptionTier } from '@/services/tierService';
 // ── Main Component ─────────────────────────────────────────────
 
 export default function PremiumScreen() {
+  const { t } = useLanguage();
   const allTiers = tierService.getAllTierConfigs();
   const currentTier = tierService.getCurrentTier();
 
@@ -32,35 +34,43 @@ export default function PremiumScreen() {
 
     if (tier === 'pro') {
       Alert.alert(
-        'Upgrade to Pro',
-        `Upgrade to Pro for $${tierService.getTierConfig('pro').priceMonthly}/month. This will unlock advanced features including ghost messages, backup & restore, and priority support.`,
+        t('premium.upgradeTitle'),
+        t('premium.upgradeDesc'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', style: 'default', onPress: () => {
-            tierService.setCurrentTier('pro');
-            Alert.alert('Success', 'Subscription upgraded to Pro');
-          }},
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('premium.upgradeBtn'),
+            style: 'default',
+            onPress: () => {
+              tierService.setCurrentTier('pro');
+              Alert.alert(t('premium.successTitle'), t('premium.upgradedToPro'));
+            },
+          },
         ]
       );
     } else if (tier === 'enterprise') {
       Alert.alert(
-        'Enterprise Plan',
-        `Contact our sales team for Enterprise pricing starting at $${tierService.getTierConfig('enterprise').priceMonthly}/month. Includes unlimited storage, custom encryption, SSO, and dedicated support.`,
+        t('premium.enterpriseTitle'),
+        t('premium.contactEnterprise'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Contact Sales', style: 'default', onPress: () => {
-            // In a real app, this would open an email client or contact form
-            Alert.alert('Contact', 'Email: ultimatepqcshield@gmail.com');
-          }},
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('premium.contactSales'),
+            style: 'default',
+            onPress: () => {
+              // In a real app, this would open an email client or contact form
+              Alert.alert(t('premium.contactTitle'), t('premium.contactEmail'));
+            },
+          },
         ]
       );
     }
   };
 
   const getPricingBadge = (tier: SubscriptionTier) => {
-    if (tier === currentTier) return 'Current Plan';
-    if (tier === 'pro') return 'Most Popular';
-    if (tier === 'enterprise') return 'Best Value';
+    if (tier === currentTier) return t('premium.currentPlan');
+    if (tier === 'pro') return t('premium.mostPopular');
+    if (tier === 'enterprise') return t('premium.bestValue');
     return null;
   };
 
@@ -73,7 +83,11 @@ export default function PremiumScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -84,15 +98,15 @@ export default function PremiumScreen() {
             <View style={styles.contentWrapper}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.title}>Subscription Plans</Text>
-                <Text style={styles.subtitle}>
-                  Choose the perfect plan for your security needs
+                <Text style={styles.title} accessibilityRole="header">
+                  {t('premium.pageTitle')}
                 </Text>
+                <Text style={styles.subtitle}>{t('premium.pageSubtitle')}</Text>
               </View>
 
               {/* Pricing Cards */}
               <View style={styles.pricingGrid}>
-                {(['free', 'pro', 'enterprise'] as SubscriptionTier[]).map((tier) => {
+                {(['free', 'pro', 'enterprise'] as SubscriptionTier[]).map(tier => {
                   const config = allTiers[tier];
                   const features = tierService.getFeatureList(tier);
                   const badge = getPricingBadge(tier);
@@ -123,19 +137,22 @@ export default function PremiumScreen() {
 
                       {/* Price */}
                       <View style={styles.priceRow}>
-                        <Text style={styles.priceAmount}>${tierService.getTierConfig(tier).priceMonthly}</Text>
-                        <Text style={styles.pricePeriod}>/month</Text>
+                        <Text style={styles.priceAmount}>
+                          ${tierService.getTierConfig(tier).priceMonthly}
+                        </Text>
+                        <Text style={styles.pricePeriod}>{t('premium.perMonth')}</Text>
                       </View>
 
                       {/* Description */}
                       <Text style={styles.tierDesc}>
-                        {tier === 'free' && 'Perfect for getting started'}
-                        {tier === 'pro' && 'Recommended for most users'}
-                        {tier === 'enterprise' && 'For teams and organizations'}
+                        {tier === 'free' && t('premium.freeDesc')}
+                        {tier === 'pro' && t('premium.proDesc')}
+                        {tier === 'enterprise' && t('premium.enterpriseDesc')}
                       </Text>
 
                       {/* CTA Button */}
                       <Pressable
+                        accessibilityRole="button"
                         onPress={() => handleUpgrade(tier)}
                         disabled={isCurrent}
                         style={(state: any) => [
@@ -146,21 +163,38 @@ export default function PremiumScreen() {
                         ]}
                       >
                         <Text style={[styles.ctaBtnText, isCurrent && styles.ctaBtnTextDisabled]}>
-                          {isCurrent ? 'Current Plan' : tier === 'pro' ? 'Upgrade to Pro' : 'Contact Sales'}
+                          {isCurrent
+                            ? t('premium.currentPlan')
+                            : tier === 'pro'
+                              ? t('premium.upgradeTitle')
+                              : t('premium.contactSales')}
                         </Text>
                       </Pressable>
 
                       {/* Features List */}
                       <View style={styles.featuresList}>
-                        {features.slice(0, 7).map((item) => (
+                        {features.slice(0, 7).map(item => (
                           <View key={item.feature} style={styles.featureItem}>
                             {item.available ? (
-                              <Ionicons name="checkmark-circle" size={16} color={dashboardColors.green} />
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={16}
+                                color={dashboardColors.green}
+                              />
                             ) : (
-                              <Ionicons name="close-circle" size={16} color={dashboardColors.textSecondary} />
+                              <Ionicons
+                                name="close-circle"
+                                size={16}
+                                color={dashboardColors.textSecondary}
+                              />
                             )}
-                            <Text style={[styles.featureLabel, !item.available && styles.featureLabelDisabled]}>
-                              {item.label}
+                            <Text
+                              style={[
+                                styles.featureLabel,
+                                !item.available && styles.featureLabelDisabled,
+                              ]}
+                            >
+                              {t(item.label)}
                             </Text>
                           </View>
                         ))}
@@ -172,48 +206,52 @@ export default function PremiumScreen() {
 
               {/* What's Included */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>What's Included in All Plans</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('premium.whatsIncluded')}
+                </Text>
                 <View style={[styles.whatsIncludedCard, glassPanelBase, webOnlyGlass]}>
                   <View style={styles.includedItem}>
                     <Feather name="lock" size={18} color={dashboardColors.cyan} />
-                    <Text style={styles.includedText}>Post-Quantum Cryptography (ML-KEM-1024)</Text>
+                    <Text style={styles.includedText}>{t('premium.pqcEncryption')}</Text>
                   </View>
                   <View style={styles.includedItem}>
                     <Feather name="key" size={18} color={dashboardColors.cyan} />
-                    <Text style={styles.includedText}>Zero-Knowledge Authentication (SRP-6a)</Text>
+                    <Text style={styles.includedText}>{t('premium.zkAuth')}</Text>
                   </View>
                   <View style={styles.includedItem}>
                     <Feather name="share-2" size={18} color={dashboardColors.cyan} />
-                    <Text style={styles.includedText}>End-to-End Encrypted Sharing</Text>
+                    <Text style={styles.includedText}>{t('premium.e2eSharing')}</Text>
                   </View>
                 </View>
               </View>
 
               {/* Feature Comparison Table */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Feature Comparison</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('premium.comparisonTitle')}
+                </Text>
                 <View style={[styles.comparisonTable, glassPanelBase, webOnlyGlass]}>
                   {/* Table Header */}
                   <View style={styles.tableHeader}>
                     <View style={styles.tableFeatureCol}>
-                      <Text style={styles.tableHeaderText}>Feature</Text>
+                      <Text style={styles.tableHeaderText}>{t('premium.feature')}</Text>
                     </View>
                     <View style={styles.tableTierCol}>
-                      <Text style={styles.tableHeaderText}>Free</Text>
+                      <Text style={styles.tableHeaderText}>{t('premium.tierFree')}</Text>
                     </View>
                     <View style={styles.tableTierCol}>
-                      <Text style={styles.tableHeaderText}>Pro</Text>
+                      <Text style={styles.tableHeaderText}>{t('premium.tierPro')}</Text>
                     </View>
                     <View style={styles.tableTierCol}>
-                      <Text style={styles.tableHeaderText}>Enterprise</Text>
+                      <Text style={styles.tableHeaderText}>{t('premium.tierEnterprise')}</Text>
                     </View>
                   </View>
 
                   {/* Table Rows */}
-                  {tierService.getFeatureList('free').map((item) => (
+                  {tierService.getFeatureList('free').map(item => (
                     <View key={item.feature} style={styles.tableRow}>
                       <View style={styles.tableFeatureCol}>
-                        <Text style={styles.tableFeatureText}>{item.label}</Text>
+                        <Text style={styles.tableFeatureText}>{t(item.label)}</Text>
                       </View>
                       <View style={styles.tableTierCol}>
                         <CheckIcon available={allTiers.free.features.includes(item.feature)} />
@@ -222,7 +260,9 @@ export default function PremiumScreen() {
                         <CheckIcon available={allTiers.pro.features.includes(item.feature)} />
                       </View>
                       <View style={styles.tableTierCol}>
-                        <CheckIcon available={allTiers.enterprise.features.includes(item.feature)} />
+                        <CheckIcon
+                          available={allTiers.enterprise.features.includes(item.feature)}
+                        />
                       </View>
                     </View>
                   ))}
@@ -234,9 +274,9 @@ export default function PremiumScreen() {
                 <View style={[styles.supportCard, glassPanelBase, webOnlyGlass, webOnlyGlowTier3]}>
                   <Feather name="mail" size={24} color={dashboardColors.cyan} />
                   <View style={styles.supportContent}>
-                    <Text style={styles.supportTitle}>Questions About Our Plans?</Text>
+                    <Text style={styles.supportTitle}>{t('premium.questionsTitle')}</Text>
                     <Text style={styles.supportText}>
-                      Contact us at ultimatepqcshield@gmail.com for custom solutions and enterprise inquiries.
+                      {t('premium.questionsDesc')}
                     </Text>
                   </View>
                 </View>
@@ -289,13 +329,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
     position: 'absolute',
-    left: 0, right: 0, top: 0, height: 1,
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1,
     backgroundColor: 'rgba(217,70,239,0.55)',
   },
   mainCol: {

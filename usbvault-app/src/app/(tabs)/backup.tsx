@@ -3,9 +3,16 @@ import { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { InAppModal, useInAppModal } from '@/components/common';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
-import { dashboardLayout, dashboardSpacing, webOnlyTransition } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import { EmptyState } from '@/components/common/EmptyState';
+import {
+  dashboardLayout,
+  dashboardSpacing,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
 
 type BackupFrequency = 'daily' | 'weekly' | 'monthly';
 type BackupStatus = 'success' | 'failed';
@@ -18,60 +25,28 @@ interface BackupHistoryItem {
   duration: string;
 }
 
-const BackupScreen = () => {
+function BackupScreenInner() {
+  const { t } = useLanguage();
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [frequency, setFrequency] = useState<BackupFrequency>('daily');
   const { modal, showConfirm } = useInAppModal();
 
-  const backupHistory: BackupHistoryItem[] = [
-    {
-      id: '1',
-      date: 'March 7, 2026 at 2:15 PM',
-      size: '4.1 GB',
-      status: 'success',
-      duration: '2m 34s',
-    },
-    {
-      id: '2',
-      date: 'March 5, 2026 at 3:00 AM',
-      size: '4.0 GB',
-      status: 'success',
-      duration: '2m 28s',
-    },
-    {
-      id: '3',
-      date: 'March 3, 2026 at 3:00 AM',
-      size: '3.9 GB',
-      status: 'success',
-      duration: '2m 15s',
-    },
-    {
-      id: '4',
-      date: 'February 28, 2026 at 3:00 AM',
-      size: '3.8 GB',
-      status: 'failed',
-      duration: '—',
-    },
-    {
-      id: '5',
-      date: 'February 25, 2026 at 3:00 AM',
-      size: '3.7 GB',
-      status: 'success',
-      duration: '2m 12s',
-    },
-  ];
-
-  const currentBackupPath = '/Volumes/USBVault/backups/enterprise_vault_2026';
+  const [backupHistory] = useState<BackupHistoryItem[]>([]);
+  const [currentBackupPath] = useState<string>('');
 
   const frequencyOptions: { label: string; value: BackupFrequency }[] = [
-    { label: 'Daily', value: 'daily' },
-    { label: 'Weekly', value: 'weekly' },
-    { label: 'Monthly', value: 'monthly' },
+    { label: t('backup.daily'), value: 'daily' },
+    { label: t('backup.weekly'), value: 'weekly' },
+    { label: t('backup.monthly'), value: 'monthly' },
   ];
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
 
@@ -83,175 +58,199 @@ const BackupScreen = () => {
             <View style={styles.contentArea}>
               {/* Header Section */}
               <View style={styles.headerSection}>
-                  <Text style={styles.pageTitle}>Backup</Text>
-                  <Text style={styles.pageSubtitle}>
-                    Protect your vault with encrypted backups
-                  </Text>
-                </View>
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('backup.pageTitle')}
+                </Text>
+                <Text style={styles.pageSubtitle}>{t('backup.pageSubtitle')}</Text>
+              </View>
 
-                {/* Create Backup Button */}
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.createBackupButton,
-                    pressed && styles.createBackupButtonPressed,
-                  ]}
-                  onPress={() => showConfirm('Backup', 'Creating backup now...', () => {})}
-                >
-                  <Feather name="save" size={18} color="#000" />
-                  <Text style={styles.createBackupButtonText}>Create Backup Now</Text>
-                </Pressable>
+              {/* Create Backup Button */}
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.createBackupButton,
+                  pressed && styles.createBackupButtonPressed,
+                ]}
+                onPress={() => showConfirm(t('backup.pageTitle'), t('backup.creating'), () => {})}
+              >
+                <Feather name="save" size={18} color="#000" />
+                <Text style={styles.createBackupButtonText}>{t('backup.createBackupNow')}</Text>
+              </Pressable>
 
-                {/* Last Backup Status Card */}
+              {/* Last Backup Status Card */}
+              {backupHistory.length > 0 ? (
                 <View style={styles.lastBackupCard}>
                   <View style={styles.lastBackupHeader}>
                     <View style={styles.lastBackupTitleRow}>
                       <Feather name="check-circle" size={20} color="#10B981" />
-                      <Text style={styles.lastBackupTitle}>Last backup: March 7, 2026 at 2:15 PM</Text>
+                      <Text style={styles.lastBackupTitle}>
+                        {t('backup.lastBackup')}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.lastBackupStats}>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Size</Text>
-                      <Text style={styles.statValue}>4.1 GB</Text>
+                      <Text style={styles.statLabel}>{t('backup.size')}</Text>
+                      <Text style={styles.statValue}>{backupHistory[0].size}</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Duration</Text>
-                      <Text style={styles.statValue}>2m 34s</Text>
+                      <Text style={styles.statLabel}>{t('backup.duration')}</Text>
+                      <Text style={styles.statValue}>{backupHistory[0].duration}</Text>
                     </View>
                   </View>
                 </View>
-
-                {/* Scheduled Backups Section */}
-                <View style={styles.scheduledSection}>
-                  <Text style={styles.sectionTitle}>Scheduled Backups</Text>
-
-                  {/* Auto-Backup Toggle */}
-                  <View style={styles.autoBackupToggle}>
-                    <View style={styles.toggleLabelSection}>
-                      <Feather name="clock" size={18} color="#22D3EE" />
-                      <Text style={styles.toggleLabel}>Automatic backups</Text>
-                    </View>
-                    <Pressable
-                      style={[
-                        styles.toggleSwitch,
-                        autoBackupEnabled && styles.toggleSwitchActive,
-                      ]}
-                      onPress={() => setAutoBackupEnabled(!autoBackupEnabled)}
-                    >
-                      <View
-                        style={[
-                          styles.toggleThumb,
-                          autoBackupEnabled && styles.toggleThumbActive,
-                        ]}
-                      />
-                    </Pressable>
+              ) : (
+                <View style={styles.lastBackupCard}>
+                  <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                    <Feather name="archive" size={28} color="#B8B3D1" />
+                    <Text style={{ color: '#B8B3D1', fontSize: 14, marginTop: 8 }}>
+                      No backups yet
+                    </Text>
                   </View>
-
-                  {/* Frequency Selector */}
-                  {autoBackupEnabled && (
-                    <>
-                      <View style={styles.frequencySection}>
-                        <Text style={styles.frequencyLabel}>Frequency</Text>
-                        <View style={styles.frequencyPills}>
-                          {frequencyOptions.map((option) => (
-                            <Pressable
-                              key={option.value}
-                              style={[
-                                styles.frequencyPill,
-                                frequency === option.value && styles.frequencyPillActive,
-                              ]}
-                              onPress={() => setFrequency(option.value)}
-                            >
-                              <Text
-                                style={[
-                                  styles.frequencyPillText,
-                                  frequency === option.value && styles.frequencyPillTextActive,
-                                ]}
-                              >
-                                {option.label}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                      </View>
-
-                      {/* Next Backup Time */}
-                      <View style={styles.nextBackupInfo}>
-                        <Feather name="calendar" size={16} color="#22D3EE" />
-                        <Text style={styles.nextBackupText}>Next backup: Tomorrow at 3:00 AM</Text>
-                      </View>
-                    </>
-                  )}
                 </View>
+              )}
 
-                {/* Backup History Section */}
-                <View style={styles.historySection}>
-                  <Text style={styles.sectionTitle}>Backup History</Text>
+              {/* Scheduled Backups Section */}
+              <View style={styles.scheduledSection}>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('backup.scheduledBackups')}
+                </Text>
 
-                  {backupHistory.map((item) => (
-                    <View key={item.id} style={styles.historyRow}>
-                      <View style={styles.historyRowContent}>
-                        <View style={styles.historyRowMain}>
-                          <View style={styles.historyInfo}>
-                            <View style={styles.historyDateRow}>
-                              <Feather
-                                name={item.status === 'success' ? 'check-circle' : 'alert-circle'}
-                                size={16}
-                                color={item.status === 'success' ? '#10B981' : '#EF4444'}
-                              />
-                              <Text style={styles.historyDate}>{item.date}</Text>
-                            </View>
-                            <View style={styles.historyMetaRow}>
-                              <Text style={styles.historyMeta}>{item.size}</Text>
-                              <Text style={styles.historyMetaDot}>•</Text>
-                              <Text style={styles.historyMeta}>{item.duration}</Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.restoreButton,
-                            pressed && styles.restoreButtonPressed,
-                          ]}
-                          onPress={() => showConfirm('Restore', 'Restoring from backup...', () => {})}
-                        >
-                          <Feather name="download" size={16} color="#22D3EE" />
-                          <Text style={styles.restoreButtonText}>Restore</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Backup Location Card */}
-                <View style={styles.locationCard}>
-                  <View style={styles.locationHeader}>
-                    <Feather name="folder" size={20} color="#8B5CF6" />
-                    <View style={styles.locationInfo}>
-                      <Text style={styles.locationTitle}>Backup Location</Text>
-                      <Text style={styles.locationPath} numberOfLines={1}>
-                        {currentBackupPath}
-                      </Text>
-                    </View>
+                {/* Auto-Backup Toggle */}
+                <View style={styles.autoBackupToggle}>
+                  <View style={styles.toggleLabelSection}>
+                    <Feather name="clock" size={18} color="#22D3EE" />
+                    <Text style={styles.toggleLabel}>{t('backup.automaticBackups')}</Text>
                   </View>
-
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.changeLocationButton,
-                      pressed && styles.changeLocationButtonPressed,
-                    ]}
-                    onPress={() => showConfirm('Change Location', 'Select new backup location...', () => {})}
+                    accessibilityRole="button"
+                    style={[styles.toggleSwitch, autoBackupEnabled && styles.toggleSwitchActive]}
+                    onPress={() => setAutoBackupEnabled(!autoBackupEnabled)}
                   >
-                    <Text style={styles.changeLocationButtonText}>Change Location</Text>
-                    <Feather name="chevron-right" size={16} color="#22D3EE" />
+                    <View
+                      style={[styles.toggleThumb, autoBackupEnabled && styles.toggleThumbActive]}
+                    />
                   </Pressable>
                 </View>
 
-                {/* Bottom Spacing */}
-                <View style={styles.bottomSpacing} />
+                {/* Frequency Selector */}
+                {autoBackupEnabled && (
+                  <>
+                    <View style={styles.frequencySection}>
+                      <Text style={styles.frequencyLabel}>{t('backup.frequency')}</Text>
+                      <View style={styles.frequencyPills}>
+                        {frequencyOptions.map(option => (
+                          <Pressable
+                            accessibilityRole="button"
+                            key={option.value}
+                            style={[
+                              styles.frequencyPill,
+                              frequency === option.value && styles.frequencyPillActive,
+                            ]}
+                            onPress={() => setFrequency(option.value)}
+                          >
+                            <Text
+                              style={[
+                                styles.frequencyPillText,
+                                frequency === option.value && styles.frequencyPillTextActive,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Next Backup Time */}
+                    <View style={styles.nextBackupInfo}>
+                      <Feather name="calendar" size={16} color="#22D3EE" />
+                      <Text style={styles.nextBackupText}>{t('backup.nextBackup')}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+
+              {/* Backup History Section */}
+              <View style={styles.historySection}>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('backup.backupHistory')}
+                </Text>
+
+                {backupHistory.length === 0 ? (
+                  <EmptyState
+                    icon="archive"
+                    title={t('empty.backup')}
+                    description={t('empty.backupDescription')}
+                  />
+                ) : backupHistory.map(item => (
+                  <View key={item.id} style={styles.historyRow}>
+                    <View style={styles.historyRowContent}>
+                      <View style={styles.historyRowMain}>
+                        <View style={styles.historyInfo}>
+                          <View style={styles.historyDateRow}>
+                            <Feather
+                              name={item.status === 'success' ? 'check-circle' : 'alert-circle'}
+                              size={16}
+                              color={item.status === 'success' ? '#10B981' : '#EF4444'}
+                            />
+                            <Text style={styles.historyDate}>{item.date}</Text>
+                          </View>
+                          <View style={styles.historyMetaRow}>
+                            <Text style={styles.historyMeta}>{item.size}</Text>
+                            <Text style={styles.historyMetaDot}>•</Text>
+                            <Text style={styles.historyMeta}>{item.duration}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.restoreButton,
+                          pressed && styles.restoreButtonPressed,
+                        ]}
+                        onPress={() => showConfirm(t('backup.restore'), t('backup.restoring'), () => {})}
+                      >
+                        <Feather name="download" size={16} color="#22D3EE" />
+                        <Text style={styles.restoreButtonText}>{t('backup.restore')}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* Backup Location Card */}
+              <View style={styles.locationCard}>
+                <View style={styles.locationHeader}>
+                  <Feather name="folder" size={20} color="#8B5CF6" />
+                  <View style={styles.locationInfo}>
+                    <Text style={styles.locationTitle}>{t('backup.backupLocation')}</Text>
+                    <Text style={styles.locationPath} numberOfLines={1}>
+                      {currentBackupPath || 'No location configured'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.changeLocationButton,
+                    pressed && styles.changeLocationButtonPressed,
+                  ]}
+                  onPress={() =>
+                    showConfirm(t('backup.changeLocation'), t('backup.selectNewLocation'), () => {})
+                  }
+                >
+                  <Text style={styles.changeLocationButtonText}>{t('backup.changeLocation')}</Text>
+                  <Feather name="chevron-right" size={16} color="#22D3EE" />
+                </Pressable>
+              </View>
+
+              {/* Bottom Spacing */}
+              <View style={styles.bottomSpacing} />
             </View>
           </View>
         </View>
@@ -292,8 +291,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
@@ -690,5 +691,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
 });
+
+const BackupScreen = withErrorBoundary(BackupScreenInner, 'Backup');
 
 export default BackupScreen;

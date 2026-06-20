@@ -5,6 +5,9 @@ import * as api from '@/services/api';
 import { auditService } from '@/services/auditService';
 import { fido2Service } from '@/services/fido2Service';
 import type { Fido2Device } from '@/services/fido2Service';
+import { stopVaultPolling } from '@/stores/vaultPolling';
+import { stopIdleTimer } from '@/stores/vaultIdleTimer';
+import { cleanupStoreSubscriptions } from '@/stores/storeCleanup';
 
 const isWeb = Platform.OS === 'web';
 
@@ -41,7 +44,7 @@ async function hashPassword(password: string): Promise<string> {
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function getStoredAuth(): StoredAuth | null {
@@ -134,7 +137,7 @@ export interface AuthState {
   refreshFido2Status: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>(set => ({
   // Start unauthenticated — checkAuth will restore session if valid
   isAuthenticated: false,
   isLoading: false,
@@ -161,12 +164,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
         const hash = await hashPassword(password);
         if (stored.email !== email || stored.passwordHashHex !== hash) {
-          auditService.log('failed_login', email, { reason: 'invalid_credentials' }, 'error').catch(() => {});
+          auditService
+            .log('failed_login', email, { reason: 'invalid_credentials' }, 'error')
+            .catch(() => {});
           throw new Error('Invalid email or password.');
         }
 
         // SG-011: Check if FIDO2 second factor is required
-        const fido2Required = fido2Service.getDeviceCount() > 0 && fido2Service.isWebAuthnSupported();
+        const fido2Required =
+          fido2Service.getDeviceCount() > 0 && fido2Service.isWebAuthnSupported();
         let fido2Passed = false;
 
         if (fido2Required) {
@@ -174,16 +180,30 @@ export const useAuthStore = create<AuthState>((set) => ({
             const device = await fido2Service.authenticate();
             fido2Passed = device !== null;
             if (!fido2Passed) {
-              auditService.log('failed_login', email, { reason: 'fido2_rejected' }, 'error').catch(() => {});
+              auditService
+                .log('failed_login', email, { reason: 'fido2_rejected' }, 'error')
+                .catch(() => {});
               throw new Error('FIDO2 authentication required. Please use your security key.');
             }
             auditService.log('fido2_authenticate', email, { deviceId: device?.id }).catch(() => {});
           } catch (fido2Error) {
-            if (fido2Error instanceof Error && fido2Error.message.includes('FIDO2 authentication required')) {
+            if (
+              fido2Error instanceof Error &&
+              fido2Error.message.includes('FIDO2 authentication required')
+            ) {
               throw fido2Error;
             }
-            auditService.log('failed_login', email, { reason: 'fido2_failed', error: String(fido2Error) }, 'error').catch(() => {});
-            throw new Error('FIDO2 authentication failed. Please try again with your security key.');
+            auditService
+              .log(
+                'failed_login',
+                email,
+                { reason: 'fido2_failed', error: String(fido2Error) },
+                'error'
+              )
+              .catch(() => {});
+            throw new Error(
+              'FIDO2 authentication failed. Please try again with your security key.'
+            );
           }
         }
 
@@ -279,16 +299,35 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   // Logout action
   logout: async () => {
+    // RELIABILITY FIX (H-3): Clean up all background processes on logout.
+    // Previously, the web path returned early without stopping vault polling,
+    // idle timer, or store subscriptions — causing post-logout error storms.
+    stopVaultPolling();
+    stopIdleTimer();
+    cleanupStoreSubscriptions();
+
     if (isWeb) {
       auditService.log('logout', 'web-session').catch(() => {});
       clearSession();
-      set({ isAuthenticated: false, userId: null, email: null, subscriptionTier: null, isLoading: false });
+      set({
+        isAuthenticated: false,
+        userId: null,
+        email: null,
+        subscriptionTier: null,
+        isLoading: false,
+      });
       return;
     }
     set({ isLoading: true });
     try {
       await authService.logout();
-      set({ isAuthenticated: false, userId: null, email: null, subscriptionTier: null, isLoading: false });
+      set({
+        isAuthenticated: false,
+        userId: null,
+        email: null,
+        subscriptionTier: null,
+        isLoading: false,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Logout failed';
       set({ error: message, isLoading: false });
@@ -326,10 +365,22 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
         });
       } else {
-        set({ isAuthenticated: false, userId: null, email: null, subscriptionTier: null, isLoading: false });
+        set({
+          isAuthenticated: false,
+          userId: null,
+          email: null,
+          subscriptionTier: null,
+          isLoading: false,
+        });
       }
     } catch (error) {
-      set({ isAuthenticated: false, userId: null, email: null, subscriptionTier: null, isLoading: false });
+      set({
+        isAuthenticated: false,
+        userId: null,
+        email: null,
+        subscriptionTier: null,
+        isLoading: false,
+      });
     }
   },
 
@@ -345,7 +396,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     } else {
       authService.clearMasterKey();
     }
-    set({ isAuthenticated: false, userId: null, email: null, subscriptionTier: null, fido2Verified: false });
+    set({
+      isAuthenticated: false,
+      userId: null,
+      email: null,
+      subscriptionTier: null,
+      fido2Verified: false,
+    });
   },
 
   // SG-011: Register a new FIDO2 security key
@@ -375,7 +432,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const device = await fido2Service.authenticate();
       if (device) {
         set({ fido2Verified: true, isLoading: false });
-        auditService.log('fido2_authenticate', device.name, { deviceId: device.id }).catch(() => {});
+        auditService
+          .log('fido2_authenticate', device.name, { deviceId: device.id })
+          .catch(() => {});
         return true;
       }
       set({ fido2Verified: false, isLoading: false });

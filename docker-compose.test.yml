@@ -1,0 +1,137 @@
+version: '3.8'
+
+# Integration test environment: isolated from dev, auto-cleanup
+# Start with: docker compose -f docker-compose.test.yml up -d --wait
+# Runs on distinct ports (8090, 5433, 6380, etc.) to avoid conflicts
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: usbvault-postgres-test
+    environment:
+      POSTGRES_USER: usbvault
+      POSTGRES_PASSWORD: test_password_change_me
+      POSTGRES_DB: usbvault_test
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5433:5432"
+    tmpfs:
+      # Use tmpfs for test database: no disk I/O, auto-cleanup on container stop
+      - /var/lib/postgresql/data:size=512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usbvault -d usbvault_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - usbvault-test-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: usbvault-redis-test
+    command: >
+      redis-server
+      --requirepass test_redis_pass
+      --maxmemory 128mb
+      --maxmemory-policy volatile-lru
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "test_redis_pass", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - usbvault-test-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: usbvault-minio-test
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_secret
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    tmpfs:
+      - /minio_data:size=512m
+    command: server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - usbvault-test-network
+
+  createbuckets:
+    image: minio/mc:latest
+    container_name: usbvault-createbuckets-test
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin_secret;
+      /usr/bin/mc mb myminio/usbvault-encrypted-blobs;
+      /usr/bin/mc version enable myminio/usbvault-encrypted-blobs;
+      exit 0;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - usbvault-test-network
+
+  api:
+    build:
+      context: ./usbvault-server
+      dockerfile: Dockerfile
+    container_name: usbvault-api-test
+    environment:
+      # Test database: tmpfs for speed and auto-cleanup
+      DATABASE_URL: postgres://usbvault:test_password_change_me@postgres:5432/usbvault_test?sslmode=disable
+      REDIS_URL: redis://:test_redis_pass@redis:6379
+      AWS_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin_secret
+      AWS_REGION: us-east-1
+      S3_BUCKET: usbvault-encrypted-blobs
+      # Distinct port to avoid conflicts with running dev server (8080)
+      SERVER_PORT: 8090
+      LOG_LEVEL: info
+      ENVIRONMENT: test
+      FIDO2_RELYING_PARTY_ID: localhost
+      FIDO2_RELYING_PARTY_NAME: USBVault Test
+      FIDO2_RELYING_PARTY_ORIGIN: http://localhost:8090
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_test_placeholder
+      STRIPE_PRICE_INDIVIDUAL: price_test_individual
+      STRIPE_PRICE_TEAM: price_test_team
+      STRIPE_PRICE_ENTERPRISE: price_test_enterprise
+      # Disable external integrations for tests
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+      MIGRATIONS_DIR: /app/migrations
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    networks:
+      - usbvault-test-network
+
+networks:
+  usbvault-test-network:
+    driver: bridge

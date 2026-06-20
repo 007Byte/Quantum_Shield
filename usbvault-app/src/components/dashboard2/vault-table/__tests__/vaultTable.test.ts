@@ -13,9 +13,7 @@ import { VaultItem } from '../../types';
 // --- Test helpers: pure logic extracted from VaultTable component ---
 
 function filterItems(items: VaultItem[], searchText: string): VaultItem[] {
-  return items.filter((item) =>
-    item.name.toLowerCase().includes(searchText.toLowerCase())
-  );
+  return items.filter(item => item.name.toLowerCase().includes(searchText.toLowerCase()));
 }
 
 function computeSelectState(
@@ -23,26 +21,19 @@ function computeSelectState(
   selectedIds: Set<string>
 ): { allSelected: boolean; someSelected: boolean } {
   const allSelected =
-    filteredItems.length > 0 &&
-    filteredItems.every((item) => selectedIds.has(item.id));
-  const someSelected = filteredItems.some((item) => selectedIds.has(item.id));
+    filteredItems.length > 0 && filteredItems.every(item => selectedIds.has(item.id));
+  const someSelected = filteredItems.some(item => selectedIds.has(item.id));
   return { allSelected, someSelected };
 }
 
-function toggleSelectAll(
-  filteredItems: VaultItem[],
-  currentlyAllSelected: boolean
-): Set<string> {
+function toggleSelectAll(filteredItems: VaultItem[], currentlyAllSelected: boolean): Set<string> {
   if (currentlyAllSelected) {
     return new Set();
   }
-  return new Set(filteredItems.map((item) => item.id));
+  return new Set(filteredItems.map(item => item.id));
 }
 
-function toggleSelectItem(
-  selectedIds: Set<string>,
-  itemId: string
-): Set<string> {
+function toggleSelectItem(selectedIds: Set<string>, itemId: string): Set<string> {
   const next = new Set(selectedIds);
   if (next.has(itemId)) {
     next.delete(itemId);
@@ -52,10 +43,7 @@ function toggleSelectItem(
   return next;
 }
 
-function computeMenuDirection(
-  itemIndex: number,
-  totalItems: number
-): 'up' | 'down' {
+function computeMenuDirection(itemIndex: number, totalItems: number): 'up' | 'down' {
   const isNearBottom = itemIndex >= totalItems - 4;
   return isNearBottom ? 'up' : 'down';
 }
@@ -188,7 +176,7 @@ describe('VaultTable: Search/Filter', () => {
     const result = filterItems(mockItems, 'pdf');
     // "Quarterly Report.pdf" and "Medical Records.pdf"
     expect(result).toHaveLength(2);
-    expect(result.map((i) => i.id)).toEqual(['1', '4']);
+    expect(result.map(i => i.id)).toEqual(['1', '4']);
   });
 
   it('returns empty array when no items match', () => {
@@ -211,38 +199,26 @@ describe('VaultTable: Search/Filter', () => {
 
 describe('VaultTable: Selection State', () => {
   it('allSelected is false when no items are selected', () => {
-    const { allSelected, someSelected } = computeSelectState(
-      mockItems,
-      new Set()
-    );
+    const { allSelected, someSelected } = computeSelectState(mockItems, new Set());
     expect(allSelected).toBe(false);
     expect(someSelected).toBe(false);
   });
 
   it('someSelected is true when a subset is selected', () => {
-    const { allSelected, someSelected } = computeSelectState(
-      mockItems,
-      new Set(['1', '3'])
-    );
+    const { allSelected, someSelected } = computeSelectState(mockItems, new Set(['1', '3']));
     expect(allSelected).toBe(false);
     expect(someSelected).toBe(true);
   });
 
   it('allSelected is true when all items are selected', () => {
-    const allIds = new Set(mockItems.map((i) => i.id));
-    const { allSelected, someSelected } = computeSelectState(
-      mockItems,
-      allIds
-    );
+    const allIds = new Set(mockItems.map(i => i.id));
+    const { allSelected, someSelected } = computeSelectState(mockItems, allIds);
     expect(allSelected).toBe(true);
     expect(someSelected).toBe(true);
   });
 
   it('allSelected is false for empty items array', () => {
-    const { allSelected, someSelected } = computeSelectState(
-      [],
-      new Set(['1'])
-    );
+    const { allSelected, someSelected } = computeSelectState([], new Set(['1']));
     expect(allSelected).toBe(false);
     expect(someSelected).toBe(false);
   });
@@ -262,7 +238,7 @@ describe('VaultTable: Toggle Select All', () => {
   it('selects all items when not all are selected', () => {
     const result = toggleSelectAll(mockItems, false);
     expect(result.size).toBe(8);
-    mockItems.forEach((item) => expect(result.has(item.id)).toBe(true));
+    mockItems.forEach(item => expect(result.has(item.id)).toBe(true));
   });
 
   it('deselects all items when all are selected', () => {

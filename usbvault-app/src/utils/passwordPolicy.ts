@@ -121,7 +121,7 @@ export function validateLength(
   value: string,
   fieldName: string,
   min: number = NAME_MIN_LENGTH,
-  max: number = NAME_MAX_LENGTH,
+  max: number = NAME_MAX_LENGTH
 ): InputValidationResult {
   const errors: string[] = [];
 
@@ -164,7 +164,7 @@ export function validateInputField(
     maxLength?: number;
     /** If true, enforce alphabetic-only pattern (for name fields) */
     namePattern?: boolean;
-  } = {},
+  } = {}
 ): InputValidationResult {
   const allErrors: string[] = [];
 
@@ -181,7 +181,7 @@ export function validateInputField(
     strValue,
     fieldName,
     options.minLength ?? NAME_MIN_LENGTH,
-    options.maxLength ?? NAME_MAX_LENGTH,
+    options.maxLength ?? NAME_MAX_LENGTH
   );
   allErrors.push(...lengthResult.errors);
 
@@ -220,56 +220,235 @@ export function analyzeCharacterClasses(password: string): CharacterClassResult 
 // Full NIST compliance would use a larger list; this covers the critical ones.
 
 const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
-  'password', '123456', '12345678', 'qwerty', 'abc123', 'monkey', 'master',
-  'dragon', '111111', 'baseball', 'iloveyou', 'trustno1', 'sunshine',
-  'letmein', 'football', 'shadow', 'michael', 'login', 'starwars',
-  'passw0rd', 'welcome', 'batman', 'solo', 'admin', 'princess',
-  'access', 'flower', 'qwerty123', 'password1', 'password123',
-  '1234567890', '123456789', '12345', '1234567', '123123', '654321',
-  '000000', '1234', 'charlie', 'donald', 'zaq1zaq1', 'mustang',
-  'freedom', 'whatever', 'qazwsx', 'trustno1', 'jordan', 'harley',
-  'robert', 'matthew', 'daniel', 'andrew', 'andrea', 'joshua',
-  'nicole', 'jessica', 'ashley', 'jennifer', 'amanda', 'stephanie',
-  'rachel', 'hannah', 'samantha', 'thunder', 'tigger', 'dallas',
-  'austin', 'rangers', 'pepper', 'maggie', 'hunter', 'cheese',
-  'corvette', 'merlin', 'diamond', 'yellow', 'bigdog', 'secret',
-  'summer', 'ginger', 'sparky', 'yankees', 'camaro', 'matrix',
-  'falcon', 'guitar', 'internet', 'silver', 'runner', 'killer',
-  'phoenix', 'george', 'morgan', 'soccer', 'hockey', 'chicken',
-  'startrek', 'redskins', 'butthead', 'blowfish', 'test', 'test123',
-  'fuckyou', 'asshole', 'pussy', 'buster', 'cookie', 'computer',
-  'midnight', 'nascar', 'peanut', 'cowboys', 'steelers', 'jasmine',
-  'winter', 'oliver', 'thomas', 'william', 'joseph', 'jackson',
-  'gabriel', 'anthony', 'alexander', 'benjamin', 'nicholas', 'victoria',
-  'superman', 'spiderman', 'nothing', 'lakers', 'jordan23', 'iwantu',
-  'looking', 'helpme', 'angel', 'please', 'changeme', 'changeit',
-  'default', 'temp', 'temporary', 'guest', 'newuser', 'user',
-  'administrator', 'root', 'sysadmin', 'backup',
+  'password',
+  '123456',
+  '12345678',
+  'qwerty',
+  'abc123',
+  'monkey',
+  'master',
+  'dragon',
+  '111111',
+  'baseball',
+  'iloveyou',
+  'trustno1',
+  'sunshine',
+  'letmein',
+  'football',
+  'shadow',
+  'michael',
+  'login',
+  'starwars',
+  'passw0rd',
+  'welcome',
+  'batman',
+  'solo',
+  'admin',
+  'princess',
+  'access',
+  'flower',
+  'qwerty123',
+  'password1',
+  'password123',
+  '1234567890',
+  '123456789',
+  '12345',
+  '1234567',
+  '123123',
+  '654321',
+  '000000',
+  '1234',
+  'charlie',
+  'donald',
+  'zaq1zaq1',
+  'mustang',
+  'freedom',
+  'whatever',
+  'qazwsx',
+  'trustno1',
+  'jordan',
+  'harley',
+  'robert',
+  'matthew',
+  'daniel',
+  'andrew',
+  'andrea',
+  'joshua',
+  'nicole',
+  'jessica',
+  'ashley',
+  'jennifer',
+  'amanda',
+  'stephanie',
+  'rachel',
+  'hannah',
+  'samantha',
+  'thunder',
+  'tigger',
+  'dallas',
+  'austin',
+  'rangers',
+  'pepper',
+  'maggie',
+  'hunter',
+  'cheese',
+  'corvette',
+  'merlin',
+  'diamond',
+  'yellow',
+  'bigdog',
+  'secret',
+  'summer',
+  'ginger',
+  'sparky',
+  'yankees',
+  'camaro',
+  'matrix',
+  'falcon',
+  'guitar',
+  'internet',
+  'silver',
+  'runner',
+  'killer',
+  'phoenix',
+  'george',
+  'morgan',
+  'soccer',
+  'hockey',
+  'chicken',
+  'startrek',
+  'redskins',
+  'butthead',
+  'blowfish',
+  'test',
+  'test123',
+  'fuckyou',
+  'asshole',
+  'pussy',
+  'buster',
+  'cookie',
+  'computer',
+  'midnight',
+  'nascar',
+  'peanut',
+  'cowboys',
+  'steelers',
+  'jasmine',
+  'winter',
+  'oliver',
+  'thomas',
+  'william',
+  'joseph',
+  'jackson',
+  'gabriel',
+  'anthony',
+  'alexander',
+  'benjamin',
+  'nicholas',
+  'victoria',
+  'superman',
+  'spiderman',
+  'nothing',
+  'lakers',
+  'jordan23',
+  'iwantu',
+  'looking',
+  'helpme',
+  'angel',
+  'please',
+  'changeme',
+  'changeit',
+  'default',
+  'temp',
+  'temporary',
+  'guest',
+  'newuser',
+  'user',
+  'administrator',
+  'root',
+  'sysadmin',
+  'backup',
   // Common long passwords / passphrases
-  'letmeinplease', 'iloveyouforever', 'passwordpassword',
-  'qwertyuiopasdfg', 'abcdefghijklmno', 'aaaaaaaaaaaaaaa',
-  'bbbbbbbbbbbbbbb', '111111111111111', '123456789012345',
-  '000000000000000', 'passwordpassword1', 'password12345678',
+  'letmeinplease',
+  'iloveyouforever',
+  'passwordpassword',
+  'qwertyuiopasdfg',
+  'abcdefghijklmno',
+  'aaaaaaaaaaaaaaa',
+  'bbbbbbbbbbbbbbb',
+  '111111111111111',
+  '123456789012345',
+  '000000000000000',
+  'passwordpassword1',
+  'password12345678',
   // Keyboard patterns extended
-  'qwertyuiop', 'asdfghjkl', 'zxcvbnm', 'qazwsxedc', 'qweasdzxc',
-  '1qaz2wsx3edc', 'zaq12wsx', 'p0o9i8u7', '0987654321',
-  'poiuytrewq', 'lkjhgfdsa', 'mnbvcxz',
+  'qwertyuiop',
+  'asdfghjkl',
+  'zxcvbnm',
+  'qazwsxedc',
+  'qweasdzxc',
+  '1qaz2wsx3edc',
+  'zaq12wsx',
+  'p0o9i8u7',
+  '0987654321',
+  'poiuytrewq',
+  'lkjhgfdsa',
+  'mnbvcxz',
 ]);
 
 // Keyboard patterns to detect (sequences of adjacent keys)
 const KEYBOARD_PATTERNS: readonly string[] = [
-  'qwerty', 'qwertz', 'azerty', 'asdf', 'zxcv', 'qweasd', 'qazwsx',
-  '1234', '2345', '3456', '4567', '5678', '6789', '7890',
-  'abcd', 'bcde', 'cdef', 'defg', 'efgh', 'fghi', 'ghij',
-  'hijk', 'ijkl', 'jklm', 'klmn', 'lmno', 'mnop', 'nopq',
-  'opqr', 'pqrs', 'qrst', 'rstu', 'stuv', 'tuvw', 'uvwx',
-  'vwxy', 'wxyz',
+  'qwerty',
+  'qwertz',
+  'azerty',
+  'asdf',
+  'zxcv',
+  'qweasd',
+  'qazwsx',
+  '1234',
+  '2345',
+  '3456',
+  '4567',
+  '5678',
+  '6789',
+  '7890',
+  'abcd',
+  'bcde',
+  'cdef',
+  'defg',
+  'efgh',
+  'fghi',
+  'ghij',
+  'hijk',
+  'ijkl',
+  'jklm',
+  'klmn',
+  'lmno',
+  'mnop',
+  'nopq',
+  'opqr',
+  'pqrs',
+  'qrst',
+  'rstu',
+  'stuv',
+  'tuvw',
+  'uvwx',
+  'vwxy',
+  'wxyz',
 ];
 
 // Context-specific terms to block (app-related)
 const CONTEXT_BLOCKLIST = [
-  'usbvault', 'vault', 'encrypt', 'decrypt', 'password', 'passphrase',
-  'secret', 'master', 'key', 'crypto',
+  'usbvault',
+  'vault',
+  'encrypt',
+  'decrypt',
+  'password',
+  'passphrase',
+  'secret',
+  'master',
+  'key',
+  'crypto',
 ];
 
 // ─── Validation ──────────────────────────────────────────────────────
@@ -292,7 +471,7 @@ const CONTEXT_BLOCKLIST = [
  */
 export function validatePassword(
   password: string,
-  context?: PasswordContext,
+  context?: PasswordContext
 ): PasswordValidationResult {
   const feedback: string[] = [];
   const checks = {
@@ -309,7 +488,9 @@ export function validatePassword(
   checks.maxLength = password.length <= PASSWORD_MAX_LENGTH;
 
   if (!checks.minLength) {
-    feedback.push(`Minimum ${PASSWORD_MIN_LENGTH} characters required (${password.length} entered)`);
+    feedback.push(
+      `Minimum ${PASSWORD_MIN_LENGTH} characters required (${password.length} entered)`
+    );
   }
   if (!checks.maxLength) {
     feedback.push(`Maximum ${PASSWORD_MAX_LENGTH} characters allowed`);
@@ -351,7 +532,7 @@ export function validatePassword(
   // ── Repeated character check ──
   if (/(.)\1{4,}/.test(password)) {
     checks.notKeyboardPattern = false;
-    if (!feedback.some((f) => f.includes('keyboard'))) {
+    if (!feedback.some(f => f.includes('keyboard'))) {
       feedback.push('Avoid long sequences of repeated characters');
     }
   }
@@ -359,7 +540,7 @@ export function validatePassword(
   // ── Sequential character check (abc, 123, etc.) ──
   if (hasLongSequentialChars(password, 5)) {
     checks.notKeyboardPattern = false;
-    if (!feedback.some((f) => f.includes('keyboard') || f.includes('repeated'))) {
+    if (!feedback.some(f => f.includes('keyboard') || f.includes('repeated'))) {
       feedback.push('Avoid long sequential character runs (e.g., "abcdef", "123456")');
     }
   }
@@ -414,7 +595,7 @@ export function validatePassword(
   // NIST discourages *forcing* complexity — so this is advisory only)
   if (checks.minLength && characterClasses.classCount < 3) {
     feedback.push(
-      `Tip: using more character types improves strength (${characterClasses.classCount}/4 classes used)`,
+      `Tip: using more character types improves strength (${characterClasses.classCount}/4 classes used)`
     );
   }
 
@@ -485,9 +666,12 @@ function estimateCrackTime(entropyBits: number): string {
   if (secondsToCrack < 3600) return `${Math.round(secondsToCrack / 60)} minutes`;
   if (secondsToCrack < 86400) return `${Math.round(secondsToCrack / 3600)} hours`;
   if (secondsToCrack < 86400 * 365) return `${Math.round(secondsToCrack / 86400)} days`;
-  if (secondsToCrack < 86400 * 365 * 100) return `${Math.round(secondsToCrack / (86400 * 365))} years`;
-  if (secondsToCrack < 86400 * 365 * 1_000_000) return `${Math.round(secondsToCrack / (86400 * 365 * 1000))}K+ years`;
-  if (secondsToCrack < 86400 * 365 * 1_000_000_000) return `${Math.round(secondsToCrack / (86400 * 365 * 1_000_000))}M+ years`;
+  if (secondsToCrack < 86400 * 365 * 100)
+    return `${Math.round(secondsToCrack / (86400 * 365))} years`;
+  if (secondsToCrack < 86400 * 365 * 1_000_000)
+    return `${Math.round(secondsToCrack / (86400 * 365 * 1000))}K+ years`;
+  if (secondsToCrack < 86400 * 365 * 1_000_000_000)
+    return `${Math.round(secondsToCrack / (86400 * 365 * 1_000_000))}M+ years`;
   return 'Billions of years';
 }
 
@@ -501,7 +685,7 @@ function calculateScore(
   password: string,
   entropy: number,
   checks: PasswordValidationResult['checks'],
-  charClasses: CharacterClassResult,
+  charClasses: CharacterClassResult
 ): number {
   let score = 0;
 
@@ -578,7 +762,10 @@ export async function checkPasswordBreach(password: string): Promise<HIBPResult>
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-1', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const hashHex = hashArray
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
 
     const prefix = hashHex.substring(0, 5);
     const suffix = hashHex.substring(5);
@@ -622,20 +809,30 @@ export async function checkPasswordBreach(password: string): Promise<HIBPResult>
 
 export function levelToColor(level: StrengthLevel): string {
   switch (level) {
-    case 'weak': return '#EF4444';
-    case 'fair': return '#F59E0B';
-    case 'good': return '#3B82F6';
-    case 'strong': return '#10B981';
-    case 'very_strong': return '#06D6A0';
+    case 'weak':
+      return '#EF4444';
+    case 'fair':
+      return '#F59E0B';
+    case 'good':
+      return '#3B82F6';
+    case 'strong':
+      return '#10B981';
+    case 'very_strong':
+      return '#06D6A0';
   }
 }
 
 export function levelToLabel(level: StrengthLevel): string {
   switch (level) {
-    case 'weak': return 'Weak';
-    case 'fair': return 'Fair';
-    case 'good': return 'Good';
-    case 'strong': return 'Strong';
-    case 'very_strong': return 'Very Strong';
+    case 'weak':
+      return 'Weak';
+    case 'fair':
+      return 'Fair';
+    case 'good':
+      return 'Good';
+    case 'strong':
+      return 'Strong';
+    case 'very_strong':
+      return 'Very Strong';
   }
 }

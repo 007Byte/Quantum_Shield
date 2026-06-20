@@ -32,8 +32,10 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
@@ -109,7 +111,8 @@ export const styles = StyleSheet.create({
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
       background: 'linear-gradient(160deg, rgba(139,92,246,0.12), rgba(34,211,238,0.04))',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.45), 0 0 18px rgba(139,92,246,0.15), inset 0 0 20px rgba(139,92,246,0.12)',
+      boxShadow:
+        '0 8px 32px rgba(0,0,0,0.45), 0 0 18px rgba(139,92,246,0.15), inset 0 0 20px rgba(139,92,246,0.12)',
     }),
   },
   sectionHeader: {

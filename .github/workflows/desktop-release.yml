@@ -1,0 +1,135 @@
+name: Desktop App Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'desktop-v*'
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-web-assets:
+    name: Build Web Assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+      - run: cd usbvault-app && npm ci
+      - run: cd usbvault-app && npm run export:usb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-assets
+          path: usbvault-app/dist/
+          retention-days: 1
+
+  build-desktop:
+    name: Build Desktop (${{ matrix.os }})
+    needs: build-web-assets
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            script: dist:mac
+          - os: windows-latest
+            platform: win
+            script: dist:win
+          - os: ubuntu-latest
+            platform: linux
+            script: dist:linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Download web assets and place in companion static/
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-assets
+          path: usb-companion/static/
+
+      # Install companion dependencies
+      - name: Install companion dependencies
+        run: cd usb-companion && npm ci --omit=dev
+
+      # Install electron-shell dependencies
+      - name: Install Electron dependencies
+        run: cd electron-shell && npm ci
+
+      # Build TypeScript
+      - name: Build Electron app
+        run: cd electron-shell && npm run build
+
+      # Package for platform
+      - name: Package desktop app
+        run: cd electron-shell && npm run ${{ matrix.script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing (optional — skipped if not set)
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows code signing (optional)
+          WIN_CSC_LINK: ${{ secrets.WIN_CERTIFICATE_P12 }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+
+      # Upload build artifacts
+      - name: Upload desktop installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: |
+            electron-shell/release/*.dmg
+            electron-shell/release/*.zip
+            electron-shell/release/*.exe
+            electron-shell/release/*.deb
+            electron-shell/release/*.rpm
+            electron-shell/release/*.AppImage
+            electron-shell/release/*.yml
+          retention-days: 30
+          if-no-files-found: warn
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          draft: true
+          generate_release_notes: true
+          name: USBVault Desktop ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

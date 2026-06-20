@@ -1,0 +1,67 @@
+# =============================================================================
+# USBVault Enterprise — cert-manager ClusterIssuer
+# =============================================================================
+#
+# Configures a ClusterIssuer for automatic TLS certificate provisioning via
+# Let's Encrypt. This is referenced by the Ingress annotations:
+#   cert-manager.io/cluster-issuer: letsencrypt-prod
+#
+# How it works:
+#   1. When an Ingress with the annotation above is created, cert-manager
+#      detects it and requests a certificate from Let's Encrypt.
+#   2. Let's Encrypt issues an HTTP-01 challenge — a token that must be
+#      served at /.well-known/acme-challenge/<token>.
+#   3. cert-manager creates a temporary Ingress rule to serve the challenge
+#      response via the nginx ingress controller.
+#   4. Let's Encrypt verifies the challenge and issues the certificate.
+#   5. cert-manager stores the certificate in the K8s Secret specified by
+#      the Ingress's tls.secretName (e.g., "usbvault-tls").
+#   6. cert-manager automatically renews certificates before expiry (default
+#      is 30 days before the 90-day Let's Encrypt expiry).
+#
+# Prerequisites:
+#   - cert-manager installed in the cluster:
+#       helm install cert-manager jetstack/cert-manager \
+#         --namespace cert-manager --create-namespace \
+#         --set crds.enabled=true
+#   - nginx ingress controller deployed and accepting traffic on ports 80/443
+#   - DNS records (api.usbvault.io, app.usbvault.io) pointing to the ingress
+#     load balancer (see deploy/terraform/dns.tf)
+#
+# Security note:
+#   Using the production ACME server. For testing, switch to the staging URL:
+#     https://acme-staging-v02.api.letsencrypt.org/directory
+# =============================================================================
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/name: usbvault
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/managed-by: cert-manager
+spec:
+  acme:
+    # Let's Encrypt production ACME endpoint.
+    server: https://acme-v02.api.letsencrypt.org/directory
+
+    # Contact email for certificate expiry notifications and account recovery.
+    # Let's Encrypt will email this address if a certificate is about to expire
+    # and has not been renewed (indicates a cert-manager misconfiguration).
+    email: security@usbvault.io
+
+    # Secret to store the ACME account private key. cert-manager creates this
+    # automatically on first use. The key is used to authenticate with the
+    # ACME server — losing it requires re-registering the account.
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+
+    # Solvers define how cert-manager proves domain ownership.
+    # HTTP-01 is the simplest and works with any ingress controller.
+    solvers:
+      - http01:
+          ingress:
+            # Must match the ingress class used by the USBVault ingress
+            # resources (see production-values.yaml ingress.className).
+            ingressClassName: nginx

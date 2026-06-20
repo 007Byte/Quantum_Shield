@@ -2,7 +2,14 @@
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
-import { dashboardSpacing, dashboardColors, glassPanelBase, webOnlyGlass, webOnlyGlowTier3 } from '@/components/dashboard2/styles';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  glassPanelBase,
+  webOnlyGlass,
+  webOnlyGlowTier3,
+} from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { PasswordEntry } from '@/hooks/usePasswords';
 
 interface PasswordListProps {
@@ -26,11 +33,13 @@ export function PasswordList({
   onAddClick,
   getStrengthColor,
 }: PasswordListProps) {
+  const { t } = useLanguage();
+
   if (isLoading) {
     return (
       <View style={styles.emptyState}>
         <Feather name="loader" size={48} color="rgba(139,92,246,0.4)" />
-        <Text style={styles.emptyText}>Loading passwords...</Text>
+        <Text style={styles.emptyText}>{t('passwords.loading')}</Text>
       </View>
     );
   }
@@ -39,16 +48,21 @@ export function PasswordList({
     return (
       <View style={styles.emptyState}>
         <Feather name="shield" size={48} color="rgba(139,92,246,0.4)" />
-        <Text style={styles.emptyTitle}>No Passwords Stored</Text>
+        <Text style={styles.emptyTitle}>{t('passwords.emptyTitle')}</Text>
         <Text style={styles.emptyText}>
-          Add your first password to start managing credentials securely with AES-256 encryption.
+          {t('passwords.emptyDescription')}
         </Text>
         <Pressable
-          style={(state: any) => [styles.emptyCtaBtn, webOnly({ transition: 'all 0.2s ease' }), state.hovered && styles.emptyCtaBtnHover]}
+          accessibilityRole="button"
+          style={(state: any) => [
+            styles.emptyCtaBtn,
+            webOnly({ transition: 'all 0.2s ease' }),
+            state.hovered && styles.emptyCtaBtnHover,
+          ]}
           onPress={onAddClick}
         >
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={styles.addButtonText}>Add Your First Password</Text>
+          <Text style={styles.addButtonText}>{t('passwords.addFirst')}</Text>
         </Pressable>
       </View>
     );
@@ -56,8 +70,9 @@ export function PasswordList({
 
   return (
     <View style={styles.entriesList}>
-      {entries.map((entry) => (
+      {entries.map(entry => (
         <Pressable
+          accessibilityRole="button"
           key={entry.id}
           style={(state: any) => [
             styles.entryCard,
@@ -74,8 +89,13 @@ export function PasswordList({
             </View>
             <View style={styles.entryCenter}>
               <View style={styles.strengthIndicator}>
-                <View style={[styles.strengthDot, { backgroundColor: getStrengthColor(entry.strength) }]} />
-                <Text style={styles.strengthText}>{entry.strength}</Text>
+                <View
+                  style={[
+                    styles.strengthDot,
+                    { backgroundColor: getStrengthColor(entry.strength) },
+                  ]}
+                />
+                <Text style={styles.strengthText}>{t(`passwords.strength${entry.strength}`)}</Text>
               </View>
               <Text style={styles.lastModified}>{entry.lastModified}</Text>
             </View>
@@ -84,7 +104,12 @@ export function PasswordList({
           {/* Action Buttons */}
           <View style={styles.entryActions}>
             <Pressable
-              style={(state: any) => [styles.iconButton, webOnly({ transition: 'all 0.2s ease' }), state.hovered && styles.iconButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.iconButton,
+                webOnly({ transition: 'all 0.2s ease' }),
+                state.hovered && styles.iconButtonHover,
+              ]}
               onPress={() => onCopyPassword(entry.password, entry.id)}
             >
               {copyFeedback === entry.id ? (
@@ -94,13 +119,23 @@ export function PasswordList({
               )}
             </Pressable>
             <Pressable
-              style={(state: any) => [styles.iconButton, webOnly({ transition: 'all 0.2s ease' }), state.hovered && styles.iconButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.iconButton,
+                webOnly({ transition: 'all 0.2s ease' }),
+                state.hovered && styles.iconButtonHover,
+              ]}
               onPress={() => onEditPassword(entry)}
             >
               <Feather name="edit-2" size={18} color={dashboardColors.cyan} />
             </Pressable>
             <Pressable
-              style={(state: any) => [styles.iconButton, webOnly({ transition: 'all 0.2s ease' }), state.hovered && styles.iconButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.iconButton,
+                webOnly({ transition: 'all 0.2s ease' }),
+                state.hovered && styles.iconButtonHover,
+              ]}
               onPress={() => onDeletePassword(entry.id, entry.title)}
             >
               <Feather name="trash-2" size={18} color="#EF4444" />

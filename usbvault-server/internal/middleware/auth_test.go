@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
@@ -23,7 +24,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	nextHandlerCalled := false
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextHandlerCalled = true
-		extractedUserID, ok := r.Context().Value("user_id").(string)
+		extractedUserID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			t.Error("user_id not found in context")
 			return
@@ -32,7 +33,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 			t.Errorf("expected user_id %q, got %q", userID, extractedUserID)
 		}
 
-		extractedDeviceID, ok := r.Context().Value("device_id").(string)
+		extractedDeviceID, ok := r.Context().Value(ctxkeys.DeviceID).(string)
 		if !ok {
 			t.Error("device_id not found in context")
 			return
@@ -66,7 +67,7 @@ func TestAuthMiddleware_MissingAuthorizationHeader(t *testing.T) {
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextHandlerCalled = true
 		// Should still call next handler, but without user_id in context
-		_, ok := r.Context().Value("user_id").(string)
+		_, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if ok {
 			t.Error("user_id should not be in context when no auth header")
 		}
@@ -95,7 +96,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextHandlerCalled = true
 		// Should still call next handler, but without user_id
-		_, ok := r.Context().Value("user_id").(string)
+		_, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if ok {
 			t.Error("user_id should not be in context with invalid token")
 		}
@@ -141,7 +142,7 @@ func TestAuthMiddleware_MalformedAuthHeader(t *testing.T) {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
-		_, ok := req.Context().Value("user_id").(string)
+		_, ok := req.Context().Value(ctxkeys.UserID).(string)
 		if ok {
 			t.Errorf("user_id should not be in context for auth header: %q", authHeader)
 		}
@@ -155,7 +156,7 @@ func TestAuthMiddleware_StoresTokenType(t *testing.T) {
 	accessToken, _, _ := auth.GenerateTokenPair(userID, deviceID)
 
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenType, ok := r.Context().Value("token_type").(string)
+		tokenType, ok := r.Context().Value(ctxkeys.TokenType).(string)
 		if !ok {
 			t.Error("token_type not found in context")
 			return
@@ -190,7 +191,7 @@ func TestRequireAuth_WithValidContext(t *testing.T) {
 	middleware := RequireAuth(nextHandler)
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	ctx := context.WithValue(req.Context(), "user_id", "test-user")
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, "test-user")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -237,7 +238,7 @@ func TestRequireAuth_WithWrongContextType(t *testing.T) {
 	middleware := RequireAuth(nextHandler)
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	ctx := context.WithValue(req.Context(), "user_id", 12345) // Wrong type (int instead of string)
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, 12345) // Wrong type (int instead of string)
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -330,9 +331,10 @@ func TestGetClientIP_XForwardedFor(t *testing.T) {
 	req.Header.Set("X-Forwarded-For", "198.51.100.1, 203.0.113.42")
 
 	ip := getClientIP(req)
-	// Should return the first IP
-	if ip != "198.51.100.1" {
-		t.Errorf("expected '198.51.100.1', got %q", ip)
+	// H-5 FIX: Should return the RIGHTMOST (last) non-empty IP, which is the one
+	// added by our trusted proxy. The leftmost IP is client-supplied and spoofable.
+	if ip != "203.0.113.42" {
+		t.Errorf("expected '203.0.113.42', got %q", ip)
 	}
 }
 

@@ -101,8 +101,10 @@ export function detectFormat(header: string): ImportFormat {
   const lower = header.toLowerCase();
 
   if (lower.includes('login_uri') && lower.includes('login_username')) return 'bitwarden';
-  if (lower.includes('grouping') && lower.includes('fav') && lower.includes('extra')) return 'lastpass';
-  if (lower.includes('title') && lower.includes('type') && lower.includes('url')) return '1password';
+  if (lower.includes('grouping') && lower.includes('fav') && lower.includes('extra'))
+    return 'lastpass';
+  if (lower.includes('title') && lower.includes('type') && lower.includes('url'))
+    return '1password';
   if (/^name,url,username,password/.test(lower)) return 'chrome';
 
   // Try JSON detection
@@ -118,7 +120,10 @@ export function detectFormat(header: string): ImportFormat {
 
 // ── Format-Specific Parsers ────────────────────────────────────
 
-function parseBitwarden(rows: string[][], header: string[]): Omit<PasswordEntry, 'id' | 'strength'>[] {
+function parseBitwarden(
+  rows: string[][],
+  header: string[]
+): Omit<PasswordEntry, 'id' | 'strength'>[] {
   const idx = (name: string) => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
   const nameIdx = idx('name');
   const uriIdx = idx('login_uri');
@@ -126,18 +131,23 @@ function parseBitwarden(rows: string[][], header: string[]): Omit<PasswordEntry,
   const passIdx = idx('login_password');
   const folderIdx = idx('folder');
 
-  return rows.map(row => ({
-    title: row[nameIdx] || 'Untitled',
-    url: row[uriIdx] || '',
-    username: row[userIdx] || '',
-    password: row[passIdx] || '',
-    category: row[folderIdx] || 'Imported',
-    createdAt: new Date().toISOString(),
-    lastModified: new Date().toISOString(),
-  })).filter(e => e.password.length > 0);
+  return rows
+    .map(row => ({
+      title: row[nameIdx] || 'Untitled',
+      url: row[uriIdx] || '',
+      username: row[userIdx] || '',
+      password: row[passIdx] || '',
+      category: row[folderIdx] || 'Imported',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }))
+    .filter(e => e.password.length > 0);
 }
 
-function parseLastPass(rows: string[][], header: string[]): Omit<PasswordEntry, 'id' | 'strength'>[] {
+function parseLastPass(
+  rows: string[][],
+  header: string[]
+): Omit<PasswordEntry, 'id' | 'strength'>[] {
   const idx = (name: string) => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
   const nameIdx = idx('name');
   const urlIdx = idx('url');
@@ -145,33 +155,40 @@ function parseLastPass(rows: string[][], header: string[]): Omit<PasswordEntry, 
   const passIdx = idx('password');
   const groupIdx = idx('grouping');
 
-  return rows.map(row => ({
-    title: row[nameIdx] || row[urlIdx] || 'Untitled',
-    url: row[urlIdx] || '',
-    username: row[userIdx] || '',
-    password: row[passIdx] || '',
-    category: row[groupIdx] || 'Imported',
-    createdAt: new Date().toISOString(),
-    lastModified: new Date().toISOString(),
-  })).filter(e => e.password.length > 0);
+  return rows
+    .map(row => ({
+      title: row[nameIdx] || row[urlIdx] || 'Untitled',
+      url: row[urlIdx] || '',
+      username: row[userIdx] || '',
+      password: row[passIdx] || '',
+      category: row[groupIdx] || 'Imported',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }))
+    .filter(e => e.password.length > 0);
 }
 
-function parse1Password(rows: string[][], header: string[]): Omit<PasswordEntry, 'id' | 'strength'>[] {
+function parse1Password(
+  rows: string[][],
+  header: string[]
+): Omit<PasswordEntry, 'id' | 'strength'>[] {
   const idx = (name: string) => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
   const titleIdx = idx('title');
   const urlIdx = idx('url');
   const userIdx = idx('username');
   const passIdx = idx('password');
 
-  return rows.map(row => ({
-    title: row[titleIdx] || 'Untitled',
-    url: row[urlIdx] || '',
-    username: row[userIdx] || '',
-    password: row[passIdx] || '',
-    category: 'Imported',
-    createdAt: new Date().toISOString(),
-    lastModified: new Date().toISOString(),
-  })).filter(e => e.password.length > 0);
+  return rows
+    .map(row => ({
+      title: row[titleIdx] || 'Untitled',
+      url: row[urlIdx] || '',
+      username: row[userIdx] || '',
+      password: row[passIdx] || '',
+      category: 'Imported',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }))
+    .filter(e => e.password.length > 0);
 }
 
 function parseChrome(rows: string[][], header: string[]): Omit<PasswordEntry, 'id' | 'strength'>[] {
@@ -181,15 +198,17 @@ function parseChrome(rows: string[][], header: string[]): Omit<PasswordEntry, 'i
   const userIdx = idx('username');
   const passIdx = idx('password');
 
-  return rows.map(row => ({
-    title: row[nameIdx] || row[urlIdx] || 'Untitled',
-    url: row[urlIdx] || '',
-    username: row[userIdx] || '',
-    password: row[passIdx] || '',
-    category: 'Imported',
-    createdAt: new Date().toISOString(),
-    lastModified: new Date().toISOString(),
-  })).filter(e => e.password.length > 0);
+  return rows
+    .map(row => ({
+      title: row[nameIdx] || row[urlIdx] || 'Untitled',
+      url: row[urlIdx] || '',
+      username: row[userIdx] || '',
+      password: row[passIdx] || '',
+      category: 'Imported',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }))
+    .filter(e => e.password.length > 0);
 }
 
 interface KeePassEntry {
@@ -209,7 +228,7 @@ interface KeePassGroup {
 
 function flattenKeePassGroups(group: KeePassGroup, parentName: string = ''): KeePassEntry[] {
   const entries: KeePassEntry[] = [];
-  const groupName = parentName ? `${parentName}/${group.Name || ''}` : (group.Name || '');
+  const groupName = parentName ? `${parentName}/${group.Name || ''}` : group.Name || '';
 
   if (group.Entry) {
     const entryArray = Array.isArray(group.Entry) ? group.Entry : [group.Entry];
@@ -250,7 +269,10 @@ function parseKeePass(jsonText: string): Omit<PasswordEntry, 'id' | 'strength'>[
 
 // ── Duplicate Detection ────────────────────────────────────────
 
-function isDuplicate(entry: Omit<PasswordEntry, 'id' | 'strength'>, existing: PasswordEntry[]): boolean {
+function isDuplicate(
+  entry: Omit<PasswordEntry, 'id' | 'strength'>,
+  existing: PasswordEntry[]
+): boolean {
   return existing.some(
     e => e.url === entry.url && e.username === entry.username && e.title === entry.title
   );
@@ -286,7 +308,7 @@ export async function importPasswords(
   content: string,
   format: ImportFormat = 'auto',
   existingEntries: PasswordEntry[] = [],
-  onProgress?: ProgressCallback,
+  onProgress?: ProgressCallback
 ): Promise<ImportResult> {
   const result: ImportResult = {
     imported: 0,
@@ -404,7 +426,11 @@ function generateId(): string {
  * Validate that a file appears to be a valid import file.
  * Returns the detected format or null if unrecognized.
  */
-export function validateImportFile(content: string): { valid: boolean; format: ImportFormat | null; estimatedCount: number } {
+export function validateImportFile(content: string): {
+  valid: boolean;
+  format: ImportFormat | null;
+  estimatedCount: number;
+} {
   if (!content || content.trim().length === 0) {
     return { valid: false, format: null, estimatedCount: 0 };
   }
@@ -437,11 +463,17 @@ export function validateImportFile(content: string): { valid: boolean; format: I
  */
 export function formatLabel(format: ImportFormat): string {
   switch (format) {
-    case 'bitwarden': return 'Bitwarden';
-    case '1password': return '1Password';
-    case 'lastpass': return 'LastPass';
-    case 'chrome': return 'Chrome';
-    case 'keepass': return 'KeePass';
-    case 'auto': return 'Auto-detect';
+    case 'bitwarden':
+      return 'Bitwarden';
+    case '1password':
+      return '1Password';
+    case 'lastpass':
+      return 'LastPass';
+    case 'chrome':
+      return 'Chrome';
+    case 'keepass':
+      return 'KeePass';
+    case 'auto':
+      return 'Auto-detect';
   }
 }

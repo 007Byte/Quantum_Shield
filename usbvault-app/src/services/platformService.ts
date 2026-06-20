@@ -1,4 +1,5 @@
 import { Platform, Dimensions } from 'react-native';
+import { logger } from '@/utils/logger';
 
 export interface PlatformInfo {
   os: 'ios' | 'android' | 'web' | 'windows' | 'macos' | 'linux';
@@ -33,9 +34,7 @@ class PlatformService {
   private platformInfo: PlatformInfo | null = null;
   private accessibilitySettings: AccessibilitySettings | null = null;
 
-  triggerHaptic(
-    type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error'
-  ): void {
+  triggerHaptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error'): void {
     try {
       if (Platform.OS === 'ios') {
         // iOS haptic feedback stub
@@ -46,7 +45,7 @@ class PlatformService {
         //   'medium': Haptics.ImpactFeedbackStyle.Medium,
         //   'heavy': Haptics.ImpactFeedbackStyle.Heavy,
         // };
-        console.debug(`[Haptic] iOS ${type} feedback`);
+        logger.debug(`[Haptic] iOS ${type} feedback`);
       } else if (Platform.OS === 'android') {
         // Android haptic feedback stub
         // In a real implementation, this would use react-native's
@@ -60,13 +59,13 @@ class PlatformService {
           warning: 80,
           error: 150,
         };
-        console.debug(`[Haptic] Android ${type} feedback (${durationMap[type]}ms)`);
+        logger.debug(`[Haptic] Android ${type} feedback (${durationMap[type]}ms)`);
       } else {
         // Web platform - no native haptics
-        console.debug(`[Haptic] Web platform does not support haptics`);
+        logger.debug(`[Haptic] Web platform does not support haptics`);
       }
     } catch (error) {
-      console.error('Haptic feedback failed:', error);
+      logger.error('Haptic feedback failed:', error);
     }
   }
 
@@ -76,15 +75,13 @@ class PlatformService {
         // Android material ripple feedback stub
         // In a real implementation, this would trigger a visual ripple
         // using Platform.select() with native Android RippleDrawable
-        console.debug(
-          `[Ripple] Android material ripple at (${x}, ${y}) with color ${color}`
-        );
+        logger.debug(`[Ripple] Android material ripple at (${x}, ${y}) with color ${color}`);
       } else {
         // iOS and web - simulate with opacity animation or native feedback
-        console.debug(`[Ripple] Platform ${Platform.OS} ripple at (${x}, ${y})`);
+        logger.debug(`[Ripple] Platform ${Platform.OS} ripple at (${x}, ${y})`);
       }
     } catch (error) {
-      console.error('Ripple feedback failed:', error);
+      logger.error('Ripple feedback failed:', error);
     }
   }
 
@@ -162,26 +159,21 @@ class PlatformService {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       try {
         // Check prefers-reduced-motion
-        const prefersReducedMotion = window.matchMedia(
-          '(prefers-reduced-motion: reduce)'
-        );
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
         this.accessibilitySettings.reduceMotion = prefersReducedMotion.matches;
 
         // Check prefers-color-scheme for potential high contrast
-        const prefersHighContrast = window.matchMedia(
-          '(prefers-contrast: more)'
-        );
+        const prefersHighContrast = window.matchMedia('(prefers-contrast: more)');
         this.accessibilitySettings.highContrast = prefersHighContrast.matches;
 
         // Check if screen reader is likely active
         // This is a heuristic - accurate detection is difficult
-        const hasAriaLive =
-          document.querySelector('[aria-live]') !== null;
+        const hasAriaLive = document.querySelector('[aria-live]') !== null;
         if (hasAriaLive) {
           this.accessibilitySettings.screenReader = true;
         }
       } catch (error) {
-        console.error('Error detecting accessibility settings:', error);
+        logger.error('Error detecting accessibility settings:', error);
       }
     }
 
@@ -227,8 +219,7 @@ class PlatformService {
     } else if (platform.isWeb) {
       // Web specific adjustments
       if (adjusted.fontFamily === 'System') {
-        adjusted.fontFamily =
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
+        adjusted.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
       }
     }
 

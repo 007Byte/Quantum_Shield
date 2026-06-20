@@ -1,0 +1,66 @@
+# USBVault Migration Job — Run migrations independently of deployment
+# Usage: kubectl apply -f migration-job.yaml
+# To re-run: kubectl delete job usbvault-migration && kubectl apply -f migration-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: usbvault-migration
+  namespace: usbvault
+  labels:
+    app: usbvault-migration
+    component: database
+    managed-by: usbvault
+  annotations:
+    description: "Standalone migration job for USBVault database schema updates"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: usbvault-migration
+        component: database
+    spec:
+      serviceAccountName: usbvault-migration
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: ghcr.io/usbvault/usbvault-server:latest
+          command: ["./migrate", "up"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: database-url
+            - name: MIGRATIONS_DIR
+              value: "/app/migrations"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+# ServiceAccount with limited permissions for migration jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: usbvault-migration
+  namespace: usbvault
+  labels:
+    app: usbvault-migration
+    component: database

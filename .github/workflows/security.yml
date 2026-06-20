@@ -48,13 +48,19 @@ jobs:
       - name: Check gosec results
         run: |
           if [ -f gosec-results.json ]; then
-            if grep -q '"severity":"HIGH"\|"severity":"CRITICAL"' gosec-results.json; then
-              echo "::warning::High or Critical vulnerabilities found by gosec (review before v1.0 release)"
-            else
-              echo "No HIGH/CRITICAL vulnerabilities found by gosec"
+            criticals=$(jq '[.Issues[]? | select(.severity == "HIGH" or .severity == "CRITICAL")] | length' gosec-results.json 2>/dev/null || echo 0)
+            warnings=$(jq '[.Issues[]? | select(.severity == "MEDIUM")] | length' gosec-results.json 2>/dev/null || echo 0)
+            echo "gosec: $criticals HIGH/CRITICAL findings, $warnings MEDIUM warnings"
+            if [ "$warnings" -gt 0 ]; then
+              echo "::warning::gosec found $warnings medium-severity findings"
+            fi
+            if [ "$criticals" -gt 0 ]; then
+              echo "::error::gosec found $criticals HIGH/CRITICAL vulnerabilities — failing build"
+              exit 1
             fi
           else
-            echo "::warning::gosec-results.json not found — scanner may have failed"
+            echo "::error::gosec-results.json not found — scanner failed"
+            exit 1
           fi
 
       - name: Upload gosec report
@@ -88,13 +94,28 @@ jobs:
         run: cargo install cargo-audit
 
       - name: Run cargo-audit
-        run: cargo audit --json > cargo-audit-results.json 2>&1 || true
+        run: |
+          cargo audit --json > cargo-audit-results.json 2>&1
+          AUDIT_EXIT=$?
+          echo "cargo-audit exit code: $AUDIT_EXIT"
+          # Exit code 1 = vulnerabilities found, 2+ = tool error
+          if [ $AUDIT_EXIT -ge 2 ]; then
+            echo "::error::cargo-audit encountered an error (exit $AUDIT_EXIT)"
+            exit $AUDIT_EXIT
+          fi
+          # Save exit code for the check step
+          echo "AUDIT_EXIT=$AUDIT_EXIT" >> "$GITHUB_ENV"
 
       - name: Check audit results
         run: |
           if [ -f cargo-audit-results.json ]; then
-            echo "Cargo audit completed — results saved"
-            cat cargo-audit-results.json | head -100
+            vuln_count=$(jq '.vulnerabilities.found // 0' cargo-audit-results.json 2>/dev/null || echo 0)
+            echo "cargo-audit: $vuln_count vulnerabilities found"
+            if [ "$vuln_count" -gt 0 ]; then
+              jq '.vulnerabilities.list[]? | {id: .advisory.id, package: .package.name, title: .advisory.title}' cargo-audit-results.json
+              echo "::error::cargo-audit found $vuln_count known vulnerabilities — failing build"
+              exit 1
+            fi
           fi
 
       - name: Upload cargo-audit report
@@ -136,15 +157,28 @@ jobs:
           npx eslint . \
             --ext .ts,.tsx,.js,.jsx \
             --format json \
-            --output-file eslint-security-report.json || true
+            --output-file eslint-security-report.json
+          ESLINT_EXIT=$?
+          echo "ESLINT_EXIT=$ESLINT_EXIT" >> "$GITHUB_ENV"
+          # ESLint exit 1 = lint errors, 2 = config/internal error
+          if [ $ESLINT_EXIT -eq 2 ]; then
+            echo "::error::ESLint configuration or internal error"
+            exit 2
+          fi
 
       - name: Check for security issues
         run: |
           if [ -f eslint-security-report.json ]; then
-            if grep -q '"security' eslint-security-report.json; then
-              echo "::warning::ESLint security issues found (review before v1.0 release)"
-            else
-              echo "No ESLint security issues found"
+            error_count=$(jq '[.[] | .messages[] | select(.severity == 2)] | length' eslint-security-report.json 2>/dev/null || echo 0)
+            warning_count=$(jq '[.[] | .messages[] | select(.severity == 1)] | length' eslint-security-report.json 2>/dev/null || echo 0)
+            echo "ESLint security scan: $error_count errors, $warning_count warnings"
+            if [ "$warning_count" -gt 0 ]; then
+              echo "::warning::ESLint found $warning_count security warnings"
+            fi
+            if [ "$error_count" -gt 0 ]; then
+              echo "::error::ESLint found $error_count security errors — failing build"
+              jq '[.[] | .messages[] | select(.severity == 2) | {ruleId, message, line: .line}] | unique_by(.ruleId)' eslint-security-report.json
+              exit 1
             fi
           fi
 
@@ -224,8 +258,19 @@ jobs:
             --source=. \
             --report-format=json \
             --report-path=gitleaks-results.json \
-            --verbose || true
-          echo "Gitleaks scan complete"
+            --verbose
+          GITLEAKS_EXIT=$?
+          if [ $GITLEAKS_EXIT -eq 1 ]; then
+            echo "::error::Gitleaks detected secrets in the repository — failing build"
+            if [ -f gitleaks-results.json ]; then
+              jq '.[].Description' gitleaks-results.json 2>/dev/null || true
+            fi
+            exit 1
+          elif [ $GITLEAKS_EXIT -gt 1 ]; then
+            echo "::error::Gitleaks encountered an error (exit $GITLEAKS_EXIT)"
+            exit $GITLEAKS_EXIT
+          fi
+          echo "Gitleaks scan complete — no secrets detected"
 
       - name: Upload gitleaks report
         uses: actions/upload-artifact@v4
@@ -320,12 +365,279 @@ jobs:
           retention-days: 90
 
   # ============================================================
+  # DAST: OWASP ZAP Active Scan with Live Server
+  # ============================================================
+  owasp-zap:
+    name: DAST - OWASP ZAP Active Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Run on schedule (weekly) and optionally on PRs with [dast] label
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'dast')
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: usbvault_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: usbvault_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: 'usbvault-server/go.sum'
+
+      - name: Generate ZAP URL list from DAST config
+        working-directory: usbvault-server
+        run: |
+          go run ./cmd/dast-helper/main.go -output-urls=../zap-urls.txt -output-context=../zap-context.yaml -base-url=http://localhost:8080
+
+      - name: Build and start server
+        working-directory: usbvault-server
+        env:
+          DATABASE_URL: postgres://usbvault_test:test_password@localhost:5432/usbvault_test?sslmode=disable
+          ENVIRONMENT: test
+          PORT: "8080"
+          JWT_SECRET: zap-test-jwt-secret-not-for-production
+          CORS_ALLOWED_ORIGINS: "*"
+        run: |
+          go build -o usbvault-server ./cmd/api/
+          ./usbvault-server &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+
+          # Wait for health check (up to 30 seconds)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Server is healthy after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Server failed to start within 30 seconds"
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: OWASP ZAP API Scan
+        uses: zaproxy/action-api-scan@v0.9.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap-rules.tsv'
+          cmd_options: >-
+            -a
+            -j
+            -U zap-urls.txt
+            -z "-config api.addrs.addr.regex=true
+                -config api.addrs.addr.name=.*"
+          allow_issue_writing: false
+        continue-on-error: true
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill "$SERVER_PID" 2>/dev/null || true
+          fi
+
+      - name: Check for HIGH severity findings
+        if: always()
+        run: |
+          if [ -f zap-report.json ]; then
+            HIGH_COUNT=$(jq '[.site[].alerts[] | select(.riskcode == "3" or .riskcode == "4")] | length' zap-report.json 2>/dev/null || echo 0)
+            echo "HIGH/CRITICAL findings: $HIGH_COUNT"
+            if [ "$HIGH_COUNT" -gt 0 ]; then
+              echo "::error::ZAP found $HIGH_COUNT HIGH/CRITICAL severity findings"
+              jq '[.site[].alerts[] | select(.riskcode == "3" or .riskcode == "4") | {alert: .alert, risk: .riskdesc, count: .count}]' zap-report.json
+              exit 1
+            fi
+          else
+            echo "::warning::ZAP report not found — scan may have failed"
+          fi
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-zap-report
+          path: |
+            report_html.html
+            zap-report.json
+            zap-urls.txt
+            zap-context.yaml
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ============================================================
+  # SAST: Semgrep with OWASP/CWE Rules
+  # ============================================================
+  semgrep:
+    name: SAST - Semgrep (OWASP/CWE Rules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Semgrep
+        run: pip3 install semgrep
+
+      - name: Run Semgrep with OWASP + custom rules on Go code
+        run: |
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --config "p/golang" \
+            --config ".semgrep/usbvault-rules.yaml" \
+            --json \
+            --output semgrep-go-results.json \
+            usbvault-server/
+
+      - name: Run Semgrep with security + custom rules on TypeScript code
+        run: |
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --config "p/typescript" \
+            --config ".semgrep/usbvault-rules.yaml" \
+            --json \
+            --output semgrep-ts-results.json \
+            usbvault-app/src/
+
+      - name: Check Semgrep results
+        run: |
+          FAIL=0
+          for report in semgrep-go-results.json semgrep-ts-results.json; do
+            if [ -f "$report" ]; then
+              findings=$(jq '.results | length' "$report" 2>/dev/null || echo 0)
+              errors=$(jq '[.results[] | select(.extra.severity == "ERROR")] | length' "$report" 2>/dev/null || echo 0)
+              warnings=$(jq '[.results[] | select(.extra.severity == "WARNING")] | length' "$report" 2>/dev/null || echo 0)
+              echo "$report: $findings findings ($errors errors, $warnings warnings)"
+              if [ "$warnings" -gt 0 ]; then
+                echo "::warning::Semgrep found $warnings warning-level findings in $report"
+              fi
+              if [ "$errors" -gt 0 ]; then
+                echo "::error::Semgrep found $errors error-level findings in $report — failing build"
+                jq '[.results[] | select(.extra.severity == "ERROR") | {check_id: .check_id, path: .path, line: .start.line, message: .extra.message}]' "$report"
+                FAIL=1
+              fi
+            fi
+          done
+          if [ "$FAIL" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Upload Semgrep reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep-*-results.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ============================================================
+  # Consolidated Security Audit Script
+  # ============================================================
+  security-audit:
+    name: Consolidated Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [gosec, cargo-audit, eslint-security, gitleaks]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: 'usbvault-server/go.sum'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install security tools
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest || true
+          go install golang.org/x/vuln/cmd/govulncheck@latest || true
+          cargo install cargo-audit || true
+
+      - name: Run security audit (quick mode)
+        run: |
+          chmod +x scripts/security-audit.sh
+          ./scripts/security-audit.sh --quick
+
+      - name: Generate HTML audit report
+        run: |
+          chmod +x scripts/generate-audit-report.sh
+          ./scripts/generate-audit-report.sh
+
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-reports
+          path: |
+            docs/security/reports/
+            docs/security/AUDIT_REPORT.html
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ============================================================
+  # Penetration Tests
+  # ============================================================
+  pentest:
+    name: Penetration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: 'usbvault-server/go.sum'
+
+      - name: Run pentest suite
+        working-directory: usbvault-server
+        run: go test -v -tags=pentest -run TestPentest ./internal/security/...
+
+      - name: Summarize pentest results
+        if: always()
+        run: echo "Penetration test suite completed"
+
+  # ============================================================
   # SUMMARY: Aggregate Security Results
   # ============================================================
   security-summary:
     name: Security Scan Summary
     runs-on: ubuntu-latest
-    needs: [gosec, cargo-audit, eslint-security, gitleaks, sbom-generation]
+    needs: [gosec, cargo-audit, eslint-security, gitleaks, sbom-generation, semgrep, security-audit, pentest]
     if: always()
 
     steps:
@@ -337,25 +649,48 @@ jobs:
           echo "eslint-security: ${{ needs.eslint-security.result }}"
           echo "gitleaks:        ${{ needs.gitleaks.result }}"
           echo "sbom-generation: ${{ needs.sbom-generation.result }}"
+          echo "semgrep:         ${{ needs.semgrep.result }}"
+          echo "security-audit:  ${{ needs.security-audit.result }}"
+          echo "pentest:         ${{ needs.pentest.result }}"
           echo ""
 
-          FAILED=false
-          for job in gosec cargo-audit eslint-security gitleaks sbom-generation; do
-            RESULT="${{ needs.gosec.result }}"
+          for job in gosec cargo-audit eslint-security gitleaks sbom-generation semgrep security-audit pentest; do
             case "$job" in
               gosec)           RESULT="${{ needs.gosec.result }}" ;;
               cargo-audit)     RESULT="${{ needs.cargo-audit.result }}" ;;
               eslint-security) RESULT="${{ needs.eslint-security.result }}" ;;
               gitleaks)        RESULT="${{ needs.gitleaks.result }}" ;;
               sbom-generation) RESULT="${{ needs.sbom-generation.result }}" ;;
+              semgrep)         RESULT="${{ needs.semgrep.result }}" ;;
+              security-audit)  RESULT="${{ needs.security-audit.result }}" ;;
+              pentest)         RESULT="${{ needs.pentest.result }}" ;;
             esac
 
             if [ "$RESULT" = "failure" ]; then
               echo "::warning::$job completed with failures — review artifacts"
-              # Don't fail the summary — all scan findings are non-blocking pre-v1.0
             fi
           done
 
           echo ""
+
+          # Fail the summary if any critical security job failed
+          CRITICAL_FAIL=0
+          for job in gosec eslint-security gitleaks semgrep; do
+            case "$job" in
+              gosec)           RESULT="${{ needs.gosec.result }}" ;;
+              eslint-security) RESULT="${{ needs.eslint-security.result }}" ;;
+              gitleaks)        RESULT="${{ needs.gitleaks.result }}" ;;
+              semgrep)         RESULT="${{ needs.semgrep.result }}" ;;
+            esac
+            if [ "$RESULT" = "failure" ]; then
+              echo "::error::Critical security job '$job' failed"
+              CRITICAL_FAIL=1
+            fi
+          done
+
+          if [ "$CRITICAL_FAIL" -eq 1 ]; then
+            echo "::error::One or more critical security scans failed — blocking merge"
+            exit 1
+          fi
+
           echo "All security scans completed. Review artifacts for detailed findings."
-          echo "Security scan failures are non-blocking during development — resolve before v1.0 release."

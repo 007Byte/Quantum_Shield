@@ -34,6 +34,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // BillingPool defines the database interface used by the billing service.
@@ -84,8 +85,15 @@ type Subscription struct {
 // BillingService manages subscription and payment operations via Stripe API.
 // Supports local billing mode fallback when Stripe is not configured.
 type BillingService struct {
-	apiKey string
-	pool   BillingPool
+	apiKey     string
+	pool       BillingPool
+	httpClient *http.Client
+}
+
+// TD-2 FIX: Stripe API HTTP client with explicit timeout.
+// Prevents a hung Stripe endpoint from blocking goroutines indefinitely.
+var stripeHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
 }
 
 // Ensure *pgxpool.Pool satisfies BillingPool at compile time.
@@ -94,8 +102,9 @@ var _ BillingPool = (*pgxpool.Pool)(nil)
 // NewBillingService creates a new billing service with Stripe API key and database pool.
 func NewBillingService(stripeKey string, pool BillingPool) *BillingService {
 	return &BillingService{
-		apiKey: stripeKey,
-		pool:   pool,
+		apiKey:     stripeKey,
+		pool:       pool,
+		httpClient: stripeHTTPClient,
 	}
 }
 
@@ -145,7 +154,7 @@ func (bs *BillingService) CreateCustomer(ctx context.Context, userID, email stri
 	req.SetBasicAuth(bs.apiKey, "")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := bs.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("stripe API error: %w", err)
 	}
@@ -243,7 +252,7 @@ func (bs *BillingService) CreateSubscription(ctx context.Context, userID, tier s
 	req.SetBasicAuth(bs.apiKey, "")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := bs.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("stripe API error: %w", err)
 	}
@@ -358,7 +367,7 @@ func (bs *BillingService) ReconcileSubscriptions(ctx context.Context) (int, erro
 		}
 		req.SetBasicAuth(bs.apiKey, "")
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := bs.httpClient.Do(req)
 		if err != nil {
 			failed++
 			continue
@@ -368,8 +377,23 @@ func (bs *BillingService) ReconcileSubscriptions(ctx context.Context) (int, erro
 			Status           string `json:"status"`
 			CurrentPeriodEnd int64  `json:"current_period_end"`
 		}
-		json.NewDecoder(resp.Body).Decode(&result)
+		// RELIABILITY FIX (C-5): Check decode error to prevent silent billing drift.
+		// Previously, decode errors were swallowed, causing zero-value updates to the DB
+		// (empty status, epoch-zero period end) when Stripe returned malformed JSON.
+		if decodeErr := json.NewDecoder(resp.Body).Decode(&result); decodeErr != nil {
+			resp.Body.Close()
+			log.Error().Err(decodeErr).Str("subscription_id", subID).Msg("failed to decode Stripe response")
+			failed++
+			continue
+		}
 		resp.Body.Close()
+
+		// Validate decoded result has meaningful data before writing to DB
+		if result.Status == "" || result.CurrentPeriodEnd == 0 {
+			log.Warn().Str("subscription_id", subID).Msg("Stripe returned empty subscription data, skipping update")
+			failed++
+			continue
+		}
 
 		// Update local state if different
 		periodEnd := time.Unix(result.CurrentPeriodEnd, 0)
@@ -434,13 +458,16 @@ func (bs *BillingService) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 	defer cancel()
 
 	switch eventType {
+	case "customer.subscription.created":
+		bs.handleSubscriptionCreated(ctx, event)
+
 	case "customer.subscription.updated":
 		bs.handleSubscriptionUpdated(ctx, event)
 
 	case "customer.subscription.deleted":
 		bs.handleSubscriptionDeleted(ctx, event)
 
-	case "invoice.payment_succeeded":
+	case "invoice.payment_succeeded", "invoice.paid":
 		bs.handlePaymentSucceeded(ctx, event)
 
 	case "invoice.payment_failed":
@@ -453,6 +480,69 @@ func (bs *BillingService) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "received"})
+}
+
+// PH8-FIX: Handle customer.subscription.created — activate tier for new subscriptions
+func (bs *BillingService) handleSubscriptionCreated(ctx context.Context, event map[string]interface{}) {
+	dataObj, ok := event["data"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	obj, ok := dataObj["object"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	subID, ok := obj["id"].(string)
+	if !ok {
+		return
+	}
+
+	customerID, _ := obj["customer"].(string)
+	if customerID == "" {
+		log.Warn().Str("subscription_id", subID).Msg("missing customer_id in subscription created event")
+		return
+	}
+
+	status, _ := obj["status"].(string)
+	currentPeriodEnd, _ := obj["current_period_end"].(float64)
+
+	// Extract tier from metadata or items
+	tier := "individual" // default
+	if metadata, ok := obj["metadata"].(map[string]interface{}); ok {
+		if t, ok := metadata["tier"].(string); ok && isValidTier(t) {
+			tier = t
+		}
+	}
+
+	// Look up user_id from customer_id
+	var userID string
+	err := bs.pool.QueryRow(ctx,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
+		customerID,
+	).Scan(&userID)
+
+	if err != nil {
+		log.Error().Err(err).Str("customer_id", customerID).Msg("failed to lookup user_id for subscription created")
+		return
+	}
+
+	periodEnd := time.Unix(int64(currentPeriodEnd), 0)
+
+	_, err = bs.pool.Exec(ctx,
+		`UPDATE subscriptions SET stripe_subscription_id = $1, tier = $2, status = $3,
+		 current_period_end = $4, updated_at = NOW()
+		 WHERE user_id = $5`,
+		subID, tier, status, periodEnd, userID,
+	)
+
+	if err != nil {
+		log.Error().Err(err).Str("subscription_id", subID).Str("user_id", userID).Msg("failed to activate subscription in database")
+		return
+	}
+
+	log.Info().Str("subscription_id", subID).Str("user_id", userID).Str("tier", tier).Str("status", status).Msg("subscription created and activated")
 }
 
 func (bs *BillingService) handleSubscriptionUpdated(ctx context.Context, event map[string]interface{}) {
@@ -744,7 +834,7 @@ func HandleCreateCustomer(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -774,7 +864,7 @@ func HandleCreateSubscription(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -794,7 +884,7 @@ func HandleCreateSubscription(bs *BillingService) http.HandlerFunc {
 
 func HandleGetSubscription(bs *BillingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -846,7 +936,7 @@ func HandleUpgradeSubscription(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -921,7 +1011,7 @@ func HandleDowngradeSubscription(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -989,7 +1079,7 @@ func HandleDowngradeSubscription(bs *BillingService) http.HandlerFunc {
 // Sets subscription status to 'cancelling' and marks to cancel at period end
 func HandleCancelSubscription(bs *BillingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -1033,6 +1123,294 @@ func HandleCancelSubscription(bs *BillingService) http.HandlerFunc {
 			"cancelled_at":         time.Now().Format(time.RFC3339),
 			"cancellation_ends_at": periodEnd.Format(time.RFC3339),
 			"tier":                 currentSub.Tier,
+		})
+	}
+}
+
+// PH8-FIX: HandleReactivateSubscription reactivates a cancelled subscription before period end
+func HandleReactivateSubscription(bs *BillingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get current subscription
+		currentSub, err := bs.GetSubscription(ctx, userID)
+		if err != nil {
+			http.Error(w, "subscription not found", http.StatusNotFound)
+			return
+		}
+
+		// Only allow reactivation of cancelling subscriptions
+		if currentSub.Status != "cancelling" {
+			http.Error(w, "subscription is not in cancelling state", http.StatusBadRequest)
+			return
+		}
+
+		if bs.pool == nil {
+			http.Error(w, "database not configured", http.StatusInternalServerError)
+			return
+		}
+
+		// If Stripe is configured, reactivate via Stripe API
+		if isLiveStripeKey(bs.apiKey) && currentSub.SubscriptionID != "" && !strings.HasPrefix(currentSub.SubscriptionID, "local_") {
+			data := url.Values{}
+			data.Set("cancel_at_period_end", "false")
+
+			req, err := http.NewRequestWithContext(ctx, "POST",
+				"https://api.stripe.com/v1/subscriptions/"+currentSub.SubscriptionID,
+				strings.NewReader(data.Encode()))
+			if err != nil {
+				http.Error(w, "failed to create request", http.StatusInternalServerError)
+				return
+			}
+			req.SetBasicAuth(bs.apiKey, "")
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			resp, err := bs.httpClient.Do(req)
+			if err != nil {
+				log.Error().Err(err).Str("user_id", userID).Msg("failed to reactivate subscription via Stripe")
+				http.Error(w, "failed to reactivate subscription", http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				http.Error(w, "Stripe reactivation failed", http.StatusBadGateway)
+				return
+			}
+		}
+
+		// Update local database
+		_, err = bs.pool.Exec(ctx,
+			`UPDATE subscriptions SET status = 'active', cancel_at_period_end = false, updated_at = NOW()
+			 WHERE user_id = $1`,
+			userID,
+		)
+
+		if err != nil {
+			log.Error().Err(err).Str("user_id", userID).Msg("failed to reactivate subscription in database")
+			http.Error(w, "failed to reactivate subscription", http.StatusInternalServerError)
+			return
+		}
+
+		log.Info().Str("user_id", userID).Str("tier", currentSub.Tier).Msg("subscription reactivated")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "active",
+			"tier":   currentSub.Tier,
+		})
+	}
+}
+
+// PH8-FIX: HandleCreateCheckoutSession creates a Stripe Checkout session for new subscriptions
+func HandleCreateCheckoutSession(bs *BillingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			Tier       string `json:"tier"`
+			SuccessURL string `json:"success_url"`
+			CancelURL  string `json:"cancel_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		if !isValidTier(req.Tier) || req.Tier == "free" {
+			http.Error(w, "invalid tier for checkout", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get or create customer ID
+		var customerID string
+		if bs.pool != nil {
+			err := bs.pool.QueryRow(ctx,
+				"SELECT stripe_customer_id FROM subscriptions WHERE user_id = $1", userID).Scan(&customerID)
+			if err != nil {
+				// No customer yet — create one in local mode
+				customerID = "local_cust_" + userID
+			}
+		}
+
+		priceID := bs.mapTierToPrice(req.Tier)
+		if priceID == "" && isLiveStripeKey(bs.apiKey) {
+			http.Error(w, "no price configured for tier", http.StatusBadRequest)
+			return
+		}
+
+		// If Stripe is configured, create a real Checkout session
+		if isLiveStripeKey(bs.apiKey) {
+			data := url.Values{}
+			data.Set("mode", "subscription")
+			data.Set("customer", customerID)
+			data.Set("line_items[0][price]", priceID)
+			data.Set("line_items[0][quantity]", "1")
+			data.Set("success_url", req.SuccessURL)
+			data.Set("cancel_url", req.CancelURL)
+			data.Set("metadata[user_id]", userID)
+			data.Set("metadata[tier]", req.Tier)
+
+			httpReq, err := http.NewRequestWithContext(ctx, "POST",
+				"https://api.stripe.com/v1/checkout/sessions",
+				strings.NewReader(data.Encode()))
+			if err != nil {
+				http.Error(w, "failed to create request", http.StatusInternalServerError)
+				return
+			}
+			httpReq.SetBasicAuth(bs.apiKey, "")
+			httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			resp, err := bs.httpClient.Do(httpReq)
+			if err != nil {
+				log.Error().Err(err).Str("user_id", userID).Msg("failed to create checkout session")
+				http.Error(w, "failed to create checkout session", http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+
+			var result struct {
+				URL   string `json:"url"`
+				ID    string `json:"id"`
+				Error *struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				http.Error(w, "failed to decode Stripe response", http.StatusInternalServerError)
+				return
+			}
+			if result.Error != nil {
+				http.Error(w, "Stripe error: "+result.Error.Message, http.StatusBadGateway)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"url":        result.URL,
+				"session_id": result.ID,
+			})
+			return
+		}
+
+		// Local mode: simulate checkout by directly upgrading
+		log.Warn().Msg("PH8-FIX: No Stripe key, simulating checkout session in local mode")
+		if bs.pool != nil {
+			_, err := bs.pool.Exec(ctx,
+				`UPDATE subscriptions SET tier = $1, status = 'active',
+				 current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
+				 WHERE user_id = $2`,
+				req.Tier, userID)
+			if err != nil {
+				http.Error(w, "failed to update subscription", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"url":        req.SuccessURL,
+			"session_id": "local_cs_" + userID,
+		})
+	}
+}
+
+// PH8-FIX: HandleCreatePortalSession creates a Stripe Customer Portal session
+func HandleCreatePortalSession(bs *BillingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			ReturnURL string `json:"return_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get customer ID
+		var customerID string
+		if bs.pool != nil {
+			err := bs.pool.QueryRow(ctx,
+				"SELECT stripe_customer_id FROM subscriptions WHERE user_id = $1", userID).Scan(&customerID)
+			if err != nil {
+				http.Error(w, "customer not found", http.StatusNotFound)
+				return
+			}
+		}
+
+		// If Stripe configured, create real portal session
+		if isLiveStripeKey(bs.apiKey) {
+			data := url.Values{}
+			data.Set("customer", customerID)
+			if req.ReturnURL != "" {
+				data.Set("return_url", req.ReturnURL)
+			}
+
+			httpReq, err := http.NewRequestWithContext(ctx, "POST",
+				"https://api.stripe.com/v1/billing_portal/sessions",
+				strings.NewReader(data.Encode()))
+			if err != nil {
+				http.Error(w, "failed to create request", http.StatusInternalServerError)
+				return
+			}
+			httpReq.SetBasicAuth(bs.apiKey, "")
+			httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			resp, err := bs.httpClient.Do(httpReq)
+			if err != nil {
+				log.Error().Err(err).Str("user_id", userID).Msg("failed to create portal session")
+				http.Error(w, "failed to create portal session", http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+
+			var result struct {
+				URL   string `json:"url"`
+				Error *struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				http.Error(w, "failed to decode Stripe response", http.StatusInternalServerError)
+				return
+			}
+			if result.Error != nil {
+				http.Error(w, "Stripe error: "+result.Error.Message, http.StatusBadGateway)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"url": result.URL,
+			})
+			return
+		}
+
+		// Local mode: return the return URL as-is
+		log.Warn().Msg("PH8-FIX: No Stripe key, returning return_url for local portal session")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"url": req.ReturnURL,
 		})
 	}
 }

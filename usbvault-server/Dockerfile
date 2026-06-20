@@ -12,12 +12,19 @@ COPY . .
 # Resolve dependencies (regenerates go.sum from source imports)
 RUN go mod tidy && go mod download
 
-# Build for the native platform (works on both amd64 and arm64)
+# Build API server
 RUN CGO_ENABLED=1 \
     go build \
     -ldflags="-w -s" \
     -o /app/bin/api \
     ./cmd/api
+
+# Build migration CLI
+RUN CGO_ENABLED=1 \
+    go build \
+    -ldflags="-w -s" \
+    -o /app/bin/migrate \
+    ./cmd/migrate
 
 # Stage 2: Runtime
 FROM alpine:3.19
@@ -35,11 +42,12 @@ RUN apk add --no-cache ca-certificates curl
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
-# Copy binary from builder
+# Copy binaries from builder
 COPY --from=builder /app/bin/api /app/api
+COPY --from=builder /app/bin/migrate /app/migrate
 
-# Copy any required assets/migrations if needed
-# COPY --from=builder /app/migrations /app/migrations
+# Copy migration SQL files
+COPY --from=builder /app/migrations /app/migrations
 
 # Change ownership
 RUN chown -R appuser:appgroup /app

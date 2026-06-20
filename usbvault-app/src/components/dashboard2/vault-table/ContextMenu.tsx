@@ -1,9 +1,11 @@
 import { Feather, Ionicons, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { vaultContextActions } from '../mockData';
+import { vaultContextActions } from '../navigationConfig';
 import { dashboardColors, webOnlyGlassLuxury, webOnlyTransition } from '../styles';
 import { webOnly } from '@/utils/webStyle';
 import { VaultContextAction } from '../types';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useTheme } from '@/theme/engine';
 
 interface ContextMenuProps {
   direction: 'up' | 'down';
@@ -26,16 +28,35 @@ function IconForAction({ action, color }: { action: VaultContextAction; color: s
 }
 
 export function ContextMenu({ direction, onAction, onClose }: ContextMenuProps) {
+  const { colorScheme } = useTheme();
+  const isLight = colorScheme === 'light';
+  const { t } = useLanguage();
+
+  // Map action IDs to translation keys
+  const getActionLabel = (actionId: string) => {
+    const keyMap: Record<string, string> = {
+      'open': 'vault.contextMenu.open',
+      'decrypt': 'vault.contextMenu.decrypt',
+      'share': 'vault.contextMenu.shareSecurely',
+      'show-folder': 'vault.contextMenu.showInFolder',
+      'rename': 'vault.contextMenu.rename',
+      'remove': 'vault.contextMenu.removeFromRecent',
+    };
+    return t(keyMap[actionId] || '');
+  };
+
   return (
     <View
       style={[
         styles.contextMenu,
         direction === 'up' ? styles.contextMenuUp : styles.contextMenuDown,
+        isLight && styles.contextMenuLight,
       ]}
     >
       <View style={styles.contextMenuSheen} />
       {vaultContextActions.map((action, index) => (
         <Pressable
+          accessibilityRole="button"
           key={action.id}
           onPress={() => {
             onAction(action.id);
@@ -48,7 +69,7 @@ export function ContextMenu({ direction, onAction, onClose }: ContextMenuProps) 
           ]}
         >
           <IconForAction action={action} color={dashboardColors.textPrimary} />
-          <Text style={styles.contextText}>{action.label}</Text>
+          <Text style={styles.contextText}>{getActionLabel(action.id)}</Text>
         </Pressable>
       ))}
     </View>
@@ -121,5 +142,14 @@ const styles = StyleSheet.create({
     color: dashboardColors.textPrimary,
     fontSize: 16,
     fontWeight: '500',
+  },
+  contextMenuLight: {
+    borderColor: 'rgba(200,190,230,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    ...webOnly({
+      backdropFilter: 'blur(20px) saturate(130%)',
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.90))',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.10), 0 0 0 1px rgba(200,190,230,0.25)',
+    }),
   },
 });

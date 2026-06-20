@@ -20,10 +20,16 @@
 
 import { Platform } from 'react-native';
 import { auditService } from '../auditService';
+import { logger } from '@/utils/logger';
 
 // ── Types ──────────────────────────────────────────────────────
 
-export type SecurityCheckCategory = 'integrity' | 'debugging' | 'signing' | 'encryption' | 'runtime';
+export type SecurityCheckCategory =
+  | 'integrity'
+  | 'debugging'
+  | 'signing'
+  | 'encryption'
+  | 'runtime';
 export type SecurityCheckStatus = 'pass' | 'fail' | 'warn' | 'unknown';
 export type SecurityGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 
@@ -56,13 +62,35 @@ const STORAGE_KEY = 'usbvault:anti_phishing_icon';
 const SECURITY_CHECKS_KEY = 'usbvault:security_checks';
 
 const SECURITY_EMOJIS = [
-  '🛡️', '🔐', '🔒', '🗝️', '⚔️', '🎯', '🏰', '🧿',
-  '🪙', '⭐', '✨', '💎', '🏅', '🎖️', '🔱', '⚡',
+  '🛡️',
+  '🔐',
+  '🔒',
+  '🗝️',
+  '⚔️',
+  '🎯',
+  '🏰',
+  '🧿',
+  '🪙',
+  '⭐',
+  '✨',
+  '💎',
+  '🏅',
+  '🎖️',
+  '🔱',
+  '⚡',
 ];
 
 const SECURITY_COLORS = [
-  '#10B981', '#0EA5E9', '#8B5CF6', '#EC4899', '#F59E0B',
-  '#06B6D4', '#14B8A6', '#6366F1', '#D946EF', '#EA580C',
+  '#10B981',
+  '#0EA5E9',
+  '#8B5CF6',
+  '#EC4899',
+  '#F59E0B',
+  '#06B6D4',
+  '#14B8A6',
+  '#6366F1',
+  '#D946EF',
+  '#EA580C',
 ];
 
 const PHISHING_PATTERNS = [
@@ -90,9 +118,12 @@ const KNOWN_PHISHING_DOMAINS = [
  */
 async function sha256(input: string): Promise<string> {
   if (!isWeb || !crypto.subtle) {
-    return input.split('').reduce((h, c) => {
-      return ((h << 5) - h) + c.charCodeAt(0);
-    }, 0).toString(16);
+    return input
+      .split('')
+      .reduce((h, c) => {
+        return (h << 5) - h + c.charCodeAt(0);
+      }, 0)
+      .toString(16);
   }
 
   try {
@@ -100,11 +131,14 @@ async function sha256(input: string): Promise<string> {
     const data = encoder.encode(input);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   } catch {
-    return input.split('').reduce((h, c) => {
-      return ((h << 5) - h) + c.charCodeAt(0);
-    }, 0).toString(16);
+    return input
+      .split('')
+      .reduce((h, c) => {
+        return (h << 5) - h + c.charCodeAt(0);
+      }, 0)
+      .toString(16);
   }
 }
 
@@ -132,7 +166,7 @@ class AntiThreatService {
         this.lastCheckResults = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load security checks from storage:', error);
+      logger.error('Failed to load security checks from storage:', error);
       this.lastCheckResults = [];
     }
   }
@@ -141,7 +175,7 @@ class AntiThreatService {
     try {
       localStorage.setItem(SECURITY_CHECKS_KEY, JSON.stringify(this.lastCheckResults));
     } catch (error) {
-      console.error('Failed to save security checks to storage:', error);
+      logger.error('Failed to save security checks to storage:', error);
     }
   }
 
@@ -168,7 +202,7 @@ class AntiThreatService {
         try {
           localStorage.setItem(
             STORAGE_KEY,
-            JSON.stringify({ emoji, color, label, userId, timestamp: new Date().toISOString() }),
+            JSON.stringify({ emoji, color, label, userId, timestamp: new Date().toISOString() })
           );
         } catch {
           // Silent fail
@@ -178,7 +212,7 @@ class AntiThreatService {
       auditService.log('system', 'security_icon_generated', { userId }).catch(() => {});
       return { emoji, color, label };
     } catch (err) {
-      console.error('[AntiThreat] Failed to generate security icon:', err);
+      logger.error('[AntiThreat] Failed to generate security icon:', err);
       return { emoji: '🛡️', color: '#10B981', label: 'Security Shield' };
     }
   }
@@ -200,9 +234,7 @@ class AntiThreatService {
       const parsed = JSON.parse(stored);
       if (parsed.userId !== userId) return false;
 
-      const matches =
-        parsed.emoji === presented.emoji &&
-        parsed.color === presented.color;
+      const matches = parsed.emoji === presented.emoji && parsed.color === presented.color;
 
       if (!matches) {
         auditService.log('system', 'security_icon_mismatch', { userId }, 'warning').catch(() => {});
@@ -295,10 +327,10 @@ class AntiThreatService {
     this.lastCheckResults = checks;
     this.saveSecurityChecks();
 
-    const failCount = checks.filter((c) => c.status === 'fail').length;
+    const failCount = checks.filter(c => c.status === 'fail').length;
     await auditService.log('SECURITY_CHECKS_RUN' as any, 'security_scanner', {
       totalChecks: checks.length,
-      passedChecks: checks.filter((c) => c.status === 'pass').length,
+      passedChecks: checks.filter(c => c.status === 'pass').length,
       failedChecks: failCount,
     });
 
@@ -411,8 +443,8 @@ class AntiThreatService {
     }
 
     const maxScore = this.lastCheckResults.length;
-    const passCount = this.lastCheckResults.filter((c) => c.status === 'pass').length;
-    const warnCount = this.lastCheckResults.filter((c) => c.status === 'warn').length;
+    const passCount = this.lastCheckResults.filter(c => c.status === 'pass').length;
+    const warnCount = this.lastCheckResults.filter(c => c.status === 'warn').length;
 
     const score = passCount + warnCount * 0.5;
     const percentage = (score / maxScore) * 100;
@@ -438,13 +470,13 @@ class AntiThreatService {
   }
 
   isCompromised(): boolean {
-    return this.lastCheckResults.some((check) => check.status === 'fail');
+    return this.lastCheckResults.some(check => check.status === 'fail');
   }
 
   getCompromiseDetails(): string[] {
     return this.lastCheckResults
-      .filter((check) => check.status === 'fail')
-      .map((check) => `${check.name}: ${check.details || check.description}`);
+      .filter(check => check.status === 'fail')
+      .map(check => `${check.name}: ${check.details || check.description}`);
   }
 }
 

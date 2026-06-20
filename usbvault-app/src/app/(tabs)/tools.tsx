@@ -1,326 +1,345 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useLanguage } from '@/hooks/useLanguage';
+import { ShellLayout } from '@/components/dashboard2/ShellLayout';
+import { dashboardSpacing } from '@/components/dashboard2/styles';
+import { useTheme } from '@/theme/engine';
 import { webOnly } from '@/utils/webStyle';
-import { InAppModal, useInAppModal } from '@/components/common';
-import { Sidebar } from '@/components/dashboard2/Sidebar';
-import { TopBar } from '@/components/dashboard2/TopBar';
-import { dashboardLayout, dashboardSpacing, dashboardColors } from '@/components/dashboard2/styles';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import {
+  ToolCard,
+  FileShredderTool,
+  HashCheckerTool,
+  SecureNotepadTool,
+  QRCodeGeneratorTool,
+  TextEncryptorTool,
+  ChecksumValidatorTool,
+} from '@/components/tools';
+import type { ToolCategory } from '@/components/tools';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Full tool categories (matches original design) ──────────────────────────
 
-interface ToolCard {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-}
-
-// ─── Tools Data ────────────────────────────────────────────────────────────────
-
-const TOOLS: ToolCard[] = [
+const TOOL_CATEGORIES: ToolCategory[] = [
   {
-    id: 'file-shredder',
-    title: 'File Shredder',
-    description: 'Securely delete files with multi-pass overwrite to prevent recovery.',
-    icon: 'trash-2',
-    color: '#EF4444',
+    id: 'security',
+    titleKey: 'tools.categorySecurity',
+    icon: 'shield',
+    tools: [
+      {
+        id: 'defense',
+        titleKey: 'tools.security.defense',
+        descKey: 'tools.security.defenseDesc',
+        icon: 'layers',
+        color: '#8B5CF6',
+        action: { type: 'navigate', route: '/(tabs)/defense' },
+      },
+      {
+        id: 'brute-force',
+        titleKey: 'tools.security.bruteForce',
+        descKey: 'tools.security.bruteForceDesc',
+        icon: 'shield',
+        color: '#EF4444',
+        action: { type: 'navigate', route: '/(tabs)/brute-force' },
+      },
+      {
+        id: 'zero-trace',
+        titleKey: 'tools.security.zeroTrace',
+        descKey: 'tools.security.zeroTraceDesc',
+        icon: 'eye-off',
+        color: '#8B5CF6',
+        action: { type: 'navigate', route: '/(tabs)/zero-trace' },
+      },
+      {
+        id: 'health-check',
+        titleKey: 'tools.security.healthCheck',
+        descKey: 'tools.security.healthCheckDesc',
+        icon: 'activity',
+        color: '#22C55E',
+        action: { type: 'navigate', route: '/(tabs)/health-check' },
+      },
+    ],
   },
   {
-    id: 'hash-checker',
-    title: 'Hash Checker',
-    description: 'Verify file integrity with SHA-256/512 cryptographic checksums.',
-    icon: 'check-circle',
-    color: '#22D3EE',
+    id: 'usb',
+    titleKey: 'tools.categoryUsb',
+    icon: 'hard-drive',
+    tools: [
+      {
+        id: 'setup-usb',
+        titleKey: 'tools.usb.setupUsb',
+        descKey: 'tools.usb.setupUsbDesc',
+        icon: 'disc',
+        color: '#22D3EE',
+        action: { type: 'navigate', route: '/(tabs)/setup-usb' },
+      },
+      {
+        id: 'reset-usb',
+        titleKey: 'tools.usb.resetUsb',
+        descKey: 'tools.usb.resetUsbDesc',
+        icon: 'refresh-cw',
+        color: '#EF4444',
+        action: { type: 'navigate', route: '/(tabs)/reset-usb' },
+      },
+    ],
   },
   {
-    id: 'secure-notepad',
-    title: 'Secure Notepad',
-    description: 'Encrypted scratchpad for sensitive notes and temporary data storage.',
-    icon: 'edit-3',
-    color: '#8B5CF6',
+    id: 'backup',
+    titleKey: 'tools.categoryBackup',
+    icon: 'save',
+    tools: [
+      {
+        id: 'backup-vault',
+        titleKey: 'tools.backup.backupVault',
+        descKey: 'tools.backup.backupVaultDesc',
+        icon: 'upload-cloud',
+        color: '#22D3EE',
+        action: { type: 'navigate', route: '/(tabs)/backup' },
+      },
+      {
+        id: 'restore-vault',
+        titleKey: 'tools.backup.restoreVault',
+        descKey: 'tools.backup.restoreVaultDesc',
+        icon: 'download-cloud',
+        color: '#8B5CF6',
+        action: { type: 'navigate', route: '/(tabs)/restore' },
+      },
+    ],
   },
   {
-    id: 'qr-code-generator',
-    title: 'QR Code Generator',
-    description: 'Generate QR codes for secure vault sharing and quick access.',
-    icon: 'grid',
-    color: '#22C55E',
-  },
-  {
-    id: 'text-encryptor',
-    title: 'Text Encryptor',
-    description: 'Encrypt/decrypt text snippets with post-quantum cryptography algorithms.',
-    icon: 'lock',
-    color: '#22D3EE',
-  },
-  {
-    id: 'checksum-validator',
-    title: 'Checksum Validator',
-    description: 'Validate file checksums against known hashes for verification.',
-    icon: 'file-text',
-    color: '#8B5CF6',
+    id: 'utility',
+    titleKey: 'tools.categoryUtility',
+    icon: 'tool',
+    tools: [
+      {
+        id: 'file-shredder',
+        titleKey: 'tools.utility.fileShredder',
+        descKey: 'tools.utility.fileShredderDesc',
+        icon: 'trash-2',
+        color: '#EF4444',
+        action: { type: 'inline', id: 'file-shredder' },
+      },
+      {
+        id: 'hash-checker',
+        titleKey: 'tools.utility.hashChecker',
+        descKey: 'tools.utility.hashCheckerDesc',
+        icon: 'check-circle',
+        color: '#22D3EE',
+        action: { type: 'inline', id: 'hash-checker' },
+      },
+      {
+        id: 'secure-notepad',
+        titleKey: 'tools.utility.secureNotepad',
+        descKey: 'tools.utility.secureNotepadDesc',
+        icon: 'edit-3',
+        color: '#8B5CF6',
+        action: { type: 'inline', id: 'secure-notepad' },
+      },
+      {
+        id: 'qr-code-generator',
+        titleKey: 'tools.utility.qrGenerator',
+        descKey: 'tools.utility.qrGeneratorDesc',
+        icon: 'grid',
+        color: '#22C55E',
+        action: { type: 'inline', id: 'qr-code-generator' },
+      },
+      {
+        id: 'text-encryptor',
+        titleKey: 'tools.utility.textEncryptor',
+        descKey: 'tools.utility.textEncryptorDesc',
+        icon: 'lock',
+        color: '#22D3EE',
+        action: { type: 'inline', id: 'text-encryptor' },
+      },
+      {
+        id: 'checksum-validator',
+        titleKey: 'tools.utility.checksumValidator',
+        descKey: 'tools.utility.checksumValidatorDesc',
+        icon: 'file-text',
+        color: '#8B5CF6',
+        action: { type: 'inline', id: 'checksum-validator' },
+      },
+    ],
   },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Inline tool renderer ─────────────────────────────────────────────────────
 
-export default function ToolsScreen() {
-  const { modal, showSuccess } = useInAppModal();
+function InlineTool({ id }: { id: string }) {
+  switch (id) {
+    case 'file-shredder':
+      return <FileShredderTool />;
+    case 'hash-checker':
+      return <HashCheckerTool />;
+    case 'secure-notepad':
+      return <SecureNotepadTool />;
+    case 'qr-code-generator':
+      return <QRCodeGeneratorTool />;
+    case 'text-encryptor':
+      return <TextEncryptorTool />;
+    case 'checksum-validator':
+      return <ChecksumValidatorTool />;
+    default:
+      return null;
+  }
+}
 
-  const handleLaunchTool = () => {
-    showSuccess('Coming Soon', 'This tool will be available in a future update');
-  };
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+function ToolsScreen() {
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+  const router = useRouter();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleToolPress = useCallback(
+    (tool: { action: { type: string; route?: string; id?: string }; id: string }) => {
+      if (tool.action.type === 'navigate' && tool.action.route) {
+        router.navigate(tool.action.route as any);
+      } else {
+        // Toggle inline expansion
+        setExpandedId(prev => (prev === tool.id ? null : tool.id));
+      }
+    },
+    [router]
+  );
 
   return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
-        <View style={styles.shell}>
-          <View style={styles.shellEdgeGlow} />
-          <Sidebar />
-          <View style={styles.mainCol}>
-            <TopBar />
-            <View style={styles.contentArea}>
-              {/* Header */}
-              <View style={styles.header}>
-                <Text style={styles.pageTitle}>Tools</Text>
-                <Text style={styles.pageSubtitle}>Power utilities for advanced file and security operations</Text>
-              </View>
+    <ShellLayout>
+      <View style={styles.contentArea}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text
+            style={[styles.pageTitle, { color: theme.L2.base.text.primary }]}
+            accessibilityRole="header"
+          >
+            {t('tools.pageTitle')}
+          </Text>
+          <Text style={[styles.pageSubtitle, { color: theme.L2.base.text.secondary }]}>
+            {t('tools.pageSubtitle')}
+          </Text>
+        </View>
 
-              {/* Tools Grid */}
-              <View style={styles.toolsGrid}>
-                {TOOLS.map((tool) => (
-                  <ToolCardComponent
-                    key={tool.id}
-                    tool={tool}
-                    onPress={handleLaunchTool}
-                  />
-                ))}
+        {/* Categories */}
+        {TOOL_CATEGORIES.map(category => (
+          <View key={category.id} style={styles.categorySection}>
+            {/* Category Header */}
+            <View style={styles.categoryHeader}>
+              <Feather
+                name={category.icon as any}
+                size={18}
+                color={theme.L2.base.text.primary}
+              />
+              <Text style={[styles.categoryTitle, { color: theme.L2.base.text.primary }]}>
+                {t(category.titleKey)}
+              </Text>
+              <View style={[styles.countBadge, { backgroundColor: theme.semantic.purple + '30' }]}>
+                <Text style={[styles.countBadgeText, { color: theme.semantic.purple }]}>
+                  {category.tools.length}
+                </Text>
               </View>
             </View>
+
+            {/* Tools grid within category */}
+            <View style={styles.toolsGrid}>
+              {category.tools.map(tool => {
+                const isExpanded = expandedId === tool.id;
+                return (
+                  <View
+                    key={tool.id}
+                    style={[styles.toolSlot, isExpanded && styles.toolSlotExpanded]}
+                  >
+                    <ToolCard
+                      tool={tool}
+                      t={t}
+                      onPress={() => handleToolPress(tool)}
+                      isExpanded={isExpanded}
+                    />
+                    {isExpanded && tool.action.type === 'inline' && (
+                      <View style={[styles.expandedPanel, { borderLeftColor: tool.color }]}>
+                        <InlineTool id={tool.action.type === 'inline' ? tool.action.id : ''} />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      </ScrollView>
-      <InAppModal config={modal} />
-    </View>
-  );
-}
-
-// ─── Tool Card Component ───────────────────────────────────────────────────────
-
-function ToolCardComponent({ tool, onPress }: { tool: ToolCard; onPress: () => void }) {
-  const [isPressed, setIsPressed] = useState(false);
-
-  return (
-    <Pressable
-      style={(state: any) => [
-        styles.toolCard,
-        state.hovered && styles.toolCardHovered,
-        isPressed && styles.toolCardPressed,
-      ]}
-      onPress={onPress}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
-    >
-      {/* Icon Circle */}
-      <View style={[styles.iconCircle, { backgroundColor: `${tool.color}15` }]}>
-        <Feather
-          name={tool.icon as any}
-          size={28}
-          color={tool.color}
-        />
+        ))}
       </View>
-
-      {/* Title */}
-      <Text style={styles.toolTitle}>{tool.title}</Text>
-
-      {/* Description */}
-      <Text style={styles.toolDescription}>{tool.description}</Text>
-
-      {/* Launch Button */}
-      <Pressable
-        style={(state: any) => [
-          styles.launchButton,
-          state.hovered && styles.launchButtonHovered,
-        ]}
-        onPress={onPress}
-      >
-        <Text style={styles.launchButtonText}>Launch</Text>
-      </Pressable>
-    </Pressable>
+    </ShellLayout>
   );
 }
+
+export default withErrorBoundary(ToolsScreen, 'Tools');
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: 'transparent',
-    ...webOnly({ overflow: 'hidden' }),
-  },
-  pageScroll: {
-    flex: 1,
-    width: '100%',
-    ...webOnly({ overflowY: 'auto' }),
-  },
-  pageContent: {
-    paddingHorizontal: dashboardSpacing.md,
-    paddingVertical: dashboardSpacing.md,
-    alignItems: 'center',
-  },
-  shell: {
-    width: '100%',
-    maxWidth: dashboardLayout.maxWidth,
-    alignSelf: 'center',
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.42)',
-    borderRadius: dashboardLayout.radius2Xl,
-    backgroundColor: 'rgba(8,5,20,0.38)',
-    ...webOnly({
-      overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
-    }),
-  },
-  shellEdgeGlow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 1,
-    backgroundColor: 'rgba(217,70,239,0.55)',
-  },
-  mainCol: {
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 16,
-  },
   contentArea: {
     paddingRight: 10,
   },
-
-  // Header
   header: {
     marginBottom: dashboardSpacing.xl,
   },
   pageTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
     marginBottom: dashboardSpacing.sm,
   },
   pageSubtitle: {
     fontSize: 16,
-    color: dashboardColors.textSecondary,
     fontWeight: '400',
   },
 
-  // Tools Grid
+  // ── Category Section ────────────────────────────────
+  categorySection: {
+    marginBottom: dashboardSpacing.xl,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: dashboardSpacing.md,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // ── Tools Grid ──────────────────────────────────────
   toolsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: dashboardSpacing.lg,
+    gap: dashboardSpacing.md,
   },
-
-  // Tool Card
-  toolCard: {
+  toolSlot: {
     width: '48%',
-    backgroundColor: dashboardColors.panel,
-    borderWidth: 1,
-    borderColor: dashboardColors.borderPurple,
-    borderRadius: 18,
-    padding: dashboardSpacing.lg,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    minWidth: 260,
+  },
+  toolSlotExpanded: {
+    width: '100%',
+  },
+  expandedPanel: {
+    marginTop: dashboardSpacing.sm,
+    borderLeftWidth: 3,
+    borderRadius: 14,
+    padding: dashboardSpacing.md,
+    backgroundColor: 'rgba(14,10,34,0.55)',
     ...webOnly({
       backdropFilter: 'blur(18px)',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.58), 0 0 25px rgba(139,92,246,0.18)',
-      cursor: 'pointer',
-      transition: 'all 0.25s ease',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 0 20px rgba(139,92,246,0.08)',
     }),
-  },
-  toolCardHovered: {
-    backgroundColor: dashboardColors.panelStrong,
-    borderColor: 'rgba(139,92,246,0.6)',
-    ...webOnly({
-      boxShadow: '0 0 40px rgba(139,92,246,0.5), 0 0 80px rgba(34,211,238,0.35)',
-      transform: 'translateY(-4px)',
-    }),
-  },
-  toolCardPressed: {
-    ...webOnly({
-      transform: 'translateY(-2px)',
-    }),
-  },
-
-  // Icon Circle
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: dashboardSpacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.25)',
-  },
-
-  // Title
-  toolTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: dashboardColors.textPrimary,
-    marginBottom: dashboardSpacing.sm,
-    textAlign: 'center',
-  },
-
-  // Description
-  toolDescription: {
-    fontSize: 13,
-    color: dashboardColors.textSecondary,
-    fontWeight: '400',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: dashboardSpacing.lg,
-    flex: 1,
-  },
-
-  // Launch Button
-  launchButton: {
-    paddingHorizontal: dashboardSpacing.lg,
-    paddingVertical: dashboardSpacing.sm,
-    backgroundColor: 'rgba(139,92,246,0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.6)',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    ...webOnly({
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
-      boxShadow: '0 0 14px rgba(139,92,246,0.3)',
-    }),
-  },
-  launchButtonHovered: {
-    backgroundColor: 'rgba(139,92,246,0.55)',
-    borderColor: 'rgba(139,92,246,0.8)',
-    ...webOnly({
-      boxShadow: '0 0 24px rgba(139,92,246,0.5), 0 0 40px rgba(34,211,238,0.2)',
-      transform: 'translateY(-1px)',
-    }),
-  },
-
-  launchButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: dashboardColors.textPrimary,
   },
 });

@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 // Vault represents a vault with encrypted metadata and ownership information.
@@ -62,12 +62,12 @@ type VaultSummary struct {
 // VaultService manages vault persistence and access control.
 // All methods perform ownership or membership verification before returning vault data.
 type VaultService struct {
-	pool *pgxpool.Pool
+	repo database.VaultRepository
 }
 
-// NewVaultService creates a new vault service with the given database connection pool.
-func NewVaultService(pool *pgxpool.Pool) *VaultService {
-	return &VaultService{pool: pool}
+// NewVaultService creates a new vault service with the given vault repository.
+func NewVaultService(repo database.VaultRepository) *VaultService {
+	return &VaultService{repo: repo}
 }
 
 // CreateVault creates a new vault owned by the given user with encrypted metadata.
@@ -87,58 +87,51 @@ func (vs *VaultService) CreateVault(ctx context.Context, userID string, encrypte
 		return uuid.Nil, fmt.Errorf("encrypted metadata exceeds 64KB limit")
 	}
 
-	vaultID := uuid.New()
-
-	err := vs.pool.QueryRow(ctx,
-		`INSERT INTO vaults (id, owner_id, encrypted_metadata, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
-         RETURNING id`,
-		vaultID, userID, encryptedMetadata,
-	).Scan(&vaultID)
-
+	vaultID, err := vs.repo.CreateVault(ctx, userID, encryptedMetadata)
 	if err != nil {
-		log.Error().Err(err).Str("user_id", userID).Msg("failed to create vault")
 		return uuid.Nil, err
 	}
 
-	log.Info().Str("vault_id", vaultID.String()).Str("user_id", userID).Msg("vault created")
-	return vaultID, nil
+	// TD-3 FIX: Validate uuid.Parse return to catch corrupted IDs from the repository layer.
+	parsedID, parseErr := uuid.Parse(vaultID)
+	if parseErr != nil {
+		return uuid.Nil, fmt.Errorf("repository returned invalid vault ID %q: %w", vaultID, parseErr)
+	}
+	return parsedID, nil
 }
 
 // ListVaults returns all non-deleted vaults owned by the user, in reverse creation order.
 // Returns empty list if no vaults exist.
 func (vs *VaultService) ListVaults(ctx context.Context, userID string) ([]VaultSummary, error) {
-	rows, err := vs.pool.Query(ctx,
-		`SELECT id, encrypted_metadata, created_at, updated_at
-         FROM vaults
-         WHERE owner_id = $1 AND deleted_at IS NULL
-         ORDER BY created_at DESC`,
-		userID,
-	)
+	records, err := vs.repo.ListVaults(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return vs.recordsToSummaries(records), nil
+}
 
+// M-5 FIX: ListVaultsPaginated returns a page of vaults using cursor-based pagination.
+// cursor is the vault ID to start after (empty for first page).
+// limit is the max number of results to return.
+func (vs *VaultService) ListVaultsPaginated(ctx context.Context, userID, cursor string, limit int) ([]VaultSummary, error) {
+	records, err := vs.repo.ListVaultsPaginated(ctx, userID, cursor, limit)
+	if err != nil {
+		return nil, err
+	}
+	return vs.recordsToSummaries(records), nil
+}
+
+func (vs *VaultService) recordsToSummaries(records []database.VaultRecord) []VaultSummary {
 	var vaults []VaultSummary
-	for rows.Next() {
-		var id uuid.UUID
-		var metadata []byte
-		var createdAt, updatedAt time.Time
-
-		if err := rows.Scan(&id, &metadata, &createdAt, &updatedAt); err != nil {
-			return nil, err
-		}
-
+	for _, record := range records {
 		vaults = append(vaults, VaultSummary{
-			ID:                id.String(),
-			EncryptedMetadata: encodeToBase64(metadata),
-			CreatedAt:         createdAt.Format(time.RFC3339),
-			UpdatedAt:         updatedAt.Format(time.RFC3339),
+			ID:                record.ID,
+			EncryptedMetadata: encodeToBase64(record.EncryptedMetadata),
+			CreatedAt:         record.CreatedAt,
+			UpdatedAt:         record.UpdatedAt,
 		})
 	}
-
-	return vaults, rows.Err()
+	return vaults
 }
 
 // GetVault retrieves a vault by ID after verifying user is owner or member.
@@ -146,72 +139,37 @@ func (vs *VaultService) ListVaults(ctx context.Context, userID string) ([]VaultS
 // PH4-FIX: Verify user is vault owner or member before returning vault data (CWE-862: Missing Authorization).
 // Returns ErrVaultNotFound if vault doesn't exist or user lacks access.
 func (vs *VaultService) GetVault(ctx context.Context, userID string, vaultID uuid.UUID) (*Vault, error) {
-	var vault Vault
-
-	// PH4-FIX: Verify user is vault owner or member before returning vault data (CWE-862: Missing Authorization)
-	err := vs.pool.QueryRow(ctx,
-		`SELECT v.id, v.owner_id, v.encrypted_metadata, v.created_at, v.updated_at
-         FROM vaults v
-         WHERE v.id = $1 AND v.deleted_at IS NULL
-         AND (v.owner_id = $2 OR EXISTS (
-           SELECT 1 FROM vault_members vm
-           WHERE vm.vault_id = v.id AND vm.user_id = $2
-         ))`,
-		vaultID, userID,
-	).Scan(&vault.ID, &vault.OwnerID, &vault.EncryptedMetadata, &vault.CreatedAt, &vault.UpdatedAt)
-
+	record, err := vs.repo.GetVaultWithAccess(ctx, vaultID.String(), userID)
 	if err != nil {
-		log.Debug().Err(err).Str("vault_id", vaultID.String()).Str("user_id", userID).Msg("vault not found or access denied")
 		return nil, err
 	}
 
-	return &vault, nil
+	ownerID, _ := uuid.Parse(record.OwnerID)
+	createdAt, _ := time.Parse(time.RFC3339, record.CreatedAt)
+	updatedAt, _ := time.Parse(time.RFC3339, record.UpdatedAt)
+
+	vault := &Vault{
+		ID:                vaultID,
+		OwnerID:           ownerID,
+		EncryptedMetadata: record.EncryptedMetadata,
+		CreatedAt:         createdAt,
+		UpdatedAt:         updatedAt,
+	}
+
+	return vault, nil
 }
 
 // UpdateVaultMetadata updates the encrypted metadata for a vault owned by the user.
 // Only the owner can update vault metadata. Returns ErrVaultNotFound if vault doesn't exist.
 func (vs *VaultService) UpdateVaultMetadata(ctx context.Context, userID string, vaultID uuid.UUID, encryptedMetadata []byte) error {
-	result, err := vs.pool.Exec(ctx,
-		`UPDATE vaults
-         SET encrypted_metadata = $1, updated_at = NOW()
-         WHERE id = $2 AND owner_id = $3`,
-		encryptedMetadata, vaultID, userID,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrVaultNotFound
-	}
-
-	log.Info().Str("vault_id", vaultID.String()).Msg("vault metadata updated")
-	return nil
+	return vs.repo.UpdateVaultByOwner(ctx, vaultID.String(), userID, encryptedMetadata)
 }
 
 // DeleteVault soft-deletes a vault (sets deleted_at timestamp) owned by the user.
 // Soft deletes allow for vault recovery if needed. Only non-deleted vaults can be deleted.
 // Returns ErrVaultNotFound if vault doesn't exist or is already deleted.
 func (vs *VaultService) DeleteVault(ctx context.Context, userID string, vaultID uuid.UUID) error {
-	// Soft delete - only delete non-deleted vaults
-	result, err := vs.pool.Exec(ctx,
-		`UPDATE vaults
-         SET deleted_at = NOW()
-         WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
-		vaultID, userID,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrVaultNotFound
-	}
-
-	log.Info().Str("vault_id", vaultID.String()).Msg("vault deleted")
-	return nil
+	return vs.repo.DeleteVaultByOwner(ctx, vaultID.String(), userID)
 }
 
 // CheckRollback verifies the state version is monotonically increasing to prevent rollback attacks.
@@ -223,30 +181,7 @@ func (vs *VaultService) DeleteVault(ctx context.Context, userID string, vaultID 
 //
 // Also updates the vault's max_state_version if the new version is accepted.
 func (vs *VaultService) CheckRollback(ctx context.Context, vaultID uuid.UUID, newStateVersion int64) error {
-	var maxVersion int64
-	err := vs.pool.QueryRow(ctx,
-		`SELECT COALESCE(max_state_version, 0) FROM vaults WHERE id = $1`,
-		vaultID,
-	).Scan(&maxVersion)
-	if err != nil {
-		return fmt.Errorf("failed to check state version: %w", err)
-	}
-
-	if newStateVersion <= maxVersion {
-		log.Warn().Str("vault_id", vaultID.String()).Int64("new_version", newStateVersion).Int64("current_max", maxVersion).Msg("rollback detected")
-		return fmt.Errorf("rollback detected: new version %d <= current max %d", newStateVersion, maxVersion)
-	}
-
-	// Update the max state version
-	_, err = vs.pool.Exec(ctx,
-		`UPDATE vaults SET max_state_version = $1 WHERE id = $2`,
-		newStateVersion, vaultID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update state version: %w", err)
-	}
-
-	return nil
+	return vs.repo.CheckRollback(ctx, vaultID.String(), newStateVersion)
 }
 
 // HTTP Handlers
@@ -276,7 +211,7 @@ func HandleCreateVault(vs *VaultService, auditSvc interface {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -315,24 +250,63 @@ func HandleCreateVault(vs *VaultService, auditSvc interface {
 	}
 }
 
+// M-5 FIX: Paginated vault list response with cursor for efficient large-collection traversal.
+type PaginatedVaultResponse struct {
+	Vaults     []VaultSummary `json:"vaults"`
+	NextCursor string         `json:"next_cursor,omitempty"`
+	HasMore    bool           `json:"has_more"`
+}
+
 // HandleListVaults returns an HTTP handler for listing vaults (GET /vaults).
-// Returns all vaults owned by the authenticated user as an array.
+// Supports cursor-based pagination via ?cursor=<id>&limit=<n> query params.
+// Returns a paginated response with next_cursor for efficient traversal.
 func HandleListVaults(vs *VaultService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		vaults, err := vs.ListVaults(r.Context(), userID)
+		// M-5 FIX: Parse pagination params
+		cursor := r.URL.Query().Get("cursor")
+		limitStr := r.URL.Query().Get("limit")
+		limit := 50 // default page size
+		if limitStr != "" {
+			if parsed, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil || parsed != 1 {
+				limit = 50
+			}
+		}
+		if limit < 1 {
+			limit = 1
+		}
+		if limit > 200 {
+			limit = 200
+		}
+
+		// Fetch limit+1 to determine if there are more pages
+		vaults, err := vs.ListVaultsPaginated(r.Context(), userID, cursor, limit+1)
 		if err != nil {
 			http.Error(w, "failed to list vaults", http.StatusInternalServerError)
 			return
 		}
 
+		hasMore := len(vaults) > limit
+		if hasMore {
+			vaults = vaults[:limit]
+		}
+
+		var nextCursor string
+		if hasMore && len(vaults) > 0 {
+			nextCursor = vaults[len(vaults)-1].ID
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(vaults)
+		json.NewEncoder(w).Encode(PaginatedVaultResponse{
+			Vaults:     vaults,
+			NextCursor: nextCursor,
+			HasMore:    hasMore,
+		})
 	}
 }
 
@@ -340,7 +314,7 @@ func HandleListVaults(vs *VaultService) http.HandlerFunc {
 // Returns 404 if vault doesn't exist or user lacks access.
 func HandleGetVault(vs *VaultService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -386,7 +360,7 @@ func HandleUpdateVault(vs *VaultService, auditSvc interface {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -432,7 +406,7 @@ func HandleDeleteVault(vs *VaultService, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

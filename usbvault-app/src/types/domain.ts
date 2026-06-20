@@ -8,6 +8,8 @@
  * @module types/domain
  */
 
+import { formatRelativeTime as formatRelative } from '@/utils/formatters';
+
 // ─── Vault Types ────────────────────────────────────────────────────
 
 /** Core vault data — canonical type used by stores and services */
@@ -34,6 +36,16 @@ export interface VaultInfo {
    * The codes themselves are NEVER stored — only shown once to the user.
    */
   hasRecoveryCodes?: boolean;
+  /** USB mount point path (e.g. /media/usb0, E:\) — present for USB-backed vaults */
+  mountPoint?: string;
+  /** Display name of the USB drive (e.g. "SanDisk Ultra 64GB") */
+  driveName?: string;
+  /** File system on the vault partition (e.g. exfat, ntfs, ext4, apfs) */
+  fileSystem?: string;
+  /** Encryption algorithm identifier (e.g. "xchacha20-poly1305") */
+  algorithm?: string;
+  /** Origin of the vault: 'usb' for local USB, 'cloud' for synced vaults, 'local' for device-local */
+  source?: 'usb' | 'cloud' | 'local';
 }
 
 /** UI presentation fields derived from VaultInfo for dashboard rendering */
@@ -125,46 +137,40 @@ export function fromStoredFileInfo(stored: StoredFileInfo): FileInfo {
 
 // ─── Private Helpers ────────────────────────────────────────────────
 
+/** Delegate to shared i18n-aware formatter (English fallback when no t() available) */
 function formatRelativeTime(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  });
+  return formatRelative(isoString);
 }
 
 function getVaultIcon(level: string): string {
   switch (level) {
-    case 'maximum': return 'shield';
-    case 'high': return 'lock';
-    default: return 'folder';
+    case 'maximum':
+      return 'shield';
+    case 'high':
+      return 'lock';
+    default:
+      return 'folder';
   }
 }
 
 function getSecurityTint(level: string): string {
   switch (level) {
-    case 'maximum': return '#10B981';
-    case 'high': return '#8B5CF6';
-    default: return '#F59E0B';
+    case 'maximum':
+      return '#10B981';
+    case 'high':
+      return '#8B5CF6';
+    default:
+      return '#F59E0B';
   }
 }
 
 function getSecurityBg(level: string): string {
   switch (level) {
-    case 'maximum': return 'rgba(16,185,129,0.15)';
-    case 'high': return 'rgba(139,92,246,0.15)';
-    default: return 'rgba(245,158,11,0.15)';
+    case 'maximum':
+      return 'rgba(16,185,129,0.15)';
+    case 'high':
+      return 'rgba(139,92,246,0.15)';
+    default:
+      return 'rgba(245,158,11,0.15)';
   }
 }

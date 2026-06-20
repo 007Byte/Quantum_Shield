@@ -1,115 +1,140 @@
+// Package errortracking provides Sentry integration for server-side error
+// tracking, matching the PII-scrubbing pattern used by the client
+// (usbvault-app/src/utils/sentry.ts).
+//
+// All operations are no-ops when DSN is empty, so it is safe to import and
+// call Init in every environment.
 package errortracking
 
-// PH11-FIX: Sentry error tracking with PII scrubbing (CWE-532)
-
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/rs/zerolog/log"
 )
 
-// SentryConfig holds configuration for Sentry error tracking
-type SentryConfig struct {
-	DSN              string        // Sentry DSN (from environment: SENTRY_DSN)
-	Environment      string        // "production", "staging", "development"
-	Release          string        // Application version (e.g., "1.0.0")
-	SampleRate       float64       // Error sampling rate (0.0 to 1.0)
-	TracesSampleRate float64       // Performance tracing rate (0.0 to 1.0)
-	MaxBreadcrumbs   int           // Maximum breadcrumbs to keep
-	FlushTimeout     time.Duration // Timeout for flushing events on shutdown
-	Debug            bool          // Enable debug mode (never in production)
-}
+// emailPattern matches common email addresses in arbitrary strings.
+var emailPattern = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 
-// DefaultSentryConfig returns production defaults
-func DefaultSentryConfig() SentryConfig {
-	return SentryConfig{
-		Environment:      "production",
-		SampleRate:       1.0,
-		TracesSampleRate: 0.2,
-		MaxBreadcrumbs:   50,
-		FlushTimeout:     5 * time.Second,
-		Debug:            false,
+// initialized tracks whether Sentry was successfully initialized.
+var initialized bool
+
+// Init initializes the Sentry SDK. If dsn is empty the call is a no-op and
+// all subsequent operations silently do nothing.
+func Init(dsn, environment, release string) error {
+	if dsn == "" {
+		log.Info().Msg("Sentry DSN not configured, error tracking disabled")
+		return nil
 	}
-}
 
-// PIIScrubber removes personally identifiable information from error reports
-// PH11-FIX: Ensures no sensitive data leaks via error tracking
-type PIIScrubber struct {
-	patterns []*regexp.Regexp
-}
-
-// NewPIIScrubber creates a PII scrubber with standard patterns
-func NewPIIScrubber() *PIIScrubber {
-	return &PIIScrubber{
-		patterns: []*regexp.Regexp{
-			regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b`),            // Email addresses
-			regexp.MustCompile(`\b\d{3}[-.]?\d{3}[-.]?\d{4}\b`),                                    // Phone numbers
-			regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`),                                            // SSN
-			regexp.MustCompile(`\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b`),   // Credit card numbers
-			regexp.MustCompile(`(?i)(?:password|passwd|secret|token|api[_-]?key|auth)[=:]\s*\S+`),   // Credential patterns
-			regexp.MustCompile(`(?i)bearer\s+[A-Za-z0-9\-._~+/]+=*`),                               // Bearer tokens
-			regexp.MustCompile(`\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`), // UUIDs (user IDs)
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn:              dsn,
+		Environment:      environment,
+		Release:          release,
+		TracesSampleRate: 0.1, // Match existing OTEL sampling rate
+		AttachStacktrace: true,
+		BeforeSend:       ScrubPII,
+		BeforeSendTransaction: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+			// Apply the same PII scrubbing to transaction events.
+			return ScrubPII(event, hint)
 		},
+	})
+	if err != nil {
+		return fmt.Errorf("sentry init: %w", err)
 	}
+
+	initialized = true
+	log.Info().
+		Str("environment", environment).
+		Str("release", release).
+		Msg("Sentry error tracking initialized")
+	return nil
 }
 
-// Scrub removes PII from a string
-func (s *PIIScrubber) Scrub(input string) string {
-	result := input
-	replacements := []string{
-		"[EMAIL_REDACTED]",
-		"[PHONE_REDACTED]",
-		"[SSN_REDACTED]",
-		"[CARD_REDACTED]",
-		"[CREDENTIAL_REDACTED]",
-		"[TOKEN_REDACTED]",
-		"[UUID_REDACTED]",
+// Flush drains buffered Sentry events. Call this (via defer) during shutdown.
+func Flush(timeout time.Duration) {
+	if !initialized {
+		return
 	}
-	for i, pattern := range s.patterns {
-		result = pattern.ReplaceAllString(result, replacements[i])
-	}
-	return result
+	sentry.Flush(timeout)
 }
 
-// ScrubHeaders removes sensitive headers from HTTP requests
-func (s *PIIScrubber) ScrubHeaders(headers http.Header) http.Header {
-	scrubbed := make(http.Header)
-	sensitiveHeaders := map[string]bool{
-		"authorization":    true,
-		"cookie":           true,
-		"set-cookie":       true,
-		"x-api-key":        true,
-		"x-auth-token":     true,
-		"proxy-authorization": true,
+// ScrubPII removes personally-identifiable information from a Sentry event
+// before it is transmitted. The scrubbing matches what the client does:
+//   - Clear event.User.IPAddress
+//   - Strip email-like patterns from exception values and message
+//   - Redact Authorization headers in breadcrumbs
+func ScrubPII(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+	if event == nil {
+		return event
 	}
 
-	for key, values := range headers {
-		if sensitiveHeaders[strings.ToLower(key)] {
-			scrubbed.Set(key, "[REDACTED]")
-		} else {
-			scrubbed[key] = values
+	// 1. Strip IP address from user context.
+	event.User.IPAddress = ""
+
+	// 2. Scrub email patterns from top-level message.
+	event.Message = scrubEmails(event.Message)
+
+	// 3. Scrub email patterns from exception values.
+	for i := range event.Exception {
+		event.Exception[i].Value = scrubEmails(event.Exception[i].Value)
+	}
+
+	// 4. Redact Authorization headers in breadcrumbs.
+	for i := range event.Breadcrumbs {
+		bc := event.Breadcrumbs[i]
+		if bc.Data == nil {
+			continue
+		}
+		for key := range bc.Data {
+			lower := strings.ToLower(key)
+			if lower == "authorization" || lower == "auth" {
+				bc.Data[key] = "[REDACTED]"
+			}
 		}
 	}
-	return scrubbed
+
+	return event
 }
 
-// ScrubURL removes query parameters that may contain PII
-func (s *PIIScrubber) ScrubURL(rawURL string) string {
-	sensitiveParams := []string{"token", "key", "secret", "password", "auth", "session", "email"}
-	result := rawURL
-	for _, param := range sensitiveParams {
-		re := regexp.MustCompile(`(?i)([\?&])` + param + `=[^&]*`)
-		result = re.ReplaceAllString(result, "${1}"+param+"=[REDACTED]")
+// RecoverMiddleware returns an http.Handler that catches panics, reports them
+// to Sentry, and then re-panics so the Go runtime can still produce a stack
+// trace (or an outer recovery middleware can respond with 500).
+//
+// When Sentry is not initialized (empty DSN), this falls back to a minimal
+// panic-recover-repanic wrapper that adds no Sentry overhead.
+func RecoverMiddleware(next http.Handler) http.Handler {
+	if !initialized {
+		// No-op path: still recover + repanic so the middleware position is
+		// stable, but skip Sentry entirely.
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					panic(err)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
 	}
-	return result
+
+	// Use the official sentryhttp handler which attaches a Hub per request.
+	sentryHandler := sentryhttp.New(sentryhttp.Options{
+		Repanic:         true,
+		WaitForDelivery: false,
+		Timeout:         2 * time.Second,
+	})
+	return sentryHandler.Handle(next)
 }
 
-// ErrorContext provides structured context for error reports
-type ErrorContext struct {
-	UserID    string            // Anonymized user identifier
-	RequestID string            // Request correlation ID
-	Endpoint  string            // API endpoint path
-	Method    string            // HTTP method
-	Tags      map[string]string // Additional tags
+// scrubEmails replaces email-like substrings with [EMAIL REDACTED].
+func scrubEmails(s string) string {
+	if s == "" {
+		return s
+	}
+	return emailPattern.ReplaceAllString(s, "[EMAIL REDACTED]")
 }

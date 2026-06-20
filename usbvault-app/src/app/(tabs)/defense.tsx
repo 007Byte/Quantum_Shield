@@ -26,6 +26,7 @@ import {
 } from '@/components/dashboard2/styles';
 import { settingsService } from '@/services/settingsService';
 import { fido2Service } from '@/services/fido2Service';
+import { useLanguage } from '@/hooks/useLanguage';
 
 // ── Security Layer Definitions ─────────────────────────────
 
@@ -50,6 +51,7 @@ interface CryptoProperty {
 }
 
 export default function DefenseScreen() {
+  const { t } = useLanguage();
   const [settings, setSettings] = useState(settingsService.load());
 
   useEffect(() => {
@@ -60,153 +62,166 @@ export default function DefenseScreen() {
 
   // ── 10 Security Layers ────────────────────────────
 
-  const layers: SecurityLayer[] = useMemo(() => [
-    {
-      id: 'srp',
-      name: 'SRP-6a Zero-Knowledge Auth',
-      description: 'Password never leaves device. Server verifies without knowing password.',
-      icon: 'key',
-      activeColor: '#34D399',
-      isActive: true,
-      details: 'SRP-6a with 3072-bit group, Argon2id KDF',
-    },
-    {
-      id: 'fido2',
-      name: 'FIDO2 / Biometric MFA',
-      description: 'Hardware key or biometric second factor authentication.',
-      icon: 'fingerprint' as any,
-      activeColor: '#22D3EE',
-      isActive: fido2Count > 0 || settings.biometricLockEnabled,
-      details: fido2Count > 0
-        ? `${fido2Count} hardware key${fido2Count > 1 ? 's' : ''} registered`
-        : settings.biometricLockEnabled ? 'Biometric lock enabled' : 'No MFA configured',
-    },
-    {
-      id: 'aead',
-      name: 'AEAD File Encryption',
-      description: 'Authenticated encryption with associated data for all vault contents.',
-      icon: 'lock',
-      activeColor: '#A855F7',
-      isActive: true,
-      details: 'AES-256-GCM-SIV / XChaCha20-Poly1305, 64KB streaming chunks',
-    },
-    {
-      id: 'pinning',
-      name: 'Certificate Pinning',
-      description: 'HTTPS connections validated against known server certificate pins.',
-      icon: 'shield',
-      activeColor: '#60A5FA',
-      isActive: true,
-      details: 'SHA-256 SPKI pins, fail-closed, environment-injected',
-    },
-    {
-      id: 'integrity',
-      name: 'Device Integrity',
-      description: 'Runtime detection of jailbreak, root, debugger, and instrumentation.',
-      icon: 'smartphone',
-      activeColor: '#FBBF24',
-      isActive: true,
-      details: 'Jailbreak, root, debugger, emulator, Frida, Xposed detection',
-    },
-    {
-      id: 'runtime',
-      name: 'Runtime Protection',
-      description: 'Screenshot blocking, secure pasteboard, memory cleanup.',
-      icon: 'eye-off',
-      activeColor: '#F472B6',
-      isActive: true,
-      details: 'FLAG_SECURE, pasteboard timeout, RAM scrubbing',
-    },
-    {
-      id: 'selfdestruct',
-      name: 'Self-Destruct / Brute-Force',
-      description: 'Vault wipes after configurable failed login attempts.',
-      icon: 'zap',
-      activeColor: '#EF4444',
-      isActive: settings.selfDestructEnabled,
-      details: settings.selfDestructEnabled
-        ? `Wipe after ${settings.selfDestructAttempts} failed attempts`
-        : 'Self-destruct not enabled',
-    },
-    {
-      id: 'audit',
-      name: 'Audit Trail',
-      description: 'Cryptographically signed log of all security-relevant actions.',
-      icon: 'file-text',
-      activeColor: '#818CF8',
-      isActive: true,
-      details: 'Append-only log, HMAC-SHA256 integrity, tamper detection',
-    },
-    {
-      id: 'ghost',
-      name: 'Ghost Mode / Anti-Forensics',
-      description: 'RAM scrubbing, clipboard sanitization, trace elimination.',
-      icon: 'ghost' as any,
-      activeColor: '#6EE7B7',
-      isActive: settings.ghostModeEnabled,
-      details: settings.ghostModeEnabled
-        ? 'Active: cleanup on lock/logout'
-        : 'Ghost Mode not enabled',
-    },
-    {
-      id: 'pqc',
-      name: 'Post-Quantum Cryptography',
-      description: 'ML-KEM-1024 hybrid key encapsulation for quantum resistance.',
-      icon: 'cpu',
-      activeColor: '#22D3EE',
-      isActive: settings.pqcEnabled,
-      details: settings.pqcEnabled
-        ? 'ML-KEM-1024 (FIPS 203) + ML-DSA-87 (FIPS 204)'
-        : 'PQC not enabled',
-    },
-  ], [settings, fido2Count]);
+  const layers: SecurityLayer[] = useMemo(
+    () => [
+      {
+        id: 'srp',
+        name: t('defense.layer.srp.name'),
+        description: t('defense.layer.srp.desc'),
+        icon: 'key',
+        activeColor: '#34D399',
+        isActive: true,
+        details: t('defense.layer.srp.details'),
+      },
+      {
+        id: 'fido2',
+        name: t('defense.layer.fido2.name'),
+        description: t('defense.layer.fido2.desc'),
+        icon: 'fingerprint' as any,
+        activeColor: '#22D3EE',
+        isActive: fido2Count > 0 || settings.biometricLockEnabled,
+        details:
+          fido2Count > 0
+            ? t('defense.layer.fido2.keysRegistered', { count: fido2Count })
+            : settings.biometricLockEnabled
+              ? t('defense.layer.fido2.biometricEnabled')
+              : t('defense.layer.fido2.noMfa'),
+      },
+      {
+        id: 'aead',
+        name: t('defense.layer.aead.name'),
+        description: t('defense.layer.aead.desc'),
+        icon: 'lock',
+        activeColor: '#A855F7',
+        isActive: true,
+        details: t('defense.layer.aead.details'),
+      },
+      {
+        id: 'pinning',
+        name: t('defense.layer.pinning.name'),
+        description: t('defense.layer.pinning.desc'),
+        icon: 'shield',
+        activeColor: '#60A5FA',
+        isActive: true,
+        details: t('defense.layer.pinning.details'),
+      },
+      {
+        id: 'integrity',
+        name: t('defense.layer.integrity.name'),
+        description: t('defense.layer.integrity.desc'),
+        icon: 'smartphone',
+        activeColor: '#FBBF24',
+        isActive: true,
+        details: t('defense.layer.integrity.details'),
+      },
+      {
+        id: 'runtime',
+        name: t('defense.layer.runtime.name'),
+        description: t('defense.layer.runtime.desc'),
+        icon: 'eye-off',
+        activeColor: '#F472B6',
+        isActive: true,
+        details: t('defense.layer.runtime.details'),
+      },
+      {
+        id: 'selfdestruct',
+        name: t('defense.layer.selfdestruct.name'),
+        description: t('defense.layer.selfdestruct.desc'),
+        icon: 'zap',
+        activeColor: '#EF4444',
+        isActive: settings.selfDestructEnabled,
+        details: settings.selfDestructEnabled
+          ? t('defense.layer.selfdestruct.wipeAfter', { attempts: settings.selfDestructAttempts })
+          : t('defense.layer.selfdestruct.notEnabled'),
+      },
+      {
+        id: 'audit',
+        name: t('defense.layer.audit.name'),
+        description: t('defense.layer.audit.desc'),
+        icon: 'file-text',
+        activeColor: '#818CF8',
+        isActive: true,
+        details: t('defense.layer.audit.details'),
+      },
+      {
+        id: 'ghost',
+        name: t('defense.layer.ghost.name'),
+        description: t('defense.layer.ghost.desc'),
+        icon: 'ghost' as any,
+        activeColor: '#6EE7B7',
+        isActive: settings.ghostModeEnabled,
+        details: settings.ghostModeEnabled
+          ? t('defense.layer.ghost.activeDetails')
+          : t('defense.layer.ghost.notEnabled'),
+      },
+      {
+        id: 'pqc',
+        name: t('defense.layer.pqc.name'),
+        description: t('defense.layer.pqc.desc'),
+        icon: 'cpu',
+        activeColor: '#22D3EE',
+        isActive: settings.pqcEnabled,
+        details: settings.pqcEnabled
+          ? t('defense.layer.pqc.activeDetails')
+          : t('defense.layer.pqc.notEnabled'),
+      },
+    ],
+    [settings, fido2Count, t]
+  );
 
   const activeCount = layers.filter(l => l.isActive).length;
 
   // ── Cryptographic Properties (DID-02) ─────────────
 
-  const cryptoProps: CryptoProperty[] = useMemo(() => [
-    {
-      id: 'ci',
-      name: 'Confidentiality & Integrity',
-      description: 'Every file in your vault is encrypted with AEAD ciphers that bind ciphertext to an authentication tag — if even one bit is altered, decryption fails. This guarantees that only you (with the correct key) can read your data, and any tampering is immediately detected.',
-      algorithm: 'AES-256-GCM-SIV · XChaCha20-Poly1305 · HMAC-SHA256 per-chunk tags',
-      isActive: true,
-      icon: 'lock',
-      color: '#A855F7',
-    },
-    {
-      id: 'availability',
-      name: 'Availability',
-      description: 'Your vault stays accessible even under adverse conditions. Encrypted backups, BIP39 recovery phrases, and multi-vault architecture ensure you can always recover your data — even if a device is lost, stolen, or wiped by the self-destruct policy.',
-      algorithm: 'AES-256-GCM encrypted backups · BIP39 24-word recovery · Multi-vault redundancy',
-      isActive: true,
-      icon: 'cloud',
-      color: '#F59E0B',
-    },
-    {
-      id: 'fs',
-      name: 'Forward Secrecy',
-      description: 'Each secure share and message session derives a unique ephemeral key pair. Even if your long-term identity key is compromised in the future, all past conversations and file transfers remain encrypted and unreadable.',
-      algorithm: 'X25519 ephemeral key exchange · Per-session ECDH · HKDF-SHA256 key derivation',
-      isActive: true,
-      icon: 'refresh-cw',
-      color: '#22D3EE',
-    },
-    {
-      id: 'nr',
-      name: 'Non-Repudiation',
-      description: 'Every vault operation is digitally signed with your Ed25519 identity key, creating a cryptographic proof of authorship. The post-quantum ML-DSA-87 co-signature future-proofs these proofs against quantum attacks on the audit trail.',
-      algorithm: 'Ed25519 identity signatures · ML-DSA-87 (FIPS 204) co-signatures · HMAC-SHA256 audit chain',
-      isActive: true,
-      icon: 'check-circle',
-      color: '#34D399',
-    },
-  ], []);
+  const cryptoProps: CryptoProperty[] = useMemo(
+    () => [
+      {
+        id: 'ci',
+        name: t('defense.crypto.ci.name'),
+        description: t('defense.crypto.ci.desc'),
+        algorithm: t('defense.crypto.ci.algo'),
+        isActive: true,
+        icon: 'lock',
+        color: '#A855F7',
+      },
+      {
+        id: 'availability',
+        name: t('defense.crypto.availability.name'),
+        description: t('defense.crypto.availability.desc'),
+        algorithm: t('defense.crypto.availability.algo'),
+        isActive: true,
+        icon: 'cloud',
+        color: '#F59E0B',
+      },
+      {
+        id: 'fs',
+        name: t('defense.crypto.fs.name'),
+        description: t('defense.crypto.fs.desc'),
+        algorithm: t('defense.crypto.fs.algo'),
+        isActive: true,
+        icon: 'refresh-cw',
+        color: '#22D3EE',
+      },
+      {
+        id: 'nr',
+        name: t('defense.crypto.nr.name'),
+        description: t('defense.crypto.nr.desc'),
+        algorithm: t('defense.crypto.nr.algo'),
+        isActive: true,
+        icon: 'check-circle',
+        color: '#34D399',
+      },
+    ],
+    [t]
+  );
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -217,30 +232,47 @@ export default function DefenseScreen() {
             <View style={styles.contentWrapper}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.title}>Defense-in-Depth</Text>
+                <Text style={styles.title} accessibilityRole="header">
+                  {t('defense.pageTitle')}
+                </Text>
                 <Text style={styles.subtitle}>
-                  {activeCount} of {layers.length} security layers active
+                  {t('defense.layerCount', { active: activeCount, total: layers.length })}
                 </Text>
               </View>
 
               {/* Overall Score Badge */}
               <View style={styles.scoreBadge}>
-                <View style={[styles.scoreCircle, activeCount >= 8 ? styles.scoreExcellent : activeCount >= 6 ? styles.scoreGood : styles.scoreWarn]}>
+                <View
+                  style={[
+                    styles.scoreCircle,
+                    activeCount >= 8
+                      ? styles.scoreExcellent
+                      : activeCount >= 6
+                        ? styles.scoreGood
+                        : styles.scoreWarn,
+                  ]}
+                >
                   <Text style={styles.scoreNumber}>{activeCount}</Text>
                   <Text style={styles.scoreSlash}>/{layers.length}</Text>
                 </View>
                 <View>
                   <Text style={styles.scoreLabel}>
-                    {activeCount >= 9 ? 'Maximum Protection' : activeCount >= 7 ? 'Strong Protection' : activeCount >= 5 ? 'Good Protection' : 'Needs Attention'}
+                    {activeCount >= 9
+                      ? t('defense.maxProtection')
+                      : activeCount >= 7
+                        ? t('defense.strongProtection')
+                        : activeCount >= 5
+                          ? t('defense.goodProtection')
+                          : t('defense.needsAttention')}
                   </Text>
-                  <Text style={styles.scoreHint}>
-                    Enable more layers for stronger defense
-                  </Text>
+                  <Text style={styles.scoreHint}>{t('defense.enableMoreLayers')}</Text>
                 </View>
               </View>
 
               {/* Security Layers Stack */}
-              <Text style={styles.sectionTitle}>Security Layers</Text>
+              <Text style={styles.sectionTitle} accessibilityRole="header">
+                {t('defense.layers')}
+              </Text>
               <View style={styles.layersStack}>
                 {layers.map((layer, index) => (
                   <LayerCard key={layer.id} layer={layer} index={index} />
@@ -248,7 +280,12 @@ export default function DefenseScreen() {
               </View>
 
               {/* Cryptographic Properties Panel (DID-02) */}
-              <Text style={[styles.sectionTitle, { marginTop: dashboardSpacing.lg }]}>Cryptographic Properties</Text>
+              <Text
+                style={[styles.sectionTitle, { marginTop: dashboardSpacing.lg }]}
+                accessibilityRole="header"
+              >
+                {t('defense.cryptoProperties')}
+              </Text>
               <View style={styles.cryptoGrid}>
                 {cryptoProps.map(prop => (
                   <CryptoPropertyCard key={prop.id} property={prop} />
@@ -265,6 +302,7 @@ export default function DefenseScreen() {
 // ── Layer Card Component ────────────────────────────────────
 
 function LayerCard({ layer, index }: { layer: SecurityLayer; index: number }) {
+  const { t } = useLanguage();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -278,43 +316,81 @@ function LayerCard({ layer, index }: { layer: SecurityLayer; index: number }) {
     }
   }, [layer.isActive]);
 
-  const iconName = (layer.icon === 'fingerprint' || layer.icon === 'ghost')
-    ? 'shield' // Feather doesn't have these, use fallback
-    : layer.icon;
+  const iconName =
+    layer.icon === 'fingerprint' || layer.icon === 'ghost'
+      ? 'shield' // Feather doesn't have these, use fallback
+      : layer.icon;
 
   return (
-    <View style={[styles.layerCard, glassPanelBase, webOnlyGlass]}>
+    <View
+      style={[
+        styles.layerCard,
+        glassPanelBase,
+        webOnlyGlass,
+        styles.layerHalo,
+        {
+          borderLeftWidth: 3,
+          borderLeftColor: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.1)',
+        },
+      ]}
+    >
       {/* Layer number */}
       <View style={styles.layerNumber}>
         <Text style={styles.layerNumberText}>{index + 1}</Text>
       </View>
 
       {/* Status indicator with pulse */}
-      <Animated.View style={[
-        styles.statusDot,
-        {
-          backgroundColor: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.15)',
-          opacity: layer.isActive ? pulseAnim : 0.4,
-        },
-      ]} />
+      <Animated.View
+        style={[
+          styles.statusDot,
+          {
+            backgroundColor: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.15)',
+            opacity: layer.isActive ? pulseAnim : 0.4,
+          },
+        ]}
+      />
 
       {/* Icon */}
-      <View style={[styles.layerIcon, { borderColor: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.1)' }]}>
-        <Feather name={iconName as any} size={18} color={layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.3)'} />
+      <View
+        style={[
+          styles.layerIcon,
+          { borderColor: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.1)' },
+        ]}
+      >
+        <Feather
+          name={iconName as any}
+          size={18}
+          color={layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.3)'}
+        />
       </View>
 
       {/* Content */}
       <View style={styles.layerContent}>
         <View style={styles.layerNameRow}>
           <Text style={[styles.layerName, !layer.isActive && { opacity: 0.5 }]}>{layer.name}</Text>
-          <View style={[styles.statusBadge, layer.isActive ? styles.statusActive : styles.statusInactive]}>
-            <Text style={[styles.statusText, layer.isActive ? { color: '#34D399' } : { color: '#EF4444' }]}>
-              {layer.isActive ? 'ACTIVE' : 'OFF'}
+          <View
+            style={[
+              styles.statusBadge,
+              layer.isActive ? styles.statusActive : styles.statusInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                layer.isActive ? { color: '#34D399' } : { color: '#EF4444' },
+              ]}
+            >
+              {layer.isActive ? t('defense.active') : t('defense.off')}
             </Text>
           </View>
         </View>
         <Text style={styles.layerDesc}>{layer.description}</Text>
-        <Text style={[styles.layerDetails, { color: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.3)' }]}>
+        <Text
+          style={[
+            styles.layerDetails,
+            { color: layer.isActive ? layer.activeColor : 'rgba(255,255,255,0.3)' },
+          ]}
+        >
           {layer.details}
         </Text>
       </View>
@@ -325,17 +401,28 @@ function LayerCard({ layer, index }: { layer: SecurityLayer; index: number }) {
 // ── Crypto Property Card ────────────────────────────────────
 
 function CryptoPropertyCard({ property }: { property: CryptoProperty }) {
+  const { t } = useLanguage();
   return (
-    <View style={[styles.cryptoCard, glassPanelBase, webOnlyGlass, webOnlyGlowTier3]}>
+    <View style={[styles.cryptoCard, glassPanelBase, webOnlyGlass, webOnlyGlowTier3, styles.cryptoHalo, { borderLeftWidth: 3, borderLeftColor: property.color }]}>
       <View style={styles.cryptoHeader}>
         <View style={[styles.cryptoIcon, { borderColor: property.color }]}>
           <Feather name={property.icon as any} size={20} color={property.color} />
         </View>
         <View style={styles.cryptoHeaderText}>
           <Text style={styles.cryptoName}>{property.name}</Text>
-          <View style={[styles.statusBadge, property.isActive ? styles.statusActive : styles.statusInactive]}>
-            <Text style={[styles.statusText, property.isActive ? { color: '#34D399' } : { color: '#EF4444' }]}>
-              {property.isActive ? 'ENGAGED' : 'INACTIVE'}
+          <View
+            style={[
+              styles.statusBadge,
+              property.isActive ? styles.statusActive : styles.statusInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                property.isActive ? { color: '#34D399' } : { color: '#EF4444' },
+              ]}
+            >
+              {property.isActive ? t('defense.engaged') : t('defense.inactive')}
             </Text>
           </View>
         </View>
@@ -380,13 +467,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
     position: 'absolute',
-    left: 0, right: 0, top: 0, height: 1,
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1,
     backgroundColor: 'rgba(217,70,239,0.55)',
   },
   mainCol: {
@@ -425,7 +517,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,92,246,0.25)',
     backgroundColor: 'rgba(8,5,20,0.5)',
     marginBottom: dashboardSpacing.lg,
-    ...webOnly({ backdropFilter: 'blur(12px)' }),
+    ...webOnly({
+      backdropFilter: 'blur(12px)',
+      boxShadow:
+        '0 0 16px rgba(139,92,246,0.18), 0 0 32px rgba(34,211,238,0.10), inset 0 0 22px rgba(139,92,246,0.06)',
+    }),
   },
   scoreCircle: {
     width: 64,
@@ -491,8 +587,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     gap: 12,
-    ...webOnly({ transition: 'all 0.2s ease' }),
+    ...webOnly({ transition: 'all 0.22s ease' }),
   },
+  layerHalo: {
+    ...webOnly({
+      boxShadow:
+        '0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(139,92,246,0.25), 0 0 40px rgba(34,211,238,0.12), inset 0 1px 0 rgba(245,243,255,0.08)',
+    }),
+  } as any,
   layerNumber: {
     width: 24,
     height: 24,
@@ -576,6 +678,12 @@ const styles = StyleSheet.create({
   cryptoCard: {
     padding: 16,
   },
+  cryptoHalo: {
+    ...webOnly({
+      boxShadow:
+        '0 4px 24px rgba(0,0,0,0.4), 0 0 22px rgba(139,92,246,0.28), 0 0 44px rgba(34,211,238,0.14), inset 0 1px 0 rgba(245,243,255,0.08)',
+    }),
+  } as any,
   cryptoHeader: {
     flexDirection: 'row',
     alignItems: 'center',

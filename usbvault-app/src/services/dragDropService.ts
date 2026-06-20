@@ -226,15 +226,11 @@ class DragDropServiceImpl {
 
     // Audit the drop event and record in history
     if (droppedFiles.length > 0) {
-      await auditService.log(
-        'vault_upload' as any,
-        'drag-drop',
-        {
-          fileCount: droppedFiles.length,
-          totalSize,
-          types: droppedFiles.map(f => f.type),
-        },
-      );
+      await auditService.log('vault_upload' as any, 'drag-drop', {
+        fileCount: droppedFiles.length,
+        totalSize,
+        types: droppedFiles.map(f => f.type),
+      });
 
       // Persist upload record
       const history = readHistory();
@@ -364,7 +360,6 @@ class DragDropServiceImpl {
   getSupportedTypes(): string[] {
     return [...DEFAULT_SUPPORTED_TYPES];
   }
-
 
   /**
    * Read a File as ArrayBuffer using FileReader.

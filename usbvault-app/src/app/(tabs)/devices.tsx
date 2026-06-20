@@ -9,84 +9,93 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { deviceManagementService, DeviceSession } from '@/services/deviceManagementService';
+import { useLanguage } from '@/hooks/useLanguage';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import { EmptyState } from '@/components/common/EmptyState';
+import { ErrorRetry } from '@/components/common/ErrorRetry';
+import { SkeletonCard } from '@/components/common/SkeletonLoader';
 
-export default function DevicesScreen() {
+function DevicesScreen() {
+  const { t } = useLanguage();
   const [sessions, setSessions] = React.useState<DeviceSession[]>([]);
   const [currentSession, setCurrentSession] = React.useState<DeviceSession | null>(null);
   const [expandedHistory, setExpandedHistory] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     loadDevices();
   }, [refreshKey]);
 
   const loadDevices = () => {
-    const allSessions = deviceManagementService.getActiveSessions();
-    const current = deviceManagementService.getCurrentSession();
-    setSessions(allSessions);
-    setCurrentSession(current);
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const allSessions = deviceManagementService.getActiveSessions();
+      const current = deviceManagementService.getCurrentSession();
+      setSessions(allSessions);
+      setCurrentSession(current);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('devices.loadFailed');
+      setLoadError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRevokeSession = (id: string, name: string) => {
-    Alert.alert(
-      'Revoke Session',
-      `Are you sure you want to revoke access for ${name}?`,
-      [
-        {
-          text: 'Cancel',
-          onPress: () => {},
-          style: 'cancel',
+    Alert.alert(t('devices.revokeSession'), t('devices.revokeSessionConfirm', { name }), [
+      {
+        text: t('common.cancel'),
+        onPress: () => {},
+        style: 'cancel',
+      },
+      {
+        text: t('devices.revoke'),
+        onPress: async () => {
+          try {
+            await deviceManagementService.revokeSession(id);
+            setRefreshKey(prev => prev + 1);
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('devices.revokeSessionFailed'));
+          }
         },
-        {
-          text: 'Revoke',
-          onPress: async () => {
-            try {
-              await deviceManagementService.revokeSession(id);
-              setRefreshKey((prev) => prev + 1);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to revoke session');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+        style: 'destructive',
+      },
+    ]);
   };
 
   const handleRevokeAllOthers = () => {
-    Alert.alert(
-      'Revoke All Other Sessions',
-      'This will log out all other devices. Are you sure?',
-      [
-        {
-          text: 'Cancel',
-          onPress: () => {},
-          style: 'cancel',
+    Alert.alert(t('devices.revokeAllOthers'), t('devices.revokeAllOthersConfirm'), [
+      {
+        text: t('common.cancel'),
+        onPress: () => {},
+        style: 'cancel',
+      },
+      {
+        text: t('devices.revokeAll'),
+        onPress: async () => {
+          try {
+            await deviceManagementService.revokeAllOtherSessions();
+            setRefreshKey(prev => prev + 1);
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('devices.revokeFailed'));
+          }
         },
-        {
-          text: 'Revoke All',
-          onPress: async () => {
-            try {
-              await deviceManagementService.revokeAllOtherSessions();
-              setRefreshKey((prev) => prev + 1);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to revoke sessions');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+        style: 'destructive',
+      },
+    ]);
   };
 
   const handleTrustDevice = (id: string) => {
     deviceManagementService.trustDevice(id);
-    setRefreshKey((prev) => prev + 1);
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleUntrustDevice = (id: string) => {
     deviceManagementService.untrustDevice(id);
-    setRefreshKey((prev) => prev + 1);
+    setRefreshKey(prev => prev + 1);
   };
 
   const getDeviceIcon = (deviceType: string): React.ComponentProps<typeof Feather>['name'] => {
@@ -116,23 +125,46 @@ export default function DevicesScreen() {
     const then = new Date(date);
     const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
-    if (seconds < 60) return 'just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+    if (seconds < 60) return t('common.justNow');
+    if (seconds < 3600) return t('common.minutesAgo', { count: Math.floor(seconds / 60) });
+    if (seconds < 86400) return t('common.hoursAgo', { count: Math.floor(seconds / 3600) });
+    return t('common.daysAgo', { count: Math.floor(seconds / 86400) });
   };
 
   const security = deviceManagementService.getSecuritySummary();
-  const otherSessions = sessions.filter((s) => !s.isCurrent);
+  const otherSessions = sessions.filter(s => !s.isCurrent);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <View style={{ width: '100%', paddingHorizontal: 16, gap: 12 }}>
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={2} />
+        </View>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.loadingContainer}>
+        <View style={{ width: '100%', paddingHorizontal: 16 }}>
+          <ErrorRetry
+            error={loadError}
+            onRetry={() => setRefreshKey(prev => prev + 1)}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Device Management</Text>
-        <Text style={styles.headerSubtitle}>
-          Manage your devices and active sessions
-        </Text>
+        <Text style={styles.headerTitle}>{t('devices.pageTitle')}</Text>
+        <Text style={styles.headerSubtitle}>{t('devices.pageSubtitle')}</Text>
       </View>
 
       {/* Current Device Card */}
@@ -140,19 +172,13 @@ export default function DevicesScreen() {
         <View style={[styles.card, styles.currentDeviceCard]}>
           <View style={styles.currentDeviceHeader}>
             <View style={styles.currentDeviceIconContainer}>
-              <Feather
-                name={getDeviceIcon(currentSession.deviceType)}
-                size={24}
-                color="#06B6D4"
-              />
+              <Feather name={getDeviceIcon(currentSession.deviceType)} size={24} color="#06B6D4" />
             </View>
             <View style={styles.currentDeviceInfo}>
-              <Text style={styles.currentDeviceName}>
-                {currentSession.deviceName}
-              </Text>
+              <Text style={styles.currentDeviceName}>{currentSession.deviceName}</Text>
               <View style={styles.badgeContainer}>
                 <View style={styles.currentBadge}>
-                  <Text style={styles.badgeText}>This Device</Text>
+                  <Text style={styles.badgeText}>{t('devices.thisDevice')}</Text>
                 </View>
               </View>
             </View>
@@ -160,22 +186,22 @@ export default function DevicesScreen() {
 
           <View style={styles.currentDeviceDetails}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Browser:</Text>
+              <Text style={styles.detailLabel}>{t('devices.browser')}:</Text>
               <Text style={styles.detailValue}>{currentSession.browser}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Location:</Text>
+              <Text style={styles.detailLabel}>{t('devices.location')}:</Text>
               <Text style={styles.detailValue}>{currentSession.location}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>IP Address:</Text>
+              <Text style={styles.detailLabel}>{t('devices.ipAddress')}:</Text>
               <Text style={styles.detailValue}>{currentSession.ipAddress}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Status:</Text>
+              <Text style={styles.detailLabel}>{t('devices.status')}:</Text>
               <View style={styles.statusBadge}>
                 <View style={styles.statusDot} />
-                <Text style={styles.statusText}>Active</Text>
+                <Text style={styles.statusText}>{t('devices.active')}</Text>
               </View>
             </View>
           </View>
@@ -186,59 +212,46 @@ export default function DevicesScreen() {
       <View style={styles.securitySummary}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{security.totalActive}</Text>
-          <Text style={styles.summaryLabel}>Active</Text>
+          <Text style={styles.summaryLabel}>{t('devices.summaryActive')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: '#22C55E' }]}>
-            {security.trustedCount}
-          </Text>
-          <Text style={styles.summaryLabel}>Trusted</Text>
+          <Text style={[styles.summaryValue, { color: '#22C55E' }]}>{security.trustedCount}</Text>
+          <Text style={styles.summaryLabel}>{t('devices.summaryTrusted')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
             {security.suspiciousCount}
           </Text>
-          <Text style={styles.summaryLabel}>Suspicious</Text>
+          <Text style={styles.summaryLabel}>{t('devices.summarySuspicious')}</Text>
         </View>
       </View>
 
       {/* Revoke All Others Button */}
       {otherSessions.length > 0 && (
-        <TouchableOpacity
-          style={styles.revokeAllButton}
-          onPress={handleRevokeAllOthers}
-        >
+        <TouchableOpacity style={styles.revokeAllButton} onPress={handleRevokeAllOthers}>
           <Feather name="alert-circle" size={16} color="#FFFFFF" />
-          <Text style={styles.revokeAllButtonText}>
-            Revoke All Other Sessions
-          </Text>
+          <Text style={styles.revokeAllButtonText}>{t('devices.revokeAllOtherSessions')}</Text>
         </TouchableOpacity>
       )}
 
       {/* Active Sessions */}
       {otherSessions.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Active Sessions</Text>
-          {otherSessions.map((session) => (
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t('devices.activeSessions')}
+          </Text>
+          {otherSessions.map(session => (
             <View key={session.id} style={styles.card}>
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionIconContainer}>
-                  <Feather
-                    name={getDeviceIcon(session.deviceType)}
-                    size={20}
-                    color="#A855F7"
-                  />
+                  <Feather name={getDeviceIcon(session.deviceType)} size={20} color="#A855F7" />
                 </View>
                 <View style={styles.sessionInfoContainer}>
                   <Text style={styles.sessionName}>{session.deviceName}</Text>
                   <View style={styles.sessionMeta}>
-                    <Feather
-                      name={getOSIcon(session.os)}
-                      size={12}
-                      color="#B0B0B0"
-                    />
+                    <Feather name={getOSIcon(session.os)} size={12} color="#B0B0B0" />
                     <Text style={styles.sessionMetaText}>
                       {session.os} • {session.browser}
                     </Text>
@@ -258,24 +271,19 @@ export default function DevicesScreen() {
               <View style={styles.sessionDetails}>
                 <View style={styles.detailRow}>
                   <Feather name="map-pin" size={14} color="#B0B0B0" />
-                  <Text style={styles.sessionDetailText}>
-                    {session.location}
-                  </Text>
+                  <Text style={styles.sessionDetailText}>{session.location}</Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Feather name="clock" size={14} color="#B0B0B0" />
                   <Text style={styles.sessionDetailText}>
-                    Last active {formatTimeAgo(session.lastActiveAt)}
+                    {t('devices.lastActive', { time: formatTimeAgo(session.lastActiveAt) })}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.sessionActions}>
                 <TouchableOpacity
-                  style={[
-                    styles.trustButton,
-                    session.isTrusted && styles.trustedButton,
-                  ]}
+                  style={[styles.trustButton, session.isTrusted && styles.trustedButton]}
                   onPress={() =>
                     session.isTrusted
                       ? handleUntrustDevice(session.id)
@@ -288,23 +296,18 @@ export default function DevicesScreen() {
                     color={session.isTrusted ? '#22C55E' : '#B0B0B0'}
                   />
                   <Text
-                    style={[
-                      styles.trustButtonText,
-                      session.isTrusted && styles.trustedButtonText,
-                    ]}
+                    style={[styles.trustButtonText, session.isTrusted && styles.trustedButtonText]}
                   >
-                    {session.isTrusted ? 'Trusted' : 'Trust'}
+                    {session.isTrusted ? t('devices.trusted') : t('devices.trust')}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.revokeButton}
-                  onPress={() =>
-                    handleRevokeSession(session.id, session.deviceName)
-                  }
+                  onPress={() => handleRevokeSession(session.id, session.deviceName)}
                 >
                   <Feather name="x-circle" size={14} color="#EF4444" />
-                  <Text style={styles.revokeButtonText}>Revoke</Text>
+                  <Text style={styles.revokeButtonText}>{t('devices.revoke')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -317,29 +320,21 @@ export default function DevicesScreen() {
         style={styles.historyToggle}
         onPress={() => setExpandedHistory(!expandedHistory)}
       >
-        <Text style={styles.historyToggleText}>Session History</Text>
-        <Feather
-          name={expandedHistory ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color="#A855F7"
-        />
+        <Text style={styles.historyToggleText}>{t('devices.sessionHistory')}</Text>
+        <Feather name={expandedHistory ? 'chevron-up' : 'chevron-down'} size={20} color="#A855F7" />
       </TouchableOpacity>
 
       {expandedHistory && (
         <View style={styles.historyContainer}>
           {sessions.length === 0 ? (
-            <Text style={styles.emptyText}>No session history</Text>
+            <Text style={styles.emptyText}>{t('devices.noSessionHistory')}</Text>
           ) : (
             sessions.map((session, index) => (
               <View key={index} style={styles.historyItem}>
                 <View style={styles.historyDot} />
                 <View style={styles.historyContent}>
-                  <Text style={styles.historyDeviceName}>
-                    {session.deviceName}
-                  </Text>
-                  <Text style={styles.historyDate}>
-                    Created {formatTimeAgo(session.createdAt)}
-                  </Text>
+                  <Text style={styles.historyDeviceName}>{session.deviceName}</Text>
+                  <Text style={styles.historyDate}>{t('devices.createdTime', { time: formatTimeAgo(session.createdAt) })}</Text>
                 </View>
               </View>
             ))
@@ -349,19 +344,55 @@ export default function DevicesScreen() {
 
       {/* Empty State */}
       {otherSessions.length === 0 && (
-        <View style={styles.emptyStateContainer}>
-          <Feather name="check-circle" size={48} color="#A855F7" />
-          <Text style={styles.emptyStateTitle}>Only One Active Session</Text>
-          <Text style={styles.emptyStateText}>
-            You have no other active sessions at this time
-          </Text>
-        </View>
+        <EmptyState
+          icon="smartphone"
+          title={t('devices.onlyOneSession')}
+          description={t('devices.noOtherSessions')}
+        />
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0A0A0F',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#B0B0B0',
+    fontWeight: '500',
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginTop: 12,
+  },
+  errorDetail: {
+    fontSize: 13,
+    color: '#B0B0B0',
+    textAlign: 'center',
+    maxWidth: 300,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.4)',
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#A855F7',
+  },
   container: {
     flex: 1,
     backgroundColor: '#0A0A0F',
@@ -716,3 +747,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+export default withErrorBoundary(DevicesScreen, 'Devices');

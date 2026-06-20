@@ -55,13 +55,13 @@ function simpleHash(input: string): string {
   let hash = 0;
   for (let i = 0; i < input.length; i++) {
     const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   // Convert to positive hex, pad to 64 chars
   const hex = Math.abs(hash).toString(16).padStart(8, '0');
   // Repeat to get 64 chars
-  return (hex.repeat(8)).slice(0, 64);
+  return hex.repeat(8).slice(0, 64);
 }
 
 class KeyVerificationServiceImpl {
@@ -90,7 +90,7 @@ class KeyVerificationServiceImpl {
     const groups: string[] = [];
     for (let i = 0; i < 12; i++) {
       // Take 5 chars from hash, convert to number, mod 100000
-      const slice = hash.slice((i * 5) % hash.length, (i * 5 + 5) % hash.length + 5);
+      const slice = hash.slice((i * 5) % hash.length, ((i * 5 + 5) % hash.length) + 5);
       let num = 0;
       for (let j = 0; j < slice.length; j++) {
         num = (num * 16 + parseInt(slice[j] || '0', 16)) % 100000;

@@ -2,7 +2,15 @@
 import { StyleSheet, Text, TextInput, View, Pressable, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
-import { dashboardSpacing, dashboardColors, dashboardLayout, glassPanelBase, webOnlyGlass, webOnlyTransition } from '@/components/dashboard2/styles';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  dashboardLayout,
+  glassPanelBase,
+  webOnlyGlass,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { PasswordFormData } from '@/hooks/usePasswords';
 
 interface PasswordFormProps {
@@ -24,85 +32,113 @@ export function PasswordForm({
   onSave,
   onGeneratePassword,
 }: PasswordFormProps) {
+  const { t } = useLanguage();
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, glassPanelBase, webOnlyGlass]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{isEditing ? 'Edit Password' : 'Add Password'}</Text>
-            <Pressable style={(state: any) => [state.hovered && styles.modalCloseHover]} onPress={onClose}>
+            <Text style={styles.modalTitle} accessibilityRole="header">
+              {isEditing ? t('passwords.editPassword') : t('passwords.addPassword')}
+            </Text>
+            <Pressable
+              style={(state: any) => [state.hovered && styles.modalCloseHover]}
+              onPress={onClose}
+              accessibilityRole="button"
+            >
               <Feather name="x" size={24} color={dashboardColors.textSecondary} />
             </Pressable>
           </View>
 
           <View style={styles.modalBody}>
-            <Text style={styles.inputLabel}>Title</Text>
+            <Text style={styles.inputLabel}>{t('passwords.title')}</Text>
             <TextInput
+              accessibilityLabel={t('passwords.titlePlaceholder')}
               style={styles.modalInput}
-              placeholder="e.g., Gmail, GitHub"
+              placeholder={t('passwords.titlePlaceholder')}
               placeholderTextColor={dashboardColors.textSecondary}
               value={formData.title}
-              onChangeText={(text) => onFormChange({ ...formData, title: text })}
+              onChangeText={text => onFormChange({ ...formData, title: text })}
             />
 
-            <Text style={styles.inputLabel}>Username/Email</Text>
+            <Text style={styles.inputLabel}>{t('passwords.usernameEmail')}</Text>
             <TextInput
+              accessibilityLabel={t('passwords.usernamePlaceholder')}
               style={styles.modalInput}
-              placeholder="your@email.com"
+              placeholder={t('passwords.usernamePlaceholder')}
               placeholderTextColor={dashboardColors.textSecondary}
               value={formData.username}
-              onChangeText={(text) => onFormChange({ ...formData, username: text })}
+              onChangeText={text => onFormChange({ ...formData, username: text })}
             />
 
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>{t('passwords.passwordLabel')}</Text>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <TextInput
+                accessibilityLabel={t('passwords.passwordPlaceholder')}
                 style={[styles.modalInput, { flex: 1, marginBottom: 0 }]}
-                placeholder="Enter password"
+                placeholder={t('passwords.passwordPlaceholder')}
                 placeholderTextColor={dashboardColors.textSecondary}
                 value={formData.password}
-                onChangeText={(text) => onFormChange({ ...formData, password: text })}
+                onChangeText={text => onFormChange({ ...formData, password: text })}
               />
               <Pressable
-                style={(state: any) => [styles.generateBtn, webOnlyTransition, state.hovered && styles.generateBtnHover]}
+                accessibilityRole="button"
+                style={(state: any) => [
+                  styles.generateBtn,
+                  webOnlyTransition,
+                  state.hovered && styles.generateBtnHover,
+                ]}
                 onPress={onGeneratePassword}
               >
                 <Feather name="zap" size={14} color="#22D3EE" />
-                <Text style={styles.generateBtnText}>Generate</Text>
+                <Text style={styles.generateBtnText}>{t('passwords.generate')}</Text>
               </Pressable>
             </View>
 
-            <Text style={styles.inputLabel}>URL (optional)</Text>
+            <Text style={styles.inputLabel}>{t('passwords.urlOptional')}</Text>
             <TextInput
+              accessibilityLabel={t('passwords.urlPlaceholder')}
               style={styles.modalInput}
-              placeholder="https://example.com"
+              placeholder={t('passwords.urlPlaceholder')}
               placeholderTextColor={dashboardColors.textSecondary}
               value={formData.url}
-              onChangeText={(text) => onFormChange({ ...formData, url: text })}
+              onChangeText={text => onFormChange({ ...formData, url: text })}
             />
 
-            <Text style={styles.inputLabel}>Category (optional)</Text>
+            <Text style={styles.inputLabel}>{t('passwords.categoryOptional')}</Text>
             <TextInput
+              accessibilityLabel={t('passwords.categoryPlaceholder')}
               style={styles.modalInput}
-              placeholder="Work, Personal, etc."
+              placeholder={t('passwords.categoryPlaceholder')}
               placeholderTextColor={dashboardColors.textSecondary}
               value={formData.category}
-              onChangeText={(text) => onFormChange({ ...formData, category: text })}
+              onChangeText={text => onFormChange({ ...formData, category: text })}
             />
           </View>
 
           <View style={styles.modalFooter}>
             <Pressable
-              style={(state: any) => [styles.modalCancelButton, webOnlyTransition, state.hovered && styles.modalCancelButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.modalCancelButton,
+                webOnlyTransition,
+                state.hovered && styles.modalCancelButtonHover,
+              ]}
               onPress={onClose}
             >
-              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              <Text style={styles.modalCancelButtonText}>{t('common.cancel')}</Text>
             </Pressable>
             <Pressable
-              style={(state: any) => [styles.modalSaveButton, webOnlyTransition, state.hovered && styles.modalSaveButtonHover]}
+              accessibilityRole="button"
+              style={(state: any) => [
+                styles.modalSaveButton,
+                webOnlyTransition,
+                state.hovered && styles.modalSaveButtonHover,
+              ]}
               onPress={onSave}
             >
-              <Text style={styles.modalSaveButtonText}>Save Password</Text>
+              <Text style={styles.modalSaveButtonText}>{t('passwords.savePassword')}</Text>
             </Pressable>
           </View>
         </View>

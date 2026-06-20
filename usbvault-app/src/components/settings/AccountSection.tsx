@@ -5,6 +5,7 @@ import { dashboardColors } from '@/components/dashboard2/styles';
 import { styles } from './styles';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '@/utils/passwordPolicy';
 import { auditService } from '@/services/auditService';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface AccountSectionProps {
   email: string | null;
@@ -12,36 +13,37 @@ interface AccountSectionProps {
 }
 
 export function AccountSection({ email, subscriptionTier }: AccountSectionProps) {
+  const { t } = useLanguage();
   const { modal, showPrompt, showSuccess, showError } = useInAppModal();
 
   const handleChangePassword = () => {
     showPrompt(
-      'Change Password',
+      t('settings.changePassword'),
       [
         {
           key: 'oldPassword',
-          label: 'Current Password',
-          placeholder: 'Enter your current password',
+          label: t('settings.currentPassword'),
+          placeholder: t('settings.currentPasswordPlaceholder'),
           secure: true,
         },
         {
           key: 'newPassword',
-          label: 'New Password',
-          placeholder: 'Enter your new password',
+          label: t('settings.newPassword'),
+          placeholder: t('settings.newPasswordPlaceholder'),
           secure: true,
         },
         {
           key: 'confirmPassword',
-          label: 'Confirm Password',
-          placeholder: 'Confirm your new password',
+          label: t('settings.confirmPassword'),
+          placeholder: t('settings.confirmPasswordPlaceholder'),
           secure: true,
         },
       ],
-      (values) => {
+      values => {
         const { oldPassword, newPassword, confirmPassword } = values;
 
         if (!oldPassword || !newPassword || !confirmPassword) {
-          showError('Validation Error', 'All fields are required');
+          showError(t('settings.validationError'), t('settings.allFieldsRequired'));
           return;
         }
 
@@ -49,22 +51,23 @@ export function AccountSection({ email, subscriptionTier }: AccountSectionProps)
         const validation = validatePassword(newPassword, { email: email || undefined });
         if (!validation.isValid) {
           showError(
-            'Password Too Weak',
-            validation.feedback[0] || `Password must be at least ${PASSWORD_MIN_LENGTH} characters. NIST SP 800-63B-4 requires a strong passphrase.`,
+            t('settings.passwordTooWeak'),
+            validation.feedback[0] ||
+              t('settings.passwordMinLength', { count: PASSWORD_MIN_LENGTH })
           );
           return;
         }
 
         if (newPassword !== confirmPassword) {
-          showError('Validation Error', 'Passwords do not match!');
+          showError(t('settings.validationError'), t('settings.passwordMismatch'));
           return;
         }
 
         // In a real app, call API to change password
         auditService.log('password_change', email || 'unknown').catch(() => {});
-        showSuccess('Success', 'Password changed successfully!');
+        showSuccess(t('settings.changePassword'), t('settings.passwordChanged'));
       },
-      'Change Password'
+      t('settings.changePassword')
     );
   };
 
@@ -73,37 +76,40 @@ export function AccountSection({ email, subscriptionTier }: AccountSectionProps)
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Feather name="user" size={18} color={dashboardColors.cyan} />
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t('settings.account')}
+          </Text>
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Email</Text>
-          <Text style={styles.settingValue}>{email || 'Not signed in'}</Text>
+          <Text style={styles.settingLabel}>{t('settings.email')}</Text>
+          <Text style={styles.settingValue}>{email || t('settings.notSignedIn')}</Text>
         </View>
         <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Subscription</Text>
+          <Text style={styles.settingLabel}>{t('settings.subscription')}</Text>
           <View style={styles.tierBadge}>
             <Text style={styles.tierText}>
               {subscriptionTier
                 ? subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1)
-                : 'Free'}
+                : t('settings.free')}
             </Text>
           </View>
         </View>
         <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>PQC Status</Text>
+          <Text style={styles.settingLabel}>{t('settings.pqcStatus')}</Text>
           <View style={styles.pqcPill}>
             <View style={styles.pqcDot} />
-            <Text style={styles.pqcText}>Protected</Text>
+            <Text style={styles.pqcText}>{t('settings.protected')}</Text>
           </View>
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={(state: any) => [styles.actionBtn, state.hovered && styles.actionBtnHover]}
           onPress={handleChangePassword}
         >
           <Feather name="lock" size={16} color={dashboardColors.textPrimary} />
-          <Text style={styles.actionBtnText}>Change Password</Text>
+          <Text style={styles.actionBtnText}>{t('settings.changePassword')}</Text>
         </Pressable>
       </View>
       <InAppModal config={modal} />

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/config"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // DV-010 FIX: Validate S3 key components to prevent path traversal
@@ -258,7 +259,7 @@ func HandleGenerateUploadURL(ss *StorageService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -397,7 +398,7 @@ func HandleGenerateDownloadURL(ss *StorageService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -478,7 +479,7 @@ func HandleGenerateDownloadURL(ss *StorageService) http.HandlerFunc {
 
 func HandleListBlobs(ss *StorageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -507,7 +508,7 @@ func HandleDeleteBlob(ss *StorageService, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

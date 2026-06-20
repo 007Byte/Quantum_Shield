@@ -1,0 +1,891 @@
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-assign',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-assign/index.js'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-assign/index.js'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/vary',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/vary/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/vary/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/debug',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/debug/.coveralls.yml'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/debug/.coveralls.yml'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/body-parser',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/body-parser/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/body-parser/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-type',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-type/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-type/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express/History.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express/History.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cors',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cors/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cors/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/encodeurl',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/encodeurl/README.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/encodeurl/README.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/etag',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/etag/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/etag/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/depd',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/depd/History.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/depd/History.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fresh',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fresh/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fresh/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/http-errors',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/http-errors/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/http-errors/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-disposition',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-disposition/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/content-disposition/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/methods',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/methods/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/methods/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/parseurl',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/parseurl/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/parseurl/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/merge-descriptors',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/merge-descriptors/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/merge-descriptors/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/qs',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/qs/.editorconfig'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/qs/.editorconfig'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/escape-html',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/escape-html/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/escape-html/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/finalhandler',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/finalhandler/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/finalhandler/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/proxy-addr',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/proxy-addr/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/proxy-addr/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/path-to-regexp',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/path-to-regexp/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/path-to-regexp/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/on-finished',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/on-finished/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/on-finished/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/range-parser',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/range-parser/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/range-parser/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/serve-static',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/serve-static/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/serve-static/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/type-is',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/type-is/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/type-is/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/utils-merge',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/utils-merge/.npmignore'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/utils-merge/.npmignore'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-buffer',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-buffer/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-buffer/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/setprototypeof',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/setprototypeof/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/setprototypeof/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/accepts',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/accepts/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/accepts/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/destroy',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/destroy/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/destroy/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/negotiator',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/negotiator/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/negotiator/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/statuses',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/statuses/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/statuses/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-types',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-types/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-types/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/kuler',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/kuler/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/kuler/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/bytes',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/bytes/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/bytes/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/raw-body',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/raw-body/index.d.ts'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/raw-body/index.d.ts'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/toidentifier',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/toidentifier/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/toidentifier/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safer-buffer',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safer-buffer/Porting-Buffer.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safer-buffer/Porting-Buffer.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/array-flatten',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/array-flatten/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/array-flatten/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ee-first',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ee-first/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ee-first/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/inherits',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/inherits/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/inherits/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ipaddr.js',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ipaddr.js/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ipaddr.js/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel/.editorconfig'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel/.editorconfig'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-errors',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-errors/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-errors/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-db',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-db/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime-db/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/helmet',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/helmet/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/helmet/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-list',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-list/.editorconfig'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-list/.editorconfig'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-map',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-map/.editorconfig'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-map/.editorconfig'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime/.npmignore'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/mime/.npmignore'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bound',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bound/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bound/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-intrinsic',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-intrinsic/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-intrinsic/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/unpipe',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/unpipe/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/unpipe/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bind-apply-helpers',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bind-apply-helpers/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/call-bind-apply-helpers/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-define-property',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-define-property/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-define-property/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/function-bind',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/function-bind/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/function-bind/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-weakmap',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-weakmap/.editorconfig'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/side-channel-weakmap/.editorconfig'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie-signature',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie-signature/History.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie-signature/History.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/has-symbols',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/has-symbols/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/has-symbols/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ms',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ms/index.js'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/ms/index.js'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-proto',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-proto/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/get-proto/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-object-atoms',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-object-atoms/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/es-object-atoms/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/dunder-proto',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/dunder-proto/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/dunder-proto/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/gopd',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/gopd/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/gopd/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/is-stream',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/is-stream/index.d.ts'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/is-stream/index.d.ts'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/cookie/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/media-typer',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/media-typer/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/media-typer/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/one-time',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/one-time/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/one-time/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-inspect',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-inspect/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/object-inspect/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/readable-stream',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/readable-stream/CONTRIBUTING.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/readable-stream/CONTRIBUTING.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/iconv-lite',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/iconv-lite/Changelog.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/iconv-lite/Changelog.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/forwarded',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/forwarded/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/forwarded/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston-transport',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston-transport/.babelrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/winston-transport/.babelrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/enabled',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/enabled/.travis.yml'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/enabled/.travis.yml'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/triple-beam',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/triple-beam/CHANGELOG.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/triple-beam/CHANGELOG.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/async',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/async/CHANGELOG.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/async/CHANGELOG.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-convert',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-convert/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-convert/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fecha',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fecha/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fecha/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-stable-stringify',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-stable-stringify/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/safe-stable-stringify/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/string_decoder',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/string_decoder/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/string_decoder/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fn.name',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fn.name/.gitattributes'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/fn.name/.gitattributes'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express-rate-limit',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express-rate-limit/license.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/express-rate-limit/license.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/util-deprecate',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/util-deprecate/History.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/util-deprecate/History.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-name',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-name/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-name/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/text-hex',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/text-hex/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/text-hex/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/hasown',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/hasown/CHANGELOG.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/hasown/CHANGELOG.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/math-intrinsics',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/math-intrinsics/.eslintrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/math-intrinsics/.eslintrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/stack-trace',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/stack-trace/.npmignore'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/stack-trace/.npmignore'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-string',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-string/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/color-string/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/logform',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/logform/.babelrc'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/logform/.babelrc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/send',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/send/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/send/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/accepts/HISTORY.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/accepts/HISTORY.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@colors',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@colors/colors/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@colors/colors/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@so-ric',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@so-ric/colorspace/CHANGELOG.md'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@so-ric/colorspace/CHANGELOG.md'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@dabh',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@dabh/diagnostics/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@dabh/diagnostics/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@types',
+npm warn cleanup     [Error: EPERM: operation not permitted, unlink '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@types/triple-beam/LICENSE'] {
+npm warn cleanup       errno: -1,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'unlink',
+npm warn cleanup       path: '/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/usb-companion/node_modules/@types/triple-beam/LICENSE'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code EPERM
+npm error syscall unlink
+npm error path /sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/.npm-cache/_cacache/tmp/d17439fa
+npm error errno -1
+npm error
+npm error Your cache folder contains root-owned files, due to a bug in
+npm error previous versions of npm which has since been addressed.
+npm error
+npm error To permanently fix this problem, please run:
+npm error   sudo chown -R 1016:1016 "/sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/.npm-cache"
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 11.11.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.1
+npm notice To update run: npm install -g npm@11.11.1
+npm notice
+npm error A complete log of this run can be found in: /sessions/vibrant-cool-hypatia/mnt/Enterprise_Version/.npm-cache/_logs/2026-03-14T10_47_18_564Z-debug-0.log

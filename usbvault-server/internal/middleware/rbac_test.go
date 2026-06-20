@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // MockRBACService implements a mock RBAC service for testing
@@ -108,7 +109,7 @@ func TestRBACOwnerPermissions(t *testing.T) {
 			router := createTestRouter(rbac, tc.permission)
 
 			req := httptest.NewRequest("GET", "/vaults/vault-123/test", nil)
-			req = req.WithContext(context.WithValue(req.Context(), "user_id", userID))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, userID))
 
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, req)
@@ -144,7 +145,7 @@ func TestRBACEditorPermissions(t *testing.T) {
 			router := createTestRouter(rbac, tc.permission)
 
 			req := httptest.NewRequest("GET", "/vaults/vault-123/test", nil)
-			req = req.WithContext(context.WithValue(req.Context(), "user_id", userID))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, userID))
 
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, req)
@@ -179,7 +180,7 @@ func TestRBACViewerPermissions(t *testing.T) {
 			router := createTestRouter(rbac, tc.permission)
 
 			req := httptest.NewRequest("GET", "/vaults/vault-123/test", nil)
-			req = req.WithContext(context.WithValue(req.Context(), "user_id", userID))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, userID))
 
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, req)
@@ -209,7 +210,7 @@ func TestRBACNonMemberForbidden(t *testing.T) {
 			router := createTestRouter(rbac, perm)
 
 			req := httptest.NewRequest("GET", "/vaults/vault-123/test", nil)
-			req = req.WithContext(context.WithValue(req.Context(), "user_id", userID))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, userID))
 
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, req)
@@ -246,7 +247,7 @@ func TestRBACMissingVaultID(t *testing.T) {
 		router := createTestRouter(rbac, auth.PermRead)
 
 		req := httptest.NewRequest("GET", "/vaults//test", nil) // Empty vault ID
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "user-123"))
 
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, req)
@@ -272,7 +273,7 @@ func TestVaultOwnerOnlyMiddleware(t *testing.T) {
 		// Test owner access
 		rbac.SetPermission("owner", "vault-123", auth.PermManageMembers, true)
 		req := httptest.NewRequest("GET", "/vaults/vault-123/members", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "owner"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "owner"))
 
 		recorder := httptest.NewRecorder()
 		r.ServeHTTP(recorder, req)
@@ -284,7 +285,7 @@ func TestVaultOwnerOnlyMiddleware(t *testing.T) {
 		// Test non-owner access
 		rbac.SetPermission("editor", "vault-123", auth.PermManageMembers, false)
 		req = httptest.NewRequest("GET", "/vaults/vault-123/members", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "editor"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "editor"))
 
 		recorder = httptest.NewRecorder()
 		r.ServeHTTP(recorder, req)
@@ -309,7 +310,7 @@ func TestRequireVaultRead(t *testing.T) {
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermRead, true)
 		req := httptest.NewRequest("GET", "/vaults/vault-123/", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "user-123"))
 
 		recorder := httptest.NewRecorder()
 		r.ServeHTTP(recorder, req)
@@ -334,7 +335,7 @@ func TestRequireVaultUpdate(t *testing.T) {
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermUpdate, true)
 		req := httptest.NewRequest("PUT", "/vaults/vault-123/", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "user-123"))
 
 		recorder := httptest.NewRecorder()
 		r.ServeHTTP(recorder, req)
@@ -359,7 +360,7 @@ func TestRequireVaultDelete(t *testing.T) {
 
 		rbac.SetPermission("user-123", "vault-123", auth.PermDelete, true)
 		req := httptest.NewRequest("DELETE", "/vaults/vault-123/", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "user-123"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "user-123"))
 
 		recorder := httptest.NewRecorder()
 		r.ServeHTTP(recorder, req)
@@ -384,7 +385,7 @@ func TestRBACPermissionBoundaries(t *testing.T) {
 
 		router := createTestRouter(rbac, auth.PermCreate)
 		req := httptest.NewRequest("GET", "/vaults/vault-123/test", nil)
-		req = req.WithContext(context.WithValue(req.Context(), "user_id", "owner"))
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "owner"))
 
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, req)

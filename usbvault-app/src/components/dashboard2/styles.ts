@@ -1,27 +1,35 @@
 import { TextStyle, ViewStyle } from 'react-native';
 import { webOnly } from '@/utils/webStyle';
+import { dashboardColorsCompat } from '@/theme/compat';
 
-export const dashboardColors = {
-  bg0: '#0B0617',
-  bg1: '#1A0F3A',
-  bg2: '#120A26',
-  panel: 'rgba(18,12,40,0.65)',
-  panelStrong: 'rgba(14,10,34,0.74)',
-  borderPurple: 'rgba(139,92,246,0.35)',
-  borderBlue: 'rgba(96,165,250,0.28)',
-  borderCyan: 'rgba(6,182,212,0.3)',
-  purple: '#8B5CF6',
-  magenta: '#D946EF',
-  cyan: '#22D3EE',
-  lightCyan: '#67E8F9',
-  cyanStrong: '#06B6D4',
-  blue: '#60A5FA',
-  glowPurple: '#A855F7',
-  glowCyan: '#06B6D4',
-  green: '#22C55E',
-  textPrimary: '#F5F3FF',
-  textSecondary: '#B7B2D9',
-} as const;
+/**
+ * Theme-reactive dashboard colors.
+ * Uses the compat proxy — resolves to dark or light palette based on current theme.
+ * Works reactively in inline JSX: color={dashboardColors.green}
+ * NOTE: Values captured in StyleSheet.create() are fixed at load time and
+ * rely on webCSSSync for correction on theme toggle.
+ */
+export const dashboardColors = dashboardColorsCompat as {
+  bg0: string;
+  bg1: string;
+  bg2: string;
+  panel: string;
+  panelStrong: string;
+  borderPurple: string;
+  borderBlue: string;
+  borderCyan: string;
+  purple: string;
+  magenta: string;
+  cyan: string;
+  lightCyan: string;
+  cyanStrong: string;
+  blue: string;
+  glowPurple: string;
+  glowCyan: string;
+  green: string;
+  textPrimary: string;
+  textSecondary: string;
+};
 
 export const dashboardLayout = {
   maxWidth: 1880,
@@ -76,7 +84,8 @@ export const textGlowStrong: TextStyle = {
 
 export const webOnlyTransition: ViewStyle = {
   ...webOnly({
-    transition: 'transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease',
+    transition:
+      'transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease',
   }),
 } as ViewStyle;
 
@@ -116,6 +125,65 @@ export const webOnlyGlassLuxury: ViewStyle = {
 
 export const webOnlyNeonRing: ViewStyle = {
   ...webOnly({
-    filter: 'drop-shadow(0 0 18px rgba(139,92,246,0.42)) drop-shadow(0 0 30px rgba(34,211,238,0.28))',
+    filter:
+      'drop-shadow(0 0 18px rgba(139,92,246,0.42)) drop-shadow(0 0 30px rgba(34,211,238,0.28))',
+  }),
+} as ViewStyle;
+
+// ── Light-mode variants ──────────────────────────────────────────────────────
+// Applied AFTER the dark counterparts in style arrays so they win the cascade.
+
+export const webOnlyGlassLight: ViewStyle = {
+  ...webOnly({
+    backdropFilter: 'blur(16px) saturate(120%)',
+    boxShadow:
+      '0 4px 20px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.50), inset 0 1px 0 rgba(255,255,255,0.60)',
+  }),
+} as ViewStyle;
+
+export const webOnlyGlassLuxuryLight: ViewStyle = {
+  ...webOnly({
+    backdropFilter: 'blur(20px) saturate(130%)',
+    boxShadow:
+      '0 6px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.65), inset 0 0 20px rgba(255,255,255,0.15)',
+  }),
+} as ViewStyle;
+
+export const webOnlyEdgeLitLight: ViewStyle = {
+  ...webOnly({
+    boxShadow:
+      '0 0 0 1px rgba(200,190,230,0.18), 0 2px 8px rgba(124,58,237,0.06)',
+  }),
+} as ViewStyle;
+
+export const webOnlyGlowTier1Light: ViewStyle = {
+  ...webOnly({
+    boxShadow:
+      '0 4px 24px rgba(124,58,237,0.08), 0 0 12px rgba(8,145,178,0.06)',
+  }),
+} as ViewStyle;
+
+export const webOnlyGlowTier2Light: ViewStyle = {
+  ...webOnly({
+    boxShadow: '0 2px 16px rgba(124,58,237,0.06), 0 0 8px rgba(8,145,178,0.04)',
+  }),
+} as ViewStyle;
+
+export const webOnlyGlowTier3Light: ViewStyle = {
+  ...webOnly({
+    boxShadow: '0 2px 12px rgba(124,58,237,0.04), 0 0 4px rgba(8,145,178,0.03)',
+  }),
+} as ViewStyle;
+
+export const textGlowStrongLight: TextStyle = {
+  ...webOnly({
+    textShadow: '0 0 12px rgba(124,58,237,0.12)',
+  }),
+} as TextStyle;
+
+export const webOnlyNeonRingLight: ViewStyle = {
+  ...webOnly({
+    filter:
+      'drop-shadow(0 0 8px rgba(124,58,237,0.12)) drop-shadow(0 0 16px rgba(8,145,178,0.08))',
   }),
 } as ViewStyle;

@@ -16,6 +16,7 @@
  */
 
 import { logger } from '@/utils/logger';
+import { registerCleanup } from '@/stores/storeCleanup';
 
 const STORAGE_KEY = 'usbvault_metadata_reduction_config';
 
@@ -98,7 +99,10 @@ class MetadataReductionService {
         this.config = { ...DEFAULT_METADATA_CONFIG };
       }
     } catch (err) {
-      logger.warn('[MetadataReduction] Failed to load config from localStorage, using defaults:', err);
+      logger.warn(
+        '[MetadataReduction] Failed to load config from localStorage, using defaults:',
+        err
+      );
       this.config = { ...DEFAULT_METADATA_CONFIG };
     }
 
@@ -119,14 +123,20 @@ class MetadataReductionService {
     // Validate constraints
     if (partial.timingJitterMaxMs !== undefined) {
       if (partial.timingJitterMaxMs < 0 || partial.timingJitterMaxMs > 5000) {
-        logger.warn('[MetadataReduction] timingJitterMaxMs out of range [0–5000]:', partial.timingJitterMaxMs);
+        logger.warn(
+          '[MetadataReduction] timingJitterMaxMs out of range [0–5000]:',
+          partial.timingJitterMaxMs
+        );
         partial.timingJitterMaxMs = Math.max(0, Math.min(5000, partial.timingJitterMaxMs));
       }
     }
 
     if (partial.batchIntervalMs !== undefined) {
       if (partial.batchIntervalMs < 10000 || partial.batchIntervalMs > 30000) {
-        logger.warn('[MetadataReduction] batchIntervalMs out of range [10000–30000]:', partial.batchIntervalMs);
+        logger.warn(
+          '[MetadataReduction] batchIntervalMs out of range [10000–30000]:',
+          partial.batchIntervalMs
+        );
         partial.batchIntervalMs = Math.max(10000, Math.min(30000, partial.batchIntervalMs));
       }
     }
@@ -134,7 +144,10 @@ class MetadataReductionService {
     if (partial.paddingSize !== undefined) {
       const validSizes = [256, 1024, 4096, 16384];
       if (!validSizes.includes(partial.paddingSize)) {
-        logger.warn('[MetadataReduction] paddingSize not in [256, 1024, 4096, 16384]:', partial.paddingSize);
+        logger.warn(
+          '[MetadataReduction] paddingSize not in [256, 1024, 4096, 16384]:',
+          partial.paddingSize
+        );
         partial.paddingSize = 1024; // fallback to default
       }
     }
@@ -180,7 +193,7 @@ class MetadataReductionService {
     }
     jitterMs = jitterMs % range;
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       setTimeout(resolve, jitterMs);
     });
   }
@@ -270,7 +283,10 @@ class MetadataReductionService {
 
   queueForBatch(messageId: string, sendFn: () => Promise<void>): void {
     // PL-029: Reject new entries when queue is at capacity
-    if (this.messageQueue.size >= MetadataReductionService.MAX_QUEUE_SIZE && !this.messageQueue.has(messageId)) {
+    if (
+      this.messageQueue.size >= MetadataReductionService.MAX_QUEUE_SIZE &&
+      !this.messageQueue.has(messageId)
+    ) {
       logger.warn('[MetadataReduction] Queue full, dropping message:', messageId);
       return;
     }
@@ -282,7 +298,11 @@ class MetadataReductionService {
       queuedAt: now,
     });
 
-    logger.debug('[MetadataReduction] Message queued for batch:', messageId, `(queue size: ${this.messageQueue.size})`);
+    logger.debug(
+      '[MetadataReduction] Message queued for batch:',
+      messageId,
+      `(queue size: ${this.messageQueue.size})`
+    );
   }
 
   /**
@@ -306,7 +326,7 @@ class MetadataReductionService {
 
     logger.log('[MetadataReduction] Flushing batch with', messages.length, 'messages');
 
-    const promises = messages.map(async (msg) => {
+    const promises = messages.map(async msg => {
       try {
         await msg.sendFn();
         logger.debug('[MetadataReduction] Batch message sent:', msg.messageId);
@@ -348,6 +368,9 @@ class MetadataReductionService {
         this.flushInFlight = false;
       }
     }, cfg.batchIntervalMs);
+
+    // RELIABILITY FIX (M-4): Register cleanup to stop timer on logout
+    registerCleanup(() => this.stopBatchTimer());
 
     logger.log('[MetadataReduction] Batch timer started with interval:', cfg.batchIntervalMs, 'ms');
   }

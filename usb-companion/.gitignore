@@ -1,0 +1,12 @@
+# USB-COMP-1: Vendored Node.js binaries (358 MB)
+# These are downloaded at build time via scripts/fetch-node.sh
+node/
+
+# REPO-1: Pre-built static web assets (22 MB)
+# Built from usbvault-app via: npm run export:usb
+static/
+
+# Standard ignores
+node_modules/
+.DS_Store
+*.log

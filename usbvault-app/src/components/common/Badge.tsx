@@ -69,13 +69,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export const Badge: React.FC<BadgeProps> = ({
-  label,
-  variant = 'info',
-  icon,
-  style,
-  testID,
-}) => {
+export const Badge: React.FC<BadgeProps> = ({ label, variant = 'info', icon, style, testID }) => {
   const getBackgroundStyle = (): ViewStyle => {
     switch (variant) {
       case 'pqc':
@@ -111,10 +105,7 @@ export const Badge: React.FC<BadgeProps> = ({
   };
 
   return (
-    <View
-      style={[styles.badge, getBackgroundStyle(), style]}
-      testID={testID}
-    >
+    <View style={[styles.badge, getBackgroundStyle(), style]} testID={testID}>
       {icon && <Text style={styles.icon}>{icon}</Text>}
       <Text style={[styles.text, getTextStyle()]}>{label}</Text>
     </View>

@@ -1,6 +1,7 @@
 /**
- * PH4-FIX: Stub for forensics service (security domain).
- * TODO: Implement digital forensics capabilities.
+ * PH4-FIX: Forensics service (security domain).
+ * Provides digital forensics scan, cleanup, and ghost mode capabilities.
+ * Platform-aware: web cleanup uses browser APIs, native cleanup uses RNFS/platform modules.
  */
 
 export interface ForensicsReport {
@@ -57,15 +58,82 @@ class ForensicsServiceImpl {
   private scheduledTimer: NodeJS.Timeout | null = null;
 
   async scan(): Promise<ForensicsReport> {
+    const findings: string[] = [];
+    let riskLevel: ForensicsReport['riskLevel'] = 'low';
+
+    // Check clipboard state
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        const text = await navigator.clipboard.readText().catch(() => '');
+        if (text && text.length > 0) {
+          findings.push('Clipboard contains data that may include sensitive content');
+          riskLevel = 'medium';
+        }
+      }
+    } catch {
+      // Clipboard API may not be available or permitted
+    }
+
+    // Check session storage for non-vault data
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const keys = Object.keys(sessionStorage);
+        const nonVaultKeys = keys.filter(k => !k.startsWith('usbvault:'));
+        if (nonVaultKeys.length > 0) {
+          findings.push(`${nonVaultKeys.length} non-vault session storage entries found`);
+          if (riskLevel === 'low') riskLevel = 'medium';
+        }
+      }
+    } catch {
+      // sessionStorage may not be available
+    }
+
+    // Check localStorage for stale data
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const keys = Object.keys(localStorage);
+        const sensitivePatterns = ['token', 'key', 'secret', 'password', 'auth'];
+        const sensitiveKeys = keys.filter(
+          k =>
+            sensitivePatterns.some(p => k.toLowerCase().includes(p)) && !k.startsWith('usbvault:')
+        );
+        if (sensitiveKeys.length > 0) {
+          findings.push(`${sensitiveKeys.length} potentially sensitive localStorage entries found`);
+          riskLevel = 'high';
+        }
+      }
+    } catch {
+      // localStorage may not be available
+    }
+
+    // Check for registered sensitive buffers still in memory
+    if (this.sensitiveBuffers.size > 0) {
+      findings.push(`${this.sensitiveBuffers.size} sensitive buffer(s) still registered in memory`);
+      riskLevel = 'high';
+    }
+
     return {
       timestamp: new Date().toISOString(),
-      findings: [],
-      riskLevel: 'low',
+      findings,
+      riskLevel,
     };
   }
 
   async wipeTraces(): Promise<void> {
-    // Stub
+    const categories: CleanupCategory[] = [
+      'clipboard',
+      'session_data',
+      'app_cache',
+      'temp_files',
+      'browser_traces',
+    ];
+
+    for (const category of categories) {
+      await this.cleanCategory(category);
+    }
+
+    // Always scrub registered RAM buffers
+    this._scrubRAM();
   }
 
   getConfig(): ForensicsConfig {
@@ -180,9 +248,38 @@ class ForensicsServiceImpl {
           }
           break;
         case 'app_cache':
+          // Clear application caches (CacheStorage API for web)
+          if (typeof caches !== 'undefined') {
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+              await caches.delete(name);
+            }
+          }
+          break;
         case 'temp_files':
+          // Clear any temporary blob URLs and in-memory file references
+          if (typeof localStorage !== 'undefined') {
+            const keys = Object.keys(localStorage);
+            for (const key of keys) {
+              if (key.startsWith('usbvault:temp_') || key.startsWith('usbvault:blob_')) {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+          break;
         case 'browser_traces':
-          // Stub — would clear respective stores
+          // Clear performance entries and any service worker caches
+          if (typeof performance !== 'undefined' && performance.clearResourceTimings) {
+            performance.clearResourceTimings();
+          }
+          if (typeof caches !== 'undefined') {
+            const names = await caches.keys();
+            for (const name of names) {
+              if (name.includes('usbvault') || name.includes('workbox')) {
+                await caches.delete(name);
+              }
+            }
+          }
           break;
         case 'os_journals':
           // Not applicable on web
@@ -203,9 +300,10 @@ class ForensicsServiceImpl {
     const cleaned: string[] = [];
     const errors: string[] = [];
 
-    const categoriesToClean = config.autoCleanCategories.length > 0
-      ? config.autoCleanCategories
-      : ['clipboard', 'session_data'];
+    const categoriesToClean =
+      config.autoCleanCategories.length > 0
+        ? config.autoCleanCategories
+        : ['clipboard', 'session_data'];
 
     for (const category of categoriesToClean) {
       try {
@@ -240,7 +338,7 @@ class ForensicsServiceImpl {
     this.stopScheduledCleanup();
     this.scheduledTimer = setInterval(
       () => this.executeGhostMode(),
-      config.scheduledIntervalMin * 60 * 1000,
+      config.scheduledIntervalMin * 60 * 1000
     );
   }
 
@@ -267,7 +365,7 @@ class ForensicsServiceImpl {
     try {
       if (typeof sessionStorage === 'undefined') return 'unknown';
       const keys = Object.keys(sessionStorage);
-      const nonVaultKeys = keys.filter((k) => !k.startsWith('usbvault:'));
+      const nonVaultKeys = keys.filter(k => !k.startsWith('usbvault:'));
       return nonVaultKeys.length === 0 ? 'clean' : 'dirty';
     } catch {
       return 'unknown';

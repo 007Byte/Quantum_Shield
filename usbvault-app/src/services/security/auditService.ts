@@ -1,29 +1,12 @@
 /**
- * PH4-FIX: Stub for security audit service.
- * Re-exports audit functionality for security domain imports.
- * Matches the main auditService API signature.
+ * Security domain re-export of the main audit service.
+ * The canonical implementation lives at @/services/auditService.
+ *
+ * This re-export allows security/ modules to import via relative path
+ * (e.g., './auditService') while using the real implementation.
+ *
+ * @module services/security/auditService
  */
 
-export interface AuditEvent {
-  type: string;
-  timestamp: string;
-  details: Record<string, unknown>;
-}
-
-class SecurityAuditServiceStub {
-  log(
-    _action: string,
-    _resource?: string,
-    _metadata?: Record<string, unknown>,
-    _status?: string,
-  ): Promise<void> {
-    // Stub — not yet connected
-    return Promise.resolve();
-  }
-
-  async getEvents(_filter?: Partial<AuditEvent>): Promise<AuditEvent[]> {
-    return [];
-  }
-}
-
-export const auditService = new SecurityAuditServiceStub();
+export { auditService } from '@/services/auditService';
+export type { AuditLogEntry, AuditFilterOptions, CoreAuditAction } from '@/services/auditService';

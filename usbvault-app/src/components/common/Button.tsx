@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   ViewStyle,
@@ -10,14 +10,9 @@ import {
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { webOnly } from '@/utils/webStyle';
 
-type ButtonVariant =
-  | 'primary'
-  | 'secondary'
-  | 'danger'
-  | 'hero'
-  | 'magenta'
-  | 'link';
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'hero' | 'magenta' | 'link';
 
 interface ButtonProps {
   variant?: ButtonVariant;
@@ -28,6 +23,8 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   testID?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const styles = StyleSheet.create({
@@ -39,7 +36,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+    ...webOnly({ outlineWidth: 0 }),
   },
+  focusVisible: {
+    ...webOnly({
+      outline: '2px solid #8B5CF6',
+      outlineOffset: '2px',
+    }),
+  } as ViewStyle,
 
   // Variants
   primary: {
@@ -125,6 +129,8 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   style,
   testID,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const isDisabled = disabled || loading;
 
@@ -191,22 +197,27 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      style={[getButtonStyle(), style] as ViewStyle[]}
+    <Pressable
+      style={(state: any) => [
+        ...getButtonStyle(),
+        state.focused && styles.focusVisible,
+        style,
+      ] as ViewStyle[]}
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.7}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled }}
     >
       {loading && (
         <ActivityIndicator
           size="small"
-          color={
-            variant === 'hero' ? '#000000' : colors.textOnAccent
-          }
+          color={variant === 'hero' ? '#000000' : colors.textOnAccent}
         />
       )}
       <Text style={getTextStyle()}>{children}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 };

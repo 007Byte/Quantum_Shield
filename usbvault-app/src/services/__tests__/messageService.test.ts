@@ -53,7 +53,7 @@ jest.mock('@/services/shareService', () => ({
       secretKeyHex: 'd'.repeat(64),
     }),
     registerPublicKey: jest.fn(),
-    getPublicKey: jest.fn((email) => (email.includes('recipient') ? 'e'.repeat(64) : null)),
+    getPublicKey: jest.fn(email => (email.includes('recipient') ? 'e'.repeat(64) : null)),
   },
 }));
 
@@ -82,7 +82,7 @@ describe('MessageService', () => {
       const message = await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Hello, World!',
+        'Hello, World!'
       );
 
       expect(message).toBeDefined();
@@ -101,7 +101,7 @@ describe('MessageService', () => {
       const message = await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Ghost message',
+        'Ghost message'
       );
 
       expect(message.isGhost).toBe(true);
@@ -112,12 +112,12 @@ describe('MessageService', () => {
       const msg1 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'Message 1',
+        'Message 1'
       );
       const msg2 = await messageService.sendMessage(
         'bob@example.com',
         'alice@example.com',
-        'Message 2',
+        'Message 2'
       );
 
       expect(msg1.conversationId).toBe(msg2.conversationId);
@@ -127,7 +127,7 @@ describe('MessageService', () => {
       await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Test message',
+        'Test message'
       );
 
       const stored = localStorage.getItem('usbvault:messages');
@@ -167,7 +167,7 @@ describe('MessageService', () => {
       await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Unread message',
+        'Unread message'
       );
 
       const conversations = messageService.getConversations('recipient@example.com');
@@ -177,7 +177,7 @@ describe('MessageService', () => {
 
     it('should sort conversations by most recent first', async () => {
       await messageService.sendMessage('alice@example.com', 'bob@example.com', 'Old');
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise(r => setTimeout(r, 10));
       await messageService.sendMessage('alice@example.com', 'charlie@example.com', 'New');
 
       const conversations = messageService.getConversations('alice@example.com');
@@ -191,12 +191,12 @@ describe('MessageService', () => {
       const msg1 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'First',
+        'First'
       );
       const msg2 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'Second',
+        'Second'
       );
 
       const messages = messageService.getMessages(msg1.conversationId);
@@ -210,18 +210,14 @@ describe('MessageService', () => {
       const msg1 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'First',
+        'First'
       );
-      await messageService.sendMessage(
-        'alice@example.com',
-        'bob@example.com',
-        'Second',
-      );
+      await messageService.sendMessage('alice@example.com', 'bob@example.com', 'Second');
 
       const messages = messageService.getMessages(msg1.conversationId);
 
       expect(new Date(messages[0].createdAt).getTime()).toBeLessThanOrEqual(
-        new Date(messages[1].createdAt).getTime(),
+        new Date(messages[1].createdAt).getTime()
       );
     });
 
@@ -234,16 +230,12 @@ describe('MessageService', () => {
 
   describe('markAsRead', () => {
     it('should mark message as read', async () => {
-      const msg = await messageService.sendMessage(
-        'alice@example.com',
-        'bob@example.com',
-        'Test',
-      );
+      const msg = await messageService.sendMessage('alice@example.com', 'bob@example.com', 'Test');
 
       messageService.markAsRead(msg.id);
 
       const messages = messageService.getMessages(msg.conversationId);
-      const updated = messages.find((m) => m.id === msg.id);
+      const updated = messages.find(m => m.id === msg.id);
       expect(updated?.readAt).toBeDefined();
     });
 
@@ -259,13 +251,13 @@ describe('MessageService', () => {
       const msg = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'To delete',
+        'To delete'
       );
 
       messageService.deleteMessage(msg.id);
 
       const messages = messageService.getMessages(msg.conversationId);
-      expect(messages.find((m) => m.id === msg.id)).toBeUndefined();
+      expect(messages.find(m => m.id === msg.id)).toBeUndefined();
     });
   });
 
@@ -274,13 +266,9 @@ describe('MessageService', () => {
       const msg1 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'Message 1',
+        'Message 1'
       );
-      await messageService.sendMessage(
-        'alice@example.com',
-        'bob@example.com',
-        'Message 2',
-      );
+      await messageService.sendMessage('alice@example.com', 'bob@example.com', 'Message 2');
 
       messageService.deleteConversation(msg1.conversationId);
 
@@ -328,7 +316,7 @@ describe('MessageService', () => {
       const msg = await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Regular message',
+        'Regular message'
       );
 
       const expiresAt = messageService.startGhostTimer(msg.id);
@@ -367,7 +355,7 @@ describe('MessageService', () => {
       const msg = await messageService.sendMessage(
         'sender@example.com',
         'recipient@example.com',
-        'Regular message',
+        'Regular message'
       );
 
       const remaining = messageService.getGhostTimeRemaining(msg);
@@ -409,12 +397,12 @@ describe('MessageService', () => {
       const msg1 = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'Hello Bob',
+        'Hello Bob'
       );
       const msg2 = await messageService.sendMessage(
         'bob@example.com',
         'alice@example.com',
-        'Hi Alice',
+        'Hi Alice'
       );
 
       // 2. Get conversation
@@ -435,7 +423,7 @@ describe('MessageService', () => {
       const ghostMsg = await messageService.sendMessage(
         'alice@example.com',
         'bob@example.com',
-        'Secret message',
+        'Secret message'
       );
       expect(ghostMsg.isGhost).toBe(true);
 
@@ -445,7 +433,7 @@ describe('MessageService', () => {
 
       // 8. Check remaining time
       const updatedMessages = messageService.getMessages(msg1.conversationId);
-      const updated = updatedMessages.find((m) => m.id === ghostMsg.id)!;
+      const updated = updatedMessages.find(m => m.id === ghostMsg.id)!;
       const remaining = messageService.getGhostTimeRemaining(updated);
       expect(remaining).toBeGreaterThan(0);
     });

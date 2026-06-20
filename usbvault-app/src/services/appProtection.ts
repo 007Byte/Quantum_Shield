@@ -1,26 +1,23 @@
 /**
- * PH4-FIX: Stub for app protection service.
- * TODO: Implement proper app protection (jailbreak detection, screenshot prevention).
+ * @deprecated This file is a legacy shim. The real implementation lives at
+ * src/services/security/appProtection.ts which provides auto-lock, clipboard
+ * clearing, screenshot prevention, and background lock functionality.
+ *
+ * Import from '@/services/security/appProtection' or '@/services/security' instead.
  */
 
-export interface AppProtectionConfig {
-  preventScreenshots: boolean;
-  detectJailbreak: boolean;
-  detectDebugger: boolean;
-}
+export {
+  setupAutoLock,
+  copyWithAutoClear,
+  setScreenshotPrevention,
+  initializeAppProtection,
+  isAppInBackgroundNow,
+  clearClipboardImmediately,
+  triggerManualLock,
+  useAppProtection,
+  getProtectionStatus,
+  logProtectionStatus,
+  DEFAULT_PROTECTION_CONFIG,
+} from './security/appProtection';
 
-class AppProtectionServiceStub {
-  async initialize(): Promise<void> {
-    // Stub — not yet implemented
-  }
-
-  async checkIntegrity(): Promise<{ safe: boolean; issues: string[] }> {
-    return { safe: true, issues: [] };
-  }
-
-  isSecure(): boolean {
-    return true;
-  }
-}
-
-export const appProtectionService = new AppProtectionServiceStub();
+export type { AppProtectionConfig } from './security/appProtection';

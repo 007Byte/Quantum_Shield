@@ -12,6 +12,7 @@
  */
 
 import { Platform } from 'react-native';
+import { logger } from '@/utils/logger';
 
 // PL-005: Import canonical types from shared domain module (no more mirrored definitions)
 import type { VaultInfo, StoredFileInfo } from '@/types/domain';
@@ -40,7 +41,7 @@ function openDatabase(): Promise<IDBDatabase> {
 
     const request = indexedDB.open(IDB_NAME, IDB_VERSION);
 
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = event => {
       const db = (event.target as IDBOpenDBRequest).result;
 
       // Store for encrypted file blobs
@@ -96,7 +97,7 @@ function idbGetAllByIndex<T>(
   db: IDBDatabase,
   store: string,
   indexName: string,
-  value: string,
+  value: string
 ): Promise<T[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
@@ -131,7 +132,7 @@ function lsSet<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.error('[webStorage] localStorage write failed:', e);
+    logger.error('[webStorage] localStorage write failed:', e);
   }
 }
 
@@ -188,15 +189,13 @@ class WebStorageService {
 
     // Remove from vault list
     const vaults = await this.loadVaults();
-    const filtered = vaults.filter((v) => v.id !== vaultId);
+    const filtered = vaults.filter(v => v.id !== vaultId);
     await this.saveVaults(filtered);
 
     // Remove all files for this vault from IndexedDB
     try {
       const db = await this.getDB();
-      const files = await idbGetAllByIndex<StoredFileInfo>(
-        db, IDB_META_STORE, 'vaultId', vaultId,
-      );
+      const files = await idbGetAllByIndex<StoredFileInfo>(db, IDB_META_STORE, 'vaultId', vaultId);
       for (const file of files) {
         const blobKey = `${vaultId}:${file.id}`;
         await idbDelete(db, IDB_FILE_STORE, blobKey);
@@ -205,7 +204,7 @@ class WebStorageService {
       // SG-003: Also remove the encrypted index blob
       await idbDelete(db, IDB_INDEX_STORE, vaultId);
     } catch (e) {
-      console.error('[webStorage] Failed to clean up vault files:', e);
+      logger.error('[webStorage] Failed to clean up vault files:', e);
     }
   }
 
@@ -219,11 +218,9 @@ class WebStorageService {
 
     try {
       const db = await this.getDB();
-      return await idbGetAllByIndex<StoredFileInfo>(
-        db, IDB_META_STORE, 'vaultId', vaultId,
-      );
+      return await idbGetAllByIndex<StoredFileInfo>(db, IDB_META_STORE, 'vaultId', vaultId);
     } catch (e) {
-      console.error('[webStorage] Failed to load files:', e);
+      logger.error('[webStorage] Failed to load files:', e);
       return [];
     }
   }
@@ -231,10 +228,7 @@ class WebStorageService {
   /**
    * Save a file's metadata and optionally its encrypted blob.
    */
-  async saveFile(
-    fileInfo: StoredFileInfo,
-    encryptedBlob?: Uint8Array,
-  ): Promise<void> {
+  async saveFile(fileInfo: StoredFileInfo, encryptedBlob?: Uint8Array): Promise<void> {
     if (!this.isAvailable()) return;
 
     try {
@@ -255,7 +249,7 @@ class WebStorageService {
 
       // Update vault file count
       const vaults = await this.loadVaults();
-      const vault = vaults.find((v) => v.id === fileInfo.vaultId);
+      const vault = vaults.find(v => v.id === fileInfo.vaultId);
       if (vault) {
         const allFiles = await this.loadFiles(fileInfo.vaultId);
         vault.fileCount = allFiles.length;
@@ -263,7 +257,7 @@ class WebStorageService {
         await this.saveVaults(vaults);
       }
     } catch (e) {
-      console.error('[webStorage] Failed to save file:', e);
+      logger.error('[webStorage] Failed to save file:', e);
     }
   }
 
@@ -279,7 +273,7 @@ class WebStorageService {
       const blob = await idbGet<Uint8Array>(db, IDB_FILE_STORE, key);
       return blob || null;
     } catch (e) {
-      console.error('[webStorage] Failed to get encrypted blob:', e);
+      logger.error('[webStorage] Failed to get encrypted blob:', e);
       return null;
     }
   }
@@ -298,14 +292,14 @@ class WebStorageService {
 
       // Update vault file count
       const vaults = await this.loadVaults();
-      const vault = vaults.find((v) => v.id === vaultId);
+      const vault = vaults.find(v => v.id === vaultId);
       if (vault) {
         const remainingFiles = await this.loadFiles(vaultId);
         vault.fileCount = remainingFiles.length;
         await this.saveVaults(vaults);
       }
     } catch (e) {
-      console.error('[webStorage] Failed to delete file:', e);
+      logger.error('[webStorage] Failed to delete file:', e);
     }
   }
 
@@ -323,7 +317,7 @@ class WebStorageService {
       const db = await this.getDB();
       await idbPut(db, IDB_INDEX_STORE, vaultId, encryptedBase64);
     } catch (e) {
-      console.error('[webStorage] Failed to save encrypted index:', e);
+      logger.error('[webStorage] Failed to save encrypted index:', e);
     }
   }
 
@@ -339,7 +333,7 @@ class WebStorageService {
       const blob = await idbGet<string>(db, IDB_INDEX_STORE, vaultId);
       return blob ?? null;
     } catch (e) {
-      console.error('[webStorage] Failed to load encrypted index:', e);
+      logger.error('[webStorage] Failed to load encrypted index:', e);
       return null;
     }
   }
@@ -354,7 +348,7 @@ class WebStorageService {
       const db = await this.getDB();
       await idbDelete(db, IDB_INDEX_STORE, vaultId);
     } catch (e) {
-      console.error('[webStorage] Failed to delete encrypted index:', e);
+      logger.error('[webStorage] Failed to delete encrypted index:', e);
     }
   }
 
@@ -390,7 +384,7 @@ class WebStorageService {
       await idbClearStore(db, IDB_META_STORE);
       await idbClearStore(db, IDB_INDEX_STORE);
     } catch (e) {
-      console.error('[webStorage] Failed to clear IndexedDB:', e);
+      logger.error('[webStorage] Failed to clear IndexedDB:', e);
     }
   }
 

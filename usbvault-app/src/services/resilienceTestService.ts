@@ -174,9 +174,9 @@ class ResilienceTestService {
   }
 
   async runScenario(scenarioId: string): Promise<TestScenario> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const scenarios = this.getAvailableScenarios();
-      const scenario = scenarios.find((s) => s.id === scenarioId);
+      const scenario = scenarios.find(s => s.id === scenarioId);
 
       if (!scenario) {
         resolve({ ...scenarios[0], status: 'failed', error: 'Scenario not found' });
@@ -210,7 +210,7 @@ class ResilienceTestService {
   }
 
   async runSuite(suiteId: string): Promise<TestSuite> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const suite: TestSuite = {
         id: suiteId,
         name: `Test Suite ${suiteId}`,
@@ -225,8 +225,8 @@ class ResilienceTestService {
       const scenarios = this.getAvailableScenarios();
       let completedCount = 0;
 
-      scenarios.forEach((scenario) => {
-        this.runScenario(scenario.id).then((result) => {
+      scenarios.forEach(scenario => {
+        this.runScenario(scenario.id).then(result => {
           suite.scenarios.push(result);
 
           if (result.status === 'passed') {
@@ -281,7 +281,7 @@ class ResilienceTestService {
   }
 
   async simulateConflict(resourceId: string): Promise<{ resolved: boolean; strategy: string }> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       setTimeout(() => {
         const strategies = ['last_write_wins', 'merge', 'user_manual_resolution'];
         const strategy = strategies[Math.floor(Math.random() * strategies.length)];
@@ -306,7 +306,7 @@ class ResilienceTestService {
     this.isOffline = false;
     this.simulatedLatency = this.DEFAULT_LATENCY;
 
-    this.activeSimulations.forEach((interval) => {
+    this.activeSimulations.forEach(interval => {
       clearInterval(interval);
     });
     this.activeSimulations.clear();
@@ -338,19 +338,20 @@ class ResilienceTestService {
       performance: this.calculateCategoryScore(lastSuite, 'performance'),
     };
 
-    const score = Object.values(breakdown).reduce((sum, val) => sum + val, 0) / Object.keys(breakdown).length;
+    const score =
+      Object.values(breakdown).reduce((sum, val) => sum + val, 0) / Object.keys(breakdown).length;
 
     return { score: Math.round(score), breakdown };
   }
 
   private calculateCategoryScore(
     suite: TestSuite,
-    category: 'network' | 'sync' | 'conflict' | 'storage' | 'performance',
+    category: 'network' | 'sync' | 'conflict' | 'storage' | 'performance'
   ): number {
-    const categoryTests = suite.scenarios.filter((s) => s.category === category);
+    const categoryTests = suite.scenarios.filter(s => s.category === category);
     if (categoryTests.length === 0) return 100;
 
-    const passed = categoryTests.filter((s) => s.status === 'passed').length;
+    const passed = categoryTests.filter(s => s.status === 'passed').length;
     return Math.round((passed / categoryTests.length) * 100);
   }
 

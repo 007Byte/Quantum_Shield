@@ -21,8 +21,6 @@ sha2 = "0.10"
 hmac = "0.12"
 # X25519 key exchange for E2E sharing
 x25519-dalek = { version = "2", features = ["static_secrets"] }
-# Ed25519 signing
-ed25519-dalek = { version = "2", features = ["rand_core"] }
 # Secure memory
 zeroize = { version = "1", features = ["derive"] }
 # Random number generation
@@ -47,8 +45,8 @@ base64 = "0.22"
 generic-array = "0.14"
 # Constant-time comparison
 subtle = "2"
-# Shamir's Secret Sharing
-sharks = "0.5"
+# Shamir's Secret Sharing — implemented in-house (shamir.rs) over GF(256)
+# Removed `sharks` crate due to RUSTSEC-2024-0398 (biased polynomial coefficients)
 # Post-Quantum Cryptography (ML-KEM-1024)
 ml-kem = { version = "0.2", optional = true, features = ["std"] }
 
@@ -59,7 +57,7 @@ cbindgen = "0.26"
 proptest = "1"
 
 [features]
-default = []
+default = ["pqc"]
 pqc = ["ml-kem"]  # Post-quantum crypto: hybrid X25519 + ML-KEM-1024
 ffi = []  # FFI exports for mobile/desktop
 

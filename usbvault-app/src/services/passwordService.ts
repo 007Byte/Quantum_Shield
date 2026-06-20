@@ -35,14 +35,19 @@ async function getDerivedKey(): Promise<CryptoKey | null> {
       encoder.encode('usbvault-password-manager-key-v1'),
       'PBKDF2',
       false,
-      ['deriveKey'],
+      ['deriveKey']
     );
     return await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: encoder.encode('usbvault-pw-salt'), iterations: 100000, hash: 'SHA-256' },
+      {
+        name: 'PBKDF2',
+        salt: encoder.encode('usbvault-pw-salt'),
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
-      ['encrypt', 'decrypt'],
+      ['encrypt', 'decrypt']
     );
   } catch {
     return null;
@@ -58,7 +63,9 @@ async function encryptData(data: string): Promise<string> {
   const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
   combined.set(iv);
   combined.set(new Uint8Array(ciphertext), iv.length);
-  return Array.from(combined).map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(combined)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function decryptData(hex: string): Promise<string> {
@@ -66,7 +73,11 @@ async function decryptData(hex: string): Promise<string> {
   const key = await getDerivedKey();
   if (!key) {
     // Fallback from base64
-    try { return atob(hex); } catch { return hex; }
+    try {
+      return atob(hex);
+    } catch {
+      return hex;
+    }
   }
   try {
     const bytes = new Uint8Array(hex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
@@ -76,7 +87,11 @@ async function decryptData(hex: string): Promise<string> {
     return new TextDecoder().decode(plainBuffer);
   } catch {
     // If decryption fails, might be legacy base64 data
-    try { return atob(hex); } catch { return hex; }
+    try {
+      return atob(hex);
+    } catch {
+      return hex;
+    }
   }
 }
 
@@ -105,7 +120,9 @@ async function saveEntries(entries: PasswordEntry[]): Promise<void> {
   }
 }
 
-async function addEntry(entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'lastModified'>): Promise<PasswordEntry> {
+async function addEntry(
+  entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'lastModified'>
+): Promise<PasswordEntry> {
   const entries = await loadEntries();
   const newEntry: PasswordEntry = {
     ...entry,
@@ -118,7 +135,10 @@ async function addEntry(entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'lastMod
   return newEntry;
 }
 
-async function updateEntry(id: string, updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>): Promise<PasswordEntry | null> {
+async function updateEntry(
+  id: string,
+  updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>
+): Promise<PasswordEntry | null> {
   const entries = await loadEntries();
   const index = entries.findIndex(e => e.id === id);
   if (index === -1) return null;
@@ -155,14 +175,34 @@ export interface GeneratorOptions {
   symbols: boolean;
 }
 
-function generatePassword(options: GeneratorOptions = { length: 20, uppercase: true, lowercase: true, digits: true, symbols: true }): string {
+function generatePassword(
+  options: GeneratorOptions = {
+    length: 20,
+    uppercase: true,
+    lowercase: true,
+    digits: true,
+    symbols: true,
+  }
+): string {
   let charset = '';
   const required: string[] = [];
 
-  if (options.lowercase) { charset += CHARSET_LOWER; required.push(CHARSET_LOWER); }
-  if (options.uppercase) { charset += CHARSET_UPPER; required.push(CHARSET_UPPER); }
-  if (options.digits) { charset += CHARSET_DIGITS; required.push(CHARSET_DIGITS); }
-  if (options.symbols) { charset += CHARSET_SYMBOLS; required.push(CHARSET_SYMBOLS); }
+  if (options.lowercase) {
+    charset += CHARSET_LOWER;
+    required.push(CHARSET_LOWER);
+  }
+  if (options.uppercase) {
+    charset += CHARSET_UPPER;
+    required.push(CHARSET_UPPER);
+  }
+  if (options.digits) {
+    charset += CHARSET_DIGITS;
+    required.push(CHARSET_DIGITS);
+  }
+  if (options.symbols) {
+    charset += CHARSET_SYMBOLS;
+    required.push(CHARSET_SYMBOLS);
+  }
 
   if (!charset) charset = CHARSET_LOWER + CHARSET_UPPER + CHARSET_DIGITS;
 
@@ -174,7 +214,7 @@ function generatePassword(options: GeneratorOptions = { length: 20, uppercase: t
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(randomValues);
   } else {
-    for (let i = 0; i < length; i++) randomValues[i] = Math.floor(Math.random() * 0xFFFFFFFF);
+    for (let i = 0; i < length; i++) randomValues[i] = Math.floor(Math.random() * 0xffffffff);
   }
 
   // Ensure at least one from each required character set

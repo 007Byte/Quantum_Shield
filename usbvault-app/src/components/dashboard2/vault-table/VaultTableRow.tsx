@@ -43,6 +43,7 @@ export function VaultTableRow({
   return (
     <View style={{ position: 'relative' as any, zIndex: isMenuOpen ? 999 : 1 }}>
       <Pressable
+        accessibilityRole="button"
         onPress={onToggleCheck}
         style={(state: any) => [
           styles.row,
@@ -53,15 +54,14 @@ export function VaultTableRow({
       >
         <View style={styles.nameCol}>
           <Pressable
+            accessibilityRole="button"
             onPress={(e: any) => {
               e.stopPropagation?.();
               onToggleCheck();
             }}
             style={[styles.checkbox, styles.rowCheckbox, isChecked && styles.checkboxChecked]}
           >
-            {isChecked && (
-              <Feather name="check" size={14} color="#fff" />
-            )}
+            {isChecked && <Feather name="check" size={14} color="#fff" />}
           </Pressable>
           <View style={[styles.fileIcon, { backgroundColor: item.iconBg }]}>
             <IconForItem item={item} color={item.iconTint} />
@@ -83,6 +83,7 @@ export function VaultTableRow({
         <Text style={[styles.modifiedText, styles.modifiedCol]}>{item.modifiedLabel}</Text>
 
         <Pressable
+          accessibilityRole="button"
           style={(state: any) => [
             styles.actionsCol,
             styles.actionsBtn,
@@ -98,11 +99,7 @@ export function VaultTableRow({
       </Pressable>
 
       {isMenuOpen && (
-        <ContextMenu
-          direction={menuDirection}
-          onAction={onMenuAction}
-          onClose={onToggleMenu}
-        />
+        <ContextMenu direction={menuDirection} onAction={onMenuAction} onClose={onToggleMenu} />
       )}
     </View>
   );

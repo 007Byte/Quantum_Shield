@@ -4,7 +4,7 @@
  * Tests clipboard cleanup, cache cleanup, session data sanitization, and RAM scrubbing.
  */
 
-import { forensicsService } from '../forensicsService';
+import { forensicsService } from '../security/forensics';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -157,13 +157,21 @@ describe('ForensicsService', () => {
     it('should include required fields in each status', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
-      statuses.forEach((status: { category: string; label: string; description: string; status: string; canClean: boolean }) => {
-        expect(status.category).toBeDefined();
-        expect(status.label).toBeDefined();
-        expect(status.description).toBeDefined();
-        expect(status.status).toBeDefined();
-        expect(status.canClean).toBeDefined();
-      });
+      statuses.forEach(
+        (status: {
+          category: string;
+          label: string;
+          description: string;
+          status: string;
+          canClean: boolean;
+        }) => {
+          expect(status.category).toBeDefined();
+          expect(status.label).toBeDefined();
+          expect(status.description).toBeDefined();
+          expect(status.status).toBeDefined();
+          expect(status.canClean).toBeDefined();
+        }
+      );
     });
 
     it('should mark clipboard as cleanable on web', () => {
@@ -231,9 +239,9 @@ describe('ForensicsService', () => {
     });
 
     it('should collect errors from failed cleanups', async () => {
-      jest.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(
-        new Error('Clipboard error'),
-      );
+      jest
+        .spyOn(navigator.clipboard, 'writeText')
+        .mockRejectedValueOnce(new Error('Clipboard error'));
 
       const result = await forensicsService.executeGhostMode();
 
@@ -319,9 +327,7 @@ describe('ForensicsService', () => {
       const statuses = forensicsService.getCategoryStatuses();
 
       const clipboard = statuses.find((s: { category: string }) => s.category === 'clipboard');
-      expect(['clean', 'dirty', 'unknown', 'not_applicable']).toContain(
-        clipboard?.status,
-      );
+      expect(['clean', 'dirty', 'unknown', 'not_applicable']).toContain(clipboard?.status);
     });
 
     it('should determine cache status', () => {

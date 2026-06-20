@@ -1,0 +1,17 @@
+# Semgrep ignore file for USBVault Enterprise
+# Only exclude files with known/accepted findings that would cause false positives
+
+# Test files may use placeholder values intentionally
+**/src/services/__tests__/certificatePinning.test.ts
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+target/
+
+# Generated files
+*.generated.ts
+*.generated.go

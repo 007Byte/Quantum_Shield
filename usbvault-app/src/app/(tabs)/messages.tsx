@@ -1,10 +1,19 @@
-import { ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { messageService } from '@/services/messageService';
 import { useAuthStore } from '@/stores/authStore';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
@@ -16,6 +25,9 @@ import {
   webOnlyGlass,
   webOnlyGlowTier3,
 } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import { EmptyState } from '@/components/common/EmptyState';
+import { SkeletonCard } from '@/components/common/SkeletonLoader';
 
 interface DisplayConversation {
   id: string;
@@ -33,76 +45,89 @@ interface DisplayMessage {
   encrypted: boolean;
 }
 
-const formatTimestamp = (iso: string): string => {
+const formatTimestamp = (iso: string, t: (key: string, options?: any) => string): string => {
   const date = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t('common.justNow');
+  if (diffMin < 60) return t('common.minutesAgo', { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t('common.hoursAgo', { count: diffHr });
   const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
+  if (diffDay < 7) return t('common.daysAgo', { count: diffDay });
   return date.toLocaleDateString();
 };
 
-export default function MessagesScreen() {
+function MessagesScreen() {
+  const { t } = useLanguage();
   const { modal, showAlert, showPrompt, showError, dismiss } = useInAppModal();
-  const userEmail = useAuthStore((s) => s.email) || 'user@usbvault.local';
+  const userEmail = useAuthStore(s => s.email) || 'user@usbvault.local';
 
   const [conversations, setConversations] = useState<DisplayConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   const refreshConversations = useCallback(() => {
-    const convs = messageService.getConversations(userEmail);
-    setConversations(
-      convs.map((c) => ({
-        id: c.id,
-        contact: c.participantEmail,
-        lastMessage: c.lastMessagePreview,
-        timestamp: formatTimestamp(c.lastMessageAt),
-        unread: c.unreadCount > 0,
-      })),
-    );
+    setIsLoadingConversations(true);
+    try {
+      const convs = messageService.getConversations(userEmail);
+      setConversations(
+        convs.map(c => ({
+          id: c.id,
+          contact: c.participantEmail,
+          lastMessage: c.lastMessagePreview,
+          timestamp: formatTimestamp(c.lastMessageAt, t),
+          unread: c.unreadCount > 0,
+        }))
+      );
+    } finally {
+      setIsLoadingConversations(false);
+    }
   }, [userEmail]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    const msgs = messageService.getMessages(conversationId);
-    const decrypted: DisplayMessage[] = [];
-    for (const msg of msgs) {
-      let text = '[Encrypted]';
-      let encrypted = true;
-      try {
-        text = await messageService.decryptMessage(msg, userEmail);
-        encrypted = false;
-      } catch {
-        // Show as encrypted if decryption fails
+  const loadMessages = useCallback(
+    async (conversationId: string) => {
+      setIsLoadingMessages(true);
+      const msgs = messageService.getMessages(conversationId);
+      const decrypted: DisplayMessage[] = [];
+      for (const msg of msgs) {
+        let text = t('messages.encrypted');
+        let encrypted = true;
         try {
-          // Try with sender's key for demo mode
-          text = await messageService.decryptMessage(msg, msg.recipientEmail);
+          text = await messageService.decryptMessage(msg, userEmail);
           encrypted = false;
         } catch {
-          text = '[Encrypted — unable to decrypt]';
+          // Show as encrypted if decryption fails
+          try {
+            // Try with sender's key for demo mode
+            text = await messageService.decryptMessage(msg, msg.recipientEmail);
+            encrypted = false;
+          } catch {
+            text = t('messages.encryptedUnableDecrypt');
+          }
+        }
+        decrypted.push({
+          id: msg.id,
+          text,
+          sender: msg.senderEmail === userEmail ? 'user' : 'contact',
+          timestamp: formatTimestamp(msg.createdAt, t),
+          encrypted,
+        });
+
+        // Mark incoming messages as read
+        if (msg.recipientEmail === userEmail && !msg.readAt) {
+          messageService.markAsRead(msg.id);
         }
       }
-      decrypted.push({
-        id: msg.id,
-        text,
-        sender: msg.senderEmail === userEmail ? 'user' : 'contact',
-        timestamp: formatTimestamp(msg.createdAt),
-        encrypted,
-      });
-
-      // Mark incoming messages as read
-      if (msg.recipientEmail === userEmail && !msg.readAt) {
-        messageService.markAsRead(msg.id);
-      }
-    }
-    setDisplayMessages(decrypted);
-  }, [userEmail]);
+      setDisplayMessages(decrypted);
+      setIsLoadingMessages(false);
+    },
+    [userEmail]
+  );
 
   useEffect(() => {
     refreshConversations();
@@ -116,21 +141,25 @@ export default function MessagesScreen() {
     }
   }, [selectedConversationId, loadMessages]);
 
-  const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
+  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
   const conversationMessages = displayMessages;
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedConversationId || !selectedConversation) return;
 
     try {
-      await messageService.sendMessage(userEmail, selectedConversation.contact, messageInput.trim());
+      await messageService.sendMessage(
+        userEmail,
+        selectedConversation.contact,
+        messageInput.trim()
+      );
       setMessageInput('');
       // Refresh
       await loadMessages(selectedConversationId);
       refreshConversations();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to send';
-      showError('Send Failed', msg);
+      const msg = err instanceof Error ? err.message : t('messages.failedToSend');
+      showError(t('messages.sendFailed'), msg);
     }
   };
 
@@ -139,7 +168,7 @@ export default function MessagesScreen() {
       {
         text: 'Copy',
         onPress: () => {
-          const msg = displayMessages.find((m) => m.id === messageId);
+          const msg = displayMessages.find(m => m.id === messageId);
           if (msg && typeof navigator !== 'undefined' && navigator.clipboard) {
             navigator.clipboard.writeText(msg.text).catch(() => {});
           }
@@ -166,7 +195,7 @@ export default function MessagesScreen() {
     showPrompt(
       'New Encrypted Message',
       [{ key: 'recipient', label: 'Recipient Email', placeholder: 'Enter recipient email' }],
-      async (values) => {
+      async values => {
         const recipientEmail = values.recipient?.trim();
         if (!recipientEmail) return;
 
@@ -177,17 +206,21 @@ export default function MessagesScreen() {
           setSelectedConversationId(msg.conversationId);
           await loadMessages(msg.conversationId);
         } catch (err) {
-          const errMsg = err instanceof Error ? err.message : 'Failed';
-          showError('Error', errMsg);
+          const errMsg = err instanceof Error ? err.message : t('common.error');
+          showError(t('common.error'), errMsg);
         }
       },
-      'Create',
+      'Create'
     );
   };
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <InAppModal config={modal} />
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
@@ -201,10 +234,19 @@ export default function MessagesScreen() {
               {/* Header with Title */}
               <View style={styles.header}>
                 <View style={styles.headerRow}>
-                  <Text style={styles.title}>Secure Messages</Text>
-                  <Pressable style={(state: any) => [styles.newMessageButton, state.hovered && styles.newMessageButtonHover]} onPress={handleNewMessage}>
+                  <Text style={styles.title} accessibilityRole="header">
+                    {t('messages.pageTitle')}
+                  </Text>
+                  <Pressable
+                    style={(state: any) => [
+                      styles.newMessageButton,
+                      state.hovered && styles.newMessageButtonHover,
+                    ]}
+                    onPress={handleNewMessage}
+                    accessibilityRole="button"
+                  >
                     <Feather name="plus" size={18} color="#fff" />
-                    <Text style={styles.newMessageButtonText}>New Message</Text>
+                    <Text style={styles.newMessageButtonText}>{t('messages.newMessage')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -213,17 +255,27 @@ export default function MessagesScreen() {
               <View style={styles.messagesContainer}>
                 {/* Left Column: Conversation List */}
                 <View style={styles.threadList}>
-                  <Text style={styles.columnTitle}>Conversations</Text>
+                  <Text style={styles.columnTitle}>{t('messages.conversations')}</Text>
                   <View style={styles.threadItems}>
-                    {conversations.length === 0 && (
-                      <View style={styles.emptyConversations}>
-                        <Feather name="message-circle" size={32} color="rgba(139,92,246,0.35)" />
-                        <Text style={styles.emptyConversationsText}>No conversations yet</Text>
-                        <Text style={styles.emptyConversationsSub}>Start a new encrypted message</Text>
+                    {isLoadingConversations && conversations.length === 0 && (
+                      <View style={{ gap: 12 }}>
+                        <SkeletonCard lines={2} />
+                        <SkeletonCard lines={2} />
+                        <SkeletonCard lines={2} />
                       </View>
                     )}
-                    {conversations.map((conversation) => (
+                    {!isLoadingConversations && conversations.length === 0 && (
+                      <EmptyState
+                        icon="message-circle"
+                        title={t('empty.messages')}
+                        description={t('empty.messagesDescription')}
+                        actionLabel={t('messages.newMessage')}
+                        onAction={handleNewMessage}
+                      />
+                    )}
+                    {conversations.map(conversation => (
                       <Pressable
+                        accessibilityRole="button"
                         key={conversation.id}
                         style={(state: any) => [
                           styles.threadItem,
@@ -244,7 +296,7 @@ export default function MessagesScreen() {
                         <View style={styles.threadInfo}>
                           <Text style={styles.senderName}>{conversation.contact}</Text>
                           <Text style={styles.preview} numberOfLines={1}>
-                            {conversation.lastMessage || 'No messages yet'}
+                            {conversation.lastMessage || t('messages.noMessages')}
                           </Text>
                         </View>
 
@@ -269,28 +321,52 @@ export default function MessagesScreen() {
                       {/* Message Header */}
                       <View style={[styles.messageHeader, glassPanelBase, webOnlyGlass]}>
                         <View style={styles.detailHeaderContent}>
-                          <View style={[styles.avatarLarge, { backgroundColor: dashboardColors.cyan }]}>
-                            <Text style={styles.avatarTextLarge}>{selectedConversation.contact.charAt(0)}</Text>
+                          <View
+                            style={[styles.avatarLarge, { backgroundColor: dashboardColors.cyan }]}
+                          >
+                            <Text style={styles.avatarTextLarge}>
+                              {selectedConversation.contact.charAt(0)}
+                            </Text>
                           </View>
                           <View style={styles.detailHeaderInfo}>
-                            <Text style={styles.detailSenderName}>{selectedConversation.contact}</Text>
+                            <Text style={styles.detailSenderName}>
+                              {selectedConversation.contact}
+                            </Text>
                             <Text style={styles.detailTime}>{selectedConversation.timestamp}</Text>
                           </View>
                         </View>
-                        <Pressable style={(state: any) => [styles.headerAction, state.hovered && styles.headerActionHover]}>
-                          <Feather name="more-vertical" size={20} color={dashboardColors.textSecondary} />
+                        <Pressable
+                          style={(state: any) => [
+                            styles.headerAction,
+                            state.hovered && styles.headerActionHover,
+                          ]}
+                          accessibilityRole="button"
+                        >
+                          <Feather
+                            name="more-vertical"
+                            size={20}
+                            color={dashboardColors.textSecondary}
+                          />
                         </Pressable>
                       </View>
 
                       {/* Message Content (scrollable) */}
-                      <View style={styles.messageContent}>
-                        {conversationMessages.length === 0 ? (
+                      <View style={styles.messageContent} accessibilityLiveRegion="polite">
+                        {isLoadingMessages ? (
                           <View style={styles.noMessagesYet}>
-                            <Text style={styles.noMessagesYetText}>No messages yet. Start the conversation!</Text>
+                            <ActivityIndicator size="small" color="rgba(139,92,246,0.6)" />
+                            <Text style={styles.noMessagesYetText}>{t('messages.decryptingMessages')}</Text>
+                          </View>
+                        ) : conversationMessages.length === 0 ? (
+                          <View style={styles.noMessagesYet}>
+                            <Text style={styles.noMessagesYetText}>
+                              {t('messages.noMessagesStart')}
+                            </Text>
                           </View>
                         ) : (
-                          conversationMessages.map((message) => (
+                          conversationMessages.map(message => (
                             <Pressable
+                              accessibilityRole="button"
                               key={message.id}
                               onLongPress={() => handleMessageOptions(message.id)}
                               style={(state: any) => [
@@ -314,8 +390,17 @@ export default function MessagesScreen() {
                       </View>
 
                       {/* Compose Area */}
-                      <Pressable style={(state: any) => [styles.composeContainer, glassPanelBase, webOnlyGlass, state.hovered && styles.composeContainerHover]}>
+                      <Pressable
+                        style={(state: any) => [
+                          styles.composeContainer,
+                          glassPanelBase,
+                          webOnlyGlass,
+                          state.hovered && styles.composeContainerHover,
+                        ]}
+                        accessibilityRole="button"
+                      >
                         <TextInput
+                          accessibilityLabel="Type your message..."
                           style={styles.composeInput}
                           placeholder="Type your message..."
                           placeholderTextColor={dashboardColors.textSecondary}
@@ -323,15 +408,26 @@ export default function MessagesScreen() {
                           onChangeText={setMessageInput}
                           multiline
                         />
-                        <Pressable style={(state: any) => [styles.sendButton, state.hovered && styles.sendButtonHover]} onPress={handleSendMessage}>
+                        <Pressable
+                          style={(state: any) => [
+                            styles.sendButton,
+                            state.hovered && styles.sendButtonHover,
+                          ]}
+                          onPress={handleSendMessage}
+                          accessibilityRole="button"
+                        >
                           <Feather name="send" size={18} color="#fff" />
                         </Pressable>
                       </Pressable>
                     </>
                   ) : (
                     <View style={styles.noSelection}>
-                      <Feather name="message-circle" size={48} color={dashboardColors.textSecondary} />
-                      <Text style={styles.noSelectionText}>Select a message to view</Text>
+                      <Feather
+                        name="message-circle"
+                        size={48}
+                        color={dashboardColors.textSecondary}
+                      />
+                      <Text style={styles.noSelectionText}>{t('messages.selectMessage')}</Text>
                     </View>
                   )}
                 </View>
@@ -373,7 +469,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
       boxShadow:
         '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
@@ -668,7 +765,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...webOnly({
-      background: 'linear-gradient(135deg, #06B6D4 0%, #22D3EE 100%)',
+      background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
     }),
@@ -709,3 +806,5 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+export default withErrorBoundary(MessagesScreen, 'Messages');

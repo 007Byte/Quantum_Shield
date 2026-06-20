@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -374,7 +376,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 		body, _ := json.Marshal(reqBody)
 
 		req := httptest.NewRequest("POST", "/customers", bytes.NewReader(body))
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
@@ -408,7 +410,7 @@ func TestHandleCreateCustomer(t *testing.T) {
 		handler := HandleCreateCustomer(svc)
 
 		req := httptest.NewRequest("POST", "/customers", bytes.NewReader([]byte("invalid")))
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
@@ -433,7 +435,7 @@ func TestHandleCreateSubscription(t *testing.T) {
 		body, _ := json.Marshal(reqBody)
 
 		req := httptest.NewRequest("POST", "/subscriptions", bytes.NewReader(body))
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
@@ -475,7 +477,7 @@ func TestHandleGetSubscription(t *testing.T) {
 		handler := HandleGetSubscription(svc)
 
 		req := httptest.NewRequest("GET", "/subscriptions", nil)
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 

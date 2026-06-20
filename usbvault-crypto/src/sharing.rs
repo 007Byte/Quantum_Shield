@@ -87,6 +87,12 @@ pub fn seal(recipient_public: &SharePublicKey, plaintext: &[u8]) -> Result<Vec<u
     let recipient_pk = PublicKey::from(*recipient_public.as_bytes());
     let shared_secret = ephemeral_secret.diffie_hellman(&recipient_pk);
 
+    // CR-5 FIX: Validate shared secret is not all-zeros (low-order point check)
+    // A malicious public key can produce an all-zero shared secret, breaking encryption
+    if shared_secret.as_bytes().iter().all(|&b| b == 0) {
+        return Err(CryptoError::SharingError);
+    }
+
     // Derive encryption key via HKDF-SHA256
     let key = derive_subkey(shared_secret.as_bytes(), "seal")?;
 
@@ -135,6 +141,11 @@ pub fn open(recipient_secret: &ShareSecretKey, sealed: &[u8]) -> Result<Vec<u8>>
     let secret = StaticSecret::from(*recipient_secret.as_bytes());
     let shared_secret = secret.diffie_hellman(&ephemeral_pk);
 
+    // CR-5 FIX: Validate shared secret is not all-zeros (low-order point check)
+    if shared_secret.as_bytes().iter().all(|&b| b == 0) {
+        return Err(CryptoError::SharingError);
+    }
+
     // Derive decryption key
     let key = derive_subkey(shared_secret.as_bytes(), "seal")?;
 
@@ -180,5 +191,13 @@ mod tests {
         let result = open(&bob_secret, &sealed);
 
         assert!(result.is_err()); // Bob can't decrypt Alice's message
+    }
+
+    #[test]
+    fn test_rejects_low_order_public_key() {
+        // All-zero public key is a low-order point that produces all-zero shared secret
+        let low_order_pk = SharePublicKey::from_bytes([0u8; 32]);
+        let result = seal(&low_order_pk, b"test data");
+        assert!(result.is_err(), "Should reject low-order public key");
     }
 }

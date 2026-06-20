@@ -1,7 +1,9 @@
 module.exports = {
-  preset: 'react-native',
+  // Note: 'react-native' preset not used here because NativeWind's babel
+  // plugin conflicts with RN's jest/setup.js babel transform. Service-layer
+  // tests use ts-jest directly; component tests use jest.config.components.js.
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
@@ -13,9 +15,13 @@ module.exports = {
           noUnusedLocals: false,
           noUnusedParameters: false,
         },
+        diagnostics: false,
       },
     ],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(@sentry/react-native|@sentry/core|@sentry/types|@sentry/utils|@sentry/browser|expo-.*|@expo/.*|react-native|@react-native|posthog-react-native|react-native-purchases)/)',
+  ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@components/(.*)$': '<rootDir>/src/components/$1',
@@ -27,8 +33,12 @@ module.exports = {
     '^@crypto/(.*)$': '<rootDir>/src/crypto/$1',
   },
   testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.test.ts?(x)',
-    '<rootDir>/src/**/?(*.)+(spec|test).ts?(x)',
+    '<rootDir>/src/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/**/?(*.)+(spec|test).ts',
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '\\.test\\.tsx$',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -38,6 +48,7 @@ module.exports = {
     '!src/theme/**',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  maxWorkers: '50%',
   coverageThreshold: {
     global: {
       branches: 70,

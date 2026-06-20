@@ -1,0 +1,202 @@
+name: Preview Build (EAS)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'usbvault-app/**'
+      - '.github/workflows/preview.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ============================================================
+  # LINT & TEST: Gate before building
+  # ============================================================
+  app-checks:
+    name: App Lint & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        run: npx eslint . --ext .ts,.tsx,.js,.jsx
+
+      - name: Run Jest tests
+        run: npx jest --passWithNoTests
+
+  # ============================================================
+  # BUILD: EAS Preview (iOS + Android)
+  # ============================================================
+  eas-preview:
+    name: EAS Preview Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [app-checks]
+    # Only run if EXPO_TOKEN is configured
+    if: ${{ github.event.pull_request.draft == false }}
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Check for EXPO_TOKEN
+        id: expo-check
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::EXPO_TOKEN not configured — skipping EAS preview build"
+          fi
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build preview (iOS + Android)
+        if: steps.expo-check.outputs.has_token == 'true'
+        id: eas-build
+        run: |
+          echo "=== Starting EAS Preview Build ==="
+          eas build --platform all --profile preview --non-interactive 2>&1 | tee eas-build-output.log
+
+          # Extract build page URL from output
+          BUILD_PAGE=$(grep -oP 'https://expo\.dev/accounts/[^\s]+/builds/[^\s]+' eas-build-output.log | head -1 || true)
+          if [ -z "$BUILD_PAGE" ]; then
+            BUILD_PAGE="https://expo.dev — check EAS dashboard for build status"
+          fi
+          echo "build_page=$BUILD_PAGE" >> "$GITHUB_OUTPUT"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Get build details
+        if: steps.expo-check.outputs.has_token == 'true'
+        id: build-details
+        run: |
+          # Fetch latest build info for both platforms
+          IOS_BUILD=$(eas build:list --platform ios --status finished --limit 1 --json --non-interactive 2>/dev/null || echo '[]')
+          ANDROID_BUILD=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive 2>/dev/null || echo '[]')
+
+          IOS_URL=$(echo "$IOS_BUILD" | jq -r '.[0].artifacts.buildUrl // "pending"')
+          ANDROID_URL=$(echo "$ANDROID_BUILD" | jq -r '.[0].artifacts.buildUrl // "pending"')
+          IOS_STATUS=$(echo "$IOS_BUILD" | jq -r '.[0].status // "unknown"')
+          ANDROID_STATUS=$(echo "$ANDROID_BUILD" | jq -r '.[0].status // "unknown"')
+
+          echo "ios_url=$IOS_URL" >> "$GITHUB_OUTPUT"
+          echo "android_url=$ANDROID_URL" >> "$GITHUB_OUTPUT"
+          echo "ios_status=$IOS_STATUS" >> "$GITHUB_OUTPUT"
+          echo "android_status=$ANDROID_STATUS" >> "$GITHUB_OUTPUT"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Comment build links on PR
+        if: steps.expo-check.outputs.has_token == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          BUILD_PAGE="${{ steps.eas-build.outputs.build_page }}"
+          IOS_URL="${{ steps.build-details.outputs.ios_url }}"
+          ANDROID_URL="${{ steps.build-details.outputs.android_url }}"
+          IOS_STATUS="${{ steps.build-details.outputs.ios_status }}"
+          ANDROID_STATUS="${{ steps.build-details.outputs.android_status }}"
+          COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+
+          COMMENT_BODY=$(cat <<COMMENT_EOF
+          ## USBVault Preview Build
+
+          **Commit:** \`${SHORT_SHA}\`
+          **Profile:** preview
+
+          | Platform | Status | Download |
+          |----------|--------|----------|
+          | iOS | ${IOS_STATUS} | [Download IPA](${IOS_URL}) |
+          | Android | ${ANDROID_STATUS} | [Download APK](${ANDROID_URL}) |
+
+          **EAS Dashboard:** [View builds](${BUILD_PAGE})
+
+          ---
+          *Built with [EAS Build](https://docs.expo.dev/build/introduction/) on $(date -u +'%Y-%m-%d %H:%M UTC')*
+          COMMENT_EOF
+          )
+
+          # Delete previous preview build comments to avoid clutter
+          EXISTING_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | contains("USBVault Preview Build")) | .id]')
+
+          for comment_id in $(echo "$EXISTING_COMMENTS" | jq -r '.[]'); do
+            gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${comment_id}" || true
+          done
+
+          # Post new comment
+          gh pr comment "${PR_NUMBER}" --body "$COMMENT_BODY"
+
+      - name: Post skip notice
+        if: steps.expo-check.outputs.has_token == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          # Only comment once — check if we already posted
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | contains("EAS preview build skipped"))] | length')
+
+          if [ "$EXISTING" = "0" ]; then
+            gh pr comment "${PR_NUMBER}" --body \
+              "> **Note:** EAS preview build skipped — \`EXPO_TOKEN\` secret is not configured.
+              > To enable preview builds, add an \`EXPO_TOKEN\` secret to the repository settings."
+          fi
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eas-preview-build-log
+          path: usbvault-app/eas-build-output.log
+          retention-days: 14
+          if-no-files-found: ignore

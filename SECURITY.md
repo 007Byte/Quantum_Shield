@@ -1,17 +1,27 @@
-# Quantum Armor Vault (QAV) — Security Policy
-
-<!-- PH11-FIX: Bug bounty program + responsible disclosure -->
+# USBVault — Security Policy
 
 ## Reporting Security Vulnerabilities
 
-Quantum Armor Vault takes security seriously. We appreciate the security research community's
+USBVault takes security seriously. We appreciate the security research community's
 efforts to responsibly disclose vulnerabilities and help us keep our users safe.
+
+### Machine-Readable Security Policy (RFC 9116)
+
+USBVault publishes a `security.txt` file in accordance with [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116) at:
+
+```
+https://usbvault.io/.well-known/security.txt
+```
+
+This file provides a standardized, machine-readable way for security researchers to find
+our vulnerability disclosure contact information. The file is also served at the
+`/.well-known/security.txt` path on all USBVault server instances.
 
 ### Responsible Disclosure
 
 If you discover a security vulnerability, please report it responsibly:
 
-1. **Email**: security@qav.io (PGP key available on request)
+1. **Email**: security@usbvault.io (PGP key available at https://usbvault.io/.well-known/pgp-key.txt)
 2. **Response time**: We acknowledge reports within 48 hours
 3. **Resolution target**: Critical vulnerabilities within 7 days, high within 14 days
 4. **Coordination**: We will coordinate disclosure timelines with you
@@ -19,9 +29,25 @@ If you discover a security vulnerability, please report it responsibly:
 **Do not** disclose vulnerabilities publicly until we have had an opportunity to
 investigate and release a fix.
 
+### Vulnerability Disclosure Timeline
+
+USBVault follows a structured disclosure timeline to ensure vulnerabilities are handled
+promptly and transparently:
+
+| Phase | Timeframe | Description |
+|-------|-----------|-------------|
+| **Acknowledgment** | 48 hours | Initial acknowledgment of the report with a tracking ID |
+| **Triage** | 5 business days | Assessment of severity, impact, and affected components |
+| **Remediation** | 7 days (Critical), 14 days (High), 30 days (Medium), 90 days (Low) | Development and testing of a fix |
+| **Notification** | Prior to public release | Reporter is notified of the fix and given the opportunity to verify |
+| **Public Disclosure** | 90 days from report (or upon fix release, whichever is sooner) | Coordinated public disclosure with credit to the reporter |
+
+If we are unable to meet these timelines, we will communicate delays to the reporter and
+negotiate a mutually acceptable disclosure date.
+
 ## Bug Bounty Program
 
-Quantum Armor Vault operates a bug bounty program to incentivize responsible security research.
+USBVault operates a bug bounty program to incentivize responsible security research.
 
 ### Reward Tiers
 
@@ -39,10 +65,10 @@ Exceptional reports with proof-of-concept exploits may receive higher rewards.
 
 The following assets are in scope for the bug bounty program:
 
-- **Quantum Armor Vault API** (api.qav.io) — authentication, authorization, data handling
-- **Quantum Armor Vault Web App** — XSS, CSRF, injection, session management
-- **Quantum Armor Vault Mobile Apps** (iOS / Android) — data leakage, insecure storage, cert pinning bypass
-- **Quantum Armor Vault Desktop Apps** (macOS / Windows / Linux) — privilege escalation, code signing bypass
+- **USBVault API** (api.usbvault.io) — authentication, authorization, data handling
+- **USBVault Web App** — XSS, CSRF, injection, session management
+- **USBVault Mobile Apps** (iOS / Android) — data leakage, insecure storage, cert pinning bypass
+- **USBVault Desktop Apps** (macOS / Windows / Linux) — privilege escalation, code signing bypass
 - **Cryptographic implementation** — key management, encryption/decryption, nonce reuse
 - **WebSocket sync protocol** — authentication bypass, data injection, replay attacks
 
@@ -50,8 +76,8 @@ The following assets are in scope for the bug bounty program:
 
 The following are explicitly out of scope:
 
-- Social engineering attacks against Quantum Armor Vault employees
-- Physical attacks against Quantum Armor Vault infrastructure
+- Social engineering attacks against USBVault employees
+- Physical attacks against USBVault infrastructure
 - Denial-of-service (DoS/DDoS) attacks
 - Automated scanning without prior coordination
 - Reports from automated tools without manual verification
@@ -61,7 +87,7 @@ The following are explicitly out of scope:
 
 ## Safe Harbor
 
-Quantum Armor Vault commits to working with security researchers under the following safe harbor terms:
+USBVault commits to working with security researchers under the following safe harbor terms:
 
 - We will not pursue legal action against researchers who follow this policy
 - We will not report researchers to law enforcement for good-faith research
@@ -90,7 +116,7 @@ To qualify for safe harbor and bounty rewards:
 
 ## Security Architecture
 
-Quantum Armor Vault (QAV) employs defense-in-depth security:
+USBVault employs defense-in-depth security:
 
 - **Encryption**: XChaCha20-Poly1305 / AES-256-GCM-SIV with Rust FFI core
 - **Key Derivation**: Argon2id (memory-hard, GPU-resistant)

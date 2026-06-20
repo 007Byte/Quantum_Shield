@@ -1,0 +1,189 @@
+# =============================================================================
+# USBVault Enterprise — Default Helm Values (staging/dev)
+# =============================================================================
+# Override with production-values.yaml for production deployments:
+#   helm install usbvault ./chart -f production-values.yaml
+
+# ---------------------------------------------------------------------------
+# Global
+# ---------------------------------------------------------------------------
+global:
+  environment: staging
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# USBVault API Server
+# ---------------------------------------------------------------------------
+api:
+  image:
+    repository: usbvault/api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  serviceAccount:
+    create: true
+    name: usbvault-api
+    annotations: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 12
+
+  port: 8080
+
+  env:
+    ENVIRONMENT: staging
+    SERVER_PORT: "8080"
+    LOG_LEVEL: debug
+    MIGRATIONS_DIR: /app/migrations
+    DB_MAX_CONNECTIONS: "10"
+    DB_MIN_CONNECTIONS: "2"
+    FIDO2_RELYING_PARTY_ID: localhost
+    FIDO2_RELYING_PARTY_NAME: USBVault
+    FIDO2_RELYING_PARTY_ORIGIN: "http://localhost:3000"
+    CORS_ALLOWED_ORIGINS: "http://localhost:3000"
+
+  envFromSecrets: {}
+  #   DATABASE_URL:
+  #     secretName: usbvault-secrets
+  #     key: database-url
+
+  initContainers: []
+  #   - name: run-migrations
+  #     command: ["./migrate", "up"]
+  #     resources:
+  #       requests:
+  #         cpu: "100m"
+  #         memory: "128Mi"
+  #       limits:
+  #         cpu: "250m"
+  #         memory: "256Mi"
+
+  affinity: {}
+
+  topologySpreadConstraints: []
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Horizontal Pod Autoscaler
+# ---------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior: {}
+
+# ---------------------------------------------------------------------------
+# Pod Disruption Budget
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Network Policy
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# ---------------------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator)
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /metrics
+  port: http
+  labels: {}
+
+# ---------------------------------------------------------------------------
+# PostgreSQL (external by default)
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: false
+
+# ---------------------------------------------------------------------------
+# Redis (external by default)
+# ---------------------------------------------------------------------------
+redis:
+  enabled: false

@@ -12,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/config"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 type FIDO2RegisterChallengeRequest struct {
@@ -46,7 +47,7 @@ type FIDO2Credential struct {
 func HandleFIDO2RegisterChallenge(pool *pgxpool.Pool, redisClient *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context (set by AuthMiddleware)
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -64,7 +65,9 @@ func HandleFIDO2RegisterChallenge(pool *pgxpool.Pool, redisClient *redis.Client)
 
 		if err != nil {
 			log.Warn().Str("user_id", userID).Err(err).Msg("user not found for FIDO2 registration")
-			http.Error(w, "user not found", http.StatusNotFound)
+			// Constant-time delay to prevent timing-based user enumeration
+			time.Sleep(50 * time.Millisecond)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
@@ -118,7 +121,7 @@ func HandleFIDO2RegisterChallenge(pool *pgxpool.Pool, redisClient *redis.Client)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		err = redisClient.Set(ctx, "fido2reg:"+sessionID, sessionJSON, 10*time.Minute).Err()
+		err = redisClient.Set(ctx, "fido2reg:"+sessionID, sessionJSON, 2*time.Minute).Err()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to store registration session in redis")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -140,7 +143,7 @@ func HandleFIDO2RegisterVerify(pool *pgxpool.Pool, redisClient *redis.Client, au
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -199,7 +202,9 @@ func HandleFIDO2RegisterVerify(pool *pgxpool.Pool, redisClient *redis.Client, au
 
 		if err != nil {
 			log.Warn().Str("user_id", userID).Err(err).Msg("user not found during FIDO2 registration verify")
-			http.Error(w, "user not found", http.StatusNotFound)
+			// Constant-time delay to prevent timing-based user enumeration
+			time.Sleep(50 * time.Millisecond)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
@@ -274,7 +279,7 @@ func HandleFIDO2RegisterVerify(pool *pgxpool.Pool, redisClient *redis.Client, au
 func HandleFIDO2ListCredentials(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -292,7 +297,9 @@ func HandleFIDO2ListCredentials(pool *pgxpool.Pool) http.HandlerFunc {
 
 		if err != nil {
 			log.Warn().Str("user_id", userID).Err(err).Msg("user not found")
-			http.Error(w, "user not found", http.StatusNotFound)
+			// Constant-time delay to prevent timing-based user enumeration
+			time.Sleep(50 * time.Millisecond)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
@@ -326,7 +333,7 @@ func HandleFIDO2DeleteCredential(pool *pgxpool.Pool, auditSvc interface {
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -352,7 +359,9 @@ func HandleFIDO2DeleteCredential(pool *pgxpool.Pool, auditSvc interface {
 
 		if err != nil {
 			log.Warn().Str("user_id", userID).Err(err).Msg("user not found")
-			http.Error(w, "user not found", http.StatusNotFound)
+			// Constant-time delay to prevent timing-based user enumeration
+			time.Sleep(50 * time.Millisecond)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
 

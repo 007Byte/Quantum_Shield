@@ -3,8 +3,11 @@ import { Feather } from '@expo/vector-icons';
 import { dashboardColors } from '@/components/dashboard2/styles';
 import { styles } from './styles';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
+import { logger } from '@/utils/logger';
 
 export function NotificationSection() {
+  const { t } = useLanguage();
   const [securityAlerts, setSecurityAlerts] = useState(true);
   const [shareNotifications, setShareNotifications] = useState(true);
   const [breachAlerts, setBreachAlerts] = useState(true);
@@ -24,7 +27,7 @@ export function NotificationSection() {
         setWeeklyDigest(prefs.weeklyDigest ?? false);
       }
     } catch (error) {
-      console.error('Failed to load notification preferences', error);
+      logger.error('Failed to load notification preferences', error);
     }
   }, []);
 
@@ -36,7 +39,7 @@ export function NotificationSection() {
       const updated = { ...current, ...updates };
       localStorage.setItem('usbvault:notification_prefs', JSON.stringify(updated));
     } catch (error) {
-      console.error('Failed to save notification preferences', error);
+      logger.error('Failed to save notification preferences', error);
     }
   };
 
@@ -85,65 +88,72 @@ export function NotificationSection() {
     <View style={styles.sectionCard}>
       <View style={styles.sectionHeader}>
         <Feather name="bell" size={18} color={dashboardColors.cyan} />
-        <Text style={styles.sectionTitle}>Notifications</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {t('settings.notifications')}
+        </Text>
       </View>
 
       {/* Security Alerts */}
       <Pressable
+        accessibilityRole="button"
         onPress={handleSecurityAlertsToggle}
         style={styles.settingRow}
       >
         <View>
-          <Text style={styles.settingLabel}>Security Alerts</Text>
-          <Text style={styles.settingMeta}>Login from new device, failed auth attempts</Text>
+          <Text style={styles.settingLabel}>{t('settings.securityAlerts')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.securityAlertsDesc')}</Text>
         </View>
         <ToggleIndicator enabled={securityAlerts} />
       </Pressable>
 
       {/* Share Notifications */}
       <Pressable
+        accessibilityRole="button"
         onPress={handleShareNotificationsToggle}
         style={styles.settingRow}
       >
         <View>
-          <Text style={styles.settingLabel}>Share Notifications</Text>
-          <Text style={styles.settingMeta}>New shares received, accessed, or expired</Text>
+          <Text style={styles.settingLabel}>{t('settings.shareNotifications')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.shareNotificationsDesc')}</Text>
         </View>
         <ToggleIndicator enabled={shareNotifications} />
       </Pressable>
 
       {/* Breach Alerts */}
       <Pressable
+        accessibilityRole="button"
         onPress={handleBreachAlertsToggle}
         style={styles.settingRow}
       >
         <View>
-          <Text style={styles.settingLabel}>Breach Alerts</Text>
-          <Text style={styles.settingMeta}>HIBP dark web monitoring alerts</Text>
+          <Text style={styles.settingLabel}>{t('settings.breachAlerts')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.breachAlertsDesc')}</Text>
         </View>
         <ToggleIndicator enabled={breachAlerts} />
       </Pressable>
 
       {/* System Updates */}
       <Pressable
+        accessibilityRole="button"
         onPress={handleSystemUpdatesToggle}
         style={styles.settingRow}
       >
         <View>
-          <Text style={styles.settingLabel}>System Updates</Text>
-          <Text style={styles.settingMeta}>App updates and security patches</Text>
+          <Text style={styles.settingLabel}>{t('settings.systemUpdates')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.systemUpdatesDesc')}</Text>
         </View>
         <ToggleIndicator enabled={systemUpdates} />
       </Pressable>
 
       {/* Weekly Digest */}
       <Pressable
+        accessibilityRole="button"
         onPress={handleWeeklyDigestToggle}
         style={styles.settingRow}
       >
         <View>
-          <Text style={styles.settingLabel}>Weekly Digest</Text>
-          <Text style={styles.settingMeta}>Weekly summary email</Text>
+          <Text style={styles.settingLabel}>{t('settings.weeklyDigest')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.weeklyDigestDesc')}</Text>
         </View>
         <ToggleIndicator enabled={weeklyDigest} />
       </Pressable>

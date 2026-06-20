@@ -8,22 +8,59 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-export function formatDate(date: Date | string): string {
+/**
+ * i18n-aware relative time formatter.
+ * @param t - Translation function (from useLanguage().t). If omitted, falls back to English.
+ * @param locale - BCP-47 locale string for absolute date formatting (e.g. 'de', 'es').
+ */
+export function formatDate(
+  date: Date | string,
+  t?: (key: string, opts?: Record<string, unknown>) => string,
+  locale?: string,
+): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const seconds = Math.floor((now.getTime() - d.getTime()) / 1000);
 
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  const tr = (key: string, count?: number) =>
+    t ? t(key, { count }) : formatRelativeEnglish(key, count);
 
-  // Format as "MMM DD, YYYY"
-  return d.toLocaleDateString('en-US', {
+  if (seconds < 60) return tr('common.justNow');
+  if (seconds < 3600) return tr('common.minutesAgo', Math.floor(seconds / 60));
+  if (seconds < 86400) return tr('common.hoursAgo', Math.floor(seconds / 3600));
+  if (seconds < 604800) return tr('common.daysAgo', Math.floor(seconds / 86400));
+
+  return d.toLocaleDateString(locale || 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+/**
+ * i18n-aware relative time for ISO strings or pre-formatted relative strings.
+ * Used by password list, vault table, activity feeds.
+ */
+export function formatRelativeTime(
+  isoOrRelative: string,
+  t?: (key: string, opts?: Record<string, unknown>) => string,
+  locale?: string,
+): string {
+  // If it's already a relative string (no ISO markers), return as-is
+  if (!isoOrRelative.includes('T') && !isoOrRelative.includes('-')) return isoOrRelative;
+  return formatDate(isoOrRelative, t, locale);
+}
+
+/** English fallback when no translation function is provided */
+function formatRelativeEnglish(key: string, count?: number): string {
+  switch (key) {
+    case 'common.justNow': return 'Just now';
+    case 'common.minutesAgo': return `${count}m ago`;
+    case 'common.hoursAgo': return `${count}h ago`;
+    case 'common.daysAgo': return `${count}d ago`;
+    case 'common.weeksAgo': return `${count}w ago`;
+    default: return key;
+  }
 }
 
 export function truncateFilename(name: string, maxLength: number = 30): string {

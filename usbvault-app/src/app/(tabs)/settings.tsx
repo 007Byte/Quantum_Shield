@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { InAppModal, useInAppModal } from '@/components/common';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@/stores/authStore';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
@@ -15,31 +16,33 @@ import { HelpSection } from '@/components/settings/HelpSection';
 import { AboutSection } from '@/components/settings/AboutSection';
 import { styles } from '@/components/settings/styles';
 import type { PressableState } from '@/types/utilities';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 
-export default function SettingsScreen() {
+function SettingsScreen() {
+  const { t } = useLanguage();
   const { modal, showConfirm, showError } = useInAppModal();
   const router = useRouter();
-  const authState = useAuthStore((state) => ({
+  const authState = useAuthStore(state => ({
     email: state.email,
     subscriptionTier: state.subscriptionTier,
   }));
-  const logout = useAuthStore((state) => state.logout);
-  const lockVault = useAuthStore((state) => state.lockVault);
+  const logout = useAuthStore(state => state.logout);
+  const lockVault = useAuthStore(state => state.lockVault);
 
   const handleLogout = () => {
     showConfirm(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('settings.signOut'),
+      t('settings.signOutConfirm'),
       async () => {
         try {
           await logout();
           router.replace('/(auth)/login');
         } catch (error) {
-          showError('Error', 'Failed to sign out. Please try again.');
+          showError('Error', t('settings.signOutFailed'));
         }
       },
-      'Sign Out',
-      'destructive',
+      t('settings.signOut'),
+      'destructive'
     );
   };
 
@@ -51,7 +54,11 @@ export default function SettingsScreen() {
   return (
     <View style={styles.screen}>
       <InAppModal config={modal} />
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
 
@@ -64,15 +71,21 @@ export default function SettingsScreen() {
               <View style={styles.backRow}>
                 {/* PH4-FIX: Replaced any with proper PressableState type */}
                 <Pressable
-                  onPress={() => router.push('/(tabs)/dashboard' as any)}
-                  style={(state: PressableState) => [styles.backBtn, state.hovered && styles.backBtnHover]}
+                  accessibilityRole="button"
+                  onPress={() => router.navigate('/(tabs)/dashboard' as any)}
+                  style={(state: PressableState) => [
+                    styles.backBtn,
+                    state.hovered && styles.backBtnHover,
+                  ]}
                 >
                   <Feather name="arrow-left" size={20} color={dashboardColors.cyan} />
-                  <Text style={styles.backLabel}>Dashboard</Text>
+                  <Text style={styles.backLabel}>{t('common.dashboard') || 'Dashboard'}</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.pageTitle}>Settings</Text>
+              <Text style={styles.pageTitle} accessibilityRole="header">
+                {t('settings.pageTitle')}
+              </Text>
 
               <View style={styles.columnsRow}>
                 <View style={styles.leftCol}>
@@ -98,3 +111,5 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+export default withErrorBoundary(SettingsScreen, 'Settings');

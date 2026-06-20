@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // TD-007 FIX: Account deletion now revokes all active tokens
@@ -15,7 +16,7 @@ func HandleDeleteAccount(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

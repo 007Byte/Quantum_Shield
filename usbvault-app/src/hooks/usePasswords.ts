@@ -3,8 +3,17 @@ import { useState, useCallback, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { validatePassword, levelToLabel } from '@/utils/passwordPolicy';
 import { passwordService } from '@/services/passwordService';
-import { importPasswords, validateImportFile, formatLabel, ImportResult, ImportProgress, type ImportFormat } from '@/services/importService';
+import {
+  importPasswords,
+  validateImportFile,
+  formatLabel,
+  ImportResult,
+  ImportProgress,
+  type ImportFormat,
+} from '@/services/importService';
 import { auditService } from '@/services/auditService';
+import { formatRelativeTime } from '@/utils/formatters';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export interface PasswordEntry {
   id: string;
@@ -42,25 +51,13 @@ export function usePasswords() {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-
-  const formatRelativeTime = (isoOrRelative: string): string => {
-    if (!isoOrRelative.includes('T') && !isoOrRelative.includes('-')) return isoOrRelative;
-    const diff = Date.now() - new Date(isoOrRelative).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return `${Math.floor(days / 7)}w ago`;
-  };
+  const { t } = useLanguage();
 
   const loadPasswords = useCallback(async () => {
     try {
       const entries = await passwordService.loadEntries();
       setPasswords(
-        entries.map((e) => ({
+        entries.map(e => ({
           id: e.id,
           title: e.title,
           username: e.username,
@@ -68,8 +65,8 @@ export function usePasswords() {
           url: e.url,
           category: e.category,
           strength: e.strength,
-          lastModified: formatRelativeTime(e.lastModified),
-        })),
+          lastModified: formatRelativeTime(e.lastModified, t),
+        }))
       );
     } catch {
       /* ignore */
@@ -82,10 +79,10 @@ export function usePasswords() {
   }, [loadPasswords]);
 
   const filteredEntries = passwords.filter(
-    (entry) =>
+    entry =>
       entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       entry.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.url.toLowerCase().includes(searchQuery.toLowerCase()),
+      entry.url.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getStrengthColor = (strength: string) => {
@@ -133,7 +130,7 @@ export function usePasswords() {
       digits: true,
       symbols: true,
     });
-    setFormData((prev) => ({ ...prev, password: generated }));
+    setFormData(prev => ({ ...prev, password: generated }));
   };
 
   const savePassword = async (): Promise<{ success: boolean; error?: string }> => {
@@ -197,19 +194,25 @@ export function usePasswords() {
   const validateAndPrepareImport = (content: string) => {
     const validation = validateImportFile(content);
     if (!validation.valid) {
-      return { valid: false, error: 'File format not recognized. Supported: Bitwarden, 1Password, LastPass, Chrome (CSV), KeePass (JSON).' };
+      return {
+        valid: false,
+        error:
+          'File format not recognized. Supported: Bitwarden, 1Password, LastPass, Chrome (CSV), KeePass (JSON).',
+      };
     }
-    return { valid: true, format: validation.format, formatName: formatLabel(validation.format ?? 'auto'), estimatedCount: validation.estimatedCount };
+    return {
+      valid: true,
+      format: validation.format,
+      formatName: formatLabel(validation.format ?? 'auto'),
+      estimatedCount: validation.estimatedCount,
+    };
   };
 
   const performImport = async (content: string, format: ImportFormat, fileName: string) => {
     try {
       const existingEntries = await passwordService.loadEntries();
-      const result = await importPasswords(
-        content,
-        format || 'auto',
-        existingEntries,
-        (progress) => setImportProgress(progress),
+      const result = await importPasswords(content, format || 'auto', existingEntries, progress =>
+        setImportProgress(progress)
       );
 
       setImportResult(result);
@@ -226,12 +229,14 @@ export function usePasswords() {
           });
         }
         await loadPasswords();
-        await auditService.log('settings_change', 'password_import', {
-          source: formatLabel(format),
-          imported: result.imported,
-          duplicates: result.duplicates,
-          fileName,
-        }).catch(() => {});
+        await auditService
+          .log('settings_change', 'password_import', {
+            source: formatLabel(format),
+            imported: result.imported,
+            duplicates: result.duplicates,
+            fileName,
+          })
+          .catch(() => {});
       }
 
       return { success: true, result };

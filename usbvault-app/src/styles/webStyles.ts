@@ -1,5 +1,27 @@
 import { Platform, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 
+/**
+ * Inject global focus-visible styles for web accessibility (WCAG 2.2 AA).
+ * Applies a purple focus ring to all interactive elements when focused via keyboard.
+ */
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    *:focus-visible {
+      outline: 2px solid #8B5CF6 !important;
+      outline-offset: 2px !important;
+    }
+    *:focus:not(:focus-visible) {
+      outline: none !important;
+    }
+    [data-testid="skip-link"]:focus,
+    [role="link"][tabindex="0"]:focus {
+      top: 16px !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 /** Web-only CSS properties supported by React Native Web but not in RN type definitions */
 interface WebOnlyStyles {
   backdropFilter?: string;

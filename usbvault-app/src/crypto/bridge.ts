@@ -74,10 +74,7 @@ export function initializeCryptoBridge(): void {
  * @returns Promise<Uint8Array> - Derived key (32 bytes)
  * @throws Error if native module not available or key derivation fails
  */
-export async function deriveKey(
-  password: string,
-  salt: Uint8Array
-): Promise<Uint8Array> {
+export async function deriveKey(password: string, salt: Uint8Array): Promise<Uint8Array> {
   if (!password || password.length === 0) {
     throw new Error('Password cannot be empty');
   }
@@ -96,7 +93,6 @@ export async function deriveKey(
     );
   }
 }
-
 
 // ============================================================================
 // Encryption/Decryption (AEAD)
@@ -135,9 +131,7 @@ export async function encrypt(
     const resultHex = await nativeModule.encrypt(keyHex, plaintextHex, aadHex);
     return Buffer.from(resultHex, 'hex');
   } catch (error) {
-    throw new Error(
-      `Encryption failed: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw new Error(`Encryption failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -174,9 +168,7 @@ export async function decrypt(
     const resultHex = await nativeModule.decrypt(keyHex, ciphertextHex, aadHex);
     return Buffer.from(resultHex, 'hex');
   } catch (error) {
-    throw new Error(
-      `Decryption failed: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw new Error(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -400,10 +392,7 @@ export async function sealToPublicKey(
  * @returns Promise<Uint8Array> - Original plaintext
  * @throws Error if native module not available, key invalid, or decryption fails
  */
-export async function openSealed(
-  secretKey: Uint8Array,
-  sealed: Uint8Array
-): Promise<Uint8Array> {
+export async function openSealed(secretKey: Uint8Array, sealed: Uint8Array): Promise<Uint8Array> {
   if (secretKey.length !== 32) {
     throw new Error('Secret key must be 32 bytes');
   }
@@ -539,8 +528,8 @@ export async function srpDeriveSession(
  * Ed25519 signing keypair representation.
  */
 export interface SigningKeyPair {
-  publicKey: Uint8Array;  // 32 bytes - Ed25519 public key
-  secretKey: Uint8Array;  // 64 bytes - Ed25519 private key (PKCS8 on web)
+  publicKey: Uint8Array; // 32 bytes - Ed25519 public key
+  secretKey: Uint8Array; // 64 bytes - Ed25519 private key (PKCS8 on web)
 }
 
 /**
@@ -574,10 +563,7 @@ export async function generateSigningKeypair(): Promise<SigningKeyPair> {
  * @returns Promise<Uint8Array> - 64-byte Ed25519 signature
  * @throws Error if native module not available or signing fails
  */
-export async function sign(
-  secretKey: Uint8Array,
-  message: Uint8Array
-): Promise<Uint8Array> {
+export async function sign(secretKey: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   if (secretKey.length === 0) {
     throw new Error('Secret key cannot be empty');
   }
@@ -591,9 +577,7 @@ export async function sign(
     const signatureHex = await nativeModule.sign(secretKeyHex, messageHex);
     return Buffer.from(signatureHex, 'hex');
   } catch (error) {
-    throw new Error(
-      `Signing failed: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw new Error(`Signing failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -671,10 +655,7 @@ export async function generateMEK(): Promise<Uint8Array> {
  * @param salt - 32-byte random salt
  * @returns Promise<Uint8Array> - 32-byte KEK
  */
-export async function deriveKEK(
-  password: string,
-  salt: Uint8Array
-): Promise<Uint8Array> {
+export async function deriveKEK(password: string, salt: Uint8Array): Promise<Uint8Array> {
   if (!password || password.length === 0) {
     throw new Error('Password cannot be empty');
   }
@@ -708,10 +689,7 @@ export async function deriveKEK(
  * @param mek - 64-byte Master Encryption Key (from generateMEK)
  * @returns Promise<Uint8Array> - Wrapped MEK blob (nonce || ciphertext || tag)
  */
-export async function wrapMEK(
-  kek: Uint8Array,
-  mek: Uint8Array
-): Promise<Uint8Array> {
+export async function wrapMEK(kek: Uint8Array, mek: Uint8Array): Promise<Uint8Array> {
   if (kek.length !== 32) {
     throw new Error('KEK must be 32 bytes');
   }
@@ -738,10 +716,7 @@ export async function wrapMEK(
  * @returns Promise<Uint8Array> - 64-byte Master Encryption Key
  * @throws Error if KEK is wrong (AEAD tag verification fails)
  */
-export async function unwrapMEK(
-  kek: Uint8Array,
-  wrappedMek: Uint8Array
-): Promise<Uint8Array> {
+export async function unwrapMEK(kek: Uint8Array, wrappedMek: Uint8Array): Promise<Uint8Array> {
   if (kek.length !== 32) {
     throw new Error('KEK must be 32 bytes');
   }
@@ -777,10 +752,7 @@ export async function unwrapMEK(
  * @param fileId - Unique file identifier (UUID)
  * @returns Promise<Uint8Array> - 32-byte per-file encryption key
  */
-export async function deriveFileKey(
-  mek: Uint8Array,
-  fileId: string
-): Promise<Uint8Array> {
+export async function deriveFileKey(mek: Uint8Array, fileId: string): Promise<Uint8Array> {
   if (mek.length !== 64) {
     throw new Error('MEK must be 64 bytes');
   }
@@ -807,10 +779,7 @@ export async function deriveFileKey(
  * @param info - Domain separation string
  * @returns Promise<Uint8Array> - 32-byte derived subkey
  */
-export async function deriveSubkey(
-  masterKey: Uint8Array,
-  info: string
-): Promise<Uint8Array> {
+export async function deriveSubkey(masterKey: Uint8Array, info: string): Promise<Uint8Array> {
   if (masterKey.length === 0) {
     throw new Error('Master key cannot be empty');
   }
@@ -994,7 +963,7 @@ export function buildVersionAD(version: number, filename: string): Uint8Array {
   const versionBytes = new Uint8Array(8);
   const view = new DataView(versionBytes.buffer);
   view.setBigUint64(0, BigInt(version), true); // little-endian
-  const separator = new Uint8Array([0x3A]); // ':'
+  const separator = new Uint8Array([0x3a]); // ':'
   const filenameBytes = new TextEncoder().encode(filename);
 
   const ad = new Uint8Array(prefix.length + 8 + 1 + filenameBytes.length);
@@ -1003,4 +972,244 @@ export function buildVersionAD(version: number, filename: string): Uint8Array {
   ad.set(separator, prefix.length + 8);
   ad.set(filenameBytes, prefix.length + 8 + 1);
   return ad;
+}
+
+// ── Vault Container Operations ─────────────────────────────────────────
+// These types and functions support the vault orchestrator's end-to-end
+// VAULT.bin container workflow (create → unlock → read/write index → encrypt/decrypt records).
+
+/** Active vault session returned by unlockVault. Keys held in memory only. */
+export interface VaultSession {
+  /** Symmetric encryption key for vault data (XChaCha20-Poly1305 or AES-256-GCM-SIV) */
+  encryptionKey: Uint8Array;
+  /** HMAC key for header integrity (fail counter, index pointers) */
+  hmacKey: Uint8Array;
+}
+
+/** Parsed vault header metadata. */
+export interface VaultHeaderInfo {
+  version: number;
+  cipherId: CipherId;
+  kdfParams: { memory: number; iterations: number; parallelism: number };
+  salt: Uint8Array;
+  activeIndexSlot: 0 | 1;
+  indexOffset: number;
+  indexLength: number;
+  index0Offset: number;
+  index0Length: number;
+  index1Offset: number;
+  index1Length: number;
+  failCount: number;
+  createdAt: string;
+}
+
+/** Decrypted vault index — maps file IDs to encrypted record metadata. */
+export interface VaultIndexData {
+  files: Record<string, VaultIndexEntry>;
+}
+
+/** Single entry in the vault index. */
+export interface VaultIndexEntry {
+  name: string;
+  size: number;
+  offset: number;
+  length: number;
+  cipherId: number;
+  saltHex: string;
+  createdAt: string;
+  modifiedAt: string;
+  version: number;
+}
+
+/** Decrypted file record returned by decryptFileRecord. */
+export interface DecryptedRecord {
+  data: Uint8Array;
+  metadata: { name: string; filename: string; size: number; cipherId: number };
+}
+
+/**
+ * Create a new V4 vault header from a password.
+ * Derives KEK via Argon2id, generates MEK, wraps MEK with KEK, and produces header bytes.
+ */
+export async function createVaultHeader(
+  password: string,
+  cipherId: CipherId = CipherId.XChaCha20Poly1305
+): Promise<{ headerBytes: Uint8Array; session: VaultSession }> {
+  assertNativeAvailable();
+  const result = await nativeModule.createVaultHeader(password, cipherId);
+  return {
+    headerBytes: new Uint8Array(Buffer.from(result.headerHex, 'hex')),
+    session: {
+      encryptionKey: new Uint8Array(Buffer.from(result.encKeyHex, 'hex')),
+      hmacKey: new Uint8Array(Buffer.from(result.hmacKeyHex, 'hex')),
+    },
+  };
+}
+
+/**
+ * Parse a vault header and return its metadata (without unlocking).
+ */
+export async function readVaultHeader(headerBytes: Uint8Array): Promise<VaultHeaderInfo> {
+  assertNativeAvailable();
+  const hex = Buffer.from(headerBytes).toString('hex');
+  const info = await nativeModule.readVaultHeader(hex);
+  return {
+    version: info.version,
+    cipherId: info.cipherId as CipherId,
+    kdfParams: info.kdfParams,
+    salt: new Uint8Array(Buffer.from(info.saltHex, 'hex')),
+    activeIndexSlot: info.activeIndexSlot as 0 | 1,
+    indexOffset: info.indexOffset,
+    indexLength: info.indexLength,
+    index0Offset: info.indexOffset,
+    index0Length: info.indexLength,
+    index1Offset: info.indexOffset,
+    index1Length: info.indexLength,
+    failCount: info.failCount,
+    createdAt: info.createdAt,
+  };
+}
+
+/**
+ * Unlock a vault header with a password. Returns session keys on success.
+ * @throws Error on incorrect password
+ */
+export async function unlockVault(
+  headerBytes: Uint8Array,
+  password: string
+): Promise<VaultSession> {
+  assertNativeAvailable();
+  const hex = Buffer.from(headerBytes).toString('hex');
+  const result = await nativeModule.unlockVault(hex, password);
+  return {
+    encryptionKey: new Uint8Array(Buffer.from(result.encKeyHex, 'hex')),
+    hmacKey: new Uint8Array(Buffer.from(result.hmacKeyHex, 'hex')),
+  };
+}
+
+/**
+ * Encrypt the vault index for storage.
+ */
+export async function encryptVaultContainerIndex(
+  encryptionKey: Uint8Array,
+  index: VaultIndexData
+): Promise<Uint8Array> {
+  assertNativeAvailable();
+  const keyHex = Buffer.from(encryptionKey).toString('hex');
+  const indexJson = JSON.stringify(index);
+  const resultHex = await nativeModule.encryptVaultIndex(keyHex, indexJson);
+  return new Uint8Array(Buffer.from(resultHex, 'hex'));
+}
+
+/**
+ * Decrypt the vault index from stored bytes.
+ */
+export async function decryptVaultContainerIndex(
+  encryptionKey: Uint8Array,
+  encryptedIndex: Uint8Array
+): Promise<VaultIndexData> {
+  assertNativeAvailable();
+  const keyHex = Buffer.from(encryptionKey).toString('hex');
+  const dataHex = Buffer.from(encryptedIndex).toString('hex');
+  const json = await nativeModule.decryptVaultIndex(keyHex, dataHex);
+  return JSON.parse(json) as VaultIndexData;
+}
+
+/**
+ * Encrypt a file record for storage in the vault container.
+ */
+export async function encryptFileRecord(
+  encryptionKey: Uint8Array,
+  plaintext: Uint8Array,
+  cipherId: CipherId = CipherId.XChaCha20Poly1305
+): Promise<Uint8Array> {
+  assertNativeAvailable();
+  const keyHex = Buffer.from(encryptionKey).toString('hex');
+  const dataHex = Buffer.from(plaintext).toString('hex');
+  const resultHex = await nativeModule.encryptFileRecord(keyHex, dataHex, cipherId);
+  return new Uint8Array(Buffer.from(resultHex, 'hex'));
+}
+
+/**
+ * Decrypt a file record from the vault container.
+ */
+export async function decryptFileRecord(
+  encryptionKey: Uint8Array,
+  ciphertext: Uint8Array
+): Promise<DecryptedRecord> {
+  assertNativeAvailable();
+  const keyHex = Buffer.from(encryptionKey).toString('hex');
+  const dataHex = Buffer.from(ciphertext).toString('hex');
+  const result = await nativeModule.decryptFileRecord(keyHex, dataHex);
+  return {
+    data: new Uint8Array(Buffer.from(result.dataHex, 'hex')),
+    metadata: {
+      ...result.metadata,
+      filename: result.metadata.name,
+    },
+  };
+}
+
+/**
+ * Read the fail counter from the vault header (HMAC-verified).
+ * @throws Error if HMAC is tampered
+ */
+export async function readFailCounter(
+  headerBytes: Uint8Array,
+  hmacKey: Uint8Array
+): Promise<number> {
+  assertNativeAvailable();
+  const headerHex = Buffer.from(headerBytes).toString('hex');
+  const keyHex = Buffer.from(hmacKey).toString('hex');
+  return nativeModule.readFailCounter(headerHex, keyHex);
+}
+
+/**
+ * Reset the fail counter to zero and return updated header bytes.
+ */
+export async function resetFailCounter(
+  headerBytes: Uint8Array,
+  hmacKey: Uint8Array
+): Promise<Uint8Array> {
+  assertNativeAvailable();
+  const headerHex = Buffer.from(headerBytes).toString('hex');
+  const keyHex = Buffer.from(hmacKey).toString('hex');
+  const resultHex = await nativeModule.resetFailCounter(headerHex, keyHex);
+  return new Uint8Array(Buffer.from(resultHex, 'hex'));
+}
+
+/**
+ * Increment the fail counter and return updated header bytes.
+ */
+export async function incrementFailCounter(
+  headerBytes: Uint8Array,
+  hmacKey: Uint8Array
+): Promise<Uint8Array> {
+  assertNativeAvailable();
+  const headerHex = Buffer.from(headerBytes).toString('hex');
+  const keyHex = Buffer.from(hmacKey).toString('hex');
+  const resultHex = await nativeModule.incrementFailCounter(headerHex, keyHex);
+  return new Uint8Array(Buffer.from(resultHex, 'hex'));
+}
+
+/**
+ * Commit a vault index to the header — updates index pointers and HMAC.
+ * Returns updated header bytes ready to write back to USB.
+ */
+export async function commitVaultIndex(
+  headerBytes: Uint8Array,
+  hmacKey: Uint8Array,
+  indexOffset: number,
+  indexLength: number
+): Promise<Uint8Array> {
+  assertNativeAvailable();
+  const headerHex = Buffer.from(headerBytes).toString('hex');
+  const keyHex = Buffer.from(hmacKey).toString('hex');
+  const resultHex = await nativeModule.commitVaultIndex(
+    headerHex,
+    keyHex,
+    indexOffset,
+    indexLength
+  );
+  return new Uint8Array(Buffer.from(resultHex, 'hex'));
 }

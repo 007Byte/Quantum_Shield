@@ -5,16 +5,14 @@ import { HeroSection } from '@/components/dashboard2/HeroSection';
 import { RightRail } from '@/components/dashboard2/RightRail';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { MobileDashboard } from '@/components/dashboard2/MobileDashboard';
-import {
-  dashboardLayout,
-  dashboardSpacing,
-} from '@/components/dashboard2/styles';
+import { dashboardLayout, dashboardSpacing } from '@/components/dashboard2/styles';
 import { TopBar } from '@/components/dashboard2/TopBar';
 import { VaultTable } from '@/components/dashboard2/vault-table';
 import { Footer } from '@/components/dashboard2/Footer';
 import { webOnly } from '@/utils/webStyle';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 
-export default function DashboardScreen() {
+function DashboardScreen() {
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
 
   useEffect(() => {
@@ -33,8 +31,12 @@ export default function DashboardScreen() {
   }
 
   return (
-      <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
 
@@ -56,7 +58,7 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
-      </View>
+    </View>
   );
 }
 
@@ -137,7 +139,8 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     ...webOnly({
-      background: 'linear-gradient(90deg, rgba(139,92,246,0.12) 0%, rgba(34,211,238,0.1) 45%, rgba(168,85,247,0.1) 100%)',
+      background:
+        'linear-gradient(90deg, rgba(139,92,246,0.12) 0%, rgba(34,211,238,0.1) 45%, rgba(168,85,247,0.1) 100%)',
       filter: 'blur(34px)',
     }),
     opacity: 0.44,
@@ -150,7 +153,8 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 20,
     ...webOnly({
-      background: 'linear-gradient(90deg, rgba(217,70,239,0.32) 0%, rgba(34,211,238,0.28) 55%, rgba(139,92,246,0.26) 100%)',
+      background:
+        'linear-gradient(90deg, rgba(217,70,239,0.32) 0%, rgba(34,211,238,0.28) 55%, rgba(139,92,246,0.26) 100%)',
       filter: 'blur(12px)',
     }),
     opacity: 0.55,
@@ -163,7 +167,8 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 20,
     ...webOnly({
-      background: 'linear-gradient(90deg, rgba(168,85,247,0.0), rgba(168,85,247,0.24), rgba(34,211,238,0.2), rgba(168,85,247,0.0))',
+      background:
+        'linear-gradient(90deg, rgba(168,85,247,0.0), rgba(168,85,247,0.24), rgba(34,211,238,0.2), rgba(168,85,247,0.0))',
       filter: 'blur(18px)',
     }),
     opacity: 0.36,
@@ -176,7 +181,8 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 18,
     ...webOnly({
-      background: 'linear-gradient(90deg, rgba(34,211,238,0), rgba(34,211,238,0.18), rgba(168,85,247,0.2), rgba(34,211,238,0))',
+      background:
+        'linear-gradient(90deg, rgba(34,211,238,0), rgba(34,211,238,0.18), rgba(168,85,247,0.2), rgba(34,211,238,0))',
       filter: 'blur(14px)',
     }),
     opacity: 0.3,
@@ -206,7 +212,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
       boxShadow:
         '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
@@ -246,3 +253,5 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
 });
+
+export default withErrorBoundary(DashboardScreen, 'Dashboard');

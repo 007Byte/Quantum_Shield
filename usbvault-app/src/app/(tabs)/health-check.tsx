@@ -10,8 +10,10 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
+import { useLanguage } from '@/hooks/useLanguage';
 import {
   dashboardLayout,
   dashboardSpacing,
@@ -41,77 +43,78 @@ interface Recommendation {
 
 // ── Main Component ─────────────────────────────────────────────────
 
-export default function HealthCheckScreen() {
+function HealthCheckScreen() {
+  const { t } = useLanguage();
   const [isRunning, setIsRunning] = useState(false);
 
   const healthChecks: HealthCheck[] = [
     {
       id: 'vault-integrity',
-      title: 'Vault Integrity',
+      title: t('healthCheck.vaultIntegrity'),
       icon: 'check-circle',
       status: 'passed',
-      statusText: 'Passed',
-      lastChecked: '5 mins ago',
+      statusText: t('healthCheck.passed'),
+      lastChecked: t('healthCheck.lastChecked5mins'),
     },
     {
       id: 'encryption-strength',
-      title: 'Encryption Strength',
+      title: t('healthCheck.encryptionStrength'),
       icon: 'shield',
       status: 'passed',
-      statusText: 'PQC Active',
-      lastChecked: '12 mins ago',
+      statusText: t('healthCheck.pqcActive'),
+      lastChecked: t('healthCheck.lastChecked12mins'),
     },
     {
       id: 'key-health',
-      title: 'Key Health',
+      title: t('healthCheck.keyHealth'),
       icon: 'key',
       status: 'passed',
-      statusText: 'Keys Valid',
-      lastChecked: '8 mins ago',
+      statusText: t('healthCheck.keysValid'),
+      lastChecked: t('healthCheck.lastChecked8mins'),
     },
     {
       id: 'storage-health',
-      title: 'Storage Health',
+      title: t('healthCheck.storageHealth'),
       icon: 'hard-drive',
       status: 'warning',
-      statusText: '82% Optimal',
-      lastChecked: '2 mins ago',
+      statusText: t('healthCheck.optimal'),
+      lastChecked: t('healthCheck.lastChecked2mins'),
     },
     {
       id: 'backup-status',
-      title: 'Backup Status',
+      title: t('healthCheck.backupStatus'),
       icon: 'save',
       status: 'warning',
-      statusText: 'Last: 2 days ago',
-      lastChecked: '1 min ago',
+      statusText: t('healthCheck.lastBackup'),
+      lastChecked: t('healthCheck.lastChecked1min'),
     },
     {
       id: 'file-consistency',
-      title: 'File Consistency',
+      title: t('healthCheck.fileConsistency'),
       icon: 'file-text',
       status: 'passed',
-      statusText: 'All files verified',
-      lastChecked: '3 mins ago',
+      statusText: t('healthCheck.allFilesVerified'),
+      lastChecked: t('healthCheck.lastChecked3mins'),
     },
   ];
 
   const recommendations: Recommendation[] = [
     {
       id: 'backup-recommended',
-      title: 'Schedule Automatic Backups',
-      description: 'Enable daily encrypted backups to prevent data loss in critical scenarios.',
+      title: t('healthCheck.scheduleBackups'),
+      description: t('healthCheck.scheduleBackupsDesc'),
       priority: 'high',
     },
     {
       id: 'storage-cleanup',
-      title: 'Optimize Storage Usage',
-      description: 'Free up 18% disk space by archiving or removing old vault snapshots.',
+      title: t('healthCheck.optimizeStorage'),
+      description: t('healthCheck.optimizeStorageDesc'),
       priority: 'medium',
     },
     {
       id: 'key-rotation',
-      title: 'Review Key Rotation Policy',
-      description: 'Keys are valid but consider rotating annually for enhanced security.',
+      title: t('healthCheck.reviewKeyRotation'),
+      description: t('healthCheck.reviewKeyRotationDesc'),
       priority: 'low',
     },
   ];
@@ -168,10 +171,10 @@ export default function HealthCheckScreen() {
             <View style={styles.contentWrapper}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.title}>Health Check</Text>
-                <Text style={styles.subtitle}>
-                  Run diagnostics on your vault integrity
+                <Text style={styles.title} accessibilityRole="header">
+                  {t('healthCheck.pageTitle')}
                 </Text>
+                <Text style={styles.subtitle}>{t('healthCheck.pageSubtitle')}</Text>
               </View>
 
               {/* Overall Health Score */}
@@ -179,25 +182,25 @@ export default function HealthCheckScreen() {
                 <View style={styles.healthScoreContent}>
                   <View style={styles.healthScoreCircle}>
                     <Text style={styles.healthScoreValue}>{overallHealth}%</Text>
-                    <Text style={styles.healthScoreLabel}>Healthy</Text>
+                    <Text style={styles.healthScoreLabel}>{t('healthCheck.healthy')}</Text>
                   </View>
                   <View style={styles.healthScoreDetails}>
-                    <Text style={styles.healthScoreTitle}>Overall Vault Health</Text>
+                    <Text style={styles.healthScoreTitle}>{t('healthCheck.overallHealth')}</Text>
                     <Text style={styles.healthScoreDescription}>
-                      Your vault is operating optimally with all critical systems functioning normally.
+                      {t('healthCheck.operatingOptimally')}
                     </Text>
                     <View style={styles.healthScoreMetrics}>
                       <View style={styles.metric}>
                         <Text style={styles.metricValue}>6/6</Text>
-                        <Text style={styles.metricLabel}>Checks Passed</Text>
+                        <Text style={styles.metricLabel}>{t('healthCheck.checksPassed')}</Text>
                       </View>
                       <View style={styles.metric}>
                         <Text style={styles.metricValue}>0</Text>
-                        <Text style={styles.metricLabel}>Critical Issues</Text>
+                        <Text style={styles.metricLabel}>{t('healthCheck.criticalIssues')}</Text>
                       </View>
                       <View style={styles.metric}>
                         <Text style={styles.metricValue}>2</Text>
-                        <Text style={styles.metricLabel}>Warnings</Text>
+                        <Text style={styles.metricLabel}>{t('healthCheck.warnings')}</Text>
                       </View>
                     </View>
                   </View>
@@ -206,6 +209,7 @@ export default function HealthCheckScreen() {
 
               {/* Run Diagnostic Button */}
               <Pressable
+                accessibilityRole="button"
                 onPress={handleRunDiagnostic}
                 disabled={isRunning}
                 style={(state: any) => [
@@ -221,19 +225,18 @@ export default function HealthCheckScreen() {
                   style={isRunning && styles.spinIcon}
                 />
                 <Text style={styles.runButtonText}>
-                  {isRunning ? 'Running Diagnostic...' : 'Run Full Diagnostic'}
+                  {isRunning ? t('healthCheck.running') : t('healthCheck.runDiagnostic')}
                 </Text>
               </Pressable>
 
               {/* Health Checks Grid */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>System Diagnostics</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('healthCheck.systemDiagnostics')}
+                </Text>
                 <View style={styles.checksGrid}>
-                  {healthChecks.map((check) => (
-                    <View
-                      key={check.id}
-                      style={[styles.checkCard, glassPanelBase, webOnlyGlass]}
-                    >
+                  {healthChecks.map(check => (
+                    <View key={check.id} style={[styles.checkCard, glassPanelBase, webOnlyGlass]}>
                       <View style={styles.checkCardHeader}>
                         <View style={styles.checkIconWrapper}>
                           <Feather
@@ -252,12 +255,7 @@ export default function HealthCheckScreen() {
 
                       <View style={styles.checkCardContent}>
                         <Text style={styles.checkTitle}>{check.title}</Text>
-                        <Text
-                          style={[
-                            styles.checkStatus,
-                            { color: getStatusColor(check.status) },
-                          ]}
-                        >
+                        <Text style={[styles.checkStatus, { color: getStatusColor(check.status) }]}>
                           {check.statusText}
                         </Text>
                       </View>
@@ -272,10 +270,13 @@ export default function HealthCheckScreen() {
 
               {/* Recommendations Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recommendations</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('healthCheck.recommendations')}
+                </Text>
                 <View style={styles.recommendationsContainer}>
-                  {recommendations.map((rec) => (
+                  {recommendations.map(rec => (
                     <Pressable
+                      accessibilityRole="button"
                       key={rec.id}
                       style={(state: any) => [
                         styles.recommendationCard,
@@ -309,11 +310,7 @@ export default function HealthCheckScreen() {
                         </View>
                         <Text style={styles.recDescription}>{rec.description}</Text>
                       </View>
-                      <Feather
-                        name="arrow-right"
-                        size={18}
-                        color={dashboardColors.cyan}
-                      />
+                      <Feather name="arrow-right" size={18} color={dashboardColors.cyan} />
                     </Pressable>
                   ))}
                 </View>
@@ -621,3 +618,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+export default withErrorBoundary(HealthCheckScreen, 'HealthCheck');

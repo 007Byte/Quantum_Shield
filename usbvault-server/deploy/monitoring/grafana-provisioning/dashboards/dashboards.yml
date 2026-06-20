@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: USBVault
+    orgId: 1
+    folder: USBVault
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards/usbvault
+      foldersFromFilesStructure: false

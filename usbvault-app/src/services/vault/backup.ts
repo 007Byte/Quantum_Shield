@@ -18,7 +18,7 @@
  */
 
 import { Platform } from 'react-native';
-import { useVaultStore, VaultInfo, FileInfo } from '@/stores/vaultStore';
+import type { VaultInfo, FileInfo } from '@/types/domain';
 import { auditService } from '@/services/auditService';
 import { logger } from '@/utils/logger';
 import { settingsService, UserSettings } from '@/services/settingsService';
@@ -128,7 +128,7 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
     encoder.encode(passphrase),
     'PBKDF2',
     false,
-    ['deriveBits'],
+    ['deriveBits']
   );
 
   const derivedBits = await crypto.subtle.deriveBits(
@@ -139,16 +139,13 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
       hash: 'SHA-256',
     },
     passphraseKey,
-    256,
+    256
   );
 
-  return crypto.subtle.importKey(
-    'raw',
-    derivedBits,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt', 'decrypt'],
-  );
+  return crypto.subtle.importKey('raw', derivedBits, { name: 'AES-GCM' }, false, [
+    'encrypt',
+    'decrypt',
+  ]);
 }
 
 /**
@@ -156,7 +153,7 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
  */
 async function encryptBackup(
   data: BackupData,
-  encryptionKey: string,
+  encryptionKey: string
 ): Promise<{ ciphertext: Uint8Array; iv: Uint8Array; salt: Uint8Array }> {
   // Generate random salt and IV
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -169,11 +166,7 @@ async function encryptBackup(
   const plaintext = new TextEncoder().encode(JSON.stringify(data));
 
   // Encrypt with AES-256-GCM
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    plaintext,
-  );
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
 
   // Zero-fill plaintext buffer to prevent memory exposure
   plaintext.fill(0);
@@ -192,7 +185,7 @@ async function decryptBackup(
   ciphertext: Uint8Array,
   iv: Uint8Array,
   salt: Uint8Array,
-  encryptionKey: string,
+  encryptionKey: string
 ): Promise<BackupData> {
   // Derive key from passphrase
   const key = await deriveKey(encryptionKey, salt);
@@ -201,7 +194,7 @@ async function decryptBackup(
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    ciphertext as BufferSource,
+    ciphertext as BufferSource
   );
 
   // Parse JSON and zero-fill decrypted buffer
@@ -297,12 +290,12 @@ function calculateBackupSize(vaults: VaultInfo[], files: FileInfo[]): number {
   let total = 0;
 
   // Count vault metadata
-  vaults.forEach((vault) => {
+  vaults.forEach(vault => {
     total += vault.name.length + vault.encryptedMetadata.length;
   });
 
   // Count file sizes
-  files.forEach((file) => {
+  files.forEach(file => {
     total += file.size + file.name.length + file.encryptedMetadata.length;
   });
 
@@ -322,19 +315,23 @@ class BackupService {
   /**
    * Create a backup of all vault data, files, and settings.
    *
+   * @param vaults - Array of vault data to backup
+   * @param files - Array of file data to backup
    * @param includePasswords - If true, include password hashes (not recommended)
    * @returns Complete backup data payload
    *
    * @example
-   * const backup = await backupService.createBackup();
+   * const backup = await backupService.createBackup(vaults, files);
    * console.log(`Created backup with ${backup.vaults.length} vaults`);
    */
-  async createBackup(includePasswords: boolean = false): Promise<BackupData> {
+  async createBackup(
+    vaults: VaultInfo[],
+    files: FileInfo[],
+    includePasswords: boolean = false
+  ): Promise<BackupData> {
     logger.log('[BackupService] Creating backup...');
 
     try {
-      const vaults = useVaultStore.getState().vaults;
-      const files = useVaultStore.getState().files;
       const settings = settingsService.load();
 
       const sizeBytes = calculateBackupSize(vaults, files);
@@ -371,7 +368,7 @@ class BackupService {
     } catch (error) {
       logger.error('[BackupService] Failed to create backup:', error);
       throw new Error(
-        `Failed to create backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to create backup: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -422,7 +419,7 @@ class BackupService {
     } catch (error) {
       logger.error('[BackupService] Failed to export backup:', error);
       throw new Error(
-        `Failed to export backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to export backup: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -462,14 +459,12 @@ class BackupService {
         logger.log('[BackupService] Backup imported successfully (unencrypted)');
         return parsed as BackupData;
       } else {
-        throw new Error(
-          'Backup is encrypted but no decryption key provided',
-        );
+        throw new Error('Backup is encrypted but no decryption key provided');
       }
     } catch (error) {
       logger.error('[BackupService] Failed to import backup:', error);
       throw new Error(
-        `Failed to import backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to import backup: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -478,18 +473,20 @@ class BackupService {
    * Restore vault data from a backup.
    *
    * @param backup - BackupData to restore
+   * @param store - Vault store instance for state mutations
    * @param options - Restore options
    * @returns Restoration result with counts
    *
    * @example
-   * const result = await backupService.restoreFromBackup(backup, {
+   * const result = await backupService.restoreFromBackup(backup, store, {
    *   mergeExisting: false,
    * });
    * console.log(`Restored ${result.vaultsRestored} vaults`);
    */
   async restoreFromBackup(
     backup: BackupData,
-    options: { mergeExisting?: boolean } = {},
+    store: any,
+    options: { mergeExisting?: boolean } = {}
   ): Promise<{
     vaultsRestored: number;
     filesRestored: number;
@@ -499,7 +496,6 @@ class BackupService {
 
     try {
       const { mergeExisting = false } = options;
-      const store = useVaultStore.getState();
 
       if (!mergeExisting) {
         // Clear existing data
@@ -543,15 +539,11 @@ class BackupService {
       });
 
       // Log audit event
-      await auditService.log(
-        'vault_restore',
-        `Backup ${backup.metadata.id}`,
-        {
-          vaultsRestored: backup.vaults.length,
-          filesRestored: backup.files.length,
-          mergeExisting,
-        },
-      );
+      await auditService.log('vault_restore', `Backup ${backup.metadata.id}`, {
+        vaultsRestored: backup.vaults.length,
+        filesRestored: backup.files.length,
+        mergeExisting,
+      });
 
       return {
         vaultsRestored: backup.vaults.length,
@@ -565,11 +557,11 @@ class BackupService {
         'vault_restore',
         `Backup ${backup.metadata.id}`,
         { error: error instanceof Error ? error.message : 'Unknown error' },
-        'error',
+        'error'
       );
 
       throw new Error(
-        `Failed to restore backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to restore backup: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -603,11 +595,7 @@ class BackupService {
     writeAutoBackupConfig(updated);
 
     // Log audit event
-    auditService.log(
-      'settings_change',
-      'auto_backup_config',
-      { config: updated },
-    ).catch(() => {});
+    auditService.log('settings_change', 'auto_backup_config', { config: updated }).catch(() => {});
   }
 
   /**
@@ -640,7 +628,7 @@ class BackupService {
   deleteBackupHistory(backupId: string): void {
     logger.log('[BackupService] Deleting backup history entry:', backupId);
 
-    const history = this.getBackupHistory().filter((h) => h.id !== backupId);
+    const history = this.getBackupHistory().filter(h => h.id !== backupId);
     writeBackupHistory(history);
   }
 
@@ -691,7 +679,7 @@ class BackupService {
     } catch (error) {
       logger.error('[BackupService] Failed to download backup:', error);
       throw new Error(
-        `Failed to download backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to download backup: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

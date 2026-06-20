@@ -261,6 +261,14 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 			return
 		}
 
+		// CR-2 FIX: Validate required fields in deserialized SRP state
+		// Prevents processing with zero-value fields from corrupted/tampered Redis data
+		if state.UserID == "" || state.EmailHash == "" || len(state.Salt) == 0 || len(state.SRPVerifier) == 0 || state.B == "" {
+			log.Warn().Str("session_id", req.SessionID).Msg("SRP state missing required fields")
+			http.Error(w, "invalid session", http.StatusUnauthorized)
+			return
+		}
+
 		// Parse SRP group parameters
 		N := new(big.Int)
 		N.SetString(srpN, 16)

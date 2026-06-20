@@ -6,11 +6,16 @@ import { useRouter } from 'expo-router';
 import { dashboardColors, dashboardSpacing, webOnlyEdgeLit, webOnlyGlassLuxury } from './styles';
 import { webOnly } from '@/utils/webStyle';
 import { useAuthStore } from '@/stores/authStore';
+import { useLanguage } from '@/hooks/useLanguage';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { auditService, AuditLogEntry, getActionIcon } from '@/services/auditService';
+import { vaultOrchestrator } from '@/services/vaultOrchestrator';
+import { useTheme } from '@/theme/engine';
+import { VaultSelector } from './top-bar/VaultSelector';
+import { VaultStatusBadge } from './top-bar/VaultStatusBadge';
 import type { PressableState } from '@/types/utilities';
 
-type DropdownMenu = 'language' | 'notifications' | 'profile' | null;
+type DropdownMenu = 'language' | 'notifications' | 'profile' | 'vault' | null;
 
 // PH4-FIX: Extended PressableProps with onClick for web compatibility
 type PressableWithClick = PressableProps & {
@@ -21,21 +26,23 @@ type PressableWithClick = PressableProps & {
 function DropdownItem({
   onPress,
   active,
+  isLight,
   children,
 }: {
   onPress: () => void;
   active?: boolean;
+  isLight?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Pressable
       onPress={onPress}
       // PH4-FIX: Proper type cast for web onClick handler
-      {...(Platform.OS === 'web' && { onClick: onPress } as PressableWithClick)}
+      {...(Platform.OS === 'web' && ({ onClick: onPress } as PressableWithClick))}
       style={(state: PressableState) => [
         styles.dropdownItem,
         active && styles.dropdownItemActive,
-        state.hovered && styles.dropdownItemHover,
+        state.hovered && (isLight ? styles.dropdownItemHoverLight : styles.dropdownItemHover),
       ]}
     >
       {children}
@@ -43,26 +50,57 @@ function DropdownItem({
   );
 }
 
+// Maps between i18n language codes and display names
+const LANG_CODE_TO_NAME: Record<string, string> = {
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+};
+const LANG_NAME_TO_CODE: Record<string, string> = {
+  English: 'en',
+  Spanish: 'es',
+  French: 'fr',
+  German: 'de',
+};
+
 export function TopBar() {
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const { language: currentLangCode, setLanguage, t } = useLanguage();
+  // Derive display name from the store's language code
+  const selectedLanguage = LANG_CODE_TO_NAME[currentLangCode] || 'English';
   const [openMenu, setOpenMenu] = useState<DropdownMenu>(null);
   const router = useRouter();
   // PL-011: Use individual selectors to avoid re-renders on unrelated auth state changes
-  const logout = useAuthStore((s) => s.logout);
-  const email = useAuthStore((s) => s.email);
-  const subscriptionTier = useAuthStore((s) => s.subscriptionTier);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const logout = useAuthStore(s => s.logout);
+  const email = useAuthStore(s => s.email);
+  const subscriptionTier = useAuthStore(s => s.subscriptionTier);
   const { modal, showAlert, showError } = useInAppModal();
-  const vaultLocked = !isAuthenticated;
-  const [darkMode, setDarkMode] = useState(true);
+
+  // FIX: Derive vault lock state from orchestrator, not app auth.
+  // App auth is whether the user logged in to the app,
+  // NOT whether the USB vault is unlocked.
+  const [vaultUnlocked, setVaultUnlocked] = useState(() => vaultOrchestrator.isUnlocked());
+  useEffect(() => {
+    // Sync on mount (in case unlock happened before this component rendered)
+    setVaultUnlocked(vaultOrchestrator.isUnlocked());
+    // Subscribe to future lock/unlock events
+    const unsubscribe = vaultOrchestrator.onLockStateChange((unlocked: boolean) => {
+      setVaultUnlocked(unlocked);
+    });
+    return unsubscribe;
+  }, []);
+  const vaultLocked = !vaultUnlocked;
+  const { colorScheme, toggleTheme } = useTheme();
+  const darkMode = colorScheme === 'dark';
+  const isLight = colorScheme === 'light';
   const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([]);
 
   // Derive display name and initials from auth store
   const displayName = useMemo(() => {
-    if (!email) return 'User';
+    if (!email) return t('common.user');
     const parts = email.split('@')[0].split(/[._-]/);
     return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-  }, [email]);
+  }, [email, t]);
 
   const initials = useMemo(() => {
     if (!email) return 'U';
@@ -73,11 +111,14 @@ export function TopBar() {
 
   const tierLabel = useMemo(() => {
     switch (subscriptionTier) {
-      case 'enterprise': return 'Enterprise Plan';
-      case 'pro': return 'Pro Plan';
-      default: return 'Free Plan';
+      case 'enterprise':
+        return t('topBar.enterprisePlan');
+      case 'pro':
+        return t('topBar.proPlan');
+      default:
+        return t('topBar.freePlan');
     }
-  }, [subscriptionTier]);
+  }, [subscriptionTier, t]);
 
   // PL-015: Load recent audit entries with visibility-aware polling
   // Pauses polling when tab is hidden to save CPU/battery
@@ -86,7 +127,9 @@ export function TopBar() {
       try {
         const entries = await auditService.getEntries({ limit: 5 });
         setRecentActivity(entries);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     loadNotifications();
 
@@ -94,10 +137,15 @@ export function TopBar() {
 
     const handleVisibility = () => {
       if (document.hidden) {
-        if (interval) { clearInterval(interval); interval = null; }
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
       } else {
         loadNotifications();
-        if (!interval) { interval = setInterval(loadNotifications, 10000); }
+        if (!interval) {
+          interval = setInterval(loadNotifications, 10000);
+        }
       }
     };
 
@@ -117,12 +165,12 @@ export function TopBar() {
   const formatNotifTime = useCallback((ts: string) => {
     const diff = Date.now() - new Date(ts).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t('topBar.justNow');
+    if (mins < 60) return t('topBar.minsAgo', { mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  }, []);
+    if (hours < 24) return t('topBar.hoursAgo', { hours });
+    return t('topBar.daysAgo', { days: Math.floor(hours / 24) });
+  }, [t]);
 
   const notifications = useMemo(() => {
     return recentActivity.map((entry, i) => ({
@@ -159,7 +207,7 @@ export function TopBar() {
   }, [openMenu]);
 
   const toggleMenu = useCallback((menu: DropdownMenu) => {
-    setOpenMenu((prev) => (prev === menu ? null : menu));
+    setOpenMenu(prev => (prev === menu ? null : menu));
   }, []);
 
   const closeMenu = useCallback(() => {
@@ -167,75 +215,89 @@ export function TopBar() {
   }, []);
 
   const handleSelectLanguage = useCallback((lang: string) => {
-    setSelectedLanguage(lang);
+    const code = LANG_NAME_TO_CODE[lang] || 'en';
+    setLanguage(code);
     setOpenMenu(null);
-  }, []);
+  }, [setLanguage]);
 
-  const handleProfileAction = useCallback(async (action: string) => {
-    setOpenMenu(null);
-    switch (action) {
-      case 'profile':
-        router.push('/(tabs)/settings');
-        break;
-      case 'switch':
-        showAlert('Switch Account', 'This feature is coming soon.');
-        break;
-      case 'signout':
-        try {
-          await logout();
-          router.replace('/(auth)/login');
-        } catch {
-          showError('Error', 'Failed to sign out. Please try again.');
-        }
-        break;
-    }
-  }, [logout, router, showAlert, showError]);
+  const handleProfileAction = useCallback(
+    async (action: string) => {
+      setOpenMenu(null);
+      switch (action) {
+        case 'profile':
+          router.navigate('/(tabs)/settings');
+          break;
+        case 'switch':
+          showAlert(t('topBar.switchAccount'), t('topBar.comingSoon'));
+          break;
+        case 'signout':
+          try {
+            await logout();
+            router.replace('/(auth)/login');
+          } catch {
+            showError('Error', t('topBar.signOutError'));
+          }
+          break;
+      }
+    },
+    [logout, router, showAlert, showError, t]
+  );
 
-  const languageCode = selectedLanguage === 'English' ? 'EN' : selectedLanguage.substring(0, 2).toUpperCase();
+  const languageCode = (currentLangCode || 'en').toUpperCase();
 
   return (
     <View nativeID="topbar-wrap" style={styles.wrap}>
-      {/* Vault Lock Status */}
-      <View style={[styles.vaultStatusBadge, vaultLocked ? styles.vaultStatusLocked : styles.vaultStatusUnlocked]}>
-        <View style={[styles.vaultStatusDot, { backgroundColor: vaultLocked ? '#EF4444' : '#22C55E' }]} />
-        <Text style={[styles.vaultStatusText, { color: vaultLocked ? '#EF4444' : '#22C55E' }]}>
-          {vaultLocked ? 'LOCKED' : 'UNLOCKED'}
-        </Text>
+      {/* Vault Selector + Lock Status */}
+      <View style={styles.vaultSelectorGroup}>
+        <VaultSelector
+          isOpen={openMenu === 'vault'}
+          onToggle={() => toggleMenu('vault')}
+          onClose={closeMenu}
+        />
+        <VaultStatusBadge vaultLocked={vaultLocked} />
       </View>
 
       {/* Dark/Light Mode Toggle */}
       <Pressable
-        onPress={() => setDarkMode(!darkMode)}
-        style={(state: PressableState) => [styles.themeToggleBtn, state.hovered && styles.controlPillHover] as any}
+        onPress={() => toggleTheme()}
+        style={(state: PressableState) =>
+          [styles.themeToggleBtn, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+        }
       >
-        <Feather name={darkMode ? 'moon' : 'sun'} size={15} color={dashboardColors.textPrimary} />
-        <Text style={styles.controlText}>{darkMode ? 'Dark' : 'Light'}</Text>
+        <Feather name={darkMode ? 'moon' : 'sun'} size={15} color={isLight ? '#504678' : dashboardColors.textPrimary} />
+        <Text style={[styles.controlText, isLight && styles.controlTextLight]}>{darkMode ? t('topBar.dark') : t('topBar.light')}</Text>
       </Pressable>
 
       {/* Language selector */}
-      <View style={[styles.controlContainer, openMenu === 'language' && styles.controlContainerOpen]}>
+      <View
+        style={[styles.controlContainer, openMenu === 'language' && styles.controlContainerOpen]}
+      >
         <Pressable
           onPress={() => toggleMenu('language')}
-          style={(state: PressableState) => [styles.controlPill, state.hovered && styles.controlPillHover] as any}
+          style={(state: PressableState) =>
+            [styles.controlPill, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+          }
         >
-          <Feather name="globe" size={15} color={dashboardColors.textPrimary} />
-          <Text style={styles.controlText}>{languageCode}</Text>
-          <Feather name="chevron-down" size={15} color={dashboardColors.textSecondary} />
+          <Feather name="globe" size={15} color={isLight ? '#504678' : dashboardColors.textPrimary} />
+          <Text style={[styles.controlText, isLight && styles.controlTextLight]}>{languageCode}</Text>
+          <Feather name="chevron-down" size={15} color={isLight ? '#8B7EB0' : dashboardColors.textSecondary} />
         </Pressable>
 
         {openMenu === 'language' && (
-          <View nativeID="dropdown-language" style={[styles.dropdown, styles.dropdownLanguage]}>
-            <Text style={styles.dropdownTitle}>LANGUAGE</Text>
-            {languages.map((lang) => (
-              <DropdownItem
+          <View nativeID="dropdown-language" style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownLanguage]}>
+            <Text style={styles.dropdownTitle}>{t('topBar.language')}</Text>
+            {languages.map(lang => (
+              <DropdownItem isLight={isLight}
                 key={lang}
                 onPress={() => handleSelectLanguage(lang)}
                 active={selectedLanguage === lang}
               >
-                <Text style={[
-                  styles.dropdownItemText,
-                  selectedLanguage === lang && styles.dropdownItemTextActive,
-                ]}>
+                <Text
+                  style={[
+                    styles.dropdownItemText,
+                    selectedLanguage === lang && styles.dropdownItemTextActive,
+                  ]}
+                >
                   {lang}
                 </Text>
                 {selectedLanguage === lang && (
@@ -248,22 +310,32 @@ export function TopBar() {
       </View>
 
       {/* Notifications */}
-      <View style={[styles.controlContainer, openMenu === 'notifications' && styles.controlContainerOpen]}>
+      <View
+        style={[
+          styles.controlContainer,
+          openMenu === 'notifications' && styles.controlContainerOpen,
+        ]}
+      >
         <Pressable
           onPress={() => toggleMenu('notifications')}
-          style={(state: PressableState) => [styles.notificationBtn, state.hovered && styles.controlPillHover] as any}
+          style={(state: PressableState) =>
+            [styles.notificationBtn, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+          }
         >
-          <Feather name="bell" size={16} color={dashboardColors.textPrimary} />
+          <Feather name="bell" size={16} color={isLight ? '#504678' : dashboardColors.textPrimary} />
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{notifications.length}</Text>
           </View>
         </Pressable>
 
         {openMenu === 'notifications' && (
-          <View nativeID="dropdown-notifications" style={[styles.dropdown, styles.dropdownNotifications]}>
-            <Text style={styles.dropdownTitle}>NOTIFICATIONS</Text>
-            {notifications.map((notif) => (
-              <DropdownItem key={notif.id} onPress={closeMenu}>
+          <View
+            nativeID="dropdown-notifications"
+            style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownNotifications]}
+          >
+            <Text style={styles.dropdownTitle}>{t('topBar.notifications')}</Text>
+            {notifications.map(notif => (
+              <DropdownItem isLight={isLight} key={notif.id} onPress={closeMenu}>
                 <View style={styles.notifIcon}>
                   <Feather name={notif.icon} size={14} color={dashboardColors.cyan} />
                 </View>
@@ -274,9 +346,14 @@ export function TopBar() {
               </DropdownItem>
             ))}
             <View style={styles.dropdownDivider} />
-            <DropdownItem onPress={() => { closeMenu(); router.push('/(tabs)/activity'); }}>
+            <DropdownItem isLight={isLight}
+              onPress={() => {
+                closeMenu();
+                router.navigate('/(tabs)/activity');
+              }}
+            >
               <Text style={[styles.dropdownItemText, { color: dashboardColors.cyan }]}>
-                View All Notifications
+                {t('topBar.viewAll')}
               </Text>
             </DropdownItem>
           </View>
@@ -284,20 +361,24 @@ export function TopBar() {
       </View>
 
       {/* Profile */}
-      <View style={[styles.controlContainer, openMenu === 'profile' && styles.controlContainerOpen]}>
+      <View
+        style={[styles.controlContainer, openMenu === 'profile' && styles.controlContainerOpen]}
+      >
         <Pressable
           onPress={() => toggleMenu('profile')}
-          style={(state: PressableState) => [styles.profilePill, state.hovered && styles.controlPillHover] as any}
+          style={(state: PressableState) =>
+            [styles.profilePill, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+          }
         >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={[styles.avatar, isLight && styles.avatarLight]}>
+            <Text style={[styles.avatarText, isLight && styles.controlTextLight]}>{initials}</Text>
           </View>
-          <Text style={styles.profileName}>{displayName}</Text>
-          <Ionicons name="chevron-down" size={14} color={dashboardColors.textSecondary} />
+          <Text style={[styles.profileName, isLight && styles.controlTextLight]}>{displayName}</Text>
+          <Ionicons name="chevron-down" size={14} color={isLight ? '#8B7EB0' : dashboardColors.textSecondary} />
         </Pressable>
 
         {openMenu === 'profile' && (
-          <View nativeID="dropdown-profile" style={[styles.dropdown, styles.dropdownProfile]}>
+          <View nativeID="dropdown-profile" style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownProfile]}>
             {/* Profile header */}
             <View style={styles.profileHeader}>
               <View style={styles.profileHeaderAvatar}>
@@ -311,21 +392,21 @@ export function TopBar() {
 
             <View style={styles.dropdownDivider} />
 
-            <DropdownItem onPress={() => handleProfileAction('profile')}>
+            <DropdownItem isLight={isLight} onPress={() => handleProfileAction('profile')}>
               <Feather name="user" size={15} color={dashboardColors.textSecondary} />
-              <Text style={styles.dropdownItemText}>Profile Settings</Text>
+              <Text style={styles.dropdownItemText}>{t('topBar.profileSettings')}</Text>
             </DropdownItem>
 
-            <DropdownItem onPress={() => handleProfileAction('switch')}>
+            <DropdownItem isLight={isLight} onPress={() => handleProfileAction('switch')}>
               <Feather name="refresh-cw" size={15} color={dashboardColors.textSecondary} />
-              <Text style={styles.dropdownItemText}>Switch Account</Text>
+              <Text style={styles.dropdownItemText}>{t('topBar.switchAccount')}</Text>
             </DropdownItem>
 
             <View style={styles.dropdownDivider} />
 
-            <DropdownItem onPress={() => handleProfileAction('signout')}>
+            <DropdownItem isLight={isLight} onPress={() => handleProfileAction('signout')}>
               <Feather name="log-out" size={15} color="#EF4444" />
-              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Sign Out</Text>
+              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>{t('topBar.signOut')}</Text>
             </DropdownItem>
           </View>
         )}
@@ -374,6 +455,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  vaultSelectorGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 'auto',
+    position: 'relative',
+    ...webOnly({ zIndex: 1002, overflow: 'visible' }),
   },
   wrap: {
     flexDirection: 'row',
@@ -427,6 +516,30 @@ const styles = StyleSheet.create({
         '0 0 0 1px rgba(34,211,238,0.3), 0 0 20px rgba(34,211,238,0.35), 0 0 40px rgba(139,92,246,0.25), inset 0 1px 0 rgba(245,243,255,0.12), inset 0 0 14px rgba(34,211,238,0.15)',
       background: 'linear-gradient(145deg, rgba(139,92,246,0.28), rgba(34,211,238,0.16))',
     }),
+  },
+  controlLight: {
+    borderColor: 'rgba(200,190,230,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
+    ...webOnly({
+      background: 'rgba(255,255,255,0.50)',
+      boxShadow: '0 2px 8px rgba(124,58,237,0.06), inset 0 1px 0 rgba(255,255,255,0.60)',
+      backdropFilter: 'blur(16px)',
+    }),
+  },
+  controlHoverLight: {
+    borderColor: 'rgba(124,58,237,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    ...webOnly({
+      background: 'rgba(255,255,255,0.65)',
+      boxShadow: '0 4px 12px rgba(124,58,237,0.10), inset 0 1px 0 rgba(255,255,255,0.70)',
+    }),
+  },
+  controlTextLight: {
+    color: '#504678',
+  },
+  avatarLight: {
+    backgroundColor: 'rgba(124,58,237,0.12)',
+    borderColor: 'rgba(124,58,237,0.25)',
   },
   controlText: {
     color: dashboardColors.textPrimary,
@@ -516,9 +629,17 @@ const styles = StyleSheet.create({
     minWidth: 200,
     ...webOnly({
       zIndex: 2000,
-      boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(139,92,246,0.25), 0 0 1px rgba(139,92,246,0.5)',
+      boxShadow:
+        '0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(139,92,246,0.25), 0 0 1px rgba(139,92,246,0.5)',
       backdropFilter: 'blur(24px)',
       overflow: 'visible',
+    }),
+  },
+  dropdownLightMode: {
+    borderColor: 'rgba(200,190,230,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    ...webOnly({
+      boxShadow: '0 8px 30px rgba(0,0,0,0.12), 0 0 1px rgba(200,190,230,0.40)',
     }),
   },
   dropdownLanguage: {
@@ -561,6 +682,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(139,92,246,0.18)',
     ...webOnly({
       boxShadow: '0 0 12px rgba(139,92,246,0.15)',
+    }),
+  },
+  dropdownItemHoverLight: {
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    ...webOnly({
+      boxShadow: '0 0 6px rgba(124,58,237,0.06)',
     }),
   },
   dropdownItemActive: {

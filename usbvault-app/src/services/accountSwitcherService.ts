@@ -1,4 +1,5 @@
 import { auditService } from '@/services/auditService';
+import { logger } from '@/utils/logger';
 
 export interface UserAccount {
   id: string;
@@ -32,7 +33,7 @@ class AccountSwitcherService {
         this.activeAccountId = activeStored;
       }
     } catch (error) {
-      console.error('Failed to load accounts from storage:', error);
+      logger.error('Failed to load accounts from storage:', error);
       this.accounts = [];
       this.activeAccountId = null;
     }
@@ -45,7 +46,7 @@ class AccountSwitcherService {
         localStorage.setItem('usbvault:active_account', this.activeAccountId);
       }
     } catch (error) {
-      console.error('Failed to save accounts to storage:', error);
+      logger.error('Failed to save accounts to storage:', error);
     }
   }
 
@@ -55,18 +56,18 @@ class AccountSwitcherService {
 
   getActiveAccount(): UserAccount | null {
     if (!this.activeAccountId) return null;
-    return this.accounts.find((acc) => acc.id === this.activeAccountId) || null;
+    return this.accounts.find(acc => acc.id === this.activeAccountId) || null;
   }
 
   async switchAccount(accountId: string): Promise<void> {
-    const account = this.accounts.find((acc) => acc.id === accountId);
+    const account = this.accounts.find(acc => acc.id === accountId);
     if (!account) {
       throw new Error(`Account with ID ${accountId} not found`);
     }
 
     // Deactivate previous account
     if (this.activeAccountId) {
-      const prevAccount = this.accounts.find((acc) => acc.id === this.activeAccountId);
+      const prevAccount = this.accounts.find(acc => acc.id === this.activeAccountId);
       if (prevAccount) {
         prevAccount.isActive = false;
       }
@@ -78,11 +79,10 @@ class AccountSwitcherService {
     this.activeAccountId = accountId;
 
     this.saveToStorage();
-    await auditService.log(
-      'ACCOUNT_SWITCH' as any,
-      `account:${accountId}`,
-      { previousAccountId: this.activeAccountId, newAccountId: accountId }
-    );
+    await auditService.log('ACCOUNT_SWITCH' as any, `account:${accountId}`, {
+      previousAccountId: this.activeAccountId,
+      newAccountId: accountId,
+    });
   }
 
   addAccount(email: string, displayName: string): UserAccount {
@@ -109,7 +109,7 @@ class AccountSwitcherService {
   }
 
   removeAccount(accountId: string): void {
-    const index = this.accounts.findIndex((acc) => acc.id === accountId);
+    const index = this.accounts.findIndex(acc => acc.id === accountId);
     if (index === -1) {
       throw new Error(`Account with ID ${accountId} not found`);
     }
@@ -129,7 +129,7 @@ class AccountSwitcherService {
   }
 
   updateAccount(accountId: string, partial: Partial<UserAccount>): void {
-    const account = this.accounts.find((acc) => acc.id === accountId);
+    const account = this.accounts.find(acc => acc.id === accountId);
     if (!account) {
       throw new Error(`Account with ID ${accountId} not found`);
     }

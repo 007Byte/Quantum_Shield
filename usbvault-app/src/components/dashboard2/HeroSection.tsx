@@ -2,7 +2,9 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { heroActions } from './mockData';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useTheme } from '@/theme/engine';
+import { heroActions } from './navigationConfig';
 import {
   dashboardColors,
   dashboardSpacing,
@@ -10,7 +12,9 @@ import {
   webOnlyEdgeLit,
   webOnlyGlassLuxury,
   webOnlyGlowTier1,
+  webOnlyGlowTier1Light,
   webOnlyGlowTier2,
+  webOnlyGlowTier2Light,
   webOnlyTransition,
 } from './styles';
 import { HeroAction } from './types';
@@ -43,16 +47,26 @@ function renderActionIcon(action: HeroAction) {
  * - Three action cards with icons for common workflows
  * - Responsive layout adapts to mobile and desktop views
  */
+// Map hero action IDs to i18n keys
+const HERO_ACTION_KEY: Record<string, string> = {
+  encrypt: 'hero.encrypt',
+  decrypt: 'hero.decrypt',
+  share: 'hero.share',
+};
+
 export function HeroSection() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { colorScheme, theme } = useTheme();
+  const isLight = colorScheme === 'light';
 
   const handleActionPress = (actionId: string) => {
     if (actionId === 'encrypt') {
-      router.push('/(tabs)/encrypt' as any);
+      router.navigate('/(tabs)/encrypt-store' as any);
     } else if (actionId === 'decrypt') {
-      router.push('/(tabs)/decrypt' as any);
+      router.navigate('/(tabs)/decrypt-export' as any);
     } else if (actionId === 'share') {
-      router.push('/(tabs)/share' as any);
+      router.navigate('/(tabs)/share' as any);
     }
   };
 
@@ -62,23 +76,35 @@ export function HeroSection() {
       <View style={styles.heroArea}>
         {/* Shield image — absolutely positioned behind everything */}
         <View style={styles.shieldContainer}>
-          <View style={[styles.visualGlowLarge, webOnlyGlowTier1]} />
-          <View style={styles.visualGlowSmall} />
-          <View style={styles.visualLightSpill} />
-          <Image source={heroLogoAsset} style={styles.heroLogo} resizeMode="contain" />
+          <View style={[styles.visualGlowLarge, isLight ? webOnlyGlowTier1Light : webOnlyGlowTier1, isLight && styles.visualGlowLargeLight]} />
+          <View style={[styles.visualGlowSmall, isLight && styles.visualGlowSmallLight]} />
+          <View style={[styles.visualLightSpill, isLight && styles.visualLightSpillLight]} />
+          <Image source={heroLogoAsset} style={[styles.heroLogo, isLight && styles.heroLogoLight]} resizeMode="contain" />
         </View>
 
         {/* Text content — sits on top of the shield */}
         <View style={styles.copyCol}>
-          <Text style={[styles.title, textGlowStrong]}>{'QUANTUM\nARMOR\nVAULT'}</Text>
-          <Text style={styles.subtitle}>Protected by Post-Quantum Cryptography</Text>
+          <Text style={[styles.title, !isLight && textGlowStrong, isLight && { color: theme.L0.base.text.primary }]}>
+            {t('hero.title')}
+          </Text>
+          <Text style={[styles.subtitle, isLight && { color: theme.L0.base.text.secondary }]}>
+            {t('hero.subtitle')}
+          </Text>
 
-          <Pressable style={(state: any) => [styles.statusPill, state.hovered && styles.statusPillHovered]}>
+          <Pressable
+            style={(state: any) => [
+              styles.statusPill,
+              isLight && styles.statusPillLight,
+              state.hovered && styles.statusPillHovered,
+            ]}
+          >
             <View style={styles.statusDotWrap}>
-              <Ionicons name="checkmark-circle" size={16} color={dashboardColors.green} />
+              <Ionicons name="checkmark-circle" size={16} color={theme.semantic.green} />
             </View>
-            <Text style={styles.statusLabel}>PQC Protected</Text>
-            <Feather name="chevron-down" size={16} color={dashboardColors.textSecondary} />
+            <Text style={[styles.statusLabel, isLight && { color: theme.L2.base.text.primary }]}>
+              {t('hero.pqcProtected')}
+            </Text>
+            <Feather name="chevron-down" size={16} color={theme.L2.base.text.secondary} />
           </Pressable>
 
           <Pressable
@@ -86,20 +112,28 @@ export function HeroSection() {
             style={(state: any) => [styles.primaryCta, state.hovered && styles.primaryCtaHovered]}
           >
             <Feather name="plus" size={22} color="#111827" />
-            <Text style={styles.primaryCtaText}>Encrypt New</Text>
+            <Text style={styles.primaryCtaText}>{t('hero.encryptNew')}</Text>
           </Pressable>
         </View>
       </View>
 
       <View style={styles.actionRow}>
-        {heroActions.map((action) => (
+        {heroActions.map(action => (
           <Pressable
             key={action.id}
             onPress={() => handleActionPress(action.id)}
-            style={(state: any) => [styles.actionCard, state.hovered && styles.actionCardHovered]}
+            style={(state: any) => [
+              styles.actionCard,
+              isLight && styles.actionCardLight,
+              state.hovered && (isLight ? styles.actionCardLightHovered : styles.actionCardHovered),
+            ]}
           >
-            <View style={styles.actionIconWrap}>{renderActionIcon(action)}</View>
-            <Text style={styles.actionText}>{action.label}</Text>
+            <View style={[styles.actionIconWrap, isLight && styles.actionIconWrapLight]}>
+              {renderActionIcon(action)}
+            </View>
+            <Text style={[styles.actionText, isLight && { color: theme.L2.base.text.primary }]}>
+              {t(HERO_ACTION_KEY[action.id]) || action.label}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -162,7 +196,8 @@ const styles = StyleSheet.create({
     width: '100%' as any,
     height: '100%' as any,
     ...webOnly({
-      filter: 'drop-shadow(0 0 28px rgba(139,92,246,0.55)) drop-shadow(0 0 56px rgba(34,211,238,0.35))',
+      filter:
+        'drop-shadow(0 0 28px rgba(139,92,246,0.55)) drop-shadow(0 0 56px rgba(34,211,238,0.35))',
     }),
   },
   /* ── Text content layer (on top) ── */
@@ -282,13 +317,15 @@ const styles = StyleSheet.create({
     gap: 10,
     ...webOnly({
       background: 'linear-gradient(145deg, rgba(139,92,246,0.22), rgba(34,211,238,0.1))',
-      boxShadow: '0 0 18px rgba(139,92,246,0.28), 0 0 28px rgba(34,211,238,0.12), inset 0 0 18px rgba(139,92,246,0.2)',
+      boxShadow:
+        '0 0 18px rgba(139,92,246,0.28), 0 0 28px rgba(34,211,238,0.12), inset 0 0 18px rgba(139,92,246,0.2)',
     }),
   },
   actionCardHovered: {
     ...webOnly({
       transform: 'translateY(-2px)',
-      boxShadow: '0 0 25px rgba(124,58,237,0.6), 0 0 44px rgba(34,211,238,0.24), inset 0 0 18px rgba(34,211,238,0.24)',
+      boxShadow:
+        '0 0 25px rgba(124,58,237,0.6), 0 0 44px rgba(34,211,238,0.24), inset 0 0 18px rgba(34,211,238,0.24)',
     }),
   },
   actionIconWrap: {
@@ -304,5 +341,60 @@ const styles = StyleSheet.create({
     color: dashboardColors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
+  },
+  /* ── Light mode overrides ── */
+  visualGlowLargeLight: {
+    backgroundColor: 'rgba(124,58,237,0.12)',
+    ...webOnly({ filter: 'blur(60px)' }),
+  },
+  visualGlowSmallLight: {
+    backgroundColor: 'rgba(8,145,178,0.10)',
+    ...webOnly({ filter: 'blur(50px)' }),
+  },
+  visualLightSpillLight: {
+    ...webOnly({
+      background:
+        'linear-gradient(90deg, rgba(124,58,237,0), rgba(124,58,237,0.10), rgba(8,145,178,0.08), rgba(124,58,237,0))',
+      filter: 'blur(14px)',
+    }),
+    opacity: 0.5,
+  },
+  heroLogoLight: {
+    ...webOnly({
+      filter:
+        'drop-shadow(0 0 14px rgba(124,58,237,0.18)) drop-shadow(0 0 28px rgba(8,145,178,0.10))',
+    }),
+  },
+  statusPillLight: {
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderColor: 'rgba(8,145,178,0.30)',
+    ...webOnly({
+      background: 'linear-gradient(145deg, rgba(255,255,255,0.60), rgba(255,255,255,0.45))',
+      boxShadow:
+        '0 0 0 1px rgba(255,255,255,0.50), 0 2px 12px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.65)',
+      backdropFilter: 'blur(16px)',
+    }),
+  },
+  actionCardLight: {
+    backgroundColor: 'rgba(255,255,255,0.50)',
+    borderColor: 'rgba(200,190,230,0.35)',
+    ...webOnly({
+      background: 'linear-gradient(145deg, rgba(255,255,255,0.55), rgba(255,255,255,0.42))',
+      boxShadow:
+        '0 2px 16px rgba(139,92,246,0.06), 0 0 0 1px rgba(255,255,255,0.50), inset 0 1px 0 rgba(255,255,255,0.60)',
+      backdropFilter: 'blur(16px)',
+    }),
+  },
+  actionCardLightHovered: {
+    ...webOnly({
+      transform: 'translateY(-2px)',
+      background: 'linear-gradient(145deg, rgba(255,255,255,0.65), rgba(255,255,255,0.50))',
+      boxShadow:
+        '0 6px 24px rgba(139,92,246,0.10), 0 0 0 1px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.70)',
+    }),
+  },
+  actionIconWrapLight: {
+    backgroundColor: 'rgba(124,58,237,0.12)',
+    ...webOnly({ boxShadow: '0 0 8px rgba(139,92,246,0.10)' }),
   },
 });

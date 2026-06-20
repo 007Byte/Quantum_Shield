@@ -3,7 +3,6 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      'react-native-reanimated/plugin',
       [
         'module-resolver',
         {
@@ -19,6 +18,8 @@ module.exports = function (api) {
           },
         },
       ],
+      // Must be last: https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/#step-2-add-reanimateds-babel-plugin
+      'react-native-reanimated/plugin',
     ],
   };
 };

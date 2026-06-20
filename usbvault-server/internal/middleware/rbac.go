@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	auth "github.com/usbvault/usbvault-server/internal/auth"
 	"github.com/rs/zerolog/log"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // RBACChecker defines the interface for checking permissions
@@ -19,7 +20,7 @@ func RequireVaultPermission(rbac RBACChecker, perm auth.Permission) func(http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract user ID from context
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 			if !ok {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return

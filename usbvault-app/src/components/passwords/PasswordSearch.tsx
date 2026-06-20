@@ -2,7 +2,13 @@
 import { StyleSheet, TextInput, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
-import { dashboardSpacing, dashboardColors, glassPanelBase, webOnlyGlass } from '@/components/dashboard2/styles';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  glassPanelBase,
+  webOnlyGlass,
+} from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface PasswordSearchProps {
   searchQuery: string;
@@ -10,12 +16,23 @@ interface PasswordSearchProps {
 }
 
 export function PasswordSearch({ searchQuery, onSearchChange }: PasswordSearchProps) {
+  const { t } = useLanguage();
+
   return (
-    <Pressable style={(state: any) => [styles.searchContainer, glassPanelBase, webOnlyGlass, state.hovered && styles.searchContainerHover]}>
+    <Pressable
+      style={(state: any) => [
+        styles.searchContainer,
+        glassPanelBase,
+        webOnlyGlass,
+        state.hovered && styles.searchContainerHover,
+      ]}
+      accessibilityRole="button"
+    >
       <Feather name="search" size={20} color={dashboardColors.textSecondary} />
       <TextInput
+        accessibilityLabel={t('passwords.searchPlaceholder')}
         style={styles.searchInput}
-        placeholder="Search passwords..."
+        placeholder={t('passwords.searchPlaceholder')}
         placeholderTextColor={dashboardColors.textSecondary}
         value={searchQuery}
         onChangeText={onSearchChange}

@@ -50,13 +50,14 @@ const ENV_PIN_EXPIRATION = process.env.EXPO_PUBLIC_PIN_EXPIRATION || '2027-06-01
 export const CERTIFICATE_PINS: CertificatePin[] = [
   {
     hostname: ENV_API_HOSTNAME,
-    sha256Pins: ENV_PRIMARY_PIN && ENV_BACKUP_PIN
-      ? [ENV_PRIMARY_PIN, ENV_BACKUP_PIN]
-      : [
-          // Fallback: placeholder values that will be detected and rejected
-          'sha256/PRODUCTION_PIN_REQUIRED',
-          'sha256/PRODUCTION_BACKUP_PIN_REQUIRED',
-        ],
+    sha256Pins:
+      ENV_PRIMARY_PIN && ENV_BACKUP_PIN
+        ? [ENV_PRIMARY_PIN, ENV_BACKUP_PIN]
+        : [
+            // Fallback: placeholder values that will be detected and rejected
+            'sha256/PRODUCTION_PIN_REQUIRED',
+            'sha256/PRODUCTION_BACKUP_PIN_REQUIRED',
+          ],
     includeSubdomains: true,
     expirationDate: ENV_PIN_EXPIRATION,
   },
@@ -85,12 +86,12 @@ export function arePinsConfigured(): boolean {
 
   // Check for placeholder or TODO values
   const placeholderPatterns = [
-    /^AAAA+=/,           // Placeholder pattern
-    /^BBBB+=/,           // Placeholder pattern
-    /^TODO/,             // TODO marker
-    /^REPLACE/,          // REPLACE marker
-    /_REQUIRED$/,        // Placeholder format: *_REQUIRED
-    /_PIN_REQUIRED$/,    // Placeholder format: *_PIN_REQUIRED
+    /^AAAA+=/, // Placeholder pattern
+    /^BBBB+=/, // Placeholder pattern
+    /^TODO/, // TODO marker
+    /^REPLACE/, // REPLACE marker
+    /_REQUIRED$/, // Placeholder format: *_REQUIRED
+    /_PIN_REQUIRED$/, // Placeholder format: *_PIN_REQUIRED
   ];
 
   let hasPlaceholder = false;
@@ -103,7 +104,9 @@ export function arePinsConfigured(): boolean {
 
           // PH1-FIX: Development bypass - log warning but don't fail
           if (isDevMode) {
-            logger.warn(`Certificate pinning: placeholder pin detected in DEVELOPMENT mode: ${pinValue}`);
+            logger.warn(
+              `Certificate pinning: placeholder pin detected in DEVELOPMENT mode: ${pinValue}`
+            );
           } else {
             // Production: fail closed
             logger.error(`Certificate pinning: placeholder pin detected (PRODUCTION): ${pinValue}`);
@@ -116,7 +119,9 @@ export function arePinsConfigured(): boolean {
 
   // In development mode with placeholders, warn but allow
   if (hasPlaceholder && (__DEV__ || process.env.NODE_ENV === 'development')) {
-    logger.warn('Certificate pinning: Running in DEVELOPMENT mode with placeholder pins. Configure real pins for production.');
+    logger.warn(
+      'Certificate pinning: Running in DEVELOPMENT mode with placeholder pins. Configure real pins for production.'
+    );
     return true; // Allow in dev mode
   }
 
@@ -184,9 +189,7 @@ export function validatePinConfiguration(): { valid: boolean; errors: string[] }
     // Validate Base64 encoding
     pin.sha256Pins.forEach((pinValue, pinIndex) => {
       if (!isValidBase64(pinValue)) {
-        errors.push(
-          `Pin ${index} (${pin.hostname}): Invalid Base64 encoding at pin ${pinIndex}`
-        );
+        errors.push(`Pin ${index} (${pin.hostname}): Invalid Base64 encoding at pin ${pinIndex}`);
       }
     });
 
@@ -231,8 +234,7 @@ export function isPinExpired(pin: CertificatePin): boolean {
  */
 export function getActivePins(hostname: string): string[] {
   const pin = CERTIFICATE_PINS.find(
-    (p) => p.hostname === hostname ||
-           (p.includeSubdomains && hostname.endsWith('.' + p.hostname))
+    p => p.hostname === hostname || (p.includeSubdomains && hostname.endsWith('.' + p.hostname))
   );
 
   if (!pin) {
@@ -299,8 +301,7 @@ function isValidBase64(str: string): boolean {
  */
 export function getAllPinsForHostname(hostname: string): CertificatePin | undefined {
   return CERTIFICATE_PINS.find(
-    (p) => p.hostname === hostname ||
-           (p.includeSubdomains && hostname.endsWith('.' + p.hostname))
+    p => p.hostname === hostname || (p.includeSubdomains && hostname.endsWith('.' + p.hostname))
   );
 }
 
@@ -324,7 +325,7 @@ export function getAllPinsForHostname(hostname: string): CertificatePin | undefi
  * - CWE-295 mitigation: Enables pin rotation for expired certs
  */
 export function updatePinsForHostname(hostname: string, newPins: Partial<CertificatePin>): void {
-  const pinIndex = CERTIFICATE_PINS.findIndex((p) => p.hostname === hostname);
+  const pinIndex = CERTIFICATE_PINS.findIndex(p => p.hostname === hostname);
 
   if (pinIndex === -1) {
     // Add new pin configuration

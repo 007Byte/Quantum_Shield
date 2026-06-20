@@ -16,6 +16,7 @@ import { AppState, Platform, NativeModules } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { logger } from '@/utils/logger';
+import { securitySettings } from '@/services/settingsStorage';
 
 // PH4-FIX: Type for AppState subscription
 interface AppStateSubscription {
@@ -59,10 +60,7 @@ let isAppInBackground = false;
 /**
  * setupAutoLock - Configure and enable automatic vault locking on app background.
  */
-export function setupAutoLock(
-  config: AppProtectionConfig,
-  onLock: () => void
-): () => void {
+export function setupAutoLock(config: AppProtectionConfig, onLock: () => void): () => void {
   currentConfig = { ...currentConfig, ...config };
 
   if (!currentConfig.lockOnBackground) {
@@ -95,7 +93,7 @@ function handleAppStateChange(
 
       // RM-005 FIX: Immediately clear clipboard on background transition
       // Prevents clipboard data from being available to other apps
-      clearClipboardImmediately().catch((err) => {
+      clearClipboardImmediately().catch(err => {
         logger.error('[App Protection] Background clipboard clear failed:', err);
       });
 
@@ -193,9 +191,13 @@ export function setScreenshotPrevention(enabled: boolean): void {
           } else {
             PreventScreenshot.disableSecureView();
           }
-          logger.log(`[App Protection] Screenshot prevention ${enabled ? 'enabled' : 'disabled'} via library`);
+          logger.log(
+            `[App Protection] Screenshot prevention ${enabled ? 'enabled' : 'disabled'} via library`
+          );
         } catch {
-          logger.warn('[App Protection] No native screenshot prevention module available (Android)');
+          logger.warn(
+            '[App Protection] No native screenshot prevention module available (Android)'
+          );
         }
       }
     } else if (Platform.OS === 'ios') {
@@ -213,7 +215,9 @@ export function setScreenshotPrevention(enabled: boolean): void {
           } else {
             PreventScreenshot.disableSecureView();
           }
-          logger.log(`[App Protection] Screenshot prevention ${enabled ? 'enabled' : 'disabled'} via library`);
+          logger.log(
+            `[App Protection] Screenshot prevention ${enabled ? 'enabled' : 'disabled'} via library`
+          );
         } catch {
           logger.warn('[App Protection] No native screenshot prevention module available (iOS)');
         }
@@ -226,10 +230,14 @@ export function setScreenshotPrevention(enabled: boolean): void {
 
 /**
  * initializeAppProtection - Initialize all security protections for the application.
+ * Sources autoLockTimeoutMs from persisted security settings when no override is provided.
  */
 export function initializeAppProtection(customConfig?: Partial<AppProtectionConfig>): () => void {
+  // Source persisted auto-lock timeout from security settings storage
+  const persisted = securitySettings.load();
   const config: AppProtectionConfig = {
     ...DEFAULT_PROTECTION_CONFIG,
+    autoLockTimeoutMs: persisted.autoLockTimeoutMs,
     ...customConfig,
   };
 
@@ -257,7 +265,7 @@ export function initializeAppProtection(customConfig?: Partial<AppProtectionConf
     }
 
     // Cleanup clipboard timeouts
-    clipboardTimeouts.forEach((t) => clearTimeout(t));
+    clipboardTimeouts.forEach(t => clearTimeout(t));
     clipboardTimeouts.clear();
 
     // Cleanup app state subscription
@@ -284,7 +292,7 @@ export function isAppInBackgroundNow(): boolean {
 export async function clearClipboardImmediately(): Promise<void> {
   try {
     // Clear all pending clipboard timeouts
-    clipboardTimeouts.forEach((t) => clearTimeout(t));
+    clipboardTimeouts.forEach(t => clearTimeout(t));
     clipboardTimeouts.clear();
 
     // Clear clipboard content
@@ -315,10 +323,7 @@ export function triggerManualLock(onLock: () => void): void {
 /**
  * useAppProtection - React hook for app protection initialization in components.
  */
-export function useAppProtection(
-  onLock: () => void,
-  config?: Partial<AppProtectionConfig>
-): void {
+export function useAppProtection(onLock: () => void, config?: Partial<AppProtectionConfig>): void {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -326,10 +331,7 @@ export function useAppProtection(
     cleanupRef.current = initializeAppProtection(config);
 
     // Setup auto-lock
-    const autoLockCleanup = setupAutoLock(
-      { ...DEFAULT_PROTECTION_CONFIG, ...config },
-      onLock
-    );
+    const autoLockCleanup = setupAutoLock({ ...DEFAULT_PROTECTION_CONFIG, ...config }, onLock);
 
     // Cleanup on unmount
     return () => {

@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "CONFIGURE_TEAM_ID.com.usbvault.enterprise",
+        "paths": [
+          "/share/*",
+          "/vault/*",
+          "/invite/*",
+          "/verify/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "CONFIGURE_TEAM_ID.com.usbvault.enterprise"
+    ]
+  }
+}

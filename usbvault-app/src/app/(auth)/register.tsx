@@ -1,12 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -191,9 +184,9 @@ const styles = StyleSheet.create({
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const register = useAuthStore((state) => state.register);
-  const error = useAuthStore((state) => state.error);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const register = useAuthStore(state => state.register);
+  const error = useAuthStore(state => state.error);
+  const isLoading = useAuthStore(state => state.isLoading);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -205,7 +198,7 @@ export default function RegisterScreen() {
   // NIST SP 800-63B-4 + OWASP password validation with user context
   const passwordValidation = useMemo(
     () => validatePassword(password, { email }),
-    [password, email],
+    [password, email]
   );
 
   // Async HIBP breach check on password blur
@@ -213,7 +206,11 @@ export default function RegisterScreen() {
     if (password.length >= PASSWORD_MIN_LENGTH) {
       try {
         const breached = await checkPasswordBreach(password);
-        setBreachWarning(breached ? 'This password has appeared in a known data breach. Please choose a different one.' : '');
+        setBreachWarning(
+          breached
+            ? 'This password has appeared in a known data breach. Please choose a different one.'
+            : ''
+        );
       } catch {
         // Network failure — silent fallback (NIST allows offline-only)
       }
@@ -244,7 +241,10 @@ export default function RegisterScreen() {
     }
 
     if (!passwordValidation.isValid) {
-      setValidationError(passwordValidation.feedback[0] || `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+      setValidationError(
+        passwordValidation.feedback[0] ||
+          `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+      );
       return;
     }
 
@@ -284,14 +284,13 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🛡️</Text>
-          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Create Account
+          </Text>
           <Text style={styles.subtitle}>Start your secure journey</Text>
         </View>
 
@@ -305,9 +304,7 @@ export default function RegisterScreen() {
         {/* Errors */}
         {(error || validationError) && (
           <View style={styles.error}>
-            <Text style={styles.errorText}>
-              {error || validationError}
-            </Text>
+            <Text style={styles.errorText}>{error || validationError}</Text>
           </View>
         )}
 
@@ -330,7 +327,10 @@ export default function RegisterScreen() {
                 label={`Password (min ${PASSWORD_MIN_LENGTH} characters)`}
                 placeholder="Choose a strong passphrase"
                 value={password}
-                onChangeText={(text: string) => { setPassword(text); setBreachWarning(''); }}
+                onChangeText={(text: string) => {
+                  setPassword(text);
+                  setBreachWarning('');
+                }}
                 onBlur={handlePasswordBlur}
                 secureTextEntry
                 editable={!isLoading}
@@ -344,7 +344,7 @@ export default function RegisterScreen() {
                   </Text>
 
                   <View style={styles.strengthBars}>
-                    {[1, 2, 3, 4, 5].map((bar) => (
+                    {[1, 2, 3, 4, 5].map(bar => (
                       <View
                         key={bar}
                         style={[
@@ -361,28 +361,30 @@ export default function RegisterScreen() {
                   </View>
 
                   <Text
-                    style={[
-                      styles.strengthText,
-                      { color: levelToColor(passwordValidation.level) },
-                    ]}
+                    style={[styles.strengthText, { color: levelToColor(passwordValidation.level) }]}
                   >
-                    {levelToLabel(passwordValidation.level)} — {passwordValidation.estimatedCrackTime}
+                    {levelToLabel(passwordValidation.level)} —{' '}
+                    {passwordValidation.estimatedCrackTime}
                   </Text>
 
                   {/* OWASP character class indicators */}
                   <View style={styles.classRow}>
-                    {([
-                      ['a-z', passwordValidation.characterClasses.hasLowercase],
-                      ['A-Z', passwordValidation.characterClasses.hasUppercase],
-                      ['0-9', passwordValidation.characterClasses.hasDigits],
-                      ['!@#', passwordValidation.characterClasses.hasSpecial],
-                    ] as const).map(([label, present]) => (
+                    {(
+                      [
+                        ['a-z', passwordValidation.characterClasses.hasLowercase],
+                        ['A-Z', passwordValidation.characterClasses.hasUppercase],
+                        ['0-9', passwordValidation.characterClasses.hasDigits],
+                        ['!@#', passwordValidation.characterClasses.hasSpecial],
+                      ] as const
+                    ).map(([label, present]) => (
                       <Text
                         key={label}
                         style={[
                           styles.classPill,
-                          { color: present ? '#10B981' : colors.textMuted,
-                            borderColor: present ? '#10B981' : colors.border },
+                          {
+                            color: present ? '#10B981' : colors.textMuted,
+                            borderColor: present ? '#10B981' : colors.border,
+                          },
                         ]}
                       >
                         {present ? '✓' : '○'} {label}
@@ -429,6 +431,7 @@ export default function RegisterScreen() {
               disabled={isLoading}
               fullWidth
               testID="register-button"
+              accessibilityLabel="Create your account"
             >
               Create Account
             </Button>
@@ -437,11 +440,7 @@ export default function RegisterScreen() {
 
         {/* PQC Badge */}
         <View style={styles.badge}>
-          <Badge
-            variant="pqc"
-            label="Protected by Post-Quantum Cryptography"
-            icon="🛡️"
-          />
+          <Badge variant="pqc" label="Protected by Post-Quantum Cryptography" icon="🛡️" />
         </View>
 
         {/* Login Link */}
@@ -451,6 +450,7 @@ export default function RegisterScreen() {
             variant="link"
             onPress={() => router.push('/(auth)/login')}
             testID="register-login-link"
+            accessibilityLabel="Go to sign in"
           >
             Sign In
           </Button>

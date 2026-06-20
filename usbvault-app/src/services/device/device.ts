@@ -18,6 +18,7 @@
 
 import { Platform } from 'react-native';
 import { auditService } from '@/services/auditService';
+import { logger } from '@/utils/logger';
 
 // ── Device Types ───────────────────────────────────────────────
 
@@ -57,11 +58,15 @@ class DeviceManagementServiceImpl {
       if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
         const sessions = localStorage.getItem(this.SESSIONS_STORAGE_KEY);
         const trusted = localStorage.getItem(this.TRUSTED_DEVICES_KEY);
-        if (!sessions) localStorage.setItem(this.SESSIONS_STORAGE_KEY, JSON.stringify([this.generateCurrentSession()]));
+        if (!sessions)
+          localStorage.setItem(
+            this.SESSIONS_STORAGE_KEY,
+            JSON.stringify([this.generateCurrentSession()])
+          );
         if (!trusted) localStorage.setItem(this.TRUSTED_DEVICES_KEY, JSON.stringify([]));
       }
     } catch (error) {
-      console.error('Failed to initialize device management storage:', error);
+      logger.error('Failed to initialize device management storage:', error);
     }
   }
 
@@ -86,7 +91,11 @@ class DeviceManagementServiceImpl {
     };
   }
 
-  private parseUserAgent(ua: string): { os: string; browser: string; deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser' } {
+  private parseUserAgent(ua: string): {
+    os: string;
+    browser: string;
+    deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser';
+  } {
     let os = 'Unknown';
     let browser = 'Unknown';
     let deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser' = 'browser';
@@ -94,9 +103,16 @@ class DeviceManagementServiceImpl {
     if (ua.includes('Windows')) os = 'Windows';
     else if (ua.includes('Mac')) os = 'macOS';
     else if (ua.includes('X11') || ua.includes('Linux')) os = 'Linux';
-    else if (ua.includes('iPhone') || ua.includes('iPod')) { os = 'iOS'; deviceType = 'mobile'; }
-    else if (ua.includes('iPad')) { os = 'iPadOS'; deviceType = 'tablet'; }
-    else if (ua.includes('Android')) { os = 'Android'; deviceType = ua.includes('Mobile') ? 'mobile' : 'tablet'; }
+    else if (ua.includes('iPhone') || ua.includes('iPod')) {
+      os = 'iOS';
+      deviceType = 'mobile';
+    } else if (ua.includes('iPad')) {
+      os = 'iPadOS';
+      deviceType = 'tablet';
+    } else if (ua.includes('Android')) {
+      os = 'Android';
+      deviceType = ua.includes('Mobile') ? 'mobile' : 'tablet';
+    }
 
     if (ua.includes('Chrome')) browser = 'Chrome';
     else if (ua.includes('Safari')) browser = 'Safari';
@@ -106,7 +122,10 @@ class DeviceManagementServiceImpl {
     return { os, browser, deviceType };
   }
 
-  private generateDeviceName(deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser', os: string): string {
+  private generateDeviceName(
+    deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser',
+    os: string
+  ): string {
     const typeNames: Record<string, string[]> = {
       desktop: ['Desktop', 'Workstation', 'PC'],
       mobile: ['Phone', 'Mobile Device', 'Smartphone'],
@@ -122,7 +141,15 @@ class DeviceManagementServiceImpl {
   }
 
   private generateMockLocation(): string {
-    const locations = ['New York, NY', 'San Francisco, CA', 'Seattle, WA', 'Austin, TX', 'Boston, MA', 'Denver, CO', 'Portland, OR'];
+    const locations = [
+      'New York, NY',
+      'San Francisco, CA',
+      'Seattle, WA',
+      'Austin, TX',
+      'Boston, MA',
+      'Denver, CO',
+      'Portland, OR',
+    ];
     return locations[Math.floor(Math.random() * locations.length)];
   }
 
@@ -133,26 +160,26 @@ class DeviceManagementServiceImpl {
         return data ? JSON.parse(data) : [];
       }
     } catch (error) {
-      console.error('Failed to retrieve active sessions:', error);
+      logger.error('Failed to retrieve active sessions:', error);
     }
     return [];
   }
 
   getCurrentSession(): DeviceSession {
     const sessions = this.getActiveSessions();
-    const current = sessions.find((s) => s.isCurrent);
+    const current = sessions.find(s => s.isCurrent);
     if (current) return current;
     const newSession = this.generateCurrentSession();
-    this.saveSessions([...sessions.filter((s) => !s.isCurrent), newSession]);
+    this.saveSessions([...sessions.filter(s => !s.isCurrent), newSession]);
     return newSession;
   }
 
   async revokeSession(id: string): Promise<void> {
     try {
-      this.saveSessions(this.getActiveSessions().filter((s) => s.id !== id));
+      this.saveSessions(this.getActiveSessions().filter(s => s.id !== id));
       auditService.log('REVOKE_SESSION', `session:${id}`, { sessionId: id });
     } catch (error) {
-      console.error('Failed to revoke session:', error);
+      logger.error('Failed to revoke session:', error);
       throw error;
     }
   }
@@ -163,33 +190,41 @@ class DeviceManagementServiceImpl {
       this.saveSessions([current]);
       auditService.log('REVOKE_ALL_OTHER_SESSIONS', 'sessions', { keptSession: current.id });
     } catch (error) {
-      console.error('Failed to revoke all other sessions:', error);
+      logger.error('Failed to revoke all other sessions:', error);
       throw error;
     }
   }
 
   trustDevice(id: string): void {
     try {
-      this.saveSessions(this.getActiveSessions().map((s) => s.id === id ? { ...s, isTrusted: true } : s));
+      this.saveSessions(
+        this.getActiveSessions().map(s => (s.id === id ? { ...s, isTrusted: true } : s))
+      );
       auditService.log('TRUST_DEVICE', `device:${id}`, { deviceId: id });
     } catch (error) {
-      console.error('Failed to trust device:', error);
+      logger.error('Failed to trust device:', error);
       throw error;
     }
   }
 
   untrustDevice(id: string): void {
     try {
-      this.saveSessions(this.getActiveSessions().map((s) => s.id === id ? { ...s, isTrusted: false } : s));
+      this.saveSessions(
+        this.getActiveSessions().map(s => (s.id === id ? { ...s, isTrusted: false } : s))
+      );
       auditService.log('UNTRUST_DEVICE', `device:${id}`, { deviceId: id });
     } catch (error) {
-      console.error('Failed to untrust device:', error);
+      logger.error('Failed to untrust device:', error);
       throw error;
     }
   }
 
-  getTrustedDevices(): DeviceSession[] { return this.getActiveSessions().filter((s) => s.isTrusted); }
-  getSessionHistory(): DeviceSession[] { return this.getActiveSessions(); }
+  getTrustedDevices(): DeviceSession[] {
+    return this.getActiveSessions().filter(s => s.isTrusted);
+  }
+  getSessionHistory(): DeviceSession[] {
+    return this.getActiveSessions();
+  }
 
   getDeviceFingerprint(): string {
     try {
@@ -201,10 +236,13 @@ class DeviceManagementServiceImpl {
         typeof window !== 'undefined' ? window.innerWidth : 0,
         typeof window !== 'undefined' ? window.innerHeight : 0,
       ];
-      const fingerprint = components.join('|').split('').reduce((hash, char) => {
-        const shifted = (hash << 5) - hash + char.charCodeAt(0);
-        return shifted & shifted;
-      }, 0);
+      const fingerprint = components
+        .join('|')
+        .split('')
+        .reduce((hash, char) => {
+          const shifted = (hash << 5) - hash + char.charCodeAt(0);
+          return shifted & shifted;
+        }, 0);
       return `device-${Math.abs(fingerprint).toString(16)}`;
     } catch {
       return `device-${Date.now()}`;
@@ -213,17 +251,19 @@ class DeviceManagementServiceImpl {
 
   isNewDevice(): boolean {
     const sessions = this.getActiveSessions();
-    return !sessions.some((s) => s.id === this.getDeviceFingerprint());
+    return !sessions.some(s => s.id === this.getDeviceFingerprint());
   }
 
   getSecuritySummary(): SecuritySummary {
     const sessions = this.getActiveSessions();
-    const sortedByDate = [...sessions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sortedByDate = [...sessions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
     return {
       totalActive: sessions.length,
-      trustedCount: sessions.filter((s) => s.isTrusted).length,
-      suspiciousCount: sessions.filter((s) => !s.isTrusted).length,
-      lastNewDevice: sortedByDate.find((s) => !s.isTrusted)?.createdAt || null,
+      trustedCount: sessions.filter(s => s.isTrusted).length,
+      suspiciousCount: sessions.filter(s => !s.isTrusted).length,
+      lastNewDevice: sortedByDate.find(s => !s.isTrusted)?.createdAt || null,
     };
   }
 
@@ -233,7 +273,7 @@ class DeviceManagementServiceImpl {
         localStorage.setItem(this.SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
       }
     } catch (error) {
-      console.error('Failed to save device sessions:', error);
+      logger.error('Failed to save device sessions:', error);
     }
   }
 }
@@ -246,9 +286,7 @@ export const deviceManagementService = new DeviceManagementServiceImpl();
 // ─────────────────────────────────────────────────────────────
 
 // RM-001: Import expo-local-authentication for native biometric APIs
-const LocalAuthentication = Platform.OS !== 'web'
-  ? require('expo-local-authentication')
-  : null;
+const LocalAuthentication = Platform.OS !== 'web' ? require('expo-local-authentication') : null;
 
 // ── Biometric Types ────────────────────────────────────────────
 
@@ -288,13 +326,21 @@ const BIOMETRIC_ERRORS: Record<number, string> = {
 async function hashBiometricConfig(config: BiometricConfig): Promise<string> {
   const json = JSON.stringify(config);
   if (!isBiometricWeb || !crypto.subtle) {
-    return json.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0).toString(16);
+    return json
+      .split('')
+      .reduce((h, c) => (h << 5) - h + c.charCodeAt(0), 0)
+      .toString(16);
   }
   try {
     const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
-    return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   } catch {
-    return json.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0).toString(16);
+    return json
+      .split('')
+      .reduce((h, c) => (h << 5) - h + c.charCodeAt(0), 0)
+      .toString(16);
   }
 }
 
@@ -307,16 +353,31 @@ async function getNativeBiometricConfig(): Promise<BiometricConfig> {
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
     let type: BiometricType = 'none';
-    if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) type = 'face';
-    else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) type = 'fingerprint';
+    if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION))
+      type = 'face';
+    else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT))
+      type = 'fingerprint';
     else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.IRIS)) type = 'iris';
-    return { type, enrolledCount: isEnrolled ? supportedTypes.length : 0, lastEnrolled: isEnrolled ? new Date().toISOString() : '', hardwareSupport: hasHardware };
+    return {
+      type,
+      enrolledCount: isEnrolled ? supportedTypes.length : 0,
+      lastEnrolled: isEnrolled ? new Date().toISOString() : '',
+      hardwareSupport: hasHardware,
+    };
   } catch {
-    return { type: 'fingerprint', enrolledCount: 1, lastEnrolled: new Date().toISOString(), hardwareSupport: true };
+    return {
+      type: 'fingerprint',
+      enrolledCount: 1,
+      lastEnrolled: new Date().toISOString(),
+      hardwareSupport: true,
+    };
   }
 }
 
-async function checkNativeBiometricAvailability(): Promise<{ available: boolean; type: BiometricType }> {
+async function checkNativeBiometricAvailability(): Promise<{
+  available: boolean;
+  type: BiometricType;
+}> {
   if (isBiometricWeb || !LocalAuthentication) return { available: false, type: 'none' };
   try {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -326,12 +387,14 @@ async function checkNativeBiometricAvailability(): Promise<{ available: boolean;
 
     const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
     let type: BiometricType = 'fingerprint';
-    if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) type = 'face';
-    else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) type = 'fingerprint';
+    if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION))
+      type = 'face';
+    else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT))
+      type = 'fingerprint';
     else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.IRIS)) type = 'iris';
     return { available: true, type };
   } catch (err) {
-    console.error('[Biometric] Error checking availability:', err);
+    logger.error('[Biometric] Error checking availability:', err);
     return { available: false, type: 'none' };
   }
 }
@@ -350,17 +413,28 @@ class BiometricServiceImpl {
       try {
         const result = await this.attemptBiometricAuth();
         if (result) {
-          auditService.log('system', 'biometric_auth_success', { attempts: this.retryCount + 1 }, 'success').catch(() => {});
+          auditService
+            .log('system', 'biometric_auth_success', { attempts: this.retryCount + 1 }, 'success')
+            .catch(() => {});
           return true;
         }
         this.retryCount++;
         if (this.retryCount < this.maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, this.retryCount - 1) * 1000));
+          await new Promise(resolve =>
+            setTimeout(resolve, Math.pow(2, this.retryCount - 1) * 1000)
+          );
         }
       } catch (err) {
         this.retryCount++;
         if (this.retryCount >= this.maxRetries) {
-          auditService.log('system', 'biometric_auth_failed', { error: String(err), attempts: this.retryCount }, 'error').catch(() => {});
+          auditService
+            .log(
+              'system',
+              'biometric_auth_failed',
+              { error: String(err), attempts: this.retryCount },
+              'error'
+            )
+            .catch(() => {});
           return false;
         }
       }
@@ -376,13 +450,26 @@ class BiometricServiceImpl {
 
       try {
         const storedHash = localStorage.getItem(BIOMETRIC_CONFIG_HASH_KEY);
-        if (!storedHash) { localStorage.setItem(BIOMETRIC_CONFIG_HASH_KEY, currentHash); return false; }
+        if (!storedHash) {
+          localStorage.setItem(BIOMETRIC_CONFIG_HASH_KEY, currentHash);
+          return false;
+        }
         const changed = storedHash !== currentHash;
-        if (changed) auditService.log('system', 'biometric_change_detected', { oldHash: storedHash, newHash: currentHash }, 'warning').catch(() => {});
+        if (changed)
+          auditService
+            .log(
+              'system',
+              'biometric_change_detected',
+              { oldHash: storedHash, newHash: currentHash },
+              'warning'
+            )
+            .catch(() => {});
         return changed;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     } catch (err) {
-      console.error('[Biometric] Error checking for changes:', err);
+      logger.error('[Biometric] Error checking for changes:', err);
       return false;
     }
   }
@@ -408,7 +495,7 @@ Note: Re-enrollment is required before you can use biometric authentication agai
       const changed = await this.checkBiometricChange();
       return { available, enrolled: available && type !== 'none', changed, type };
     } catch (err) {
-      console.error('[Biometric] Error getting status:', err);
+      logger.error('[Biometric] Error getting status:', err);
       return { available: false, enrolled: false, changed: false, type: 'none' };
     }
   }
@@ -420,7 +507,7 @@ Note: Re-enrollment is required before you can use biometric authentication agai
       if (isBiometricWeb) localStorage.setItem(BIOMETRIC_CONFIG_HASH_KEY, newHash);
       auditService.log('system', 'biometric_reenrollment_complete', {}, 'success').catch(() => {});
     } catch (err) {
-      console.error('[Biometric] Error completing re-enrollment:', err);
+      logger.error('[Biometric] Error completing re-enrollment:', err);
     }
   }
 
@@ -428,7 +515,8 @@ Note: Re-enrollment is required before you can use biometric authentication agai
     if (isBiometricWeb || !LocalAuthentication) return false;
     try {
       const changed = await this.checkBiometricChange();
-      if (changed) auditService.log('system', 'biometric_change_before_auth', {}, 'warning').catch(() => {});
+      if (changed)
+        auditService.log('system', 'biometric_change_before_auth', {}, 'warning').catch(() => {});
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to unlock USBVault',
@@ -439,12 +527,14 @@ Note: Re-enrollment is required before you can use biometric authentication agai
 
       if (result.success) return true;
 
-      if (result.error === 'user_cancel') auditService.log('system', 'biometric_user_cancelled', {}, 'success').catch(() => {});
-      else if (result.error === 'lockout') auditService.log('system', 'biometric_lockout', {}, 'warning').catch(() => {});
+      if (result.error === 'user_cancel')
+        auditService.log('system', 'biometric_user_cancelled', {}, 'success').catch(() => {});
+      else if (result.error === 'lockout')
+        auditService.log('system', 'biometric_lockout', {}, 'warning').catch(() => {});
 
       return false;
     } catch (err) {
-      console.error('[Biometric] Authentication attempt failed:', err);
+      logger.error('[Biometric] Authentication attempt failed:', err);
       return false;
     }
   }

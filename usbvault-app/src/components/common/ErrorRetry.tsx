@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 interface ErrorRetryProps {
@@ -30,18 +24,14 @@ export const ErrorRetry: React.FC<ErrorRetryProps> = ({
   testID,
 }) => {
   return (
-    <View style={[styles.container, testID && { testID } as any]}>
+    <View style={[styles.container, testID && ({ testID } as any)]}>
       <View style={styles.content}>
-        <Feather
-          name="alert-circle"
-          size={18}
-          color="#F59E0B"
-          style={{ marginRight: 12 }}
-        />
+        <Feather name="alert-circle" size={18} color="#F59E0B" style={{ marginRight: 12 }} />
         <Text style={styles.errorText}>{error}</Text>
       </View>
 
       <Pressable
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.retryButton,
           pressed && styles.retryButtonPressed,
@@ -52,10 +42,7 @@ export const ErrorRetry: React.FC<ErrorRetryProps> = ({
         testID="error-retry-button"
       >
         {retrying ? (
-          <ActivityIndicator
-            size="small"
-            color="#F59E0B"
-          />
+          <ActivityIndicator size="small" color="#F59E0B" />
         ) : (
           <>
             <Feather name="refresh-cw" size={14} color="#F59E0B" />

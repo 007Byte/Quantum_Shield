@@ -73,70 +73,80 @@ const EMBEDDED_FAQ: FAQItem[] = [
   {
     id: 'faq-1',
     question: 'What is USBVault?',
-    answer: 'USBVault is a portable encrypted file vault and password manager with post-quantum cryptography. It secures your files, credentials, and messages with military-grade encryption on any device. USBVault is NOT an email service or email replacement.',
+    answer:
+      'USBVault is a portable encrypted file vault and password manager with post-quantum cryptography. It secures your files, credentials, and messages with military-grade encryption on any device. USBVault is NOT an email service or email replacement.',
     category: 'General',
     tags: ['overview', 'about', 'what is'],
   },
   {
     id: 'faq-2',
     question: 'What encryption does USBVault use?',
-    answer: 'USBVault supports AES-256-GCM-SIV (NIST standard, nonce-misuse resistant), XChaCha20-Poly1305 (extended nonce AEAD), and PQC Hybrid mode combining ML-KEM-1024 (FIPS 203) with AES-256 for quantum resistance. Key derivation uses Argon2id with 64 MB memory, 3 iterations, and 4 parallel lanes.',
+    answer:
+      'USBVault supports AES-256-GCM-SIV (NIST standard, nonce-misuse resistant), XChaCha20-Poly1305 (extended nonce AEAD), and PQC Hybrid mode combining ML-KEM-1024 (FIPS 203) with AES-256 for quantum resistance. Key derivation uses Argon2id with 64 MB memory, 3 iterations, and 4 parallel lanes.',
     category: 'Security',
     tags: ['encryption', 'aes', 'pqc', 'quantum'],
   },
   {
     id: 'faq-3',
     question: 'How do I import passwords from another manager?',
-    answer: 'Go to the Password Manager tab and click "Import". USBVault supports CSV imports from Bitwarden, 1Password, LastPass, and Chrome, plus JSON imports from KeePass. Export your passwords from your current manager, then drag & drop or select the file in USBVault.',
+    answer:
+      'Go to the Password Manager tab and click "Import". USBVault supports CSV imports from Bitwarden, 1Password, LastPass, and Chrome, plus JSON imports from KeePass. Export your passwords from your current manager, then drag & drop or select the file in USBVault.',
     category: 'Features',
     tags: ['import', 'passwords', 'migration', 'bitwarden', '1password', 'lastpass'],
   },
   {
     id: 'faq-4',
     question: 'Is my data stored on your servers?',
-    answer: 'USBVault uses a zero-knowledge architecture. Your encryption keys never leave your device. The server stores only encrypted blobs and public key material for key exchange. We cannot decrypt your files or read your passwords — even under legal compulsion.',
+    answer:
+      'USBVault uses a zero-knowledge architecture. Your encryption keys never leave your device. The server stores only encrypted blobs and public key material for key exchange. We cannot decrypt your files or read your passwords — even under legal compulsion.',
     category: 'Privacy',
     tags: ['zero-knowledge', 'privacy', 'data', 'server'],
   },
   {
     id: 'faq-5',
     question: 'What is post-quantum cryptography (PQC)?',
-    answer: 'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. USBVault uses ML-KEM-1024 (FIPS 203) for key encapsulation and ML-DSA-87 (FIPS 204) for digital signatures, both standardized by NIST in 2024. These protect your data today against "harvest now, decrypt later" quantum threats.',
+    answer:
+      'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. USBVault uses ML-KEM-1024 (FIPS 203) for key encapsulation and ML-DSA-87 (FIPS 204) for digital signatures, both standardized by NIST in 2024. These protect your data today against "harvest now, decrypt later" quantum threats.',
     category: 'Security',
     tags: ['pqc', 'quantum', 'ml-kem', 'ml-dsa'],
   },
   {
     id: 'faq-6',
     question: 'What happens if I forget my master password?',
-    answer: 'If you have set up a recovery phrase (BIP39 24-word mnemonic), you can use it to regain access to your vault. If you have not configured recovery, your data is permanently inaccessible — this is by design for zero-knowledge security. We strongly recommend setting up a recovery phrase during onboarding.',
+    answer:
+      'If you have set up a recovery phrase (BIP39 24-word mnemonic), you can use it to regain access to your vault. If you have not configured recovery, your data is permanently inaccessible — this is by design for zero-knowledge security. We strongly recommend setting up a recovery phrase during onboarding.',
     category: 'Account',
     tags: ['recovery', 'password', 'forgot', 'reset'],
   },
   {
     id: 'faq-7',
     question: 'Does USBVault support hardware security keys?',
-    answer: 'Yes. USBVault supports FIDO2/WebAuthn hardware keys (YubiKey, Titan, etc.) and platform authenticators (Touch ID, Windows Hello, Android biometrics) for multi-factor authentication. Register your keys in Settings > Security > Hardware Keys.',
+    answer:
+      'Yes. USBVault supports FIDO2/WebAuthn hardware keys (YubiKey, Titan, etc.) and platform authenticators (Touch ID, Windows Hello, Android biometrics) for multi-factor authentication. Register your keys in Settings > Security > Hardware Keys.',
     category: 'Security',
     tags: ['fido2', 'webauthn', 'hardware', 'yubikey', 'biometric'],
   },
   {
     id: 'faq-8',
     question: 'What is the difference between Free, Pro, and Enterprise?',
-    answer: 'Free: Up to 100 vault entries, single device, basic encryption. Pro: Unlimited entries, multi-device sync, PQC hybrid encryption, priority support. Enterprise: Team management, enterprise SSO, audit logging, QR identity, dedicated support, SLA.',
+    answer:
+      'Free: Up to 100 vault entries, single device, basic encryption. Pro: Unlimited entries, multi-device sync, PQC hybrid encryption, priority support. Enterprise: Team management, enterprise SSO, audit logging, QR identity, dedicated support, SLA.',
     category: 'Billing',
     tags: ['pricing', 'tiers', 'free', 'pro', 'enterprise'],
   },
   {
     id: 'faq-9',
     question: 'How do I report a security vulnerability?',
-    answer: 'Please report security vulnerabilities to security@usbvault.io. We operate a responsible disclosure program and respond within 24 hours. Do not file a support ticket for security issues — use the dedicated security email for faster handling.',
+    answer:
+      'Please report security vulnerabilities to security@usbvault.io. We operate a responsible disclosure program and respond within 24 hours. Do not file a support ticket for security issues — use the dedicated security email for faster handling.',
     category: 'Security',
     tags: ['vulnerability', 'disclosure', 'report', 'security'],
   },
   {
     id: 'faq-10',
     question: 'Can I use USBVault for email?',
-    answer: 'No. USBVault is an encrypted file vault and password manager, not an email service. For private email, we recommend ProtonMail, Tutanota, or Skiff Mail. USBVault does offer encrypted messaging between USBVault users for secure communications.',
+    answer:
+      'No. USBVault is an encrypted file vault and password manager, not an email service. For private email, we recommend ProtonMail, Tutanota, or Skiff Mail. USBVault does offer encrypted messaging between USBVault users for secure communications.',
     category: 'General',
     tags: ['email', 'messaging', 'not email'],
   },
@@ -175,7 +185,9 @@ class SupportService {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(CONFIG_KEY, JSON.stringify(this.config));
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   // ── Tickets ─────────────────────────────
@@ -195,7 +207,9 @@ class SupportService {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   /**
@@ -215,7 +229,9 @@ class SupportService {
     const oneDayAgo = Date.now() - 86400000;
     const recentCount = tickets.filter(t => new Date(t.createdAt).getTime() > oneDayAgo).length;
     if (recentCount >= this.config.rateLimitPerDay) {
-      throw new Error(`Rate limit exceeded. Maximum ${this.config.rateLimitPerDay} tickets per 24 hours.`);
+      throw new Error(
+        `Rate limit exceeded. Maximum ${this.config.rateLimitPerDay} tickets per 24 hours.`
+      );
     }
 
     const now = new Date().toISOString();
@@ -285,10 +301,11 @@ class SupportService {
 
     if (params?.search) {
       const query = params.search.toLowerCase();
-      items = items.filter(i =>
-        i.question.toLowerCase().includes(query) ||
-        i.answer.toLowerCase().includes(query) ||
-        i.tags.some(t => t.includes(query))
+      items = items.filter(
+        i =>
+          i.question.toLowerCase().includes(query) ||
+          i.answer.toLowerCase().includes(query) ||
+          i.tags.some(t => t.includes(query))
       );
     }
 
@@ -347,7 +364,9 @@ class SupportService {
       if (typeof localStorage !== 'undefined') {
         return localStorage.getItem('usbvault:app_version') || '3.0.0';
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
     return '3.0.0';
   }
 
@@ -356,7 +375,9 @@ class SupportService {
       if (typeof navigator !== 'undefined') {
         return navigator.userAgent.substring(0, 100);
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
     return 'unknown';
   }
 }

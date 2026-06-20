@@ -6,9 +6,15 @@ import { useState, useEffect } from 'react';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { settingsService } from '@/services/settingsService';
 import { auditService } from '@/services/auditService';
+import { vaultOrchestrator } from '@/services/vaultOrchestrator';
+import { vaultCompactionService } from '@/services/vault/compaction';
 import { webOnly } from '@/utils/webStyle';
+import { useLanguage } from '@/hooks/useLanguage';
+import { formatFileSize } from '@/utils/fileHelpers';
+import { logger } from '@/utils/logger';
 
 export function AdvancedSecuritySection() {
+  const { t } = useLanguage();
   const [ghostMode, setGhostMode] = useState(false);
   const [selfDestruct, setSelfDestruct] = useState(false);
   const [selfDestructAttempts, setSelfDestructAttempts] = useState(10);
@@ -31,15 +37,15 @@ export function AdvancedSecuritySection() {
     const newVal = !ghostMode;
     if (newVal) {
       showConfirm(
-        'Enable Ghost Mode',
-        'Ghost Mode hides the app from the app switcher and disables all notifications. The app will appear invisible to casual observers.',
+        t('advancedSecurity.enableGhostMode'),
+        t('advancedSecurity.ghostModeDescription'),
         () => {
           setGhostMode(true);
           settingsService.set('ghostModeEnabled', true);
           auditService.log('settings_change', 'ghost_mode', { enabled: true }).catch(() => {});
           dismiss();
         },
-        'Enable',
+        t('advancedSecurity.enable')
       );
     } else {
       setGhostMode(false);
@@ -52,15 +58,20 @@ export function AdvancedSecuritySection() {
     const newVal = !selfDestruct;
     if (newVal) {
       showConfirm(
-        'Enable Self-Destruct',
-        `After ${selfDestructAttempts} failed login attempts, ALL vault data will be permanently and irrecoverably wiped. This cannot be undone.`,
+        t('advancedSecurity.enableSelfDestruct'),
+        t('advancedSecurity.selfDestructDescription', { attempts: selfDestructAttempts }),
         () => {
           setSelfDestruct(true);
           settingsService.set('selfDestructEnabled', true);
-          auditService.log('settings_change', 'self_destruct', { enabled: true, attempts: selfDestructAttempts }).catch(() => {});
+          auditService
+            .log('settings_change', 'self_destruct', {
+              enabled: true,
+              attempts: selfDestructAttempts,
+            })
+            .catch(() => {});
           dismiss();
         },
-        'Enable Self-Destruct',
+        t('advancedSecurity.enableSelfDestruct')
       );
     } else {
       setSelfDestruct(false);
@@ -72,10 +83,10 @@ export function AdvancedSecuritySection() {
   const handleSelfDestructAttemptsChange = () => {
     const options = ['3', '5', '10', '15'];
     showAlert(
-      'Failed Attempts Before Wipe',
-      'Number of consecutive failed login attempts before self-destruct triggers',
+      t('advancedSecurity.failedAttemptsTitle'),
+      t('advancedSecurity.failedAttemptsDescription'),
       [
-        ...options.map((opt) => ({
+        ...options.map(opt => ({
           text: opt,
           onPress: () => {
             const num = parseInt(opt, 10);
@@ -84,33 +95,29 @@ export function AdvancedSecuritySection() {
             dismiss();
           },
         })),
-        { text: 'Cancel', onPress: () => dismiss(), style: 'cancel' as const },
+        { text: t('common.cancel'), onPress: () => dismiss(), style: 'cancel' as const },
       ]
     );
   };
 
   const handleKeyProviderChange = () => {
     const options: Array<{ label: string; value: 'software' | 'hardware' | 'hybrid' }> = [
-      { label: 'Software (Default)', value: 'software' },
-      { label: 'Hardware (Secure Enclave / TEE)', value: 'hardware' },
-      { label: 'Hybrid (Software + Hardware)', value: 'hybrid' },
+      { label: t('advancedSecurity.keySoftware'), value: 'software' },
+      { label: t('advancedSecurity.keyHardware'), value: 'hardware' },
+      { label: t('advancedSecurity.keyHybrid'), value: 'hybrid' },
     ];
-    showAlert(
-      'Key Provider',
-      'Select how encryption keys are stored and managed',
-      [
-        ...options.map((opt) => ({
-          text: opt.label,
-          onPress: () => {
-            setKeyProvider(opt.value);
-            settingsService.set('keyProvider', opt.value);
-            auditService.log('settings_change', 'key_provider', { value: opt.value }).catch(() => {});
-            dismiss();
-          },
-        })),
-        { text: 'Cancel', onPress: () => dismiss(), style: 'cancel' as const },
-      ]
-    );
+    showAlert(t('advancedSecurity.keyProvider'), t('advancedSecurity.keyProviderDescription'), [
+      ...options.map(opt => ({
+        text: opt.label,
+        onPress: () => {
+          setKeyProvider(opt.value);
+          settingsService.set('keyProvider', opt.value);
+          auditService.log('settings_change', 'key_provider', { value: opt.value }).catch(() => {});
+          dismiss();
+        },
+      })),
+      { text: t('common.cancel'), onPress: () => dismiss(), style: 'cancel' as const },
+    ]);
   };
 
   const handleBackupToggle = () => {
@@ -122,15 +129,15 @@ export function AdvancedSecuritySection() {
 
   const handleBackupFrequencyChange = () => {
     const options: Array<{ label: string; value: 'daily' | 'weekly' | 'monthly' }> = [
-      { label: 'Daily', value: 'daily' },
-      { label: 'Weekly', value: 'weekly' },
-      { label: 'Monthly', value: 'monthly' },
+      { label: t('advancedSecurity.daily'), value: 'daily' },
+      { label: t('advancedSecurity.weekly'), value: 'weekly' },
+      { label: t('advancedSecurity.monthly'), value: 'monthly' },
     ];
     showAlert(
-      'Backup Frequency',
-      'How often should encrypted backups be created?',
+      t('advancedSecurity.backupFrequency'),
+      t('advancedSecurity.backupFrequencyDescription'),
       [
-        ...options.map((opt) => ({
+        ...options.map(opt => ({
           text: opt.label,
           onPress: () => {
             setBackupFrequency(opt.value);
@@ -138,7 +145,7 @@ export function AdvancedSecuritySection() {
             dismiss();
           },
         })),
-        { text: 'Cancel', onPress: () => dismiss(), style: 'cancel' as const },
+        { text: t('common.cancel'), onPress: () => dismiss(), style: 'cancel' as const },
       ]
     );
   };
@@ -160,23 +167,50 @@ export function AdvancedSecuritySection() {
     URL.revokeObjectURL(url);
     settingsService.set('lastBackupAt', new Date().toISOString());
     auditService.log('settings_change', 'backup_export').catch(() => {});
-    showAlert('Backup Exported', 'Encrypted backup has been downloaded.');
+    showAlert(t('advancedSecurity.backupExported'), t('advancedSecurity.backupExportedMessage'));
   };
 
   const handleVaultCompaction = () => {
     showConfirm(
-      'Compact Vault',
-      'This will optimize vault storage by removing deleted file metadata and defragmenting encrypted blocks. The vault will be briefly locked during compaction.',
-      () => {
-        auditService.log('settings_change', 'vault_compaction').catch(() => {});
-        showAlert('Compaction Complete', 'Vault storage has been optimized.');
-        dismiss();
+      t('advancedSecurity.compactVault'),
+      t('advancedSecurity.compactVaultDescription'),
+      async () => {
+        try {
+          // FIX: Actually perform compaction instead of no-op.
+          // Use orchestrator for USB vaults (VAULT.bin), localStorage service for local vaults.
+          if (vaultOrchestrator.isUnlocked()) {
+            const result = await vaultOrchestrator.compactVault();
+            logger.info('[Settings] USB vault compaction completed', result);
+            showAlert(
+              t('advancedSecurity.compactionComplete'),
+              `Reclaimed ${formatFileSize(result.spaceSaved)} (${formatFileSize(result.oldSize)} → ${formatFileSize(result.newSize)})`
+            );
+          } else {
+            // Local vault: use localStorage compaction service
+            const result = await vaultCompactionService.compact();
+            logger.info('[Settings] Local vault compaction completed', result);
+            showAlert(
+              t('advancedSecurity.compactionComplete'),
+              t('advancedSecurity.compactionCompleteMessage')
+            );
+          }
+          auditService.log('settings_change', 'vault_compaction').catch(() => {});
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Unknown error';
+          logger.error('[Settings] Vault compaction failed', { error: msg });
+          showAlert('Compaction Failed', msg);
+        }
       },
-      'Compact Now',
+      t('advancedSecurity.compactNow')
     );
   };
 
-  const providerLabel = keyProvider === 'software' ? 'Software' : keyProvider === 'hardware' ? 'Hardware' : 'Hybrid';
+  const providerLabel =
+    keyProvider === 'software'
+      ? t('advancedSecurity.keySoftwareShort')
+      : keyProvider === 'hardware'
+        ? t('advancedSecurity.keyHardwareShort')
+        : t('advancedSecurity.keyHybridShort');
 
   return (
     <>
@@ -186,13 +220,15 @@ export function AdvancedSecuritySection() {
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Feather name="eye-off" size={18} color={dashboardColors.cyan} />
-          <Text style={styles.sectionTitle}>Advanced Protection</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t('advancedSecurity.advancedProtection')}
+          </Text>
         </View>
 
         <View style={styles.settingRow}>
           <View>
-            <Text style={styles.settingLabel}>Ghost Mode</Text>
-            <Text style={styles.settingMeta}>Hide from app switcher & notifications</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.ghostMode')}</Text>
+            <Text style={styles.settingMeta}>{t('advancedSecurity.ghostModeMeta')}</Text>
           </View>
           <TouchableOpacity
             style={[styles.toggle, ghostMode && styles.toggleOn]}
@@ -205,14 +241,14 @@ export function AdvancedSecuritySection() {
         {ghostMode && (
           <View style={local.statusRow}>
             <View style={local.statusDot} />
-            <Text style={local.statusText}>Ghost Mode active — app hidden from task switcher</Text>
+            <Text style={local.statusText}>{t('advancedSecurity.ghostModeActive')}</Text>
           </View>
         )}
 
         <View style={styles.settingRow}>
           <View>
-            <Text style={styles.settingLabel}>Self-Destruct</Text>
-            <Text style={styles.settingMeta}>Wipe all data after failed login attempts</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.selfDestruct')}</Text>
+            <Text style={styles.settingMeta}>{t('advancedSecurity.selfDestructMeta')}</Text>
           </View>
           <TouchableOpacity
             style={[styles.toggle, selfDestruct && local.toggleDestructive]}
@@ -224,11 +260,16 @@ export function AdvancedSecuritySection() {
 
         {selfDestruct && (
           <Pressable
-            style={(state: any) => [styles.settingRow, state.hovered && { backgroundColor: 'rgba(239,68,68,0.06)' }]}
+            accessibilityRole="button"
+            style={(state: any) => [
+              styles.settingRow,
+              state.hovered && { backgroundColor: 'rgba(239,68,68,0.06)' },
+            ]}
             onPress={handleSelfDestructAttemptsChange}
           >
-            <Text style={styles.settingLabel}>Failed Attempts Before Wipe</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.failedAttemptsTitle')}</Text>
             <Pressable
+              accessibilityRole="button"
               style={(state: any) => [styles.selectPill, state.hovered && styles.selectPillHover]}
               onPress={handleSelfDestructAttemptsChange}
             >
@@ -243,15 +284,22 @@ export function AdvancedSecuritySection() {
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Feather name="cpu" size={18} color={dashboardColors.cyan} />
-          <Text style={styles.sectionTitle}>Key Management</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t('advancedSecurity.keyManagement')}
+          </Text>
         </View>
 
-        <Pressable style={styles.settingRow} onPress={handleKeyProviderChange}>
+        <Pressable
+          style={styles.settingRow}
+          onPress={handleKeyProviderChange}
+          accessibilityRole="button"
+        >
           <View>
-            <Text style={styles.settingLabel}>Key Provider</Text>
-            <Text style={styles.settingMeta}>Where encryption keys are stored</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.keyProvider')}</Text>
+            <Text style={styles.settingMeta}>{t('advancedSecurity.keyProviderMeta')}</Text>
           </View>
           <Pressable
+            accessibilityRole="button"
             style={(state: any) => [styles.selectPill, state.hovered && styles.selectPillHover]}
             onPress={handleKeyProviderChange}
           >
@@ -262,12 +310,12 @@ export function AdvancedSecuritySection() {
 
         <View style={styles.settingRow}>
           <View>
-            <Text style={styles.settingLabel}>Post-Quantum Cryptography</Text>
-            <Text style={styles.settingMeta}>ML-KEM-1024 + ML-DSA-87</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.pqcTitle')}</Text>
+            <Text style={styles.settingMeta}>{t('advancedSecurity.pqcAlgorithms')}</Text>
           </View>
           <View style={styles.enabledBadge}>
             <Feather name="check" size={14} color={dashboardColors.green} />
-            <Text style={styles.enabledText}>Active</Text>
+            <Text style={styles.enabledText}>{t('advancedSecurity.active')}</Text>
           </View>
         </View>
       </View>
@@ -276,13 +324,15 @@ export function AdvancedSecuritySection() {
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Feather name="hard-drive" size={18} color={dashboardColors.cyan} />
-          <Text style={styles.sectionTitle}>Backup & Maintenance</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t('advancedSecurity.backupMaintenance')}
+          </Text>
         </View>
 
         <View style={styles.settingRow}>
           <View>
-            <Text style={styles.settingLabel}>Auto Backup</Text>
-            <Text style={styles.settingMeta}>Encrypted backup schedule</Text>
+            <Text style={styles.settingLabel}>{t('advancedSecurity.autoBackup')}</Text>
+            <Text style={styles.settingMeta}>{t('advancedSecurity.autoBackupMeta')}</Text>
           </View>
           <TouchableOpacity
             style={[styles.toggle, autoBackup && styles.toggleOn]}
@@ -293,32 +343,41 @@ export function AdvancedSecuritySection() {
         </View>
 
         {autoBackup && (
-          <Pressable style={styles.settingRow} onPress={handleBackupFrequencyChange}>
-            <Text style={styles.settingLabel}>Backup Frequency</Text>
+          <Pressable
+            style={styles.settingRow}
+            onPress={handleBackupFrequencyChange}
+            accessibilityRole="button"
+          >
+            <Text style={styles.settingLabel}>{t('advancedSecurity.backupFrequency')}</Text>
             <Pressable
+              accessibilityRole="button"
               style={(state: any) => [styles.selectPill, state.hovered && styles.selectPillHover]}
               onPress={handleBackupFrequencyChange}
             >
-              <Text style={styles.selectText}>{backupFrequency.charAt(0).toUpperCase() + backupFrequency.slice(1)}</Text>
+              <Text style={styles.selectText}>
+                {backupFrequency.charAt(0).toUpperCase() + backupFrequency.slice(1)}
+              </Text>
               <Feather name="chevron-down" size={14} color={dashboardColors.textSecondary} />
             </Pressable>
           </Pressable>
         )}
 
         <Pressable
+          accessibilityRole="button"
           style={(state: any) => [styles.actionBtn, state.hovered && styles.actionBtnHover]}
           onPress={handleExportBackup}
         >
           <Feather name="download" size={16} color={dashboardColors.textPrimary} />
-          <Text style={styles.actionBtnText}>Export Encrypted Backup</Text>
+          <Text style={styles.actionBtnText}>{t('advancedSecurity.exportBackup')}</Text>
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
           style={(state: any) => [styles.actionBtn, state.hovered && styles.actionBtnHover]}
           onPress={handleVaultCompaction}
         >
           <Feather name="minimize-2" size={16} color={dashboardColors.textPrimary} />
-          <Text style={styles.actionBtnText}>Compact Vault Storage</Text>
+          <Text style={styles.actionBtnText}>{t('advancedSecurity.compactVaultStorage')}</Text>
         </Pressable>
       </View>
     </>

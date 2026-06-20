@@ -3,24 +3,25 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { DisplayFile } from '@/hooks/useDecrypt';
 
 type FileIconInfo = { icon: string; bg: string; tint: string };
 
 const FILE_ICON_MAP: Record<string, FileIconInfo> = {
-  pdf:  { icon: 'file-text', bg: '#E11D48', tint: '#FFFFFF' },
+  pdf: { icon: 'file-text', bg: '#E11D48', tint: '#FFFFFF' },
   docx: { icon: 'file-text', bg: '#7E22CE', tint: '#E9D5FF' },
-  doc:  { icon: 'file-text', bg: '#7E22CE', tint: '#E9D5FF' },
-  xlsx: { icon: 'grid',      bg: '#0F766E', tint: '#6EE7B7' },
-  xls:  { icon: 'grid',      bg: '#0F766E', tint: '#6EE7B7' },
-  csv:  { icon: 'grid',      bg: '#0F766E', tint: '#6EE7B7' },
-  zip:  { icon: 'archive',   bg: '#7C3AED', tint: '#F8E16C' },
-  rar:  { icon: 'archive',   bg: '#7C3AED', tint: '#F8E16C' },
-  '7z': { icon: 'archive',   bg: '#7C3AED', tint: '#F8E16C' },
-  jpg:  { icon: 'image',     bg: '#2563EB', tint: '#7DD3FC' },
-  jpeg: { icon: 'image',     bg: '#2563EB', tint: '#7DD3FC' },
-  png:  { icon: 'image',     bg: '#2563EB', tint: '#7DD3FC' },
-  gif:  { icon: 'image',     bg: '#2563EB', tint: '#7DD3FC' },
+  doc: { icon: 'file-text', bg: '#7E22CE', tint: '#E9D5FF' },
+  xlsx: { icon: 'grid', bg: '#0F766E', tint: '#6EE7B7' },
+  xls: { icon: 'grid', bg: '#0F766E', tint: '#6EE7B7' },
+  csv: { icon: 'grid', bg: '#0F766E', tint: '#6EE7B7' },
+  zip: { icon: 'archive', bg: '#7C3AED', tint: '#F8E16C' },
+  rar: { icon: 'archive', bg: '#7C3AED', tint: '#F8E16C' },
+  '7z': { icon: 'archive', bg: '#7C3AED', tint: '#F8E16C' },
+  jpg: { icon: 'image', bg: '#2563EB', tint: '#7DD3FC' },
+  jpeg: { icon: 'image', bg: '#2563EB', tint: '#7DD3FC' },
+  png: { icon: 'image', bg: '#2563EB', tint: '#7DD3FC' },
+  gif: { icon: 'image', bg: '#2563EB', tint: '#7DD3FC' },
 };
 const DEFAULT_FILE_ICON: FileIconInfo = { icon: 'file', bg: '#1E40AF', tint: '#93C5FD' };
 
@@ -44,24 +45,27 @@ export function DecryptFileList({
   onQuickView,
   onQuickSave,
 }: DecryptFileListProps) {
+  const { t } = useLanguage();
+
   if (files.length === 0) {
     return (
       <View style={styles.emptyState}>
         <Feather name="unlock" size={48} color={dashboardColors.textSecondary} />
-        <Text style={styles.emptyStateText}>No files to decrypt</Text>
-        <Text style={styles.emptyStateHint}>Add files to your vault to get started</Text>
+        <Text style={styles.emptyStateText}>{t('decrypt.noFilesToDecrypt')}</Text>
+        <Text style={styles.emptyStateHint}>{t('decrypt.addFilesHint')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.fileList}>
-      {files.map((file) => {
+      {files.map(file => {
         const isSelected = selectedFiles.has(file.id);
         const { icon, bg, tint } = getFileIcon(file.name);
 
         return (
           <Pressable
+            accessibilityRole="button"
             key={file.id}
             onPress={() => onToggleSelection(file.id)}
             style={(state: any) => [
@@ -86,7 +90,7 @@ export function DecryptFileList({
                 {file.name}
               </Text>
               <Text style={styles.fileMeta}>
-                {file.size}  ·  {file.modified}
+                {file.size} · {file.modified}
               </Text>
             </View>
 
@@ -100,20 +104,28 @@ export function DecryptFileList({
             {/* Quick actions */}
             <View style={styles.quickActions}>
               <Pressable
-                onPress={(e) => {
+                accessibilityRole="button"
+                onPress={e => {
                   e.stopPropagation?.();
                   onQuickView(file.id);
                 }}
-                style={(state: any) => [styles.quickActionButton, state.hovered && styles.quickActionButtonHover]}
+                style={(state: any) => [
+                  styles.quickActionButton,
+                  state.hovered && styles.quickActionButtonHover,
+                ]}
               >
                 <Feather name="eye" size={14} color={dashboardColors.textSecondary} />
               </Pressable>
               <Pressable
-                onPress={(e) => {
+                accessibilityRole="button"
+                onPress={e => {
                   e.stopPropagation?.();
                   onQuickSave(file.id);
                 }}
-                style={(state: any) => [styles.quickActionButton, state.hovered && styles.quickActionButtonHover]}
+                style={(state: any) => [
+                  styles.quickActionButton,
+                  state.hovered && styles.quickActionButtonHover,
+                ]}
               >
                 <Feather name="download" size={14} color={dashboardColors.textSecondary} />
               </Pressable>

@@ -34,16 +34,12 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
 
-// Mock vault store
-jest.mock('@/stores/vaultStore', () => ({
-  useVaultStore: {
+// Mock vault list store (vaultStore was deleted; app now uses vaultListStore)
+jest.mock('@/stores/vaultListStore', () => ({
+  useVaultListStore: {
     getState: () => ({
-      vaults: [
-        { id: 'vault1', name: 'Main', encryptedMetadata: 'metadata1' },
-      ],
-      files: [
-        { id: 'file1', name: 'document.pdf', size: 1024, encryptedMetadata: 'meta' },
-      ],
+      vaults: [{ id: 'vault1', name: 'Main', encryptedMetadata: 'metadata1' }],
+      files: [{ id: 'file1', name: 'document.pdf', size: 1024, encryptedMetadata: 'meta' }],
       deleteVault: jest.fn().mockResolvedValue(undefined),
       createVault: jest.fn().mockResolvedValue(undefined),
       addFile: jest.fn(),
@@ -99,7 +95,10 @@ Object.defineProperty(window, 'URL', {
 
 Object.defineProperty(window, 'Blob', {
   value: class Blob {
-    constructor(public parts: any[], public options: any) {}
+    constructor(
+      public parts: any[],
+      public options: any
+    ) {}
   },
 });
 
@@ -255,7 +254,7 @@ describe('BackupService', () => {
       });
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.includes('metadata'))).toBe(true);
+      expect(result.errors.some(e => e.includes('metadata'))).toBe(true);
     });
 
     it('should reject backup with missing vaults array', () => {
@@ -271,7 +270,7 @@ describe('BackupService', () => {
       const result = backupService.validateBackup('not an object');
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.includes('must be an object'))).toBe(true);
+      expect(result.errors.some(e => e.includes('must be an object'))).toBe(true);
     });
   });
 
@@ -293,10 +292,7 @@ describe('BackupService', () => {
         maxBackups: 3 as const,
         lastBackupAt: '2024-01-01T00:00:00Z',
       };
-      localStorage.setItem(
-        'usbvault_auto_backup_config',
-        JSON.stringify(savedConfig),
-      );
+      localStorage.setItem('usbvault_auto_backup_config', JSON.stringify(savedConfig));
 
       const config = backupService.getAutoBackupConfig();
 
@@ -347,10 +343,7 @@ describe('BackupService', () => {
           status: 'success' as const,
         },
       ];
-      localStorage.setItem(
-        'usbvault_backup_history',
-        JSON.stringify(mockHistory),
-      );
+      localStorage.setItem('usbvault_backup_history', JSON.stringify(mockHistory));
 
       const history = backupService.getBackupHistory();
 
@@ -492,7 +485,7 @@ describe('BackupService', () => {
 
       // 6. Verify in history
       const history = backupService.getBackupHistory();
-      expect(history.some((h) => h.id === backup.metadata.id)).toBe(true);
+      expect(history.some(h => h.id === backup.metadata.id)).toBe(true);
     });
 
     it('should complete encrypted backup flow', async () => {
@@ -507,9 +500,7 @@ describe('BackupService', () => {
       expect(imported.metadata.id).toBe(backup.metadata.id);
 
       // 3. Try with wrong key
-      await expect(
-        backupService.importBackup(exported, 'wrong-passphrase'),
-      ).rejects.toThrow();
+      await expect(backupService.importBackup(exported, 'wrong-passphrase')).rejects.toThrow();
     });
   });
 });

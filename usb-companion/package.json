@@ -1,0 +1,24 @@
+{
+  "name": "@usbvault/usb-companion",
+  "version": "1.0.0",
+  "description": "USBVault Local USB Companion Service — bridges OS USB subsystem to the frontend",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.4.0",
+    "uuid": "^10.0.0",
+    "winston": "^3.14.0"
+  }
+}

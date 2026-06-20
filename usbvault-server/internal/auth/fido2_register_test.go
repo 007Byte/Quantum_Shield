@@ -87,7 +87,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 			expectError:  "unauthorized",
 		},
 		{
-			name: "user not found in database",
+			name: "user not found in database returns generic error",
 			setupContext: func(r *http.Request) {
 				ctx := context.WithValue(r.Context(), "user_id", "nonexistent-user")
 				*r = *r.WithContext(ctx)
@@ -97,8 +97,8 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 					WithArgs("nonexistent-user").
 					WillReturnError(pgx.ErrNoRows)
 			},
-			expectStatus: http.StatusNotFound,
-			expectError:  "user not found",
+			expectStatus: http.StatusUnauthorized,
+			expectError:  "invalid credentials",
 		},
 	}
 

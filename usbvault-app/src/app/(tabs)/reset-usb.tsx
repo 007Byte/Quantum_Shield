@@ -1,8 +1,17 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, Pressable, TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  TextInput,
+} from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { InAppModal, useInAppModal } from '@/components/common';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
 import {
@@ -11,6 +20,8 @@ import {
   webOnlyTransition,
 } from '@/components/dashboard2/styles';
 import { usbService, USBDrive } from '@/services/usbService';
+import { createAbortableRequest } from '@/services/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const textPrimary = '#F5F3FF';
 const textSecondary = '#B8B3D1';
@@ -23,7 +34,8 @@ type WipeMethod = 'quick' | 'secure';
 
 // No mock data — drives are loaded from the real USB service
 
-export default function ResetUSBScreen() {
+function ResetUSBScreen() {
+  const { t } = useLanguage();
   const { modal, showConfirm, showSuccess, showError } = useInAppModal();
 
   const [drives, setDrives] = useState<USBDrive[]>([]);
@@ -38,21 +50,26 @@ export default function ResetUSBScreen() {
 
   // ── Load drives ──────────────────────────────────────────────────────
 
-  const loadDrives = useCallback(async () => {
+  const loadDrives = useCallback(async (options?: { signal?: AbortSignal }) => {
     setLoadingDrives(true);
     setDriveError(null);
     try {
-      const list = await usbService.listDrives();
+      const list = await usbService.listDrives({ signal: options?.signal });
       setDrives(list);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to detect USB drives';
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const msg = err instanceof Error ? err.message : t('resetUsb.failedDetectDrives');
       setDriveError(msg);
     } finally {
       setLoadingDrives(false);
     }
   }, []);
 
-  useEffect(() => { loadDrives(); }, [loadDrives]);
+  useEffect(() => {
+    const { signal, abort } = createAbortableRequest();
+    loadDrives({ signal }).catch(() => {});
+    return abort;
+  }, [loadDrives]);
 
   const confirmationMatch = selectedDrive && confirmationText === selectedDrive.name;
 
@@ -61,10 +78,10 @@ export default function ResetUSBScreen() {
 
     const message =
       wipeMethod === 'quick'
-        ? `Quick erase will remove vault metadata and encryption keys from "${selectedDrive.name}". This action cannot be undone.`
-        : `Secure wipe will overwrite "${selectedDrive.name}" with ${passCount} pass${passCount !== 1 ? 'es' : ''} of random data. This action cannot be undone.`;
+        ? t('resetUsb.quickEraseConfirmMsg', { driveName: selectedDrive.name })
+        : t('resetUsb.secureWipeConfirmMsg', { driveName: selectedDrive.name, passCount });
 
-    showConfirm('Confirm USB Reset', message, async () => {
+    showConfirm(t('resetUsb.confirmTitle'), message, async () => {
       setIsWiping(true);
       try {
         await usbService.resetDrive({
@@ -72,13 +89,13 @@ export default function ResetUSBScreen() {
           wipeMethod,
           passes: passCount,
         });
-        showSuccess('Reset Complete', 'USB drive has been successfully reset.');
+        showSuccess(t('resetUsb.successTitle'), t('resetUsb.successMessage'));
         setSelectedDrive(null);
         setConfirmationText('');
         loadDrives();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Reset failed. Please try again.';
-        showError('Reset Failed', msg);
+        const msg = err instanceof Error ? err.message : t('resetUsb.failedDefault');
+        showError(t('resetUsb.errorTitle'), msg);
       } finally {
         setIsWiping(false);
       }
@@ -87,7 +104,11 @@ export default function ResetUSBScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
 
@@ -97,225 +118,232 @@ export default function ResetUSBScreen() {
             <TopBar />
 
             <View style={styles.contentArea}>
-            {/* Header with Desktop Only Badge */}
-            <View style={styles.headerContainer}>
-              <View>
-                <Text style={styles.pageTitle}>Reset USB</Text>
-                <Text style={styles.pageSubtitle}>
-                  Wipe and reset a USB vault drive
+              {/* Header with Desktop Only Badge */}
+              <View style={styles.headerContainer}>
+                <View>
+                  <Text style={styles.pageTitle} accessibilityRole="header">
+                    {t('resetUsb.pageTitle')}
+                  </Text>
+                  <Text style={styles.pageSubtitle}>{t('resetUsb.pageSubtitle')}</Text>
+                </View>
+                <View style={styles.desktopBadge}>
+                  <Text style={styles.desktopBadgeText}>{t('resetUsb.desktopOnly')}</Text>
+                </View>
+              </View>
+
+              {/* Warning Banner */}
+              <View style={styles.warningBanner}>
+                <Feather
+                  name="alert-triangle"
+                  size={20}
+                  color={danger}
+                  style={styles.warningIcon}
+                />
+                <Text style={styles.warningText}>
+                  {t('resetUsb.warningText')}
                 </Text>
               </View>
-              <View style={styles.desktopBadge}>
-                <Text style={styles.desktopBadgeText}>Desktop Only</Text>
-              </View>
-            </View>
 
-            {/* Warning Banner */}
-            <View style={styles.warningBanner}>
-              <Feather
-                name="alert-triangle"
-                size={20}
-                color={danger}
-                style={styles.warningIcon}
-              />
-              <Text style={styles.warningText}>
-                This action is irreversible. All data on the selected drive will
-                be permanently destroyed.
-              </Text>
-            </View>
-
-            {/* Select USB Drive Section */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Select USB Drive</Text>
-                <Pressable style={styles.refreshButton} onPress={loadDrives} disabled={loadingDrives}>
-                  {loadingDrives
-                    ? <ActivityIndicator size="small" color={cyan} />
-                    : <Feather name="refresh-cw" size={16} color={cyan} />}
-                </Pressable>
-              </View>
-
-              {loadingDrives ? (
-                <View style={styles.emptyState}>
-                  <ActivityIndicator size="large" color={cyan} />
-                  <Text style={styles.emptyStateText}>Scanning for USB drives…</Text>
-                </View>
-              ) : driveError ? (
-                <View style={styles.emptyState}>
-                  <Feather name="alert-circle" size={24} color={danger} />
-                  <Text style={[styles.emptyStateText, { color: danger }]}>{driveError}</Text>
-                  <Pressable style={styles.retryButton} onPress={loadDrives}>
-                    <Text style={styles.retryButtonText}>Try Again</Text>
+              {/* Select USB Drive Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('resetUsb.selectDrive')}
+                  </Text>
+                  <Pressable
+                    style={styles.refreshButton}
+                    onPress={() => loadDrives()}
+                    disabled={loadingDrives}
+                  >
+                    {loadingDrives ? (
+                      <ActivityIndicator size="small" color={cyan} />
+                    ) : (
+                      <Feather name="refresh-cw" size={16} color={cyan} />
+                    )}
                   </Pressable>
                 </View>
-              ) : drives.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Feather name="hard-drive" size={28} color={textSecondary} />
-                  <Text style={styles.emptyStateText}>No USB drives detected</Text>
-                  <Text style={styles.emptyStateHint}>Insert a drive and tap refresh</Text>
-                </View>
-              ) : (
-                <View style={styles.driveList}>
-                  {drives.map((drive) => (
-                    <Pressable
-                      key={drive.id}
-                      style={[
-                        styles.driveCard,
-                        selectedDrive?.id === drive.id && styles.driveCardSelected,
-                        !drive.available && styles.driveCardDisabled,
-                      ]}
-                      onPress={() => {
-                        if (!drive.available) return;
-                        setSelectedDrive(drive);
-                        setConfirmationText('');
-                      }}
-                      disabled={!drive.available}
-                    >
-                      <View style={styles.radioContainer}>
-                        <View style={[styles.radioOuter, !drive.available && styles.radioOuterDisabled]}>
-                          {selectedDrive?.id === drive.id && (
-                            <View style={styles.radioInner} />
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.driveInfo}>
-                        <Text style={[styles.driveName, !drive.available && styles.driveNameDisabled]}>
-                          {drive.name}
-                        </Text>
-                        <View style={styles.driveMetaRow}>
-                          <Text style={styles.driveCapacity}>{drive.capacity}</Text>
-                          {drive.hasVault && (
-                            <View style={styles.driveBadgeVault}>
-                              <Text style={styles.driveBadgeText}>Has Vault</Text>
-                            </View>
-                          )}
-                          {!drive.available && (
-                            <View style={styles.driveBadgeInUse}>
-                              <Text style={styles.driveBadgeText}>In Use</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
+
+                {loadingDrives ? (
+                  <View style={styles.emptyState}>
+                    <ActivityIndicator size="large" color={cyan} />
+                    <Text style={styles.emptyStateText}>{t('resetUsb.scanning')}</Text>
+                  </View>
+                ) : driveError ? (
+                  <View style={styles.emptyState}>
+                    <Feather name="alert-circle" size={24} color={danger} />
+                    <Text style={[styles.emptyStateText, { color: danger }]}>{driveError}</Text>
+                    <Pressable style={styles.retryButton} onPress={() => loadDrives()}>
+                      <Text style={styles.retryButtonText}>{t('resetUsb.tryAgain')}</Text>
                     </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Wipe Method Section */}
-            {selectedDrive && (
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Wipe Method</Text>
-
-                {/* Quick Erase Card */}
-                <Pressable
-                  style={[
-                    styles.methodCard,
-                    wipeMethod === 'quick' && styles.methodCardSelected,
-                  ]}
-                  onPress={() => setWipeMethod('quick')}
-                >
-                  <View style={styles.methodHeader}>
-                    <Text style={styles.methodTitle}>Quick Erase</Text>
                   </View>
-                  <Text style={styles.methodDescription}>
-                    Removes vault metadata and encryption keys. Fast but data
-                    may be recoverable.
-                  </Text>
-                </Pressable>
-
-                {/* Secure Wipe Card */}
-                <Pressable
-                  style={[
-                    styles.methodCard,
-                    wipeMethod === 'secure' && styles.methodCardSelected,
-                  ]}
-                  onPress={() => setWipeMethod('secure')}
-                >
-                  <View style={styles.methodHeader}>
-                    <Text style={styles.methodTitle}>Secure Wipe</Text>
+                ) : drives.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Feather name="hard-drive" size={28} color={textSecondary} />
+                    <Text style={styles.emptyStateText}>{t('resetUsb.noDrivesDetected')}</Text>
+                    <Text style={styles.emptyStateHint}>{t('resetUsb.insertDriveTip')}</Text>
                   </View>
-                  <Text style={styles.methodDescription}>
-                    Overwrites entire drive with random data. Select number of
-                    passes:
-                  </Text>
-
-                  {wipeMethod === 'secure' && (
-                    <View style={styles.passPillsContainer}>
-                      {[1, 3, 7].map((passes) => (
-                        <Pressable
-                          key={passes}
-                          style={[
-                            styles.passPill,
-                            passCount === passes && styles.passPillSelected,
-                          ]}
-                          onPress={() => setPassCount(passes)}
-                        >
-                          <Text
+                ) : (
+                  <View style={styles.driveList}>
+                    {drives.map(drive => (
+                      <Pressable
+                        accessibilityRole="button"
+                        key={drive.id}
+                        style={[
+                          styles.driveCard,
+                          selectedDrive?.id === drive.id && styles.driveCardSelected,
+                          !drive.available && styles.driveCardDisabled,
+                        ]}
+                        onPress={() => {
+                          if (!drive.available) return;
+                          setSelectedDrive(drive);
+                          setConfirmationText('');
+                        }}
+                        disabled={!drive.available}
+                      >
+                        <View style={styles.radioContainer}>
+                          <View
                             style={[
-                              styles.passPillText,
-                              passCount === passes &&
-                                styles.passPillTextSelected,
+                              styles.radioOuter,
+                              !drive.available && styles.radioOuterDisabled,
                             ]}
                           >
-                            {passes}
+                            {selectedDrive?.id === drive.id && <View style={styles.radioInner} />}
+                          </View>
+                        </View>
+                        <View style={styles.driveInfo}>
+                          <Text
+                            style={[styles.driveName, !drive.available && styles.driveNameDisabled]}
+                          >
+                            {drive.name}
                           </Text>
-                        </Pressable>
-                      ))}
+                          <View style={styles.driveMetaRow}>
+                            <Text style={styles.driveCapacity}>{drive.capacity}</Text>
+                            {drive.hasVault && (
+                              <View style={styles.driveBadgeVault}>
+                                <Text style={styles.driveBadgeText}>{t('resetUsb.hasVault')}</Text>
+                              </View>
+                            )}
+                            {!drive.available && (
+                              <View style={styles.driveBadgeInUse}>
+                                <Text style={styles.driveBadgeText}>{t('resetUsb.inUse')}</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Wipe Method Section */}
+              {selectedDrive && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('resetUsb.wipeMethod')}
+                  </Text>
+
+                  {/* Quick Erase Card */}
+                  <Pressable
+                    accessibilityRole="button"
+                    style={[styles.methodCard, wipeMethod === 'quick' && styles.methodCardSelected]}
+                    onPress={() => setWipeMethod('quick')}
+                  >
+                    <View style={styles.methodHeader}>
+                      <Text style={styles.methodTitle}>{t('resetUsb.quickErase')}</Text>
                     </View>
+                    <Text style={styles.methodDescription}>
+                      {t('resetUsb.quickEraseDesc')}
+                    </Text>
+                  </Pressable>
+
+                  {/* Secure Wipe Card */}
+                  <Pressable
+                    accessibilityRole="button"
+                    style={[
+                      styles.methodCard,
+                      wipeMethod === 'secure' && styles.methodCardSelected,
+                    ]}
+                    onPress={() => setWipeMethod('secure')}
+                  >
+                    <View style={styles.methodHeader}>
+                      <Text style={styles.methodTitle}>{t('resetUsb.secureWipe')}</Text>
+                    </View>
+                    <Text style={styles.methodDescription}>
+                      {t('resetUsb.secureWipeDesc')}
+                    </Text>
+
+                    {wipeMethod === 'secure' && (
+                      <View style={styles.passPillsContainer}>
+                        {[1, 3, 7].map(passes => (
+                          <Pressable
+                            accessibilityRole="button"
+                            key={passes}
+                            style={[
+                              styles.passPill,
+                              passCount === passes && styles.passPillSelected,
+                            ]}
+                            onPress={() => setPassCount(passes)}
+                          >
+                            <Text
+                              style={[
+                                styles.passPillText,
+                                passCount === passes && styles.passPillTextSelected,
+                              ]}
+                            >
+                              {passes}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Confirmation Section */}
+              {selectedDrive && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('resetUsb.confirmation')}
+                  </Text>
+                  <Text style={styles.confirmationLabel}>{t('resetUsb.typeVaultName')}</Text>
+                  <TextInput
+                    accessibilityLabel="Text input"
+                    style={styles.confirmationInput}
+                    placeholder={`Type "${selectedDrive.name}" to confirm`}
+                    placeholderTextColor={textSecondary}
+                    value={confirmationText}
+                    onChangeText={setConfirmationText}
+                    editable={!isWiping}
+                  />
+                  {confirmationText && !confirmationMatch && (
+                    <Text style={styles.mismatchWarning}>{t('resetUsb.mismatch')}</Text>
+                  )}
+                </View>
+              )}
+
+              {/* Reset Button */}
+              {selectedDrive && (
+                <Pressable
+                  accessibilityRole="button"
+                  style={[
+                    styles.resetButton,
+                    (!confirmationMatch || isWiping) && styles.resetButtonDisabled,
+                  ]}
+                  onPress={handleStartWipe}
+                  disabled={!confirmationMatch || isWiping}
+                >
+                  {isWiping ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Feather name="trash-2" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+                      <Text style={styles.resetButtonText}>{t('resetUsb.resetButton')}</Text>
+                    </>
                   )}
                 </Pressable>
-              </View>
-            )}
-
-            {/* Confirmation Section */}
-            {selectedDrive && (
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Confirmation</Text>
-                <Text style={styles.confirmationLabel}>
-                  Type the vault name to confirm
-                </Text>
-                <TextInput
-                  style={styles.confirmationInput}
-                  placeholder={`Type "${selectedDrive.name}" to confirm`}
-                  placeholderTextColor={textSecondary}
-                  value={confirmationText}
-                  onChangeText={setConfirmationText}
-                  editable={!isWiping}
-                />
-                {confirmationText && !confirmationMatch && (
-                  <Text style={styles.mismatchWarning}>
-                    Vault name does not match
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {/* Reset Button */}
-            {selectedDrive && (
-              <Pressable
-                style={[
-                  styles.resetButton,
-                  (!confirmationMatch || isWiping) && styles.resetButtonDisabled,
-                ]}
-                onPress={handleStartWipe}
-                disabled={!confirmationMatch || isWiping}
-              >
-                {isWiping ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Feather
-                      name="trash-2"
-                      size={18}
-                      color="#FFFFFF"
-                      style={styles.buttonIcon}
-                    />
-                    <Text style={styles.resetButtonText}>Reset USB Drive</Text>
-                  </>
-                )}
-              </Pressable>
-            )}
+              )}
             </View>
           </View>
         </View>
@@ -354,8 +382,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
@@ -669,3 +699,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+export default withErrorBoundary(ResetUSBScreen, 'ResetUSB');

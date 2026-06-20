@@ -2,16 +2,37 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
+
+// UserIDFromContext extracts the authenticated user ID from request context.
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(ctxkeys.UserID).(string)
+	return id, ok
+}
+
+// DeviceIDFromContext extracts the device ID from request context.
+func DeviceIDFromContext(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(ctxkeys.DeviceID).(string)
+	return id, ok
+}
+
+// UserTierFromContext extracts the subscription tier from request context.
+func UserTierFromContext(ctx context.Context) (string, bool) {
+	tier, ok := ctx.Value(ctxkeys.UserTier).(string)
+	return tier, ok
+}
 
 // AuthMiddleware validates JWT tokens and checks revocation status
 // Injects user info into context if token is valid
@@ -47,11 +68,11 @@ func AuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
 						}
 					}
 
-					// Inject user info into context
-					ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-					ctx = context.WithValue(ctx, "device_id", claims.DeviceID)
-					ctx = context.WithValue(ctx, "token_type", claims.Type)
-					ctx = context.WithValue(ctx, "jti", claims.JTI)
+					// Inject user info into context using typed keys
+					ctx := context.WithValue(r.Context(), ctxkeys.UserID, claims.UserID)
+					ctx = context.WithValue(ctx, ctxkeys.DeviceID, claims.DeviceID)
+					ctx = context.WithValue(ctx, ctxkeys.TokenType, claims.Type)
+					ctx = context.WithValue(ctx, ctxkeys.JTI, claims.JTI)
 					r = r.WithContext(ctx)
 
 					log.Debug().Str("user_id", claims.UserID).Str("jti", claims.JTI).Msg("token validated")
@@ -65,8 +86,7 @@ func AuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
 
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, ok := r.Context().Value("user_id").(string)
-		if !ok {
+		if _, ok := UserIDFromContext(r.Context()); !ok {
 			log.Debug().Msg("RequireAuth: user_id not found in context or wrong type")
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -79,7 +99,7 @@ func RequireAuth(next http.Handler) http.Handler {
 func RequireRole(role string, pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := UserIDFromContext(r.Context())
 			if !ok {
 				log.Debug().Msg("RequireRole: user_id not found in context or wrong type")
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -135,10 +155,51 @@ func hasRole(userRole, requiredRole string) bool {
 	return false
 }
 
+// PH8-FIX: TierLimits defines resource limits for each subscription tier
+type TierLimits struct {
+	MaxVaults        int    `json:"max_vaults"`
+	MaxStorageMB     int    `json:"max_storage_mb"`
+	Algorithms       []string `json:"algorithms"`
+	Sharing          bool   `json:"sharing"`
+	AuditLogs        bool   `json:"audit_logs"`
+	PrioritySupport  bool   `json:"priority_support"`
+}
+
+// PH8-FIX: TierLimitsMap defines resource limits per tier for server-side enforcement
+var TierLimitsMap = map[string]TierLimits{
+	"free":       {MaxVaults: 1, MaxStorageMB: 100, Algorithms: []string{"aes-256-gcm"}, Sharing: false, AuditLogs: false, PrioritySupport: false},
+	"individual": {MaxVaults: 5, MaxStorageMB: 10240, Algorithms: []string{"aes-256-gcm", "xchacha20", "ml-kem"}, Sharing: false, AuditLogs: false, PrioritySupport: false},
+	"team":       {MaxVaults: 50, MaxStorageMB: 102400, Algorithms: []string{"aes-256-gcm", "xchacha20", "ml-kem"}, Sharing: true, AuditLogs: true, PrioritySupport: false},
+	"enterprise": {MaxVaults: -1, MaxStorageMB: 1048576, Algorithms: []string{"aes-256-gcm", "xchacha20", "ml-kem"}, Sharing: true, AuditLogs: true, PrioritySupport: true},
+}
+
+// PH8-FIX: TierGateError is the JSON error response for tier gate denials
+type TierGateError struct {
+	Error        string `json:"error"`
+	RequiredTier string `json:"required_tier"`
+	CurrentTier  string `json:"current_tier"`
+	Message      string `json:"message"`
+}
+
+// PH8-FIX: CompareTiers returns -1 if a < b, 0 if a == b, 1 if a > b
+func CompareTiers(a, b string) int {
+	ra := tierRanking[a]
+	rb := tierRanking[b]
+	if ra < rb {
+		return -1
+	}
+	if ra > rb {
+		return 1
+	}
+	return 0
+}
+
+// RequireTier creates middleware that checks subscription tier before allowing access.
+// PH8-FIX: Enhanced with X-Required-Tier/X-Current-Tier headers and JSON error response.
 func RequireTier(requiredTier string, pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := UserIDFromContext(r.Context())
 			if !ok {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
@@ -150,44 +211,56 @@ func RequireTier(requiredTier string, pool *pgxpool.Pool) func(http.Handler) htt
 
 			var tier string
 			err := pool.QueryRow(ctx,
-				`SELECT COALESCE(tier, 'individual') FROM subscriptions WHERE user_id = $1 AND status = 'active'`,
+				`SELECT COALESCE(tier, 'free') FROM subscriptions WHERE user_id = $1 AND status = 'active'`,
 				userID,
 			).Scan(&tier)
 
 			if err != nil {
-				log.Debug().Str("user_id", userID).Err(err).Msg("no active subscription found, using default tier")
+				log.Debug().Str("user_id", userID).Err(err).Msg("no active subscription found, defaulting to free")
 				tier = "free"
 			}
 
-			// Tier hierarchy: enterprise > team > individual > free
-			tierRanking := map[string]int{
-				"enterprise":  3,
-				"team":        2,
-				"individual":  1,
-				"free":        0,
-			}
+			// PH8-FIX: Always set tier headers for observability
+			w.Header().Set("X-Required-Tier", requiredTier)
+			w.Header().Set("X-Current-Tier", tier)
 
-			requiredRanking := tierRanking[requiredTier]
-			actualRanking := tierRanking[tier]
+			requiredRank := tierRanking[requiredTier]
+			actualRank := tierRanking[tier]
 
-			if actualRanking < requiredRanking {
+			if actualRank < requiredRank {
 				log.Warn().Str("user_id", userID).Str("required_tier", requiredTier).Str("actual_tier", tier).Msg("insufficient tier")
-				http.Error(w, "upgrade required", http.StatusPaymentRequired)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				json.NewEncoder(w).Encode(TierGateError{
+					Error:        "insufficient_tier",
+					RequiredTier: requiredTier,
+					CurrentTier:  tier,
+					Message:      fmt.Sprintf("This endpoint requires %s tier or higher. Your current tier is %s.", requiredTier, tier),
+				})
 				return
 			}
 
+			// PH8-FIX: Inject tier into context for downstream handlers
+			ctx2 := context.WithValue(r.Context(), ctxkeys.UserTier, tier)
 			log.Debug().Str("user_id", userID).Str("tier", tier).Str("required_tier", requiredTier).Msg("tier check passed")
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx2))
 		})
 	}
 }
 
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header (from reverse proxy)
+	// H-5 FIX: Use the RIGHTMOST (last) non-empty entry, which is the IP added by the
+	// closest trusted proxy. Using the leftmost entry trusts the client's claim about
+	// its own IP address, enabling IP spoofing. The rightmost entry is authoritative
+	// because it was added by our infrastructure, not by the client.
 	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
 		ips := strings.Split(xForwardedFor, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
+		// Iterate from right to left to find the last non-empty IP
+		for i := len(ips) - 1; i >= 0; i-- {
+			if trimmed := strings.TrimSpace(ips[i]); trimmed != "" {
+				return trimmed
+			}
 		}
 	}
 

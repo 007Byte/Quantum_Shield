@@ -1,23 +1,32 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Platform } from 'react-native';
 import { logger } from '@/utils/logger';
-import { arePinsConfigured, initializeCertificatePinning } from './certificatePinning';
+import { arePinsConfigured, initializeCertificatePinning } from './security/certificatePinning';
 import { auditService } from './auditService';
 
 // Web-compatible SecureStore shim
-const SecureStore = Platform.OS === 'web'
-  ? {
-      getItemAsync: async (key: string) => {
-        try { return localStorage.getItem(key); } catch { return null; }
-      },
-      setItemAsync: async (key: string, value: string) => {
-        try { localStorage.setItem(key, value); } catch {}
-      },
-      deleteItemAsync: async (key: string) => {
-        try { localStorage.removeItem(key); } catch {}
-      },
-    }
-  : require('expo-secure-store');
+const SecureStore =
+  Platform.OS === 'web'
+    ? {
+        getItemAsync: async (key: string) => {
+          try {
+            return localStorage.getItem(key);
+          } catch {
+            return null;
+          }
+        },
+        setItemAsync: async (key: string, value: string) => {
+          try {
+            localStorage.setItem(key, value);
+          } catch {}
+        },
+        deleteItemAsync: async (key: string) => {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+        },
+      }
+    : require('expo-secure-store');
 // MEDIUM-FIX: Generate request IDs for tracing without external dependency
 function generateRequestId(): string {
   const bytes = new Uint8Array(16);
@@ -25,11 +34,11 @@ function generateRequestId(): string {
   bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 // Configuration
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com';
+const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/api/v1`;
 const TOKEN_KEY = 'usbvault_access_token';
 const REFRESH_TOKEN_KEY = 'usbvault_refresh_token';
 
@@ -61,7 +70,7 @@ function createApiClient(): AxiosInstance {
       // RM-002: Hard-fail on native production if pins not configured
       throw new Error(
         'Certificate pins not configured for production build. ' +
-        'Set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP environment variables.'
+          'Set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP environment variables.'
       );
     }
     logger.warn(
@@ -80,7 +89,7 @@ function createApiClient(): AxiosInstance {
 
   // Request interceptor: attach JWT token and request ID
   client.interceptors.request.use(
-    async (config) => {
+    async config => {
       try {
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
         if (token) {
@@ -95,24 +104,26 @@ function createApiClient(): AxiosInstance {
 
       return config;
     },
-    (error) => {
+    error => {
       return Promise.reject(error);
     }
   );
 
   // Response interceptor: handle 401, network errors with retry, and other failures
   client.interceptors.response.use(
-    (response) => response,
+    response => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as any;
 
       // MEDIUM-FIX: Retry mechanism for network errors (not 4xx/5xx HTTP errors)
       // Network errors: ECONNREFUSED, ETIMEDOUT, ERR_NETWORK, etc.
-      const isNetworkError = !error.response && error.message &&
+      const isNetworkError =
+        !error.response &&
+        error.message &&
         (error.message.includes('ECONNREFUSED') ||
-         error.message.includes('ETIMEDOUT') ||
-         error.message.includes('ERR_NETWORK') ||
-         error.code === 'ECONNABORTED');
+          error.message.includes('ETIMEDOUT') ||
+          error.message.includes('ERR_NETWORK') ||
+          error.code === 'ECONNABORTED');
 
       if (isNetworkError && !originalRequest._retryCount) {
         originalRequest._retryCount = 0;
@@ -128,7 +139,7 @@ function createApiClient(): AxiosInstance {
         );
 
         // Wait for exponential backoff before retrying
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
 
         originalRequest._retryCount = retryCount + 1;
         // Generate new request ID for retry
@@ -144,9 +155,15 @@ function createApiClient(): AxiosInstance {
       if (error.response?.status === 401 && !originalRequest._authRetry) {
         originalRequest._authRetry = true;
 
-        // Wait for token refresh to complete (avoid race conditions)
+        // RELIABILITY FIX (H-2): Synchronous promise assignment eliminates the race window.
+        // Previously, multiple concurrent 401 responses could enter the refresh path
+        // between the null check and the promise assignment, triggering duplicate refresh
+        // calls. Now the assignment is synchronous — no await between check and assign.
         if (!refreshTokenInProgress) {
-          refreshTokenInProgress = refreshAccessToken();
+          const refreshPromise = refreshAccessToken().finally(() => {
+            refreshTokenInProgress = null;
+          });
+          refreshTokenInProgress = refreshPromise;
         }
 
         try {
@@ -160,8 +177,6 @@ function createApiClient(): AxiosInstance {
           await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
           // Let auth store handle redirect
           return Promise.reject(refreshError);
-        } finally {
-          refreshTokenInProgress = null;
         }
       }
 
@@ -176,22 +191,34 @@ function createApiClient(): AxiosInstance {
   // In production native builds, TrustKit handles pinning at the TLS layer.
   if (arePinsConfigured()) {
     client.interceptors.response.use(
-      (response) => {
+      response => {
         // RM-002: On native builds, TrustKit enforces pinning at TLS layer.
         // On web/dev, log that pin validation is deferred to native layer.
         return response;
       },
       (error: AxiosError) => {
         // RM-002: Detect SSL/TLS errors that may indicate pin mismatch
-        if (error.code === 'ERR_TLS_CERT_ALTNAME_INVALID' ||
-            error.code === 'CERT_HAS_EXPIRED' ||
-            error.message?.includes('certificate') ||
-            error.message?.includes('SSL')) {
-          logger.error('[API] TLS/certificate error detected — possible pin mismatch:', error.message);
-          auditService.log('system', 'certificate_pin_failure', {
-            url: error.config?.url,
-            error: error.message,
-          }, 'error').catch(() => {});
+        if (
+          error.code === 'ERR_TLS_CERT_ALTNAME_INVALID' ||
+          error.code === 'CERT_HAS_EXPIRED' ||
+          error.message?.includes('certificate') ||
+          error.message?.includes('SSL')
+        ) {
+          logger.error(
+            '[API] TLS/certificate error detected — possible pin mismatch:',
+            error.message
+          );
+          auditService
+            .log(
+              'system',
+              'certificate_pin_failure',
+              {
+                url: error.config?.url,
+                error: error.message,
+              },
+              'error'
+            )
+            .catch(() => {});
         }
         return Promise.reject(error);
       }
@@ -210,6 +237,50 @@ function getApiClient(): AxiosInstance {
 
 export { getApiClient };
 
+/**
+ * RELIABILITY FIX (M-2): Create an AbortController-linked request config.
+ * Components pass this to API calls in useEffect, and abort in the cleanup.
+ *
+ * Usage:
+ *   useEffect(() => {
+ *     const { signal, abort } = createAbortableRequest();
+ *     api.get('/endpoint', { signal }).then(...).catch(...);
+ *     return abort;
+ *   }, []);
+ */
+export function createAbortableRequest(): { signal: AbortSignal; abort: () => void } {
+  const controller = new AbortController();
+  return {
+    signal: controller.signal,
+    abort: () => controller.abort(),
+  };
+}
+
+/**
+ * RELIABILITY FIX (M-1): Lightweight runtime validation for critical API responses.
+ * Validates that required fields exist and are the expected type before the app
+ * relies on them. Catches server-side schema drift early at the API boundary.
+ */
+export function validateResponse<T>(
+  data: unknown,
+  requiredFields: Array<{ key: string; type: 'string' | 'number' | 'boolean' | 'object' }>,
+  context: string
+): T {
+  if (!data || typeof data !== 'object') {
+    throw new Error(`[${context}] Invalid response: expected object, got ${typeof data}`);
+  }
+  const obj = data as Record<string, unknown>;
+  for (const { key, type } of requiredFields) {
+    if (!(key in obj)) {
+      throw new Error(`[${context}] Missing required field: ${key}`);
+    }
+    if (typeof obj[key] !== type) {
+      throw new Error(`[${context}] Field "${key}" expected ${type}, got ${typeof obj[key]}`);
+    }
+  }
+  return data as T;
+}
+
 // DV-008 FIX: Generate device fingerprint from available device info
 // This ensures refresh tokens are only used from the same device
 // SECURITY FIX: Improved entropy collection for stronger fingerprinting
@@ -225,11 +296,8 @@ async function getDeviceFingerprint(): Promise<string> {
           ? `${window.screen.width}x${window.screen.height}`
           : 'unknown',
       timezone:
-        typeof Intl !== 'undefined'
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : 'unknown',
-      language:
-        typeof navigator !== 'undefined' ? navigator.language : 'unknown',
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'unknown',
+      language: typeof navigator !== 'undefined' ? navigator.language : 'unknown',
       // For native platforms, you would add:
       // - Unique device ID (requires native module)
       // - Hardware serial number (requires native module)
@@ -244,7 +312,7 @@ async function getDeviceFingerprint(): Promise<string> {
     // Use SubtleCrypto API available in modern JS environments
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     logger.log('Device fingerprint generated from:', Object.keys(deviceInfo).join(', '));
     return hashHex;
@@ -260,7 +328,7 @@ async function getDeviceFingerprint(): Promise<string> {
     const data = encoder.encode(fallbackEntropy);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }
 
@@ -300,10 +368,7 @@ async function refreshAccessToken(): Promise<void> {
 /**
  * Store tokens securely.
  */
-export async function storeTokens(
-  accessToken: string,
-  refreshToken: string
-): Promise<void> {
+export async function storeTokens(accessToken: string, refreshToken: string): Promise<void> {
   try {
     await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
     await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
@@ -355,9 +420,7 @@ export interface SrpVerifyResponse {
   email: string;
 }
 
-export async function srpVerify(
-  request: SrpVerifyRequest
-): Promise<SrpVerifyResponse> {
+export async function srpVerify(request: SrpVerifyRequest): Promise<SrpVerifyResponse> {
   const client = getApiClient();
   const response = await client.post('/auth/srp/verify', request);
   return response.data;
@@ -376,15 +439,44 @@ export interface VaultSummary {
   securityLevel: 'standard' | 'high' | 'maximum';
 }
 
+// M-5 FIX: Paginated vault list response
+export interface PaginatedVaultResponse {
+  vaults: VaultSummary[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
 export async function listVaults(): Promise<VaultSummary[]> {
   const client = getApiClient();
   const response = await client.get('/vaults');
+  // Support both paginated (new) and flat array (legacy) response formats
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
   return response.data.vaults || [];
+}
+
+// M-5 FIX: Fetch a single page of vaults with cursor-based pagination.
+export async function listVaultsPaginated(
+  cursor?: string,
+  limit: number = 50
+): Promise<PaginatedVaultResponse> {
+  const client = getApiClient();
+  const params: Record<string, string> = { limit: String(limit) };
+  if (cursor) params.cursor = cursor;
+  const response = await client.get('/vaults', { params });
+  return {
+    vaults: response.data.vaults || [],
+    next_cursor: response.data.next_cursor,
+    has_more: response.data.has_more ?? false,
+  };
 }
 
 export interface CreateVaultRequest {
   name: string;
   encryptedMetadata: string; // base64-encoded
+  wrappedMek?: string;
+  kekSaltHex?: string;
 }
 
 export async function createVault(request: CreateVaultRequest): Promise<string> {
@@ -414,9 +506,7 @@ export interface GetUploadUrlResponse {
   method: string; // 'PUT' or 'POST'
 }
 
-export async function getUploadUrl(
-  request: GetUploadUrlRequest
-): Promise<GetUploadUrlResponse> {
+export async function getUploadUrl(request: GetUploadUrlRequest): Promise<GetUploadUrlResponse> {
   const client = getApiClient();
   const response = await client.post('/blobs/upload-url', request);
   return response.data;
@@ -431,9 +521,7 @@ export async function getDownloadUrl(
   blobId: string
 ): Promise<GetDownloadUrlResponse> {
   const client = getApiClient();
-  const response = await client.get(
-    `/vaults/${vaultId}/blobs/${blobId}/download-url`
-  );
+  const response = await client.get(`/vaults/${vaultId}/blobs/${blobId}/download-url`);
   return response.data;
 }
 
@@ -450,9 +538,7 @@ export interface CreateShareRequest {
   permissions?: 'read' | 'read-decrypt';
 }
 
-export async function createShare(
-  request: CreateShareRequest
-): Promise<string> {
+export async function createShare(request: CreateShareRequest): Promise<string> {
   const client = getApiClient();
   const response = await client.post('/shares', request);
   return response.data.shareId;
@@ -515,7 +601,7 @@ export async function getUserInfo(): Promise<UserInfo> {
   if (Platform.OS === 'web') {
     throw new Error(
       'Web platform requires proper authentication. ' +
-      'Please ensure API endpoint is configured and user is authenticated via proper SRP flow.'
+        'Please ensure API endpoint is configured and user is authenticated via proper SRP flow.'
     );
   }
   const client = getApiClient();
@@ -560,9 +646,7 @@ export interface RegisterFido2DeviceRequest {
   publicKey: string; // base64-encoded
 }
 
-export async function registerFido2Device(
-  request: RegisterFido2DeviceRequest
-): Promise<string> {
+export async function registerFido2Device(request: RegisterFido2DeviceRequest): Promise<string> {
   const client = getApiClient();
   const response = await client.post('/user/fido2-devices', request);
   return response.data.deviceId;

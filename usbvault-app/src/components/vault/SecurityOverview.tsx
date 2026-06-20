@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  ViewStyle,
-  Text,
-} from 'react-native';
+import { View, StyleSheet, ViewStyle, Text } from 'react-native';
 import Svg, { Polygon, Line } from 'react-native-svg';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -42,10 +37,7 @@ const styles = StyleSheet.create({
 });
 
 // Available for future use
-export const SecurityOverview: React.FC<SecurityOverviewProps> = ({
-  style,
-  testID,
-}) => {
+export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ style, testID }) => {
   const axes: Axis[] = [
     { label: 'Files', value: 95 },
     { label: 'Passwords', value: 90 },
@@ -72,7 +64,7 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({
     return points.join(' ');
   };
 
-  const values = axes.map((a) => a.value);
+  const values = axes.map(a => a.value);
   const polygonPoints = generatePoints(values);
 
   return (
@@ -124,9 +116,7 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({
         })}
       </Svg>
 
-      <Text style={styles.label}>
-        Security Overview
-      </Text>
+      <Text style={styles.label}>Security Overview</Text>
     </View>
   );
 };

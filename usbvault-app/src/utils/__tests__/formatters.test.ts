@@ -1,9 +1,4 @@
-import {
-  formatFileSize,
-  formatDate,
-  truncateFilename,
-  getFileTypeIcon,
-} from '@/utils/formatters';
+import { formatFileSize, formatDate, truncateFilename, getFileTypeIcon } from '@/utils/formatters';
 
 describe('Formatters Utility Functions', () => {
   // ============================================================================
@@ -52,7 +47,7 @@ describe('Formatters Utility Functions', () => {
   describe('formatDate', () => {
     it('should format date as "just now" for recent dates', () => {
       const now = new Date();
-      expect(formatDate(now)).toBe('just now');
+      expect(formatDate(now)).toBe('Just now');
     });
 
     it('should format date in minutes ago', () => {

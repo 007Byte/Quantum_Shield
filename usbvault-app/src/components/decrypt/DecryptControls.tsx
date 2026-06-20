@@ -2,7 +2,13 @@
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
-import { dashboardSpacing, dashboardColors, dashboardLayout, webOnlyTransition } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  dashboardLayout,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
 
 type DecryptMode = 'save' | 'view';
 
@@ -23,13 +29,15 @@ export function DecryptControls({
   isDecrypting,
   progress,
 }: DecryptControlsProps) {
+  const { t } = useLanguage();
   return (
     <>
       {/* Mode selector */}
       <View style={styles.modeSelector}>
-        <Text style={styles.modeSelectorLabel}>After decryption:</Text>
+        <Text style={styles.modeSelectorLabel}>{t('decrypt.afterDecryption')}</Text>
         <View style={styles.modeOptions}>
           <Pressable
+            accessibilityRole="button"
             onPress={() => onModeChange('save')}
             style={(state: any) => [
               styles.modeButton,
@@ -37,10 +45,17 @@ export function DecryptControls({
               state.hovered && styles.modeButtonHover,
             ]}
           >
-            <Feather name="download" size={16} color={mode === 'save' ? '#FFFFFF' : dashboardColors.textSecondary} />
-            <Text style={[styles.modeButtonText, mode === 'save' && styles.modeButtonTextActive]}>Save to Device</Text>
+            <Feather
+              name="download"
+              size={16}
+              color={mode === 'save' ? '#FFFFFF' : dashboardColors.textSecondary}
+            />
+            <Text style={[styles.modeButtonText, mode === 'save' && styles.modeButtonTextActive]}>
+              {t('decrypt.saveToDevice')}
+            </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={() => onModeChange('view')}
             style={(state: any) => [
               styles.modeButton,
@@ -48,8 +63,14 @@ export function DecryptControls({
               state.hovered && styles.modeButtonHover,
             ]}
           >
-            <Feather name="eye" size={16} color={mode === 'view' ? '#FFFFFF' : dashboardColors.textSecondary} />
-            <Text style={[styles.modeButtonText, mode === 'view' && styles.modeButtonTextActive]}>View Temporarily</Text>
+            <Feather
+              name="eye"
+              size={16}
+              color={mode === 'view' ? '#FFFFFF' : dashboardColors.textSecondary}
+            />
+            <Text style={[styles.modeButtonText, mode === 'view' && styles.modeButtonTextActive]}>
+              {t('decrypt.viewTemporarily')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -58,9 +79,10 @@ export function DecryptControls({
       {selectedCount > 0 && (
         <View style={styles.actionBar}>
           <Text style={styles.actionBarText}>
-            {selectedCount} file{selectedCount > 1 ? 's' : ''} selected
+            {t('decrypt.filesSelected', { count: selectedCount })}
           </Text>
           <Pressable
+            accessibilityRole="button"
             style={(state: any) => [
               styles.decryptButton,
               webOnlyTransition,
@@ -77,10 +99,10 @@ export function DecryptControls({
             />
             <Text style={styles.decryptButtonText}>
               {isDecrypting
-                ? `Decrypting${progress > 0 ? ` ${Math.round(progress * 100)}%` : '...'}`
+                ? `${t('decrypt.decryptBtn')}${progress > 0 ? ` ${Math.round(progress * 100)}%` : '...'}`
                 : mode === 'save'
-                  ? `Save ${selectedCount > 1 ? 'Files' : 'File'} to Device`
-                  : 'View Temporarily'}
+                  ? t('decrypt.saveToDevice')
+                  : t('decrypt.viewTemporarily')}
             </Text>
           </Pressable>
         </View>

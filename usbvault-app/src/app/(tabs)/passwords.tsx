@@ -3,15 +3,25 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useCallback } from 'react';
 import { InAppModal, useInAppModal } from '@/components/common';
+import { useLanguage } from '@/hooks/useLanguage';
 import { ShellLayout } from '@/components/dashboard2/ShellLayout';
-import { dashboardSpacing, dashboardColors, webOnlyTransition } from '@/components/dashboard2/styles';
+import {
+  dashboardSpacing,
+  dashboardColors,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
 import { usePasswords } from '@/hooks/usePasswords';
+import { webOnly } from '@/utils/webStyle';
 import { PasswordSearch } from '@/components/passwords/PasswordSearch';
 import { PasswordList } from '@/components/passwords/PasswordList';
 import { PasswordForm } from '@/components/passwords/PasswordForm';
 import { PasswordImport } from '@/components/passwords/PasswordImport';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import { EmptyState } from '@/components/common/EmptyState';
+import { SkeletonCard } from '@/components/common/SkeletonLoader';
 
-export default function PasswordsScreen() {
+function PasswordsScreen() {
+  const { t } = useLanguage();
   const { modal, showAlert, showSuccess, showError, showConfirm } = useInAppModal();
 
   const {
@@ -58,78 +68,83 @@ export default function PasswordsScreen() {
   const handleSavePassword = useCallback(async () => {
     const result = await savePassword();
     if (result.success) {
-      showSuccess('Success', editingId ? 'Password updated' : 'Password added');
+      showSuccess(t('passwords.success'), editingId ? t('passwords.passwordUpdated') : t('passwords.passwordAdded'));
       handleCloseAddModal();
     } else {
-      showError('Error', result.error || 'Failed to save password');
+      showError(t('passwords.error'), result.error || t('passwords.failedToSave'));
     }
-  }, [savePassword, editingId, showSuccess, showError, handleCloseAddModal]);
+  }, [savePassword, editingId, showSuccess, showError, handleCloseAddModal, t]);
 
   const handleCopyPassword = useCallback(
     async (passwordText: string, entryId: string) => {
       const success = await copyPassword(passwordText, entryId);
       if (!success) {
-        showError('Error', 'Failed to copy to clipboard');
+        showError(t('passwords.error'), t('passwords.failedToCopy'));
       }
     },
-    [copyPassword, showError],
+    [copyPassword, showError, t]
   );
 
   const handleDeletePassword = useCallback(
     (entryId: string, title: string) => {
       showConfirm(
-        `Delete '${title}'?`,
-        'This password will be permanently deleted.',
+        t('passwords.deleteTitle', { title }),
+        t('passwords.deleteConfirm'),
         async () => {
           const result = await deletePassword(entryId);
           if (result.success) {
-            showAlert('Deleted', `${title} has been removed`);
+            showAlert(t('passwords.deleted'), `${title} ${t('passwords.hasBeenRemoved')}`);
           } else {
-            showError('Error', 'Failed to delete password');
+            showError(t('passwords.error'), t('passwords.failedToDelete'));
           }
         },
-        'Delete',
-        'destructive',
+        t('passwords.deleteBtn'),
+        'destructive'
       );
     },
-    [deletePassword, showAlert, showError, showConfirm],
+    [deletePassword, showAlert, showError, showConfirm, t]
   );
 
   const handleImportFile = useCallback(
     (content: string, fileName: string) => {
       const validation = validateAndPrepareImport(content);
       if (!validation.valid) {
-        showError('Import Error', validation.error);
+        showError(t('passwords.importError'), validation.error);
         return;
       }
 
       const countHint =
-        validation.estimatedCount && validation.estimatedCount > 0 ? ` (~${validation.estimatedCount} entries)` : '';
+        validation.estimatedCount && validation.estimatedCount > 0
+          ? t('passwords.entriesHint', { count: validation.estimatedCount })
+          : '';
 
       showConfirm(
-        `Import from ${validation.formatName}?`,
-        `Detected ${validation.formatName} format${countHint}. Passwords will be encrypted and added to your vault.`,
+        t('passwords.importTitle_confirm', { format: validation.formatName }),
+        t('passwords.importMsg', { format: validation.formatName, hint: countHint }),
         async () => {
           const result = await performImport(content, validation.format || 'auto', fileName);
 
           if (result.success) {
             if (result.result?.errors && result.result.errors.length > 0) {
-              showError('Import Errors', result.result.errors.join('\n'));
+              showError(t('passwords.importErrors'), result.result.errors.join('\n'));
             } else {
+              const duplicateMsg = result.result?.duplicates && result.result.duplicates > 0
+                ? `, ${t('passwords.duplicatesSkipped', { count: result.result.duplicates })}`
+                : '';
               showSuccess(
-                'Import Complete',
-                `${result.result?.imported} passwords imported${result.result?.duplicates && result.result.duplicates > 0 ? `, ${result.result.duplicates} duplicates skipped` : ''}.`,
+                t('passwords.importComplete'),
+                `${result.result?.imported} ${t('passwords.imported')}${duplicateMsg}.`
               );
             }
             setShowImportModal(false);
           } else {
-            showError('Import Failed', result.error || 'Unknown error');
+            showError(t('passwords.importFailed'), result.error || t('passwords.unknownError'));
           }
         },
-        'Import',
+        t('passwords.import')
       );
     },
-    [validateAndPrepareImport, performImport, showError, showSuccess, showConfirm],
+    [validateAndPrepareImport, performImport, showError, showSuccess, showConfirm, t]
   );
 
   const handleCloseImportModal = useCallback(() => {
@@ -144,7 +159,9 @@ export default function PasswordsScreen() {
       <View style={styles.contentWrapper}>
         {/* Header with Title */}
         <View style={styles.header}>
-          <Text style={styles.title}>Password Manager</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {t('passwords.pageTitle')}
+          </Text>
         </View>
 
         {/* Search Bar */}
@@ -153,41 +170,51 @@ export default function PasswordsScreen() {
         {/* Action Buttons Row */}
         <View style={styles.actionRow}>
           <Pressable
-            style={(state: any) => [styles.addButton, webOnlyTransition, state.hovered && styles.addButtonHover]}
+            accessibilityRole="button"
+            style={(state: any) => [
+              styles.addButton,
+              webOnlyTransition,
+              state.hovered && styles.addButtonHover,
+            ]}
             onPress={handleOpenAddModal}
           >
             <Feather name="plus" size={18} color="#fff" />
-            <Text style={styles.addButtonText}>Add Password</Text>
+            <Text style={styles.addButtonText}>{t('passwords.addPassword')}</Text>
           </Pressable>
 
           <Pressable
-            style={(state: any) => [styles.importButton, webOnlyTransition, state.hovered && styles.importButtonHover]}
+            accessibilityRole="button"
+            style={(state: any) => [
+              styles.importButton,
+              webOnlyTransition,
+              state.hovered && styles.importButtonHover,
+            ]}
             onPress={() => setShowImportModal(true)}
           >
             <Feather name="download" size={18} color="#22D3EE" />
-            <Text style={styles.importButtonText}>Import</Text>
+            <Text style={styles.importButtonText}>{t('passwords.import')}</Text>
           </Pressable>
         </View>
 
         {/* Password Entries List - Use PasswordList component with empty state handling */}
-        {filteredEntries.length === 0 && !isLoading && passwords.length === 0 ? (
-          <PasswordList
-            entries={[]}
-            isLoading={false}
-            copyFeedback={copyFeedback}
-            onCopyPassword={handleCopyPassword}
-            onEditPassword={(entry) => {
-              openEditModal(entry);
-              setShowAddModal(true);
-            }}
-            onDeletePassword={handleDeletePassword}
-            onAddClick={handleOpenAddModal}
-            getStrengthColor={getStrengthColor}
+        {isLoading ? (
+          <View style={{ gap: 12 }}>
+            <SkeletonCard lines={3} />
+            <SkeletonCard lines={3} />
+            <SkeletonCard lines={3} />
+          </View>
+        ) : filteredEntries.length === 0 && passwords.length === 0 ? (
+          <EmptyState
+            icon="key"
+            title={t('empty.passwords')}
+            description={t('empty.passwordsDescription')}
+            actionLabel={t('passwords.addPassword')}
+            onAction={handleOpenAddModal}
           />
-        ) : filteredEntries.length === 0 && !isLoading && passwords.length > 0 ? (
+        ) : filteredEntries.length === 0 && passwords.length > 0 ? (
           <View style={styles.noSearchResults}>
             <Feather name="search" size={48} color={dashboardColors.textSecondary} />
-            <Text style={styles.noSearchText}>No passwords match your search</Text>
+            <Text style={styles.noSearchText}>{t('passwords.noMatch')}</Text>
           </View>
         ) : (
           <PasswordList
@@ -195,7 +222,7 @@ export default function PasswordsScreen() {
             isLoading={isLoading}
             copyFeedback={copyFeedback}
             onCopyPassword={handleCopyPassword}
-            onEditPassword={(entry) => {
+            onEditPassword={entry => {
               openEditModal(entry);
               setShowAddModal(true);
             }}
@@ -317,5 +344,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Import webOnly utility
-import { webOnly } from '@/utils/webStyle';
+export default withErrorBoundary(PasswordsScreen, 'Passwords');

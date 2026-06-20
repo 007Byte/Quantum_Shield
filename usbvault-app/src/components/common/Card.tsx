@@ -29,17 +29,9 @@ const styles = StyleSheet.create({
   },
 });
 
-export const Card: React.FC<CardProps> = ({
-  children,
-  glow = false,
-  style,
-  testID,
-}) => {
+export const Card: React.FC<CardProps> = ({ children, glow = false, style, testID }) => {
   return (
-    <View
-      style={[styles.card, glow && styles.cardGlow, style]}
-      testID={testID}
-    >
+    <View style={[styles.card, glow && styles.cardGlow, style]} testID={testID}>
       {children}
     </View>
   );

@@ -188,7 +188,7 @@ pub fn derive_subkey(master: &[u8], info: &str) -> Result<[u8; 32]> {
 /// Generate a cryptographically random salt (32 bytes)
 pub fn generate_salt() -> [u8; 32] {
     let mut salt = [0u8; 32];
-    rand::Rng::fill(&mut rand::thread_rng(), &mut salt);
+    OsRng.fill_bytes(&mut salt);
     salt
 }
 
@@ -264,16 +264,19 @@ pub fn unwrap_mek(kek: &KeyEncryptionKey, wrapped: &[u8]) -> Result<MasterEncryp
 
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(kek.as_bytes()));
 
-    let plaintext = cipher
+    let mut plaintext = cipher
         .decrypt(nonce, ciphertext)
         .map_err(|_| CryptoError::KeyWrappingFailed)?;
 
     if plaintext.len() != 64 {
+        zeroize::Zeroize::zeroize(&mut plaintext);
         return Err(CryptoError::KeyWrappingFailed);
     }
 
     let mut key = [0u8; 64];
     key.copy_from_slice(&plaintext);
+    // Zero the decrypted plaintext Vec before it's dropped
+    zeroize::Zeroize::zeroize(&mut plaintext);
     Ok(MasterEncryptionKey::from_bytes(key))
 }
 

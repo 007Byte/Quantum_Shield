@@ -1,42 +1,16 @@
 /**
- * PH4-FIX: Stub for index crypto service.
- * TODO: Wire to Rust FFI for encrypted index operations.
+ * @deprecated This file is dead code. The real implementation lives at
+ * src/services/crypto/index.ts which is properly wired to the Rust FFI
+ * via @/crypto/bridge (encryptVaultIndex / decryptVaultIndex).
+ *
+ * All consumers (vaultStore, vaultIndexSync, vaultListStore) import from
+ * '@/services/crypto' which resolves to the real implementation.
+ *
+ * See CONSOLIDATION_MANIFEST.md: indexCrypto.ts → crypto/index.ts
+ *
+ * This file is kept temporarily for backward compatibility but should be
+ * deleted once confirmed no external tooling references it.
  */
 
-export async function encryptIndex(_key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  // Stub — returns data unchanged
-  return data;
-}
-
-export async function decryptIndex(_key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  // Stub — returns data unchanged
-  return data;
-}
-
-// Aliases used by vaultStore (SG-003)
-// These work with base64 strings to match webStorage's saveEncryptedIndex/loadEncryptedIndex API.
-export async function encryptFileIndex(key: Uint8Array, data: unknown): Promise<string | null> {
-  try {
-    const json = JSON.stringify(data);
-    const bytes = new TextEncoder().encode(json);
-    const encrypted = await encryptIndex(key, bytes);
-    // Convert Uint8Array to base64 string for storage
-    return btoa(String.fromCharCode(...encrypted));
-  } catch {
-    return null;
-  }
-}
-
-export async function decryptFileIndex(_key: Uint8Array, data: string): Promise<unknown[] | null> {
-  try {
-    // Convert base64 string back to Uint8Array
-    const binary = atob(data);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const decrypted = await decryptIndex(_key, bytes);
-    const json = new TextDecoder().decode(decrypted);
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
+// Re-export from the real implementation so any stale import still works
+export { encryptFileIndex, decryptFileIndex, isEncryptedIndex } from './crypto/index';

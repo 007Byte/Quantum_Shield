@@ -30,7 +30,13 @@ export interface SecurityAdvisory {
 export interface IncidentProcedure {
   id: string;
   title: string;
-  category: 'data_breach' | 'key_compromise' | 'device_loss' | 'unauthorized_access' | 'malware' | 'physical_theft';
+  category:
+    | 'data_breach'
+    | 'key_compromise'
+    | 'device_loss'
+    | 'unauthorized_access'
+    | 'malware'
+    | 'physical_theft';
   steps: string[];
   priority: 'immediate' | 'urgent' | 'standard';
   estimatedTime: string;
@@ -246,7 +252,7 @@ class IncidentResponseServiceImpl {
    */
   getProcedure(category: IncidentProcedure['category']): IncidentProcedure | undefined {
     const procedures = this.getIncidentProcedures();
-    return procedures.find((p) => p.category === category);
+    return procedures.find(p => p.category === category);
   }
 
   /**
@@ -266,18 +272,23 @@ class IncidentResponseServiceImpl {
     const advisories = readAdvisories();
 
     // Check for duplicate
-    if (advisories.some((a) => a.id === advisory.id)) {
+    if (advisories.some(a => a.id === advisory.id)) {
       return;
     }
 
     advisories.push(advisory);
     writeAdvisories(advisories);
 
-    auditService.log('system', 'security_advisory', {
-      advisoryId: advisory.id,
-      severity: advisory.severity,
-      affectedVersions: advisory.affectedVersions,
-    }, 'success');
+    auditService.log(
+      'system',
+      'security_advisory',
+      {
+        advisoryId: advisory.id,
+        severity: advisory.severity,
+        affectedVersions: advisory.affectedVersions,
+      },
+      'success'
+    );
   }
 
   /**
@@ -287,16 +298,21 @@ class IncidentResponseServiceImpl {
    */
   acknowledgeAdvisory(advisoryId: string): void {
     const advisories = readAdvisories();
-    const advisory = advisories.find((a) => a.id === advisoryId);
+    const advisory = advisories.find(a => a.id === advisoryId);
 
     if (advisory) {
       advisory.acknowledged = true;
       writeAdvisories(advisories);
 
-      auditService.log('system', 'security_advisory', {
-        advisoryId,
-        action: 'acknowledged',
-      }, 'success');
+      auditService.log(
+        'system',
+        'security_advisory',
+        {
+          advisoryId,
+          action: 'acknowledged',
+        },
+        'success'
+      );
     }
   }
 
@@ -305,7 +321,7 @@ class IncidentResponseServiceImpl {
    */
   getUnacknowledgedCount(): number {
     const advisories = readAdvisories();
-    return advisories.filter((a) => !a.acknowledged).length;
+    return advisories.filter(a => !a.acknowledged).length;
   }
 
   /**
@@ -313,9 +329,7 @@ class IncidentResponseServiceImpl {
    */
   getCriticalAdvisories(): SecurityAdvisory[] {
     const advisories = readAdvisories();
-    return advisories.filter(
-      (a) => !a.acknowledged && ['critical', 'high'].includes(a.severity),
-    );
+    return advisories.filter(a => !a.acknowledged && ['critical', 'high'].includes(a.severity));
   }
 
   /**
@@ -327,7 +341,7 @@ class IncidentResponseServiceImpl {
    */
   generateDisclosureTemplate(
     incidentType: IncidentProcedure['category'],
-    details: Record<string, unknown>,
+    details: Record<string, unknown>
   ): string {
     const timestamp = new Date().toISOString();
     const procedure = this.getProcedure(incidentType);
@@ -386,10 +400,7 @@ _To be filled in during incident resolution._
    * @param category - Incident category
    * @param details - Incident details
    */
-  logIncident(
-    category: IncidentProcedure['category'],
-    details: Record<string, unknown>,
-  ): void {
+  logIncident(category: IncidentProcedure['category'], details: Record<string, unknown>): void {
     const logs = readIncidentLog();
 
     const log: IncidentLog = {
@@ -403,12 +414,17 @@ _To be filled in during incident resolution._
     logs.push(log);
     writeIncidentLog(logs);
 
-    auditService.log('system', 'incident', {
-      category,
-      severity: log.severity,
-      incidentId: log.id,
-      ...details,
-    }, 'warning');
+    auditService.log(
+      'system',
+      'incident',
+      {
+        category,
+        severity: log.severity,
+        incidentId: log.id,
+        ...details,
+      },
+      'warning'
+    );
   }
 
   /**
@@ -435,7 +451,7 @@ _To be filled in during incident resolution._
    * Determine incident severity based on category.
    */
   private _determineSeverity(
-    category: IncidentProcedure['category'],
+    category: IncidentProcedure['category']
   ): SecurityAdvisory['severity'] {
     const severityMap: Record<IncidentProcedure['category'], SecurityAdvisory['severity']> = {
       data_breach: 'critical',

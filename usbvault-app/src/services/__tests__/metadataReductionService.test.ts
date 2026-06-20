@@ -343,7 +343,7 @@ describe('MetadataReductionService', () => {
       const stats = metadataReductionService.getStats();
 
       expect(stats.pendingBatch).toBe(0);
-      expect(stats.paddingSize).toBe(1024); // Falls back to 1024 for invalid size
+      expect(stats.paddingSize).toBe(256); // Closest valid size to 512 is 256
       expect(stats.jitterEnabled).toBe(true);
     });
   });

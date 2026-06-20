@@ -1,8 +1,4 @@
-export type IconSetName =
-  | 'Feather'
-  | 'Ionicons'
-  | 'MaterialCommunityIcons'
-  | 'Octicons';
+export type IconSetName = 'Feather' | 'Ionicons' | 'MaterialCommunityIcons' | 'Octicons';
 
 /**
  * PL-009: Compile-time validated enum for sidebar section placement.

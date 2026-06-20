@@ -16,11 +16,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH1-FIX: Atomic Lua script for distributed sliding-window rate limiting.
@@ -146,7 +148,7 @@ func RateLimiter(redisClient *redis.Client, requestsPerMinute int) func(http.Han
 			}
 
 			// Rate limit by user (if authenticated)
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 			if ok && userID != "" {
 				userKey := "ratelimit:user:" + userID
 				userLimit := 1000 // Higher limit for authenticated users
@@ -207,11 +209,34 @@ func checkRateLimit(ctx context.Context, redisClient *redis.Client, key string, 
 	).Int64()
 
 	if err != nil {
-		log.Error().Err(err).Str("key", key).Msg("PH1-FIX: Redis rate limit failed, using in-memory fallback (fail-closed)")
-		// PH1-FIX: Fail-closed with in-memory fallback instead of fail-open.
-		// This prevents brute-force attacks during Redis outages while still
-		// allowing legitimate traffic within a conservative per-instance limit.
-		return fallbackLimiter.check(key, limit, window)
+		// H-6 FIX: Fail-closed behavior for rate limiting on Redis unavailability.
+		// Auth-critical paths (login, register, password-reset) should deny all traffic.
+		// For other paths, use expectedInstanceCount to divide limit proportionally.
+		const expectedInstanceCount = 5
+
+		// Check if this is an auth-critical path from the key name
+		isAuthCriticalPath := false
+		switch {
+		case strings.Contains(key, "auth"):
+			// Paths: ratelimit:auth:*, login, register, password-reset
+			isAuthCriticalPath = true
+		}
+
+		if isAuthCriticalPath {
+			// H-6 FIX: Auth endpoints fail-closed — deny all requests when Redis is down.
+			log.Error().Err(err).Str("key", key).Msg("H-6 FIX: Redis rate limit failed for auth endpoint, denying request (fail-closed)")
+			return false
+		}
+
+		log.Error().Err(err).Str("key", key).Msg("H-6 FIX: Redis rate limit failed, using in-memory fallback with proportional division")
+		// H-6 FIX: Use expectedInstanceCount to estimate per-instance quota.
+		// If limit is 100 req/min global and we expect 5 instances, each instance gets 20.
+		// This prevents the "overshoot" problem where 5 instances × (100/2) = 250 req/min.
+		fallbackLimit := limit / expectedInstanceCount
+		if fallbackLimit < 1 {
+			fallbackLimit = 1
+		}
+		return fallbackLimiter.check(key, fallbackLimit, window)
 	}
 
 	within := result <= int64(limit)
@@ -247,7 +272,7 @@ func NewRateLimiter(redisClient *redis.Client, config RateLimitConfig) func(http
 			}
 
 			// Check user rate limit if authenticated
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 			if ok && userID != "" {
 				userKey := "ratelimit:user:" + userID
 				if !checkRateLimit(ctx, redisClient, userKey, config.PerUser, config.Window) {

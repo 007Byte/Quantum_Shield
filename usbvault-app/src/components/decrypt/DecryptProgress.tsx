@@ -14,7 +14,9 @@ export function DecryptProgress({ isDecrypting, progress }: DecryptProgressProps
   return (
     <View style={styles.container}>
       <View style={styles.progressBarBg}>
-        <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` } as any]} />
+        <View
+          style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` } as any]}
+        />
       </View>
       <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
     </View>

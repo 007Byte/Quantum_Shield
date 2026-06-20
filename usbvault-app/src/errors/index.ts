@@ -1,5 +1,7 @@
 // PH4-FIX: Structured error handling for TypeScript client
 
+import { logger } from '@/utils/logger';
+
 export enum ErrorCode {
   BAD_REQUEST = 'BAD_REQUEST',
   UNAUTHORIZED = 'UNAUTHORIZED',
@@ -27,7 +29,7 @@ export class AppError extends Error {
     message: string,
     public readonly details?: Record<string, string>,
     public readonly statusCode?: number,
-    public readonly cause?: Error,
+    public readonly cause?: Error
   ) {
     super(message);
     this.name = 'AppError';
@@ -37,13 +39,13 @@ export class AppError extends Error {
 
   static fromApiResponse(
     response: { code: string; message: string; details?: Record<string, string> },
-    statusCode: number,
+    statusCode: number
   ): AppError {
     return new AppError(
       (response.code as ErrorCode) || ErrorCode.INTERNAL_ERROR,
       response.message || 'An unexpected error occurred',
       response.details,
-      statusCode,
+      statusCode
     );
   }
 
@@ -53,15 +55,12 @@ export class AppError extends Error {
       'Network request failed',
       undefined,
       undefined,
-      cause,
+      cause
     );
   }
 
   static timeout(operation: string): AppError {
-    return new AppError(
-      ErrorCode.TIMEOUT,
-      `Operation timed out: ${operation}`,
-    );
+    return new AppError(ErrorCode.TIMEOUT, `Operation timed out: ${operation}`);
   }
 
   static encryptionFailed(detail: string, cause?: Error): AppError {
@@ -70,7 +69,7 @@ export class AppError extends Error {
       `Encryption failed: ${detail}`,
       undefined,
       undefined,
-      cause,
+      cause
     );
   }
 
@@ -80,44 +79,24 @@ export class AppError extends Error {
       `Decryption failed: ${detail}`,
       undefined,
       undefined,
-      cause,
+      cause
     );
   }
 
   static unauthorized(message: string = 'Unauthorized'): AppError {
-    return new AppError(
-      ErrorCode.UNAUTHORIZED,
-      message,
-      undefined,
-      401,
-    );
+    return new AppError(ErrorCode.UNAUTHORIZED, message, undefined, 401);
   }
 
   static forbidden(message: string = 'Forbidden'): AppError {
-    return new AppError(
-      ErrorCode.FORBIDDEN,
-      message,
-      undefined,
-      403,
-    );
+    return new AppError(ErrorCode.FORBIDDEN, message, undefined, 403);
   }
 
   static notFound(message: string = 'Not found'): AppError {
-    return new AppError(
-      ErrorCode.NOT_FOUND,
-      message,
-      undefined,
-      404,
-    );
+    return new AppError(ErrorCode.NOT_FOUND, message, undefined, 404);
   }
 
   static validation(message: string, details?: Record<string, string>): AppError {
-    return new AppError(
-      ErrorCode.VALIDATION_ERROR,
-      message,
-      details,
-      400,
-    );
+    return new AppError(ErrorCode.VALIDATION_ERROR, message, details, 400);
   }
 
   isRetryable(): boolean {
@@ -131,10 +110,7 @@ export class AppError extends Error {
   }
 
   isAuthError(): boolean {
-    return [
-      ErrorCode.UNAUTHORIZED,
-      ErrorCode.FORBIDDEN,
-    ].includes(this.code);
+    return [ErrorCode.UNAUTHORIZED, ErrorCode.FORBIDDEN].includes(this.code);
   }
 
   isCryptographicError(): boolean {
@@ -159,30 +135,15 @@ export class AppError extends Error {
 // PH4-FIX: Error handler utility — never silently swallow errors
 export function handleError(error: unknown, context: string): AppError {
   if (error instanceof AppError) {
-    console.error(
-      `[${context}] ${error.code}: ${error.message}`,
-      error.details,
-    );
+    logger.error(`[${context}] ${error.code}: ${error.message}`, error.details);
     return error;
   }
   if (error instanceof Error) {
-    console.error(
-      `[${context}] Untyped error: ${error.message}`,
-      error,
-    );
-    return new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error.message,
-      undefined,
-      undefined,
-      error,
-    );
+    logger.error(`[${context}] Untyped error: ${error.message}`, error);
+    return new AppError(ErrorCode.INTERNAL_ERROR, error.message, undefined, undefined, error);
   }
-  console.error(`[${context}] Unknown error:`, error);
-  return new AppError(
-    ErrorCode.INTERNAL_ERROR,
-    String(error),
-  );
+  logger.error(`[${context}] Unknown error:`, error);
+  return new AppError(ErrorCode.INTERNAL_ERROR, String(error));
 }
 
 // PH4-FIX: Type guard for AppError
@@ -191,7 +152,10 @@ export function isAppError(error: unknown): error is AppError {
 }
 
 // PH4-FIX: Safe error extraction utility
-export function getErrorMessage(error: unknown, defaultMessage = 'An unexpected error occurred'): string {
+export function getErrorMessage(
+  error: unknown,
+  defaultMessage = 'An unexpected error occurred'
+): string {
   if (isAppError(error)) {
     return error.message;
   }

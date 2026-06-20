@@ -1,10 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Animated,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 const SKELETON_COLOR = 'rgba(139, 92, 246, 0.15)';
 const SKELETON_BG = 'rgba(15, 10, 40, 0.3)';
@@ -40,9 +36,15 @@ export const SkeletonLine: React.FC<SkeletonLineProps> = ({
   height = 14,
   style,
 }) => {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const reducedMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(reducedMotion ? 0.5 : 0.3)).current;
 
   useEffect(() => {
+    if (reducedMotion) {
+      opacity.setValue(0.5);
+      return;
+    }
+
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
@@ -63,7 +65,7 @@ export const SkeletonLine: React.FC<SkeletonLineProps> = ({
     return () => {
       animation.stop();
     };
-  }, [opacity]);
+  }, [opacity, reducedMotion]);
 
   return (
     <Animated.View
@@ -84,10 +86,7 @@ export const SkeletonLine: React.FC<SkeletonLineProps> = ({
  * SkeletonCard - Card-shaped skeleton with multiple placeholder lines
  * @param lines - Number of lines to show (default: 3)
  */
-export const SkeletonCard: React.FC<SkeletonCardProps> = ({
-  lines = 3,
-  style,
-}) => {
+export const SkeletonCard: React.FC<SkeletonCardProps> = ({ lines = 3, style }) => {
   return (
     <View style={[styles.skeletonCard, style]}>
       <SkeletonLine width="80%" height={16} style={{ marginBottom: 12 }} />
@@ -107,10 +106,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
  * SkeletonTable - Table-shaped skeleton with header and multiple rows
  * @param rowCount - Number of rows to show (default: 5)
  */
-export const SkeletonTable: React.FC<SkeletonTableProps> = ({
-  rowCount = 5,
-  style,
-}) => {
+export const SkeletonTable: React.FC<SkeletonTableProps> = ({ rowCount = 5, style }) => {
   return (
     <View style={[styles.skeletonTable, style]}>
       {/* Table Header */}
@@ -149,13 +145,16 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
  * SkeletonAvatar - Circular skeleton for avatar/profile images
  * @param size - Size of the avatar (default: 40px)
  */
-export const SkeletonAvatar: React.FC<SkeletonAvatarProps> = ({
-  size = 40,
-  style,
-}) => {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+export const SkeletonAvatar: React.FC<SkeletonAvatarProps> = ({ size = 40, style }) => {
+  const reducedMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(reducedMotion ? 0.5 : 0.3)).current;
 
   useEffect(() => {
+    if (reducedMotion) {
+      opacity.setValue(0.5);
+      return;
+    }
+
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
@@ -176,7 +175,7 @@ export const SkeletonAvatar: React.FC<SkeletonAvatarProps> = ({
     return () => {
       animation.stop();
     };
-  }, [opacity]);
+  }, [opacity, reducedMotion]);
 
   return (
     <Animated.View

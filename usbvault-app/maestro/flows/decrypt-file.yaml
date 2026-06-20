@@ -1,0 +1,59 @@
+# Decrypt File Flow — USBVault Enterprise
+# Assumes the user is already logged in. Navigates to Decrypt & Export,
+# selects the first file, enters the vault password, and asserts success.
+appId: com.usbvault.enterprise
+
+---
+
+# Step 1: Navigate to the Decrypt & Export tab via sidebar
+- tapOn: "Decrypt & Export"
+- waitForAnimationToEnd
+
+# Step 2: Assert the decrypt screen loaded
+- assertVisible: "Decrypt & Export"
+
+# Step 3: Wait for file list to populate
+- waitForAnimationToEnd
+
+# Step 4: Select the first file in the list by tapping it
+# The file list renders checkboxes; tap the first item row
+- tapOn:
+    index: 0
+    below: "Decrypt & Export"
+
+# Step 5: Ensure a file is selected, then tap the decrypt action button
+- tapOn: "Save to Device"
+- waitForAnimationToEnd
+
+# Step 6: Tap the decrypt/save button to trigger decryption
+- tapOn: "Decrypt"
+
+# Step 7: Wait for the password prompt modal
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Password"
+    timeout: 10000
+
+# Step 8: Enter the vault password
+- inputText: "TestPassword123!"
+
+# Step 9: Confirm decryption
+- tapOn: "Decrypt"
+
+# Step 10: Wait for decryption to complete
+- extendedWaitUntil:
+    visible:
+      anyOf:
+        - "saved"
+        - "decrypted"
+        - "Decrypted"
+        - "Files Saved"
+    timeout: 30000
+
+# Step 11: Assert decryption succeeded
+- assertVisible:
+    anyOf:
+      - "saved"
+      - "decrypted"
+      - "Decrypted"
+      - "Files Saved"

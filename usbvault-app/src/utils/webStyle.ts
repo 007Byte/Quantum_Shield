@@ -83,10 +83,7 @@ type RNStyle = ViewStyle | TextStyle | ImageStyle;
  *   ),
  * });
  */
-export function webStyle<T extends RNStyle>(
-  base: T,
-  web: WebOnlyStyles,
-): T {
+export function webStyle<T extends RNStyle>(base: T, web: WebOnlyStyles): T {
   if (Platform.OS !== 'web') return base;
   return { ...base, ...web } as T;
 }

@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   packages: write
@@ -127,13 +131,58 @@ jobs:
           retention-days: 7
 
   # ============================================================
+  # GATE: Validate Production Environment Secrets
+  # ============================================================
+  validate-env:
+    name: Validate Production Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check required secrets
+        env:
+          HAS_DATABASE_URL: ${{ secrets.DATABASE_URL != '' }}
+          HAS_REDIS_URL: ${{ secrets.REDIS_URL != '' }}
+          HAS_JWT_KEY: ${{ secrets.JWT_ED25519_PRIVATE_KEY != '' || secrets.JWT_ED25519_PRIVATE_KEY_FILE != '' }}
+          HAS_STRIPE_SECRET: ${{ secrets.STRIPE_SECRET_KEY != '' }}
+          HAS_STRIPE_WEBHOOK: ${{ secrets.STRIPE_WEBHOOK_SECRET != '' }}
+          HAS_SENTRY_DSN: ${{ secrets.SENTRY_DSN != '' }}
+          HAS_S3: ${{ secrets.S3_ENDPOINT != '' || secrets.AWS_ACCESS_KEY_ID != '' }}
+          HAS_BACKUP_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY != '' }}
+        run: |
+          echo "=== Validating Required Production Secrets ==="
+          MISSING=""
+          if [ "$HAS_DATABASE_URL" != "true" ]; then MISSING="$MISSING DATABASE_URL"; fi
+          if [ "$HAS_REDIS_URL" != "true" ]; then MISSING="$MISSING REDIS_URL"; fi
+          if [ "$HAS_JWT_KEY" != "true" ]; then MISSING="$MISSING JWT_ED25519_PRIVATE_KEY"; fi
+          if [ "$HAS_STRIPE_SECRET" != "true" ]; then MISSING="$MISSING STRIPE_SECRET_KEY"; fi
+          if [ "$HAS_STRIPE_WEBHOOK" != "true" ]; then MISSING="$MISSING STRIPE_WEBHOOK_SECRET"; fi
+          if [ "$HAS_SENTRY_DSN" != "true" ]; then MISSING="$MISSING SENTRY_DSN"; fi
+          if [ "$HAS_S3" != "true" ]; then MISSING="$MISSING S3_ENDPOINT/AWS_ACCESS_KEY_ID"; fi
+          if [ "$HAS_BACKUP_KEY" != "true" ]; then MISSING="$MISSING BACKUP_ENCRYPTION_KEY"; fi
+
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required production secrets:$MISSING"
+            echo ""
+            echo "The following secrets must be configured in GitHub repository settings:"
+            for secret in $MISSING; do
+              echo "  - $secret"
+            done
+            echo ""
+            echo "See .env.production.template for required environment variables."
+            exit 1
+          fi
+
+          echo "All required production secrets are configured."
+
+  # ============================================================
   # BUILD: Docker Image
   # ============================================================
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-go]
+    needs: [build-go, validate-env]
 
     steps:
       - name: Checkout code
@@ -174,13 +223,191 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
   # ============================================================
+  # BUILD: EAS Mobile App (iOS + Android)
+  # ============================================================
+  eas-build:
+    name: EAS Build (iOS + Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [build-rust]
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run tests before build
+        run: npx jest --passWithNoTests
+
+      - name: Build iOS and Android (production)
+        run: eas build --platform all --profile production --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Get build URLs
+        id: build-urls
+        run: |
+          echo "=== Fetching EAS Build URLs ==="
+          IOS_URL=$(eas build:list --platform ios --status finished --limit 1 --json --non-interactive 2>/dev/null | jq -r '.[0].artifacts.buildUrl // "N/A"')
+          ANDROID_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive 2>/dev/null | jq -r '.[0].artifacts.buildUrl // "N/A"')
+          echo "ios_url=$IOS_URL" >> "$GITHUB_OUTPUT"
+          echo "android_url=$ANDROID_URL" >> "$GITHUB_OUTPUT"
+          echo "iOS build: $IOS_URL"
+          echo "Android build: $ANDROID_URL"
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-build-metadata
+          path: |
+            usbvault-app/eas.json
+            usbvault-app/app.json
+          retention-days: 30
+
+    outputs:
+      ios_url: ${{ steps.build-urls.outputs.ios_url }}
+      android_url: ${{ steps.build-urls.outputs.android_url }}
+
+  # ============================================================
+  # SUBMIT: EAS Submit to App Store & Google Play
+  # ============================================================
+  eas-submit-ios:
+    name: Submit to App Store
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [eas-build]
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, 'alpha') &&
+      !contains(github.ref_name, 'beta') &&
+      !contains(github.ref_name, 'rc')
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Check for Apple credentials
+        id: apple-creds
+        run: |
+          if [ -n "${{ secrets.APPLE_ID }}" ] && [ -n "${{ secrets.ASC_APP_ID }}" ] && [ -n "${{ secrets.APPLE_TEAM_ID }}" ]; then
+            echo "has_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_creds=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple credentials not configured — skipping App Store submission"
+          fi
+
+      - name: Submit to App Store
+        if: steps.apple-creds.outputs.has_creds == 'true'
+        run: eas submit --platform ios --profile production --latest --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+  eas-submit-android:
+    name: Submit to Google Play
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [eas-build]
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, 'alpha') &&
+      !contains(github.ref_name, 'beta') &&
+      !contains(github.ref_name, 'rc')
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Check for Google Play credentials
+        id: google-creds
+        run: |
+          if [ -n "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "has_creds=true" >> "$GITHUB_OUTPUT"
+            echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}" > ./google-play-key.json
+          else
+            echo "has_creds=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Google Play credentials not configured — skipping Google Play submission"
+          fi
+
+      - name: Submit to Google Play
+        if: steps.google-creds.outputs.has_creds == 'true'
+        run: eas submit --platform android --profile production --latest --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -f ./google-play-key.json
+
+  # ============================================================
   # CREATE: GitHub Release
   # ============================================================
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-rust, build-go, build-docker]
+    needs: [build-rust, build-go, build-docker, eas-build]
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -215,6 +442,12 @@ jobs:
           - Image pushed to: `ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }}`
           - Supports: `linux/amd64`, `linux/arm64`
 
+          ### Mobile App (EAS Build)
+          - **iOS**: Built via EAS Build (production profile)
+          - **Android**: Built via EAS Build (production profile, app-bundle)
+          - iOS build: ${{ needs.eas-build.outputs.ios_url }}
+          - Android build: ${{ needs.eas-build.outputs.android_url }}
+
           ## Security
 
           All binaries are built in release mode with security hardening enabled.
@@ -240,3 +473,210 @@ jobs:
         run: |
           echo "Release ${{ github.ref_name }} completed successfully!"
           echo "GitHub Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+
+  # ============================================================
+  # DEPLOY: Staged Deployment with Migration Validation
+  # ============================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-docker, create-release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0
+
+      - name: Configure kubectl for staging
+        run: |
+          echo "Configuring kubectl for staging cluster..."
+          echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+
+      - name: Validate migrations (dry-run)
+        run: |
+          echo "=== Migration Validation ==="
+          echo "Checking migration files are syntactically valid..."
+          MIGRATION_COUNT=$(find usbvault-server/migrations -name "*.sql" -type f | wc -l | tr -d ' ')
+          echo "Found $MIGRATION_COUNT migration files"
+          if [ "$MIGRATION_COUNT" -eq 0 ]; then
+            echo "::error::No migration files found"
+            exit 1
+          fi
+          for f in usbvault-server/migrations/*.sql; do
+            if [ ! -s "$f" ]; then
+              echo "::error::Empty migration file: $f"
+              exit 1
+            fi
+            echo "  OK: $(basename "$f")"
+          done
+          echo "All $MIGRATION_COUNT migration files validated"
+
+      - name: Run migration job on staging
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "=== Running Migrations on Staging ==="
+          sed "s|ghcr.io/usbvault/usbvault-server:latest|ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }}|g" \
+            usbvault-server/deploy/k8s/migration-job.yaml | kubectl apply -f -
+          kubectl wait --for=condition=complete job/usbvault-migration \
+            -n usbvault --timeout=300s || {
+            echo "::error::Migration job failed on staging"
+            kubectl logs job/usbvault-migration -n usbvault || true
+            kubectl delete job usbvault-migration -n usbvault || true
+            exit 1
+          }
+          echo "Migrations completed on staging"
+          kubectl delete job usbvault-migration -n usbvault || true
+
+      - name: Deploy to staging
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "=== Deploying to Staging ==="
+          kubectl set image deployment/usbvault-api \
+            api=ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }} \
+            run-migrations=ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }} \
+            -n usbvault
+          kubectl rollout status deployment/usbvault-api -n usbvault --timeout=300s
+
+      - name: Health check staging
+        run: |
+          echo "=== Staging Health Checks ==="
+          STAGING_URL="${{ secrets.STAGING_API_URL }}"
+          for i in $(seq 1 10); do
+            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$STAGING_URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check attempt $i: HTTP $HTTP_CODE — retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Staging health check failed after 10 attempts"
+          exit 1
+
+      - name: Post failure rollback instructions
+        if: failure()
+        run: |
+          echo "## Deployment Failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Rollback Instructions" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. **Revert deployment:**" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "   kubectl rollout undo deployment/usbvault-api -n usbvault" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. **If migrations need rollback (data loss possible):**" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "   ./scripts/migration-rollback.sh <backup-file>" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. **Verify current status:**" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "   kubectl get pods -n usbvault" >> "$GITHUB_STEP_SUMMARY"
+          echo "   ./scripts/migration-status.sh \$DATABASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [deploy-staging]
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') && !contains(github.ref_name, 'rc')
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0
+
+      - name: Configure kubectl for production
+        run: |
+          echo "${{ secrets.PRODUCTION_KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+
+      - name: Create pre-deploy backup
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "=== Creating Pre-Deploy Database Backup ==="
+          kubectl create job --from=cronjob/usbvault-db-backup \
+            usbvault-predeploy-backup-$(date +%s) -n usbvault || {
+            echo "::warning::Backup job could not be created — ensure backups exist before proceeding"
+          }
+
+      - name: Run migration job on production
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "=== Running Migrations on Production ==="
+          sed "s|ghcr.io/usbvault/usbvault-server:latest|ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }}|g" \
+            usbvault-server/deploy/k8s/migration-job.yaml | kubectl apply -f -
+          kubectl wait --for=condition=complete job/usbvault-migration \
+            -n usbvault --timeout=300s || {
+            echo "::error::Migration job failed on production"
+            kubectl logs job/usbvault-migration -n usbvault || true
+            kubectl delete job usbvault-migration -n usbvault || true
+            exit 1
+          }
+          echo "Migrations completed on production"
+          kubectl delete job usbvault-migration -n usbvault || true
+
+      - name: Deploy to production
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "=== Deploying to Production ==="
+          kubectl set image deployment/usbvault-api \
+            api=ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }} \
+            run-migrations=ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }} \
+            -n usbvault
+          kubectl rollout status deployment/usbvault-api -n usbvault --timeout=300s
+
+      - name: Health check production
+        run: |
+          echo "=== Production Health Checks ==="
+          PROD_URL="${{ secrets.PRODUCTION_API_URL }}"
+          for i in $(seq 1 15); do
+            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$PROD_URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Production health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check attempt $i: HTTP $HTTP_CODE — retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Production health check failed after 15 attempts"
+          exit 1
+
+      - name: Post failure rollback instructions
+        if: failure()
+        run: |
+          echo "## PRODUCTION Deployment Failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### URGENT: Rollback Instructions" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. **Immediately revert deployment:**" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "   kubectl rollout undo deployment/usbvault-api -n usbvault" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. **If migrations caused data issues, restore from pre-deploy backup:**" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "   ./scripts/migration-rollback.sh <pre-deploy-backup-file>" >> "$GITHUB_STEP_SUMMARY"
+          echo '   ```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. **Notify the on-call team immediately.**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## Production Deployment Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image:** ghcr.io/${{ github.repository_owner }}/usbvault-server:${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_STEP_SUMMARY"

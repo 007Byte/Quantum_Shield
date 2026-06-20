@@ -5,8 +5,13 @@ import { webOnly } from '@/utils/webStyle';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
-import { dashboardLayout, dashboardSpacing, webOnlyTransition } from '@/components/dashboard2/styles';
+import {
+  dashboardLayout,
+  dashboardSpacing,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
 import type { JSONValue } from '@/types/utilities';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const COLORS = {
   textPrimary: '#F5F3FF',
@@ -19,22 +24,19 @@ const COLORS = {
   borderColor: 'rgba(34, 211, 238, 0.1)',
 };
 
-const mockFailedAttempts = [
-  { id: 1, timestamp: '2026-03-09 14:32:15', ip: '192.168.1.105', status: 'Blocked' },
-  { id: 2, timestamp: '2026-03-09 14:31:42', ip: '192.168.1.105', status: 'Delayed' },
-  { id: 3, timestamp: '2026-03-09 14:30:08', ip: '192.168.1.200', status: 'Blocked' },
-  { id: 4, timestamp: '2026-03-09 14:28:55', ip: '192.168.1.150', status: 'Delayed' },
-];
-
 export default function BruteForcePage() {
+  const { t } = useLanguage();
   const { modal, showSuccess } = useInAppModal();
   const [maxAttempts, setMaxAttempts] = useState<3 | 5 | 10>(5);
-  const [lockoutDuration, setLockoutDuration] = useState<'1min' | '5min' | '30min' | 'permanent'>('5min');
+  const [lockoutDuration, setLockoutDuration] = useState<'1min' | '5min' | '30min' | 'permanent'>(
+    '5min'
+  );
+  const [failedAttempts] = useState<{ id: number; timestamp: string; ip: string; status: string }[]>([]);
   const [wipeEnabled, setWipeEnabled] = useState(false);
   const [progressiveDelayEnabled, setProgressiveDelayEnabled] = useState(true);
 
   const handleSaveSettings = () => {
-    showSuccess('Settings Saved', 'Brute-force protection settings updated successfully');
+    showSuccess(t('bruteForce.settingsSaved'), t('bruteForce.settingsUpdated'));
   };
 
   // PH4-FIX: Replaced any with JSONValue type for button values
@@ -49,51 +51,33 @@ export default function BruteForcePage() {
     onPress: () => void;
   }) => (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
-      style={[
-        styles.pillButton,
-        selected && styles.pillButtonSelected,
-        { ...webOnlyTransition },
-      ]}
+      style={[styles.pillButton, selected && styles.pillButtonSelected, { ...webOnlyTransition }]}
     >
-      <Text
-        style={[
-          styles.pillButtonText,
-          selected && styles.pillButtonTextSelected,
-        ]}
-      >
+      <Text style={[styles.pillButtonText, selected && styles.pillButtonTextSelected]}>
         {label}
       </Text>
     </Pressable>
   );
 
-  const ToggleSwitch = ({
-    enabled,
-    onToggle,
-  }: {
-    enabled: boolean;
-    onToggle: () => void;
-  }) => (
+  const ToggleSwitch = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) => (
     <Pressable
+      accessibilityRole="button"
       onPress={onToggle}
-      style={[
-        styles.toggleSwitch,
-        enabled && styles.toggleSwitchEnabled,
-        { ...webOnlyTransition },
-      ]}
+      style={[styles.toggleSwitch, enabled && styles.toggleSwitchEnabled, { ...webOnlyTransition }]}
     >
-      <View
-        style={[
-          styles.toggleThumb,
-          enabled && styles.toggleThumbEnabled,
-        ]}
-      />
+      <View style={[styles.toggleThumb, enabled && styles.toggleThumbEnabled]} />
     </Pressable>
   );
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -102,9 +86,11 @@ export default function BruteForcePage() {
             <View style={styles.contentArea}>
               {/* Page Header */}
               <View style={styles.header}>
-                <Text style={styles.pageTitle}>Brute-Force Protection</Text>
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('bruteForce.pageTitle')}
+                </Text>
                 <Text style={styles.pageSubtitle}>
-                  Configure login attempt limits and lockout policies
+                  {t('bruteForce.pageSubtitle')}
                 </Text>
               </View>
 
@@ -113,20 +99,20 @@ export default function BruteForcePage() {
                 <View style={styles.statusHeader}>
                   <View style={styles.statusIndicator}>
                     <View style={styles.statusDot} />
-                    <Text style={styles.statusTitle}>Protection Active</Text>
+                    <Text style={styles.statusTitle}>{t('bruteForce.protectionActive')}</Text>
                   </View>
                   <Feather name="shield" size={24} color={COLORS.green} />
                 </View>
-                <Text style={styles.statusDetail}>
-                  3 failed attempts remaining before lockout
-                </Text>
+                <Text style={styles.statusDetail}>{t('bruteForce.failedAttemptsRemaining')}</Text>
               </View>
 
               {/* Max Failed Attempts Section */}
               <View style={[styles.card, styles.settingsCard]}>
                 <View style={styles.sectionHeader}>
                   <Feather name="alert-circle" size={20} color={COLORS.cyan} />
-                  <Text style={styles.sectionTitle}>Max Failed Attempts</Text>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('bruteForce.maxFailedAttempts')}
+                  </Text>
                 </View>
                 <View style={styles.pillContainer}>
                   <PillButton
@@ -154,29 +140,31 @@ export default function BruteForcePage() {
               <View style={[styles.card, styles.settingsCard]}>
                 <View style={styles.sectionHeader}>
                   <Feather name="clock" size={20} color={COLORS.cyan} />
-                  <Text style={styles.sectionTitle}>Lockout Duration</Text>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('bruteForce.lockoutDuration')}
+                  </Text>
                 </View>
                 <View style={styles.pillContainer}>
                   <PillButton
-                    label="1 min"
+                    label={t('bruteForce.1min')}
                     value="1min"
                     selected={lockoutDuration === '1min'}
                     onPress={() => setLockoutDuration('1min')}
                   />
                   <PillButton
-                    label="5 min"
+                    label={t('bruteForce.5min')}
                     value="5min"
                     selected={lockoutDuration === '5min'}
                     onPress={() => setLockoutDuration('5min')}
                   />
                   <PillButton
-                    label="30 min"
+                    label={t('bruteForce.30min')}
                     value="30min"
                     selected={lockoutDuration === '30min'}
                     onPress={() => setLockoutDuration('30min')}
                   />
                   <PillButton
-                    label="Permanent"
+                    label={t('bruteForce.permanent')}
                     value="permanent"
                     selected={lockoutDuration === 'permanent'}
                     onPress={() => setLockoutDuration('permanent')}
@@ -189,7 +177,7 @@ export default function BruteForcePage() {
                 <View style={styles.toggleRow}>
                   <View style={styles.toggleLabel}>
                     <Feather name="trash-2" size={20} color={COLORS.red} />
-                    <Text style={styles.toggleLabelText}>Wipe After Failed Attempts</Text>
+                    <Text style={styles.toggleLabelText}>{t('bruteForce.wipeAfterFailed')}</Text>
                   </View>
                   <ToggleSwitch
                     enabled={wipeEnabled}
@@ -197,7 +185,7 @@ export default function BruteForcePage() {
                   />
                 </View>
                 <Text style={styles.warningText}>
-                  Automatically wipe vault after exceeding max attempts
+                  {t('bruteForce.wipeAfterFailedDesc')}
                 </Text>
               </View>
 
@@ -206,7 +194,7 @@ export default function BruteForcePage() {
                 <View style={styles.toggleRow}>
                   <View style={styles.toggleLabel}>
                     <Feather name="zap" size={20} color={COLORS.cyan} />
-                    <Text style={styles.toggleLabelText}>Progressive Delay</Text>
+                    <Text style={styles.toggleLabelText}>{t('bruteForce.progressiveDelay')}</Text>
                   </View>
                   <ToggleSwitch
                     enabled={progressiveDelayEnabled}
@@ -214,7 +202,7 @@ export default function BruteForcePage() {
                   />
                 </View>
                 <Text style={styles.descriptionText}>
-                  Increase delay between attempts exponentially
+                  {t('bruteForce.progressiveDelayDesc')}
                 </Text>
               </View>
 
@@ -222,15 +210,21 @@ export default function BruteForcePage() {
               <View style={[styles.card, styles.logCard]}>
                 <View style={styles.sectionHeader}>
                   <Feather name="activity" size={20} color={COLORS.cyan} />
-                  <Text style={styles.sectionTitle}>Failed Attempt Log</Text>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('bruteForce.failedAttemptLog')}
+                  </Text>
                 </View>
                 <View style={styles.logTable}>
                   <View style={[styles.logRow, styles.logHeaderRow]}>
-                    <Text style={[styles.logCell, styles.logHeaderCell]}>Timestamp</Text>
-                    <Text style={[styles.logCell, styles.logHeaderCell]}>IP Address</Text>
-                    <Text style={[styles.logCell, styles.logHeaderCell]}>Status</Text>
+                    <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.timestamp')}</Text>
+                    <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.ip')}</Text>
+                    <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.status')}</Text>
                   </View>
-                  {mockFailedAttempts.map((attempt) => (
+                  {failedAttempts.length === 0 ? (
+                    <View style={[styles.logRow, { justifyContent: 'center' }]}>
+                      <Text style={styles.logCell}>No failed attempts detected</Text>
+                    </View>
+                  ) : failedAttempts.map(attempt => (
                     <View key={attempt.id} style={styles.logRow}>
                       <Text style={styles.logCell}>{attempt.timestamp}</Text>
                       <Text style={styles.logCell}>{attempt.ip}</Text>
@@ -260,10 +254,11 @@ export default function BruteForcePage() {
 
               {/* Save Settings Button */}
               <Pressable
+                accessibilityRole="button"
                 onPress={handleSaveSettings}
                 style={[styles.saveButton, { ...webOnlyTransition }]}
               >
-                <Text style={styles.saveButtonText}>Save Settings</Text>
+                <Text style={styles.saveButtonText}>{t('bruteForce.save')}</Text>
               </Pressable>
             </View>
           </View>
@@ -303,8 +298,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {

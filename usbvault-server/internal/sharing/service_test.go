@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 func TestEncodeToBase64_ValidData(t *testing.T) {
@@ -169,7 +170,7 @@ func TestHandleCreateShare_MalformedJSON(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/shares", body)
 	req.Header.Set("Content-Type", "application/json")
 
-	ctx := context.WithValue(req.Context(), "user_id", "test-user")
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, "test-user")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -196,7 +197,7 @@ func TestHandleCreateShare_MissingEncryptedKey(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/shares", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	ctx := context.WithValue(req.Context(), "user_id", "550e8400-e29b-41d4-a716-446655440002")
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, "550e8400-e29b-41d4-a716-446655440002")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -227,7 +228,7 @@ func TestHandleCreateShare_InvalidSealedBox(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/shares", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	ctx := context.WithValue(req.Context(), "user_id", "550e8400-e29b-41d4-a716-446655440002")
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, "550e8400-e29b-41d4-a716-446655440002")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -258,7 +259,7 @@ func TestHandleCreateShare_InvalidRecipientID(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/shares", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	ctx := context.WithValue(req.Context(), "user_id", "550e8400-e29b-41d4-a716-446655440002")
+	ctx := context.WithValue(req.Context(), ctxkeys.UserID, "550e8400-e29b-41d4-a716-446655440002")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -391,7 +392,7 @@ func TestRevokeOtherUserShare(t *testing.T) {
 
 		// Try to revoke a share as the wrong user
 		req := httptest.NewRequest("DELETE", "/api/v1/shares/550e8400-e29b-41d4-a716-446655440000", nil)
-		ctx := context.WithValue(req.Context(), "user_id", "wrong-user")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "wrong-user")
 		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()

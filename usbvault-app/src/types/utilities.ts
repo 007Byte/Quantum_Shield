@@ -6,7 +6,13 @@ import { AppError } from '@/errors';
  * JSON-compatible value type that includes primitives, arrays, and objects
  * Use this instead of `any` for data that can be serialized to/from JSON
  */
-export type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
+export type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue };
 
 /**
  * Generic JSON object type for API responses and serialized data
@@ -19,9 +25,7 @@ export type JSONObject = Record<string, JSONValue>;
  * Use this instead of `any | undefined` for error handling
  * Example: const result: AsyncResult<User> = await fetchUser(id);
  */
-export type AsyncResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: AppError };
+export type AsyncResult<T> = { data: T; error: null } | { data: null; error: AppError };
 
 /**
  * Nullable type for values that may be null
@@ -40,9 +44,7 @@ export type Optional<T> = T | undefined;
  * Use instead of `any` for error handling
  * Example: type DeleteResult = Result<boolean>;
  */
-export type Result<T> =
-  | { success: true; value: T }
-  | { success: false; error: AppError };
+export type Result<T> = { success: true; value: T } | { success: false; error: AppError };
 
 /**
  * Union type for either a value or an error

@@ -1,20 +1,10 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { Badge } from '../common/Badge';
-import {
-  formatFileSize,
-  formatDate,
-  getFileTypeIcon,
-} from '@/utils/formatters';
+import { formatFileSize, formatDate, getFileTypeIcon } from '@/utils/formatters';
 
 interface FileListItemProps {
   id: string;
@@ -150,13 +140,7 @@ export const FileListItem: React.FC<FileListItemProps> = ({
 
         <View style={styles.footer}>
           <View style={styles.badgeContainer}>
-            {isPQCProtected && (
-              <Badge
-                variant="pqc"
-                label="PQC Protected"
-                icon="🛡️"
-              />
-            )}
+            {isPQCProtected && <Badge variant="pqc" label="PQC Protected" icon="🛡️" />}
           </View>
           <Text style={styles.date}>{date}</Text>
         </View>
@@ -164,11 +148,7 @@ export const FileListItem: React.FC<FileListItemProps> = ({
 
       {/* More Menu */}
       {onMorePress && (
-        <TouchableOpacity
-          onPress={onMorePress}
-          style={styles.moreButton}
-          testID={`${testID}-more`}
-        >
+        <TouchableOpacity onPress={onMorePress} style={styles.moreButton} testID={`${testID}-more`}>
           <Text style={styles.moreText}>⋯</Text>
         </TouchableOpacity>
       )}

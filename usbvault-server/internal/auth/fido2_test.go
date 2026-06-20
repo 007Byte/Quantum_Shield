@@ -79,15 +79,15 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 			},
 		},
 		{
-			name:  "user not found",
+			name:  "user not found returns generic error",
 			email: "nonexistent@example.com",
 			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
 					WithArgs("hashed_email").
 					WillReturnError(pgx.ErrNoRows)
 			},
-			expectStatus: http.StatusNotFound,
-			expectError:  "user not found",
+			expectStatus: http.StatusUnauthorized,
+			expectError:  "invalid credentials",
 		},
 		{
 			name:  "invalid request body",

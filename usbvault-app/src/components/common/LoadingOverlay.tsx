@@ -1,11 +1,6 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-  Modal,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Modal } from 'react-native';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -20,29 +15,20 @@ interface LoadingOverlayProps {
  * @param visible - Controls visibility of the overlay
  * @param message - Optional message text below the spinner
  */
-export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
-  visible,
-  message,
-  testID,
-}) => {
+export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ visible, message, testID }) => {
+  const reducedMotion = useReducedMotion();
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      testID={testID}
-    >
+    <Modal visible={visible} transparent animationType="none" testID={testID}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <ActivityIndicator
-            size="large"
-            color="#8B5CF6"
-            testID="loading-spinner"
-          />
-
-          {message && (
-            <Text style={styles.message}>{message}</Text>
+          {reducedMotion ? (
+            <Text style={styles.staticLoadingText} accessibilityRole="text">Loading...</Text>
+          ) : (
+            <ActivityIndicator size="large" color="#8B5CF6" testID="loading-spinner" />
           )}
+
+          {message && <Text style={styles.message}>{message}</Text>}
         </View>
       </View>
     </Modal>
@@ -73,5 +59,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  staticLoadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#8B5CF6',
+    textAlign: 'center',
   },
 });

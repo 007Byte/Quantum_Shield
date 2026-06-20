@@ -139,7 +139,7 @@ const ACTION_LABELS = new Map<string, string>([
 function fallbackLabel(action: string): string {
   return action
     .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
 
@@ -150,35 +150,56 @@ export function getActionLabel(action: AuditAction): string {
 const ACTION_ICONS = new Map<string, string>([
   ['encrypt', 'lock'],
   ['decrypt', 'unlock'],
-  ['share', 'share-2'], ['share_accept', 'share-2'], ['share_reject', 'share-2'], ['share_revoke', 'share-2'],
-  ['login', 'log-in'], ['logout', 'log-in'],
+  ['share', 'share-2'],
+  ['share_accept', 'share-2'],
+  ['share_reject', 'share-2'],
+  ['share_revoke', 'share-2'],
+  ['login', 'log-in'],
+  ['logout', 'log-in'],
   ['failed_login', 'alert-triangle'],
-  ['vault_create', 'hard-drive'], ['vault_delete', 'hard-drive'],
+  ['vault_create', 'hard-drive'],
+  ['vault_delete', 'hard-drive'],
   ['password_change', 'key'],
   ['settings_change', 'settings'],
-  ['fido2_register', 'shield'], ['fido2_revoke', 'shield'],
-  ['message_send', 'message-square'], ['message_delete', 'message-square'],
+  ['fido2_register', 'shield'],
+  ['fido2_revoke', 'shield'],
+  ['message_send', 'message-square'],
+  ['message_delete', 'message-square'],
   ['vault_lock', 'lock'],
   ['key_rotation', 'refresh-cw'],
-  ['vault_backup', 'download-cloud'], ['vault_restore', 'upload-cloud'],
-  ['recovery_phrase_generate', 'key'], ['recovery_phrase_verify', 'check-circle'], ['recovery_phrase_used', 'unlock'],
+  ['vault_backup', 'download-cloud'],
+  ['vault_restore', 'upload-cloud'],
+  ['recovery_phrase_generate', 'key'],
+  ['recovery_phrase_verify', 'check-circle'],
+  ['recovery_phrase_used', 'unlock'],
   ['policy_update', 'file-text'],
   ['system', 'cpu'],
 ]);
 
 const ACTION_COLORS = new Map<string, string>([
-  ['encrypt', '#8B5CF6'], ['decrypt', '#8B5CF6'],
-  ['share', '#22D3EE'], ['share_accept', '#22D3EE'],
-  ['share_reject', '#F59E0B'], ['share_revoke', '#F59E0B'],
-  ['login', '#10B981'], ['logout', '#10B981'],
+  ['encrypt', '#8B5CF6'],
+  ['decrypt', '#8B5CF6'],
+  ['share', '#22D3EE'],
+  ['share_accept', '#22D3EE'],
+  ['share_reject', '#F59E0B'],
+  ['share_revoke', '#F59E0B'],
+  ['login', '#10B981'],
+  ['logout', '#10B981'],
   ['failed_login', '#EF4444'],
-  ['vault_create', '#22D3EE'], ['vault_delete', '#EF4444'],
-  ['password_change', '#F59E0B'], ['key_rotation', '#F59E0B'],
-  ['fido2_register', '#10B981'], ['fido2_revoke', '#EF4444'],
-  ['message_send', '#8B5CF6'], ['message_delete', '#EF4444'],
+  ['vault_create', '#22D3EE'],
+  ['vault_delete', '#EF4444'],
+  ['password_change', '#F59E0B'],
+  ['key_rotation', '#F59E0B'],
+  ['fido2_register', '#10B981'],
+  ['fido2_revoke', '#EF4444'],
+  ['message_send', '#8B5CF6'],
+  ['message_delete', '#EF4444'],
   ['vault_lock', '#F59E0B'],
-  ['vault_backup', '#22D3EE'], ['vault_restore', '#22D3EE'],
-  ['recovery_phrase_generate', '#10B981'], ['recovery_phrase_verify', '#10B981'], ['recovery_phrase_used', '#F59E0B'],
+  ['vault_backup', '#22D3EE'],
+  ['vault_restore', '#22D3EE'],
+  ['recovery_phrase_generate', '#10B981'],
+  ['recovery_phrase_verify', '#10B981'],
+  ['recovery_phrase_used', '#F59E0B'],
   ['policy_update', '#6B7280'],
   ['system', '#6B7280'],
 ]);
@@ -216,7 +237,7 @@ class AuditServiceImpl {
     action: AuditAction,
     resource: string,
     metadata: Record<string, unknown> = {},
-    status: AuditStatus = 'success',
+    status: AuditStatus = 'success'
   ): Promise<void> {
     if (Platform.OS !== 'web') return;
 
@@ -243,16 +264,16 @@ class AuditServiceImpl {
     let entries = readLog();
 
     if (filters?.action) {
-      entries = entries.filter((e) => e.action === filters.action);
+      entries = entries.filter(e => e.action === filters.action);
     }
     if (filters?.status) {
-      entries = entries.filter((e) => e.status === filters.status);
+      entries = entries.filter(e => e.status === filters.status);
     }
     if (filters?.startDate) {
-      entries = entries.filter((e) => e.timestamp >= filters.startDate!);
+      entries = entries.filter(e => e.timestamp >= filters.startDate!);
     }
     if (filters?.endDate) {
-      entries = entries.filter((e) => e.timestamp <= filters.endDate!);
+      entries = entries.filter(e => e.timestamp <= filters.endDate!);
     }
 
     // Most recent first
@@ -312,3 +333,13 @@ class AuditServiceImpl {
 }
 
 export const auditService = new AuditServiceImpl();
+
+/**
+ * Testing helper: invalidate any in-memory caches.
+ * @internal For testing only
+ */
+export function _invalidateCacheForTesting(): void {
+  // readLog uses readLocal which reads fresh from storage each time,
+  // so no cache to invalidate. This function is a no-op but exported
+  // for test compatibility.
+}

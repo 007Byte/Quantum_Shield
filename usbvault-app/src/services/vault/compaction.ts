@@ -1,6 +1,7 @@
 // PH4-FIX: Moved to vault domain
 import { Platform } from 'react-native';
 import { auditService } from '@/services/auditService';
+import { logger } from '@/utils/logger';
 
 /**
  * Statistics about the vault's storage and fragmentation.
@@ -92,7 +93,7 @@ class VaultCompactionService {
           return JSON.parse(stored);
         }
       } catch (error) {
-        console.error('Failed to load compaction history:', error);
+        logger.error('Failed to load compaction history:', error);
       }
     }
     return [];
@@ -110,7 +111,7 @@ class VaultCompactionService {
         const trimmed = history.slice(-MAX_HISTORY_RECORDS);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
       } catch (error) {
-        console.error('Failed to save compaction history:', error);
+        logger.error('Failed to save compaction history:', error);
       }
     }
   }
@@ -132,7 +133,7 @@ class VaultCompactionService {
           }
         }
       } catch (error) {
-        console.error('Failed to enumerate vault entries:', error);
+        logger.error('Failed to enumerate vault entries:', error);
       }
     }
 
@@ -292,8 +293,7 @@ class VaultCompactionService {
       // Categorize by key pattern
       let category = 'other';
       if (entry.key.includes('password')) category = 'passwords';
-      else if (entry.key.includes('file') || entry.key.includes('document'))
-        category = 'files';
+      else if (entry.key.includes('file') || entry.key.includes('document')) category = 'files';
       else if (entry.key.includes('message')) category = 'messages';
       else if (entry.key.includes('audit')) category = 'audit_logs';
       else if (entry.key.includes('recovery')) category = 'recovery_data';

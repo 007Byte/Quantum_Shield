@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow unsigned code execution (needed for the companion child process) -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Allow JIT compilation (needed for V8/Node.js) -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Network client (for localhost companion communication) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Network server (companion binds to localhost) -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <!-- File access: user-selected files (USB drives) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <!-- Access removable volumes (USB drives) -->
+    <key>com.apple.security.files.removable-volumes.read-write</key>
+    <true/>
+</dict>
+</plist>

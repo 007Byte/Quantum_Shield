@@ -21,6 +21,7 @@ export interface Fido2Device {
   registeredAt: string;
   lastUsedAt?: string;
   transport?: string; // 'usb' | 'ble' | 'nfc' | 'internal'
+  device?: string; // device transport identifier
   isPasskey?: boolean;
   prfSupported?: boolean;
   credentialType?: 'cross-platform' | 'platform';
@@ -127,7 +128,7 @@ class Fido2ServiceImpl {
 
     // Exclude already registered credentials
     const existingDevices = readDevices();
-    const excludeCredentials: PublicKeyCredentialDescriptor[] = existingDevices.map((d) => ({
+    const excludeCredentials: PublicKeyCredentialDescriptor[] = existingDevices.map(d => ({
       type: 'public-key',
       id: base64ToArrayBuffer(d.credentialIdBase64),
     }));
@@ -145,8 +146,8 @@ class Fido2ServiceImpl {
         },
         challenge: challenge.buffer as ArrayBuffer,
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },   // ES256
-          { alg: -257, type: 'public-key' },  // RS256
+          { alg: -7, type: 'public-key' }, // ES256
+          { alg: -257, type: 'public-key' }, // RS256
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'cross-platform',
@@ -159,7 +160,7 @@ class Fido2ServiceImpl {
       },
     };
 
-    const credential = await navigator.credentials.create(createOptions) as PublicKeyCredential;
+    const credential = (await navigator.credentials.create(createOptions)) as PublicKeyCredential;
     if (!credential) {
       throw new Error('No credential returned from authenticator');
     }
@@ -202,7 +203,7 @@ class Fido2ServiceImpl {
     }
 
     const challenge = generateChallenge();
-    const allowCredentials: PublicKeyCredentialDescriptor[] = devices.map((d) => ({
+    const allowCredentials: PublicKeyCredentialDescriptor[] = devices.map(d => ({
       type: 'public-key',
       id: base64ToArrayBuffer(d.credentialIdBase64),
     }));
@@ -217,14 +218,14 @@ class Fido2ServiceImpl {
       },
     };
 
-    const assertion = await navigator.credentials.get(getOptions) as PublicKeyCredential;
+    const assertion = (await navigator.credentials.get(getOptions)) as PublicKeyCredential;
     if (!assertion) {
       throw new Error('Authentication failed — no assertion returned');
     }
 
     // Find which device was used
     const usedCredentialBase64 = arrayBufferToBase64(assertion.rawId);
-    const usedDevice = devices.find((d) => d.credentialIdBase64 === usedCredentialBase64);
+    const usedDevice = devices.find(d => d.credentialIdBase64 === usedCredentialBase64);
 
     if (usedDevice) {
       // Update lastUsedAt
@@ -247,10 +248,10 @@ class Fido2ServiceImpl {
    */
   async removeDevice(deviceId: string): Promise<void> {
     const devices = readDevices();
-    const device = devices.find((d) => d.id === deviceId);
+    const device = devices.find(d => d.id === deviceId);
     if (!device) throw new Error('Device not found');
 
-    const updated = devices.filter((d) => d.id !== deviceId);
+    const updated = devices.filter(d => d.id !== deviceId);
     writeDevices(updated);
 
     await auditService.log('fido2_revoke', device.name, { deviceId });
@@ -268,7 +269,7 @@ class Fido2ServiceImpl {
    */
   hasPasskeys(): boolean {
     const devices = readDevices();
-    return devices.some((d) => d.isPasskey === true);
+    return devices.some(d => d.isPasskey === true);
   }
 
   /**
@@ -279,7 +280,8 @@ class Fido2ServiceImpl {
     if (!this.isWebAuthnSupported()) return false;
 
     try {
-      const isAvailable = await window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable?.();
+      const isAvailable =
+        await window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable?.();
       return isAvailable || false;
     } catch {
       return false;
@@ -302,13 +304,9 @@ class Fido2ServiceImpl {
 
     // Use SubtleCrypto HKDF to derive the key
     try {
-      const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        prfOutput,
-        { name: 'HKDF' },
-        false,
-        ['deriveBits']
-      );
+      const keyMaterial = await crypto.subtle.importKey('raw', prfOutput, { name: 'HKDF' }, false, [
+        'deriveBits',
+      ]);
 
       const derivedBits = await crypto.subtle.deriveBits(
         {
@@ -323,7 +321,9 @@ class Fido2ServiceImpl {
 
       return arrayBufferToHex(derivedBits);
     } catch (err) {
-      await auditService.log('prf_key_derivation_error', 'PRF derivation failed', { error: String(err) });
+      await auditService.log('prf_key_derivation_error', 'PRF derivation failed', {
+        error: String(err),
+      });
       throw new Error(`PRF key derivation failed: ${err}`);
     }
   }
@@ -353,7 +353,7 @@ class Fido2ServiceImpl {
 
     // Exclude already registered credentials
     const existingDevices = readDevices();
-    const excludeCredentials: PublicKeyCredentialDescriptor[] = existingDevices.map((d) => ({
+    const excludeCredentials: PublicKeyCredentialDescriptor[] = existingDevices.map(d => ({
       type: 'public-key',
       id: base64ToArrayBuffer(d.credentialIdBase64),
     }));
@@ -375,8 +375,8 @@ class Fido2ServiceImpl {
         },
         challenge: challenge.buffer as ArrayBuffer,
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },   // ES256
-          { alg: -257, type: 'public-key' },  // RS256
+          { alg: -7, type: 'public-key' }, // ES256
+          { alg: -257, type: 'public-key' }, // RS256
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
@@ -397,7 +397,7 @@ class Fido2ServiceImpl {
       },
     };
 
-    const credential = await navigator.credentials.create(createOptions) as PublicKeyCredential;
+    const credential = (await navigator.credentials.create(createOptions)) as PublicKeyCredential;
     if (!credential) {
       throw new Error('No credential returned from authenticator');
     }
@@ -413,7 +413,9 @@ class Fido2ServiceImpl {
         prfKey = await this.derivePrfKey(prfResult);
       }
     } catch (err) {
-      await auditService.log('passkey_prf_extraction_warning', 'PRF not available', { error: String(err) });
+      await auditService.log('passkey_prf_extraction_warning', 'PRF not available', {
+        error: String(err),
+      });
     }
 
     const device: Fido2Device = {
@@ -453,7 +455,7 @@ class Fido2ServiceImpl {
     }
 
     const devices = readDevices();
-    const passkeys = devices.filter((d) => d.isPasskey === true);
+    const passkeys = devices.filter(d => d.isPasskey === true);
     if (passkeys.length === 0) {
       throw new Error('No passkeys registered');
     }
@@ -478,14 +480,14 @@ class Fido2ServiceImpl {
       },
     };
 
-    const assertion = await navigator.credentials.get(getOptions) as PublicKeyCredential;
+    const assertion = (await navigator.credentials.get(getOptions)) as PublicKeyCredential;
     if (!assertion) {
       throw new Error('Passkey authentication failed — no assertion returned');
     }
 
     // Find which device was used
     const usedCredentialBase64 = arrayBufferToBase64(assertion.rawId);
-    const usedDevice = devices.find((d) => d.credentialIdBase64 === usedCredentialBase64);
+    const usedDevice = devices.find(d => d.credentialIdBase64 === usedCredentialBase64);
 
     if (!usedDevice) {
       throw new Error('Authenticating credential not found in registered devices');
@@ -499,7 +501,11 @@ class Fido2ServiceImpl {
         prfKey = await this.derivePrfKey(prfResult);
       }
     } catch (err) {
-      await auditService.log('passkey_auth_prf_extraction_warning', 'PRF not available during auth', { error: String(err) });
+      await auditService.log(
+        'passkey_auth_prf_extraction_warning',
+        'PRF not available during auth',
+        { error: String(err) }
+      );
     }
 
     // Update lastUsedAt

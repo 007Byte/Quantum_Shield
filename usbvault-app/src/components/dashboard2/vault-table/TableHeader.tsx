@@ -3,16 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { dashboardColors, dashboardSpacing, webOnlyEdgeLit, webOnlyTransition } from '../styles';
 import { webOnly } from '@/utils/webStyle';
-
-const FILTER_OPTIONS = [
-  'All Types',
-  'PDF Document',
-  'Document',
-  'Spreadsheet',
-  'Archive',
-  'Secure Folder',
-  'Password Database',
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface TableHeaderProps {
   allSelected: boolean;
@@ -33,19 +24,64 @@ export function TableHeader({
   filterType,
   onFilterChange,
 }: TableHeaderProps) {
+  const { t } = useLanguage();
   const [searchFocused, setSearchFocused] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Map internal type values to translation keys
+  const typeToKeyMap: Record<string, string> = {
+    'All Types': 'vault.allTypes',
+    'PDF Document': 'vault.fileTypes.pdfDocument',
+    'Document': 'vault.fileTypes.document',
+    'Spreadsheet': 'vault.fileTypes.spreadsheet',
+    'Archive': 'vault.fileTypes.archive',
+    'Secure Folder': 'vault.fileTypes.secureFolder',
+    'Password Database': 'vault.fileTypes.passwordDatabase',
+    'Image': 'vault.fileTypes.image',
+    'Encrypted File': 'vault.fileTypes.encryptedFile',
+  };
+
+  const FILTER_OPTIONS = [
+    'All Types',
+    'PDF Document',
+    'Document',
+    'Spreadsheet',
+    'Archive',
+    'Secure Folder',
+    'Password Database',
+    'Image',
+    'Encrypted File',
+  ];
+
+  // Get translated label for current filter type
+  const getFilterLabel = (type: string) => {
+    const key = typeToKeyMap[type];
+    return key ? t(key) : type;
+  };
 
   return (
     <View style={styles.wrap}>
       <View style={styles.sectionTop}>
-        <Text style={styles.sectionTitle}>Your Vault</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {t('vault.yourVault')}
+        </Text>
 
         <View style={styles.controlsRow}>
-          <Pressable style={(state: any) => [styles.searchWrap, (state.hovered || searchFocused) && styles.inputHovered]}>
-            <Feather name="search" size={18} color={searchFocused ? dashboardColors.cyan : dashboardColors.textSecondary} />
+          <Pressable
+            style={(state: any) => [
+              styles.searchWrap,
+              (state.hovered || searchFocused) && styles.inputHovered,
+            ]}
+            accessibilityRole="button"
+          >
+            <Feather
+              name="search"
+              size={18}
+              color={searchFocused ? dashboardColors.cyan : dashboardColors.textSecondary}
+            />
             <TextInput
-              placeholder="Search vault..."
+              accessibilityLabel={t('vault.searchVault')}
+              placeholder={t('vault.searchVault')}
               placeholderTextColor={dashboardColors.textSecondary}
               value={searchQuery}
               onChangeText={onSearchChange}
@@ -57,14 +93,17 @@ export function TableHeader({
 
           <View style={styles.filterContainer}>
             <Pressable
+              accessibilityRole="button"
               onPress={() => setFilterOpen(!filterOpen)}
               style={(state: any) => [
                 styles.filterPill,
                 (state.hovered || filterOpen) && styles.inputHovered,
               ]}
             >
-              <Text style={[styles.filterLabel, filterType !== 'All Types' && styles.filterLabelActive]}>
-                {filterType}
+              <Text
+                style={[styles.filterLabel, filterType !== 'All Types' && styles.filterLabelActive]}
+              >
+                {getFilterLabel(filterType)}
               </Text>
               <Feather
                 name={filterOpen ? 'chevron-up' : 'chevron-down'}
@@ -77,21 +116,27 @@ export function TableHeader({
               <>
                 <Pressable style={styles.filterBackdrop} onPress={() => setFilterOpen(false)} />
                 <View style={styles.filterDropdown}>
-                  {FILTER_OPTIONS.map((option) => (
+                  {FILTER_OPTIONS.map(option => (
                     <Pressable
+                      accessibilityRole="button"
                       key={option}
-                      onPress={() => { onFilterChange(option); setFilterOpen(false); }}
+                      onPress={() => {
+                        onFilterChange(option);
+                        setFilterOpen(false);
+                      }}
                       style={(state: any) => [
                         styles.filterOption,
                         filterType === option && styles.filterOptionActive,
                         state.hovered && styles.filterOptionHover,
                       ]}
                     >
-                      <Text style={[
-                        styles.filterOptionText,
-                        filterType === option && styles.filterOptionTextActive,
-                      ]}>
-                        {option}
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          filterType === option && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {getFilterLabel(option)}
                       </Text>
                       {filterType === option && (
                         <Feather name="check" size={14} color={dashboardColors.cyan} />
@@ -108,6 +153,7 @@ export function TableHeader({
       <View style={styles.headerRow}>
         <View style={styles.nameColHeader}>
           <Pressable
+            accessibilityRole="button"
             onPress={onToggleSelectAll}
             style={(state: any) => [
               styles.checkbox,
@@ -116,17 +162,13 @@ export function TableHeader({
               state.hovered && styles.checkboxHover,
             ]}
           >
-            {allSelected && (
-              <Feather name="check" size={14} color="#fff" />
-            )}
-            {!allSelected && someSelected && (
-              <Feather name="minus" size={14} color="#fff" />
-            )}
+            {allSelected && <Feather name="check" size={14} color="#fff" />}
+            {!allSelected && someSelected && <Feather name="minus" size={14} color="#fff" />}
           </Pressable>
-          <Text style={styles.headerText}>Name</Text>
+          <Text style={styles.headerText}>{t('vault.name')}</Text>
         </View>
-        <Text style={[styles.headerText, styles.securityCol]}>Security</Text>
-        <Text style={[styles.headerText, styles.modifiedCol]}>Modified</Text>
+        <Text style={[styles.headerText, styles.securityCol]}>{t('vault.security')}</Text>
+        <Text style={[styles.headerText, styles.modifiedCol]}>{t('vault.modified')}</Text>
         <View style={styles.actionsColHeader} />
       </View>
     </View>

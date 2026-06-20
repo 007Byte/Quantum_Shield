@@ -1,0 +1,368 @@
+# =============================================================================
+# USBVault Enterprise — Canary Deployment with Argo Rollouts
+# =============================================================================
+#
+# Replaces the standard Deployment with an Argo Rollout that implements
+# progressive canary delivery. Traffic is shifted in stages with automated
+# analysis gates between each step.
+#
+# Prerequisites:
+#   - Argo Rollouts controller installed in the cluster
+#   - Prometheus + ServiceMonitor already configured (see production-values.yaml)
+#   - Nginx ingress with canary annotation support
+#
+# To migrate: delete the existing Deployment, apply this Rollout. HPA targets
+# the Rollout the same way it targets a Deployment.
+#
+# =============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: usbvault-api
+  namespace: usbvault
+  labels:
+    app: usbvault-api
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: usbvault-api
+  template:
+    metadata:
+      labels:
+        app: usbvault-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: usbvault-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: run-migrations
+          image: usbvault/api:latest
+          command: ["./migrate", "up"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: database-url
+            - name: MIGRATIONS_DIR
+              value: "/app/migrations"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: api
+          image: usbvault/api:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: redis-url
+            - name: JWT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: jwt-signing-key
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: stripe-secret-key
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: usbvault-secrets
+                  key: stripe-webhook-secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: ["usbvault-api"]
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: usbvault-api
+
+  # ---------------------------------------------------------------------------
+  # Canary Strategy
+  # ---------------------------------------------------------------------------
+  strategy:
+    canary:
+      # Canary service receives traffic from the canary weight
+      canaryService: usbvault-api-canary
+      stableService: usbvault-api
+
+      # Nginx ingress canary routing
+      trafficRouting:
+        nginx:
+          stableIngress: usbvault-api
+          additionalIngressAnnotations:
+            canary-by-header: X-Canary
+            canary-by-header-value: "true"
+
+      # Progressive traffic shifting with analysis gates
+      steps:
+        # Step 1: 5% canary — smoke test
+        - setWeight: 5
+        - pause: { duration: 5m }
+
+        # Step 2: Automated analysis gate — check error rates + latency
+        - analysis:
+            templates:
+              - templateName: canary-health-check
+            args:
+              - name: service-name
+                value: usbvault-api-canary
+
+        # Step 3: 10% canary — broader soak
+        - setWeight: 10
+        - pause: { duration: 10m }
+
+        # Step 4: Second analysis gate
+        - analysis:
+            templates:
+              - templateName: canary-health-check
+            args:
+              - name: service-name
+                value: usbvault-api-canary
+
+        # Step 5: 25% canary — confidence build
+        - setWeight: 25
+        - pause: { duration: 15m }
+
+        # Step 6: Third analysis gate
+        - analysis:
+            templates:
+              - templateName: canary-health-check
+            args:
+              - name: service-name
+                value: usbvault-api-canary
+
+        # Step 7: 50% canary — majority soak
+        - setWeight: 50
+        - pause: { duration: 15m }
+
+        # Step 8: Final analysis before full promotion
+        - analysis:
+            templates:
+              - templateName: canary-health-check
+              - templateName: canary-latency-check
+            args:
+              - name: service-name
+                value: usbvault-api-canary
+
+        # Step 9: Full promotion (100%)
+        - setWeight: 100
+
+      # Auto-rollback on failure
+      abortScaleDownDelaySeconds: 30
+      scaleDownDelaySeconds: 30
+      scaleDownDelayRevisionLimit: 2
+
+---
+# =============================================================================
+# Canary Service — receives canary-weighted traffic
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: usbvault-api-canary
+  namespace: usbvault
+  labels:
+    app: usbvault-api
+spec:
+  selector:
+    app: usbvault-api
+    # Argo Rollouts injects the rollouts-pod-template-hash label
+  ports:
+    - port: 443
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+
+---
+# =============================================================================
+# AnalysisTemplate: Health Check (error rate + success rate)
+# =============================================================================
+#
+# Queries Prometheus for the canary's HTTP 5xx rate over the last 5 minutes.
+# If > 1% of requests are 5xx, the canary fails and triggers auto-rollback.
+#
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-health-check
+  namespace: usbvault
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: error-rate
+      # Fail if more than 1% of requests return 5xx
+      successCondition: result[0] < 0.01
+      failureLimit: 3
+      interval: 60s
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(
+              http_requests_total{
+                service="{{args.service-name}}",
+                status=~"5.."
+              }[5m]
+            )) /
+            sum(rate(
+              http_requests_total{
+                service="{{args.service-name}}"
+              }[5m]
+            ))
+
+    - name: audit-anomaly-rate
+      # USBVault-specific: fail if audit log error events spike
+      # (indicates potential crypto/auth failures)
+      successCondition: result[0] < 5
+      failureLimit: 2
+      interval: 120s
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(increase(
+              usbvault_audit_events_total{
+                service="{{args.service-name}}",
+                severity="error"
+              }[5m]
+            )) or vector(0)
+
+---
+# =============================================================================
+# AnalysisTemplate: Latency Check (p99 response time)
+# =============================================================================
+#
+# Ensures the canary's p99 latency hasn't degraded more than 20% versus the
+# stable deployment. Critical for USBVault because key derivation and SRP
+# handshakes are latency-sensitive.
+#
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-latency-check
+  namespace: usbvault
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: p99-latency
+      # Fail if p99 exceeds 2 seconds (absolute ceiling for API responses)
+      successCondition: result[0] < 2000
+      failureLimit: 3
+      interval: 60s
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(
+                http_request_duration_milliseconds_bucket{
+                  service="{{args.service-name}}"
+                }[5m]
+              )) by (le)
+            )
+
+    - name: canary-vs-stable-latency
+      # Fail if canary p99 is more than 1.2x (20% worse) than stable
+      successCondition: result[0] < 1.2
+      failureLimit: 3
+      interval: 60s
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(
+                http_request_duration_milliseconds_bucket{
+                  service="usbvault-api-canary"
+                }[5m]
+              )) by (le)
+            ) /
+            histogram_quantile(0.99,
+              sum(rate(
+                http_request_duration_milliseconds_bucket{
+                  service="usbvault-api"
+                }[5m]
+              )) by (le)
+            )

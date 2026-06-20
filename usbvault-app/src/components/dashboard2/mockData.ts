@@ -1,77 +1,15 @@
-import {
-  DashboardNavItem,
-  NavSection,
-  HeroAction,
-  SecureShareEntry,
+// Mock data for development/testing only — stripped from production builds
+import type {
   SecurityChecklistItem,
   SecurityRadarMetric,
+  SecureShareEntry,
   TopBarProfile,
-  VaultContextAction,
   VaultItem,
 } from './types';
 
-export const navItems: DashboardNavItem[] = [
-  // ─── DASHBOARD (top-level, no group) ───
-  { id: 'dashboard', label: 'Dashboard', iconSet: 'MaterialCommunityIcons', iconName: 'view-dashboard-outline', active: true, section: NavSection.Top },
-  // ─── FILES ─────────────
-  { id: 'add-file', label: 'Add File', iconSet: 'Feather', iconName: 'plus-circle', section: NavSection.Main, group: 'FILES' },
-  { id: 'encrypt', label: 'Encrypt', iconSet: 'Feather', iconName: 'file-plus', section: NavSection.Main, group: 'FILES' },
-  { id: 'decrypt', label: 'Decrypt', iconSet: 'Feather', iconName: 'unlock', section: NavSection.Main, group: 'FILES' },
-  { id: 'export-file', label: 'Export File', iconSet: 'Feather', iconName: 'download', section: NavSection.Main, group: 'FILES' },
-  { id: 'remove-file', label: 'Remove File', iconSet: 'Feather', iconName: 'trash-2', section: NavSection.Main, group: 'FILES' },
-  // ─── VAULT ─────────────
-  { id: 'vault', label: 'Vault', iconSet: 'Feather', iconName: 'folder', section: NavSection.Main, group: 'VAULT' },
-  { id: 'health-check', label: 'Health Check', iconSet: 'Feather', iconName: 'activity', section: NavSection.Main, group: 'VAULT' },
-  { id: 'storage', label: 'Storage', iconSet: 'Feather', iconName: 'hard-drive', section: NavSection.Main, group: 'VAULT' },
-  { id: 'backup', label: 'Backup', iconSet: 'Feather', iconName: 'save', section: NavSection.Main, group: 'VAULT' },
-  { id: 'restore', label: 'Restore', iconSet: 'Feather', iconName: 'rotate-ccw', section: NavSection.Main, group: 'VAULT' },
-  { id: 'manage-vaults', label: 'Manage Vaults', iconSet: 'Feather', iconName: 'database', section: NavSection.Main, group: 'VAULT' },
-  { id: 'find-vault', label: 'Find Vault', iconSet: 'Feather', iconName: 'search', section: NavSection.Main, group: 'VAULT' },
-  // ─── USB ─────────────
-  { id: 'setup-usb', label: 'Setup USB', iconSet: 'Feather', iconName: 'disc', section: NavSection.Main, group: 'USB' },
-  { id: 'reset-usb', label: 'Reset USB', iconSet: 'Feather', iconName: 'refresh-cw', section: NavSection.Main, group: 'USB' },
-  // ─── SECURITY ──────────
-  { id: 'passwords', label: 'Passwords', iconSet: 'Octicons', iconName: 'shield-check', section: NavSection.Main, group: 'SECURITY' },
-  { id: 'keys', label: 'Keys', iconSet: 'Feather', iconName: 'key', section: NavSection.Main, group: 'SECURITY' },
-  { id: 'defense', label: 'Defense-in-Depth', iconSet: 'Feather', iconName: 'layers', section: NavSection.Main, group: 'SECURITY' },
-  { id: 'brute-force', label: 'Brute-Force', iconSet: 'Feather', iconName: 'shield', section: NavSection.Main, group: 'SECURITY' },
-  { id: 'app-lock', label: 'App Lock', iconSet: 'Feather', iconName: 'lock', section: NavSection.Main, group: 'SECURITY' },
-  { id: 'zero-trace', label: 'Zero-Trace', iconSet: 'Feather', iconName: 'eye-off', section: NavSection.Main, group: 'SECURITY' },
-  // ─── COMMUNICATION ─────
-  { id: 'messages', label: 'Messages', iconSet: 'Feather', iconName: 'message-circle', section: NavSection.Main, group: 'COMMUNICATION' },
-  { id: 'secure-share', label: 'Secure Share', iconSet: 'Feather', iconName: 'share-2', section: NavSection.Main, group: 'COMMUNICATION' },
-  // ─── BOTTOM ────────────
-  { id: 'activity', label: 'Activity', iconSet: 'Feather', iconName: 'clock', section: NavSection.Bottom },
-  { id: 'lock-vault', label: 'Lock Vault', iconSet: 'Feather', iconName: 'lock', section: NavSection.Bottom },
-  { id: 'tools', label: 'Tools', iconSet: 'Feather', iconName: 'tool', section: NavSection.Bottom },
-  { id: 'classroom', label: 'Classroom', iconSet: 'Feather', iconName: 'book-open', section: NavSection.Bottom },
-  { id: 'help', label: 'Help', iconSet: 'Feather', iconName: 'help-circle', section: NavSection.Bottom },
-  { id: 'settings', label: 'Settings', iconSet: 'Feather', iconName: 'settings', section: NavSection.Bottom },
-  { id: 'exit', label: 'Exit', iconSet: 'Feather', iconName: 'log-out', section: NavSection.Bottom },
-];
+// ─── Vault file rows (demo) ─────────────────────────────────────────
 
-export const heroActions: HeroAction[] = [
-  {
-    id: 'encrypt',
-    label: 'Encrypt',
-    iconSet: 'Feather',
-    iconName: 'link',
-  },
-  {
-    id: 'decrypt',
-    label: 'Decrypt',
-    iconSet: 'Feather',
-    iconName: 'rotate-ccw',
-  },
-  {
-    id: 'share',
-    label: 'Share Securely',
-    iconSet: 'Feather',
-    iconName: 'share-2',
-  },
-];
-
-export const vaultItems: VaultItem[] = [
+const _vaultItems: VaultItem[] = [
   {
     id: 'file-1',
     name: 'Financial_Records_2024.pdf',
@@ -167,50 +105,35 @@ export const vaultItems: VaultItem[] = [
     iconBg: '#1D4ED8',
   },
 ];
+export const vaultItems: VaultItem[] = __DEV__ ? _vaultItems : [];
 
 export const openVaultRowId = '';
 
-export const vaultContextActions: VaultContextAction[] = [
-  { id: 'open', label: 'Open', iconSet: 'Feather', iconName: 'folder' },
-  { id: 'decrypt', label: 'Decrypt', iconSet: 'Feather', iconName: 'unlock' },
-  {
-    id: 'share',
-    label: 'Share Securely',
-    iconSet: 'Feather',
-    iconName: 'share-2',
-  },
-  {
-    id: 'show-folder',
-    label: 'Show in Folder',
-    iconSet: 'Feather',
-    iconName: 'inbox',
-  },
-  { id: 'rename', label: 'Rename', iconSet: 'Feather', iconName: 'edit-2' },
-  {
-    id: 'remove',
-    label: 'Remove from Recent List',
-    iconSet: 'Feather',
-    iconName: 'x-square',
-  },
-];
+// ─── Security radar metrics (demo) ──────────────────────────────────
 
-export const securityRadarMetrics: SecurityRadarMetric[] = [
-  { id: 'files', label: 'Files', value: 0.95 },
-  { id: 'passwords', label: 'Passwords', value: 0.86 },
-  { id: 'backups', label: 'Backups', value: 0.9 },
-  { id: 'sessions', label: 'Sessions', value: 0.78 },
-  { id: 'sharing', label: 'Sharing', value: 0.88 },
-  { id: 'privacy', label: 'Privacy', value: 0.84 },
+const _securityRadarMetrics: SecurityRadarMetric[] = [
+  { id: 'files', label: 'rightRail.files', value: 0.95 },
+  { id: 'passwords', label: 'rightRail.passwords', value: 0.86 },
+  { id: 'backups', label: 'rightRail.backups', value: 0.9 },
+  { id: 'sessions', label: 'rightRail.sessions', value: 0.78 },
+  { id: 'sharing', label: 'rightRail.sharing', value: 0.88 },
+  { id: 'privacy', label: 'rightRail.privacy', value: 0.84 },
 ];
+export const securityRadarMetrics: SecurityRadarMetric[] = __DEV__ ? _securityRadarMetrics : [];
 
-export const securityChecklist: SecurityChecklistItem[] = [
-  { id: 'post-quantum', label: 'Post-Quantum', complete: true },
-  { id: 'policies', label: 'PQC Policies', complete: true },
-  { id: 'audit', label: 'Zero-Trust Audit', complete: true },
-  { id: 'backup', label: 'Vault Backup', complete: true },
+// ─── Security checklist (demo) ──────────────────────────────────────
+
+const _securityChecklist: SecurityChecklistItem[] = [
+  { id: 'post-quantum', label: 'rightRail.postQuantum', complete: true },
+  { id: 'policies', label: 'rightRail.pqcPolicies', complete: true },
+  { id: 'audit', label: 'rightRail.zeroTrustAudit', complete: true },
+  { id: 'backup', label: 'rightRail.vaultBackup', complete: true },
 ];
+export const securityChecklist: SecurityChecklistItem[] = __DEV__ ? _securityChecklist : [];
 
-export const secureShareEntries: SecureShareEntry[] = [
+// ─── Secure share entries (demo) ────────────────────────────────────
+
+const _secureShareEntries: SecureShareEntry[] = [
   {
     id: 'emma',
     name: 'Emma Watson',
@@ -234,42 +157,226 @@ export const secureShareEntries: SecureShareEntry[] = [
     avatarColor: '#60A5FA',
   },
 ];
+export const secureShareEntries: SecureShareEntry[] = __DEV__ ? _secureShareEntries : [];
 
-export const topBarProfile: TopBarProfile = {
+// ─── Top bar profile (demo) ─────────────────────────────────────────
+
+const _topBarProfile: TopBarProfile = {
   name: 'John Doe',
   initials: 'JD',
 };
+export const topBarProfile: TopBarProfile = __DEV__
+  ? _topBarProfile
+  : { name: '', initials: '' };
 
-export const passwordEntries = [
-  { id: 'pw1', service: 'AWS Console', username: 'admin@usbvault.io', lastModified: '2 hours ago', strength: 'Strong' },
-  { id: 'pw2', service: 'GitHub Enterprise', username: 'john.doe@usbvault.io', lastModified: '1 day ago', strength: 'Strong' },
-  { id: 'pw3', service: 'Slack Workspace', username: 'jdoe', lastModified: '3 days ago', strength: 'Medium' },
-  { id: 'pw4', service: 'Jira Cloud', username: 'john.doe@usbvault.io', lastModified: '1 week ago', strength: 'Strong' },
-  { id: 'pw5', service: 'Confluence', username: 'john.doe', lastModified: '2 weeks ago', strength: 'Weak' },
-  { id: 'pw6', service: 'Azure DevOps', username: 'jdoe@usbvault.onmicrosoft.com', lastModified: '1 month ago', strength: 'Strong' },
-];
+// ─── Password entries (demo) ────────────────────────────────────────
 
-export const messageThreads = [
-  { id: 'msg1', sender: 'Alice Chen', preview: 'Encrypted file package ready for review', time: '10:32 AM', unread: 2, avatar: 'AC' },
-  { id: 'msg2', sender: 'Security Team', preview: 'Monthly compliance report attached', time: 'Yesterday', unread: 0, avatar: 'ST' },
-  { id: 'msg3', sender: 'Bob Martinez', preview: 'Re: Vault access request approved', time: 'Mar 5', unread: 1, avatar: 'BM' },
-  { id: 'msg4', sender: 'Emma Watson', preview: 'Shared project keys updated', time: 'Mar 3', unread: 0, avatar: 'EW' },
+const _passwordEntries = [
+  {
+    id: 'pw1',
+    service: 'AWS Console',
+    username: 'admin@usbvault.io',
+    lastModified: '2 hours ago',
+    strength: 'Strong',
+  },
+  {
+    id: 'pw2',
+    service: 'GitHub Enterprise',
+    username: 'john.doe@usbvault.io',
+    lastModified: '1 day ago',
+    strength: 'Strong',
+  },
+  {
+    id: 'pw3',
+    service: 'Slack Workspace',
+    username: 'jdoe',
+    lastModified: '3 days ago',
+    strength: 'Medium',
+  },
+  {
+    id: 'pw4',
+    service: 'Jira Cloud',
+    username: 'john.doe@usbvault.io',
+    lastModified: '1 week ago',
+    strength: 'Strong',
+  },
+  {
+    id: 'pw5',
+    service: 'Confluence',
+    username: 'john.doe',
+    lastModified: '2 weeks ago',
+    strength: 'Weak',
+  },
+  {
+    id: 'pw6',
+    service: 'Azure DevOps',
+    username: 'jdoe@usbvault.onmicrosoft.com',
+    lastModified: '1 month ago',
+    strength: 'Strong',
+  },
 ];
+export const passwordEntries = __DEV__ ? _passwordEntries : [];
 
-export const activityLogEntries = [
-  { id: 'act1', action: 'encrypt', file: 'Financial_Records_2024.pdf', user: 'John Doe', time: '2 min ago', status: 'success' },
-  { id: 'act2', action: 'share', file: 'Design_Assets.zip', user: 'John Doe', time: '11 min ago', status: 'success' },
-  { id: 'act3', action: 'decrypt', file: 'Client_Presentations', user: 'John Doe', time: '35 min ago', status: 'success' },
-  { id: 'act4', action: 'login', file: '', user: 'John Doe', time: '1 hour ago', status: 'success' },
-  { id: 'act5', action: 'encrypt', file: 'Passwords.kdbx', user: 'John Doe', time: '2 hours ago', status: 'success' },
-  { id: 'act6', action: 'share', file: 'Research_Data.xlsx', user: 'Emma Watson', time: '3 hours ago', status: 'success' },
-  { id: 'act7', action: 'decrypt', file: 'Compliance_Audit_Notes.docx', user: 'John Doe', time: '5 hours ago', status: 'success' },
-  { id: 'act8', action: 'failed_login', file: '', user: 'Unknown', time: '6 hours ago', status: 'warning' },
-  { id: 'act9', action: 'encrypt', file: 'Incident_Response_Playbook.pdf', user: 'John Doe', time: 'Yesterday', status: 'success' },
-  { id: 'act10', action: 'share', file: 'Q4_Budget_Forecast.xlsx', user: 'Bob Martinez', time: 'Yesterday', status: 'success' },
-  { id: 'act11', action: 'key_rotation', file: '', user: 'System', time: '2 days ago', status: 'info' },
-  { id: 'act12', action: 'decrypt', file: 'API_Keys_Backup.enc', user: 'John Doe', time: '2 days ago', status: 'success' },
-  { id: 'act13', action: 'vault_backup', file: 'Personal Vault', user: 'System', time: '3 days ago', status: 'success' },
-  { id: 'act14', action: 'encrypt', file: 'Employee_Records.csv', user: 'Alice Chen', time: '4 days ago', status: 'success' },
-  { id: 'act15', action: 'policy_update', file: '', user: 'Admin', time: '1 week ago', status: 'info' },
+// ─── Message threads (demo) ─────────────────────────────────────────
+
+const _messageThreads = [
+  {
+    id: 'msg1',
+    sender: 'Alice Chen',
+    preview: 'Encrypted file package ready for review',
+    time: '10:32 AM',
+    unread: 2,
+    avatar: 'AC',
+  },
+  {
+    id: 'msg2',
+    sender: 'Security Team',
+    preview: 'Monthly compliance report attached',
+    time: 'Yesterday',
+    unread: 0,
+    avatar: 'ST',
+  },
+  {
+    id: 'msg3',
+    sender: 'Bob Martinez',
+    preview: 'Re: Vault access request approved',
+    time: 'Mar 5',
+    unread: 1,
+    avatar: 'BM',
+  },
+  {
+    id: 'msg4',
+    sender: 'Emma Watson',
+    preview: 'Shared project keys updated',
+    time: 'Mar 3',
+    unread: 0,
+    avatar: 'EW',
+  },
 ];
+export const messageThreads = __DEV__ ? _messageThreads : [];
+
+// ─── Activity log entries (demo) ────────────────────────────────────
+
+const _activityLogEntries = [
+  {
+    id: 'act1',
+    action: 'encrypt',
+    file: 'Financial_Records_2024.pdf',
+    user: 'John Doe',
+    time: '2 min ago',
+    status: 'success',
+  },
+  {
+    id: 'act2',
+    action: 'share',
+    file: 'Design_Assets.zip',
+    user: 'John Doe',
+    time: '11 min ago',
+    status: 'success',
+  },
+  {
+    id: 'act3',
+    action: 'decrypt',
+    file: 'Client_Presentations',
+    user: 'John Doe',
+    time: '35 min ago',
+    status: 'success',
+  },
+  {
+    id: 'act4',
+    action: 'login',
+    file: '',
+    user: 'John Doe',
+    time: '1 hour ago',
+    status: 'success',
+  },
+  {
+    id: 'act5',
+    action: 'encrypt',
+    file: 'Passwords.kdbx',
+    user: 'John Doe',
+    time: '2 hours ago',
+    status: 'success',
+  },
+  {
+    id: 'act6',
+    action: 'share',
+    file: 'Research_Data.xlsx',
+    user: 'Emma Watson',
+    time: '3 hours ago',
+    status: 'success',
+  },
+  {
+    id: 'act7',
+    action: 'decrypt',
+    file: 'Compliance_Audit_Notes.docx',
+    user: 'John Doe',
+    time: '5 hours ago',
+    status: 'success',
+  },
+  {
+    id: 'act8',
+    action: 'failed_login',
+    file: '',
+    user: 'Unknown',
+    time: '6 hours ago',
+    status: 'warning',
+  },
+  {
+    id: 'act9',
+    action: 'encrypt',
+    file: 'Incident_Response_Playbook.pdf',
+    user: 'John Doe',
+    time: 'Yesterday',
+    status: 'success',
+  },
+  {
+    id: 'act10',
+    action: 'share',
+    file: 'Q4_Budget_Forecast.xlsx',
+    user: 'Bob Martinez',
+    time: 'Yesterday',
+    status: 'success',
+  },
+  {
+    id: 'act11',
+    action: 'key_rotation',
+    file: '',
+    user: 'System',
+    time: '2 days ago',
+    status: 'info',
+  },
+  {
+    id: 'act12',
+    action: 'decrypt',
+    file: 'API_Keys_Backup.enc',
+    user: 'John Doe',
+    time: '2 days ago',
+    status: 'success',
+  },
+  {
+    id: 'act13',
+    action: 'vault_backup',
+    file: 'Personal Vault',
+    user: 'System',
+    time: '3 days ago',
+    status: 'success',
+  },
+  {
+    id: 'act14',
+    action: 'encrypt',
+    file: 'Employee_Records.csv',
+    user: 'Alice Chen',
+    time: '4 days ago',
+    status: 'success',
+  },
+  {
+    id: 'act15',
+    action: 'policy_update',
+    file: '',
+    user: 'Admin',
+    time: '1 week ago',
+    status: 'info',
+  },
+];
+export const activityLogEntries = __DEV__ ? _activityLogEntries : [];

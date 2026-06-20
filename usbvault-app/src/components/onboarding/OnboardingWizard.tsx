@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { settingsService } from '@/services/settingsService';
 import { auditService } from '@/services/auditService';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -22,6 +23,7 @@ interface OnboardingWizardProps {
 type CipherSuite = 'aes-256-gcm-siv' | 'xchacha20-poly1305' | 'pqc-hybrid';
 
 export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
+  const { t } = useLanguage();
   const [step, setStep] = useState(1);
   const [pqcSupported] = useState(true);
   const [selectedCipher, setSelectedCipher] = useState<CipherSuite>('aes-256-gcm-siv');
@@ -51,13 +53,17 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
         localStorage.setItem('usbvault:onboarding_complete', 'true');
         localStorage.setItem('usbvault:display_name', displayName);
         localStorage.setItem('usbvault:cipher_suite', selectedCipher);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
 
-      auditService.log('vault_create', 'onboarding', {
-        cipher: selectedCipher,
-        pqc: pqcSupported,
-        displayName,
-      }).catch(() => {});
+      auditService
+        .log('vault_create', 'onboarding', {
+          cipher: selectedCipher,
+          pqc: pqcSupported,
+          displayName,
+        })
+        .catch(() => {});
 
       onComplete();
     }
@@ -75,27 +81,18 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <View style={s.iconCircle}>
               <Feather name="cpu" size={32} color="#22D3EE" />
             </View>
-            <Text style={s.stepTitle}>Post-Quantum Readiness</Text>
-            <Text style={s.stepDescription}>
-              Checking your environment for post-quantum cryptography support.
-              USBVault uses ML-KEM-1024 (FIPS 203) hybrid key encapsulation to protect
-              your data against future quantum computing threats.
-            </Text>
+            <Text style={s.stepTitle}>{t('onboarding.pqcReadiness')}</Text>
+            <Text style={s.stepDescription}>{t('onboarding.pqcDescription')}</Text>
 
             <View style={s.checkList}>
-              <CheckItem label="WebCrypto API" passed />
-              <CheckItem label="AES-256-GCM-SIV" passed />
-              <CheckItem label="PBKDF2 / Argon2id KDF" passed />
-              <CheckItem label="ML-KEM-1024 Hybrid Encapsulation" passed={pqcSupported} />
-              <CheckItem label="Ed25519 Identity Signing" passed />
+              <CheckItem label={t('onboarding.checkWebCrypto')} passed />
+              <CheckItem label={t('onboarding.checkAes')} passed />
+              <CheckItem label={t('onboarding.checkKdf')} passed />
+              <CheckItem label={t('onboarding.checkMlkem')} passed={pqcSupported} />
+              <CheckItem label={t('onboarding.checkEd25519')} passed />
             </View>
 
-            {!pqcSupported && (
-              <Text style={s.warning}>
-                PQC hybrid mode is unavailable on this device. Classical AES-256-GCM-SIV
-                encryption will be used. You can enable PQC on a supported device later.
-              </Text>
-            )}
+            {!pqcSupported && <Text style={s.warning}>{t('onboarding.pqcUnavailable')}</Text>}
           </View>
         );
 
@@ -105,29 +102,26 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <View style={s.iconCircle}>
               <Feather name="shield" size={32} color="#A855F7" />
             </View>
-            <Text style={s.stepTitle}>Cipher Suite</Text>
-            <Text style={s.stepDescription}>
-              Select the encryption algorithm for your vault. All options provide
-              military-grade security with authenticated encryption.
-            </Text>
+            <Text style={s.stepTitle}>{t('onboarding.cipherSuite')}</Text>
+            <Text style={s.stepDescription}>{t('onboarding.cipherDescription')}</Text>
 
             <View style={s.optionsList}>
               <CipherOption
-                label="AES-256-GCM-SIV"
-                description="NIST standard, nonce-misuse resistant AEAD. Recommended for most users."
+                label={t('onboarding.cipherAes')}
+                description={t('onboarding.cipherAesDesc')}
                 recommended
                 selected={selectedCipher === 'aes-256-gcm-siv'}
                 onSelect={() => setSelectedCipher('aes-256-gcm-siv')}
               />
               <CipherOption
-                label="XChaCha20-Poly1305"
-                description="Extended nonce AEAD cipher. Preferred for high-throughput streaming."
+                label={t('onboarding.cipherXchacha')}
+                description={t('onboarding.cipherXchachaDesc')}
                 selected={selectedCipher === 'xchacha20-poly1305'}
                 onSelect={() => setSelectedCipher('xchacha20-poly1305')}
               />
               <CipherOption
-                label="PQC Hybrid (ML-KEM-1024 + AES-256)"
-                description="Post-quantum hybrid combining ML-KEM-1024 with AES-256 for quantum resistance."
+                label={t('onboarding.cipherPqc')}
+                description={t('onboarding.cipherPqcDesc')}
                 selected={selectedCipher === 'pqc-hybrid'}
                 onSelect={() => setSelectedCipher('pqc-hybrid')}
                 disabled={!pqcSupported}
@@ -142,28 +136,27 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <View style={s.iconCircle}>
               <Feather name="user" size={32} color="#60A5FA" />
             </View>
-            <Text style={s.stepTitle}>Identity</Text>
-            <Text style={s.stepDescription}>
-              Your cryptographic identity is used for secure file sharing and
-              message signing. An Ed25519 keypair has been generated.
-            </Text>
+            <Text style={s.stepTitle}>{t('onboarding.identity')}</Text>
+            <Text style={s.stepDescription}>{t('onboarding.identityDescription')}</Text>
 
             <View style={s.identityCard}>
               <View style={s.identityRow}>
-                <Text style={s.identityLabel}>EMAIL</Text>
+                <Text style={s.identityLabel}>{t('onboarding.email')}</Text>
                 <Text style={s.identityValue}>{email}</Text>
               </View>
               <View style={s.identityRow}>
-                <Text style={s.identityLabel}>DISPLAY NAME</Text>
+                <Text style={s.identityLabel}>{t('onboarding.displayName')}</Text>
                 <Text style={s.identityValue}>{displayName}</Text>
               </View>
               <View style={s.identityRow}>
-                <Text style={s.identityLabel}>KEY FINGERPRINT</Text>
-                <Text style={[s.identityValue, { fontFamily: 'monospace', color: '#22D3EE' }]}>{keyFingerprint} (Ed25519)</Text>
+                <Text style={s.identityLabel}>{t('onboarding.keyFingerprint')}</Text>
+                <Text style={[s.identityValue, { fontFamily: 'monospace', color: '#22D3EE' }]}>
+                  {keyFingerprint} (Ed25519)
+                </Text>
               </View>
               <View style={s.identityRow}>
-                <Text style={s.identityLabel}>PQC SIGNING</Text>
-                <Text style={s.identityValue}>ML-DSA-87 (FIPS 204)</Text>
+                <Text style={s.identityLabel}>{t('onboarding.pqcSigning')}</Text>
+                <Text style={s.identityValue}>{t('onboarding.mlDsa')}</Text>
               </View>
             </View>
           </View>
@@ -175,34 +168,48 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
             <View style={s.iconCircle}>
               <Feather name="lock" size={32} color="#34D399" />
             </View>
-            <Text style={s.stepTitle}>Vault Ready</Text>
-            <Text style={s.stepDescription}>
-              Your secure vault is configured and ready. Here is a summary of your setup:
-            </Text>
+            <Text style={s.stepTitle}>{t('onboarding.vaultReady')}</Text>
+            <Text style={s.stepDescription}>{t('onboarding.vaultReadyDescription')}</Text>
 
             <View style={s.summaryCard}>
-              <SummaryRow label="Cipher" value={selectedCipher === 'aes-256-gcm-siv' ? 'AES-256-GCM-SIV' : selectedCipher === 'xchacha20-poly1305' ? 'XChaCha20-Poly1305' : 'PQC Hybrid'} />
-              <SummaryRow label="KDF" value="Argon2id (64 MB, 3 iter, 4 lanes)" />
-              <SummaryRow label="PQC" value={pqcSupported ? 'Enabled (ML-KEM-1024)' : 'Disabled'} />
-              <SummaryRow label="Identity" value={`${displayName} • ${keyFingerprint}`} />
-              <SummaryRow label="Zero-Knowledge" value="Enforced" />
-              <SummaryRow label="Integrity" value="HMAC-SHA256 + AEAD tag" />
+              <SummaryRow
+                label={t('onboarding.summCipher')}
+                value={
+                  selectedCipher === 'aes-256-gcm-siv'
+                    ? t('onboarding.cipherAes')
+                    : selectedCipher === 'xchacha20-poly1305'
+                      ? t('onboarding.cipherXchacha')
+                      : t('onboarding.pqcHybrid')
+                }
+              />
+              <SummaryRow label={t('onboarding.summKdf')} value={t('onboarding.kdfValue')} />
+              <SummaryRow
+                label={t('onboarding.summPqc')}
+                value={pqcSupported ? t('onboarding.pqcEnabled') : t('onboarding.pqcDisabled')}
+              />
+              <SummaryRow
+                label={t('onboarding.summIdentity')}
+                value={`${displayName} • ${keyFingerprint}`}
+              />
+              <SummaryRow
+                label={t('onboarding.summZeroKnowledge')}
+                value={t('onboarding.enforced')}
+              />
+              <SummaryRow
+                label={t('onboarding.summIntegrity')}
+                value={t('onboarding.integrityValue')}
+              />
             </View>
 
             {/* Product positioning — INFRA-02 */}
             <View style={s.positioningCard}>
               <View style={s.positioningHeader}>
                 <Feather name="info" size={16} color="#60A5FA" />
-                <Text style={s.positioningTitle}>What USBVault Is</Text>
+                <Text style={s.positioningTitle}>{t('onboarding.whatIsUsbvault')}</Text>
               </View>
-              <Text style={s.positioningText}>
-                USBVault is a portable encrypted file vault and password manager with
-                post-quantum cryptography. It secures your files, credentials, and messages
-                with military-grade encryption on any device.
-              </Text>
+              <Text style={s.positioningText}>{t('onboarding.usbvaultDescription')}</Text>
               <Text style={[s.positioningText, { marginTop: 8 }]}>
-                USBVault is not an email service or email replacement. For private email,
-                we recommend: ProtonMail, Tutanota, or Skiff Mail.
+                {t('onboarding.usbvaultNotEmail')}
               </Text>
             </View>
           </View>
@@ -229,7 +236,7 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
         ))}
       </View>
 
-      <Text style={s.stepIndicator}>Step {step} of {totalSteps}</Text>
+      <Text style={s.stepIndicator}>{t('onboarding.stepOf', { step, total: totalSteps })}</Text>
 
       {renderStep()}
 
@@ -237,21 +244,29 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
       <View style={s.navRow}>
         {step > 1 ? (
           <Pressable
-            style={(state: any) => [s.navBtn, s.navBtnSecondary, state.hovered && s.navBtnSecondaryHover]}
+            accessibilityRole="button"
+            style={(state: any) => [
+              s.navBtn,
+              s.navBtnSecondary,
+              state.hovered && s.navBtnSecondaryHover,
+            ]}
             onPress={handleBack}
           >
             <Feather name="arrow-left" size={16} color="#A78BFA" />
-            <Text style={s.navBtnSecondaryText}>Back</Text>
+            <Text style={s.navBtnSecondaryText}>{t('onboarding.back')}</Text>
           </Pressable>
         ) : (
           <View />
         )}
 
         <Pressable
+          accessibilityRole="button"
           style={(state: any) => [s.navBtn, s.navBtnPrimary, state.hovered && s.navBtnPrimaryHover]}
           onPress={handleNext}
         >
-          <Text style={s.navBtnPrimaryText}>{step === totalSteps ? 'Create Vault' : 'Continue'}</Text>
+          <Text style={s.navBtnPrimaryText}>
+            {step === totalSteps ? t('onboarding.createVault') : t('onboarding.continue')}
+          </Text>
           <Feather name={step === totalSteps ? 'check' : 'arrow-right'} size={16} color="#fff" />
         </Pressable>
       </View>
@@ -262,22 +277,37 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
 // ── Sub-components ────────────────────────────────
 
 function CheckItem({ label, passed }: { label: string; passed: boolean }) {
+  const { t } = useLanguage();
   return (
     <View style={s.checkItem}>
       <View style={[s.checkDot, passed ? s.checkDotPass : s.checkDotFail]} />
       <Text style={[s.checkLabel, !passed && { color: '#FBBF24' }]}>{label}</Text>
       <Text style={[s.checkStatus, passed ? { color: '#34D399' } : { color: '#FBBF24' }]}>
-        {passed ? 'Supported' : 'Unavailable'}
+        {passed ? t('onboarding.supported') : t('onboarding.unavailable')}
       </Text>
     </View>
   );
 }
 
-function CipherOption({ label, description, selected, onSelect, recommended, disabled }: {
-  label: string; description: string; selected: boolean; onSelect: () => void; recommended?: boolean; disabled?: boolean;
+function CipherOption({
+  label,
+  description,
+  selected,
+  onSelect,
+  recommended,
+  disabled,
+}: {
+  label: string;
+  description: string;
+  selected: boolean;
+  onSelect: () => void;
+  recommended?: boolean;
+  disabled?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <Pressable
+      accessibilityRole="button"
       style={(state: any) => [
         s.cipherOption,
         selected && s.cipherOptionSelected,
@@ -293,7 +323,7 @@ function CipherOption({ label, description, selected, onSelect, recommended, dis
         <Text style={[s.cipherLabel, disabled && { opacity: 0.5 }]}>{label}</Text>
         {recommended && (
           <View style={s.recommendedBadge}>
-            <Text style={s.recommendedText}>Recommended</Text>
+            <Text style={s.recommendedText}>{t('onboarding.recommended')}</Text>
           </View>
         )}
       </View>

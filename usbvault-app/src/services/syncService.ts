@@ -49,7 +49,7 @@ export interface EncryptedSyncEvent {
   id?: string;
   event_type: string;
   encrypted_data: string; // Base64-encoded XChaCha20-Poly1305 ciphertext
-  nonce: string;          // Base64-encoded 24-byte nonce
+  nonce: string; // Base64-encoded 24-byte nonce
   timestamp?: string;
   sequence?: number;
 }
@@ -92,9 +92,9 @@ const DEFAULT_RECONNECT: ReconnectConfig = {
 };
 
 /** Heartbeat intervals */
-const PING_INTERVAL_MS = 25_000;       // Send ping every 25s
-const PONG_TIMEOUT_MS = 10_000;        // Expect pong within 10s
-const MAX_RETRIES = 5;                 // Queue item max retries
+const PING_INTERVAL_MS = 25_000; // Send ping every 25s
+const PONG_TIMEOUT_MS = 10_000; // Expect pong within 10s
+const MAX_RETRIES = 5; // Queue item max retries
 const QUEUE_STORAGE_KEY = 'usbvault:sync_queue';
 const STATE_STORAGE_KEY = 'usbvault:sync_state';
 
@@ -181,11 +181,7 @@ class SyncService {
    * @param token  JWT auth token
    * @param onSyncEvent  Callback for incoming encrypted sync events
    */
-  connect(
-    wsUrl: string,
-    token: string,
-    onSyncEvent?: (event: EncryptedSyncEvent) => void
-  ): void {
+  connect(wsUrl: string, token: string, onSyncEvent?: (event: EncryptedSyncEvent) => void): void {
     this._wsUrl = wsUrl;
     this._authToken = token;
     this._onSyncEvent = onSyncEvent || null;
@@ -251,7 +247,7 @@ class SyncService {
       if (this._lastSequence > 0) {
         const replayMsg: ClientMessage = {
           type: 'replay',
-          data: { last_sequence: this._lastSequence }
+          data: { last_sequence: this._lastSequence },
         };
         try {
           this._ws?.send(JSON.stringify(replayMsg));
@@ -409,7 +405,11 @@ class SyncService {
         logger.warn('[Sync] Pong timeout — connection assumed dead');
         // Force close → triggers onclose → triggers reconnect
         if (this._ws) {
-          try { this._ws.close(4000, 'pong timeout'); } catch { /* ignore */ }
+          try {
+            this._ws.close(4000, 'pong timeout');
+          } catch {
+            /* ignore */
+          }
         }
       }, PONG_TIMEOUT_MS);
     }, PING_INTERVAL_MS);
@@ -596,7 +596,12 @@ class SyncService {
   /**
    * RM-009: Get reconnection state for debugging/UI.
    */
-  getReconnectInfo(): { attempt: number; maxAttempts: number; connected: boolean; lastPongAt: number } {
+  getReconnectInfo(): {
+    attempt: number;
+    maxAttempts: number;
+    connected: boolean;
+    lastPongAt: number;
+  } {
     return {
       attempt: this._reconnectAttempt,
       maxAttempts: this._reconnectConfig.maxAttempts,
@@ -650,7 +655,9 @@ class SyncService {
         const trimmed = queue.slice(-200);
         localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(trimmed));
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   private _getLastSync(): string | null {
@@ -669,7 +676,9 @@ class SyncService {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem(STATE_STORAGE_KEY, new Date().toISOString());
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   private _notifyListeners(): void {

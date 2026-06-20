@@ -44,7 +44,7 @@ export function generateSecureId(prefix: string): string {
     const buffer = new Uint8Array(8);
     crypto.getRandomValues(buffer);
     const hex = Array.from(buffer)
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     return `${prefix}-${hex}`;
   } catch {

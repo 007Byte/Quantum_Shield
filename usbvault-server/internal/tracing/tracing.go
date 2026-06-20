@@ -24,7 +24,8 @@ var tracer trace.Tracer
 func InitTracer(ctx context.Context, serviceName, serviceVersion string) (func(context.Context) error, error) {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "localhost:4318"
+		log.Warn().Msg("OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled")
+		return func(_ context.Context) error { return nil }, nil
 	}
 
 	exporter, err := otlptracehttp.New(ctx,

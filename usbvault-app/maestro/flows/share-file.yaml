@@ -1,0 +1,61 @@
+# Share File Flow — USBVault Enterprise
+# Assumes the user is already logged in. Navigates to the Share tab,
+# initiates a new share, enters a recipient email, and asserts success.
+appId: com.usbvault.enterprise
+
+---
+
+# Step 1: Navigate to the Share tab via sidebar
+- tapOn: "Share"
+- waitForAnimationToEnd
+
+# Step 2: Assert the share screen loaded
+- assertVisible: "Secure File Sharing"
+
+# Step 3: Tap the Share New File button
+- tapOn: "Share New File"
+- waitForAnimationToEnd
+
+# Step 4: Wait for the share prompt modal to appear
+- extendedWaitUntil:
+    visible: "Recipient"
+    timeout: 10000
+
+# Step 5: Enter recipient email address
+- inputText: "recipient@example.com"
+
+# Step 6: Confirm the recipient by tapping the Share New File action button
+- tapOn: "Share New File"
+- waitForAnimationToEnd
+
+# Step 7: Wait for the file selection dialog
+- extendedWaitUntil:
+    visible: "Select"
+    timeout: 10000
+
+# Step 8: Select the first available file from the list
+- tapOn:
+    index: 0
+    below: "Select"
+
+# Step 9: Wait for confirmation dialog
+- waitForAnimationToEnd
+
+# Step 10: Confirm the share action
+- tapOn: "Share New File"
+
+# Step 11: Wait for success feedback
+- extendedWaitUntil:
+    visible:
+      anyOf:
+        - "shared"
+        - "Shared"
+        - "Success"
+    timeout: 15000
+
+# Step 12: Assert share succeeded
+- assertVisible:
+    anyOf:
+      - "shared"
+      - "Shared"
+      - "Success"

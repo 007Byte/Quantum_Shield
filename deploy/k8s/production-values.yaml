@@ -1,0 +1,404 @@
+# =============================================================================
+# USBVault Enterprise — Kubernetes Production Values
+# =============================================================================
+#
+# Helm-style values for production Kubernetes deployment.
+# Use with: helm install usbvault ./chart -f production-values.yaml
+#
+# Assumes:
+#   - cert-manager is installed for TLS
+#   - External PostgreSQL (RDS / Cloud SQL) or in-cluster with operator
+#   - External Redis (ElastiCache / Memorystore) or in-cluster
+#   - Secrets managed via ExternalSecrets, Sealed Secrets, or native K8s secrets
+#
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Global
+# ---------------------------------------------------------------------------
+global:
+  environment: production
+  imageRegistry: ""  # Override for private registries
+  imagePullSecrets: []
+  # - name: regcred
+
+# ---------------------------------------------------------------------------
+# USBVault API Server
+# ---------------------------------------------------------------------------
+api:
+  image:
+    repository: usbvault/api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # -- Replica count (overridden by HPA in production)
+  replicaCount: 3
+
+  # -- Service account
+  serviceAccount:
+    create: true
+    name: usbvault-api
+    annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::role/usbvault-api
+
+  # -- Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
+  # -- Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+  # -- Liveness probe
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+  # -- Readiness probe
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+  # -- Startup probe (allows slow cold starts without killing the pod)
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 12   # 5 + (5 * 12) = 65s max startup time
+
+  # -- Container port
+  port: 8080
+
+  # -- Environment variables from ConfigMap
+  env:
+    ENVIRONMENT: production
+    SERVER_PORT: "8080"
+    LOG_LEVEL: info
+    MIGRATIONS_DIR: /app/migrations
+    DB_MAX_CONNECTIONS: "30"
+    DB_MIN_CONNECTIONS: "5"
+    FIDO2_RELYING_PARTY_ID: usbvault.io
+    FIDO2_RELYING_PARTY_NAME: USBVault
+    FIDO2_RELYING_PARTY_ORIGIN: https://usbvault.io
+    CORS_ALLOWED_ORIGINS: "https://usbvault.io,https://app.usbvault.io"
+
+  # -- Environment variables from Kubernetes secrets
+  envFromSecrets:
+    DATABASE_URL:
+      secretName: usbvault-secrets
+      key: database-url
+    REDIS_URL:
+      secretName: usbvault-secrets
+      key: redis-url
+    JWT_ED25519_PRIVATE_KEY:
+      secretName: usbvault-jwt-keys
+      key: private-key
+    JWT_ED25519_PUBLIC_KEY:
+      secretName: usbvault-jwt-keys
+      key: public-key
+    STRIPE_SECRET_KEY:
+      secretName: usbvault-secrets
+      key: stripe-secret-key
+    STRIPE_WEBHOOK_SECRET:
+      secretName: usbvault-secrets
+      key: stripe-webhook-secret
+    BACKUP_ENCRYPTION_KEY:
+      secretName: usbvault-secrets
+      key: backup-encryption-key
+    S3_ENDPOINT:
+      secretName: usbvault-secrets
+      key: s3-endpoint
+    AWS_ACCESS_KEY_ID:
+      secretName: usbvault-s3-credentials
+      key: access-key-id
+    AWS_SECRET_ACCESS_KEY:
+      secretName: usbvault-s3-credentials
+      key: secret-access-key
+    S3_BUCKET:
+      secretName: usbvault-secrets
+      key: s3-bucket
+    AWS_REGION:
+      secretName: usbvault-secrets
+      key: aws-region
+
+  # -- Init container to run database migrations before pod starts
+  initContainers:
+    - name: run-migrations
+      command: ["./migrate", "up"]
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "250m"
+          memory: "256Mi"
+
+  # -- Pod anti-affinity to spread replicas across nodes
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["usbvault-api"]
+            topologyKey: kubernetes.io/hostname
+
+  # -- Topology spread constraints for zone distribution
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app: usbvault-api
+
+  # -- Rolling update strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  # -- Annotations for pods (e.g., Prometheus scraping)
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+
+# ---------------------------------------------------------------------------
+# Horizontal Pod Autoscaler
+# ---------------------------------------------------------------------------
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+
+# ---------------------------------------------------------------------------
+# Pod Disruption Budget
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: 1  # Alternative to minAvailable
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+  # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # TLS via cert-manager
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+    # Nginx ingress controller settings
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # TLS 1.3 minimum — reject TLS 1.0, 1.1, 1.2 connections
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Strict-Transport-Security: max-age=63072000; includeSubDomains; preload";
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()";
+      more_set_headers "Cross-Origin-Opener-Policy: same-origin";
+
+    # WebSocket support for /api/v1/sync/ws
+    nginx.ingress.kubernetes.io/websocket-services: "usbvault-api"
+
+  hosts:
+    - host: api.usbvault.io
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls:
+    - secretName: usbvault-tls
+      hosts:
+        - api.usbvault.io
+
+# ---------------------------------------------------------------------------
+# TLS — cert-manager integration
+# ---------------------------------------------------------------------------
+certManager:
+  enabled: true
+  issuer:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  # To create the ClusterIssuer, set create: true
+  createIssuer: false
+  # issuerConfig:
+  #   email: security@usbvault.io
+  #   server: https://acme-v02.api.letsencrypt.org/directory
+  #   privateKeySecretRef:
+  #     name: letsencrypt-prod-account-key
+  #   solvers:
+  #     - http01:
+  #         ingress:
+  #           class: nginx
+
+# ---------------------------------------------------------------------------
+# Network Policy
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+  # Only allow traffic from ingress controller and monitoring namespace
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+  # SECURITY FIX (M-9): Restrict egress to known destinations only.
+  # Previously allowed unrestricted egress, enabling data exfiltration from a compromised pod.
+  egress:
+    # PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # S3/MinIO
+    - to:
+        - podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
+    # Stripe API (external HTTPS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # DNS resolution (required for all service discovery)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+# ---------------------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator)
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /metrics
+  port: http
+  labels:
+    release: prometheus
+
+# ---------------------------------------------------------------------------
+# PostgreSQL (external — provide connection string via secret)
+# ---------------------------------------------------------------------------
+postgresql:
+  # Set to true to deploy in-cluster PostgreSQL (dev/staging only)
+  enabled: false
+  # For production, use managed PostgreSQL (RDS, Cloud SQL, etc.)
+  # Connection string provided via usbvault-secrets/database-url
+
+# ---------------------------------------------------------------------------
+# Redis (external — provide connection string via secret)
+# ---------------------------------------------------------------------------
+redis:
+  # Set to true to deploy in-cluster Redis (dev/staging only)
+  enabled: false
+  # For production, use managed Redis (ElastiCache, Memorystore, etc.)
+  # Connection string provided via usbvault-secrets/redis-url

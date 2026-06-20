@@ -75,9 +75,7 @@ export interface KeyRotationResult {
  * @param password - User password (used to derive KEK via Argon2id)
  * @returns KeyHierarchyCreationResult with mek, wrappedMek, and kekSalt
  */
-export async function createKeyHierarchy(
-  password: string
-): Promise<KeyHierarchyCreationResult> {
+export async function createKeyHierarchy(password: string): Promise<KeyHierarchyCreationResult> {
   try {
     // 1. Generate random 32-byte salt for KEK derivation
     const kekSalt = await randomBytes(32);
@@ -192,10 +190,7 @@ export async function rotatePassword(
  * @param fileId - Unique file identifier
  * @returns Promise<Uint8Array> - 32-byte per-file encryption key
  */
-export async function getFileEncryptionKey(
-  mek: Uint8Array,
-  fileId: string
-): Promise<Uint8Array> {
+export async function getFileEncryptionKey(mek: Uint8Array, fileId: string): Promise<Uint8Array> {
   return deriveFileKey(mek, fileId);
 }
 

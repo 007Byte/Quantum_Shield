@@ -6,6 +6,7 @@ import { InAppModal, useInAppModal } from '@/components/common';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
 import { dashboardSpacing, dashboardLayout } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ScanResults {
   count: number;
@@ -23,6 +24,7 @@ const colors = {
 };
 
 const ZeroTraceScreen = () => {
+  const { t } = useLanguage();
   const [ghostModeEnabled, setGhostModeEnabled] = useState(false);
   const [disableLogging, setDisableLogging] = useState(false);
   const [clearClipboard, setClearClipboard] = useState(false);
@@ -47,17 +49,17 @@ const ZeroTraceScreen = () => {
         ],
       });
       setScanLoading(false);
-      showSuccess('Scan Complete', 'Found 3 artifacts on your system');
+      showSuccess(t('zeroTrace.scanComplete'), t('zeroTrace.found3'));
     }, 2000);
   };
 
   const handleCleanAll = () => {
     showConfirm(
-      'Clean All Traces?',
-      'This will permanently delete all detected artifacts. This action cannot be undone.',
+      t('zeroTrace.cleanAllPrompt'),
+      t('zeroTrace.permanentDelete'),
       () => {
         setLastScanResults(null);
-        showSuccess('Traces Cleaned', 'All artifacts have been successfully removed');
+        showSuccess(t('zeroTrace.tracesCleanedTitle'), t('zeroTrace.tracesCleanedMsg'));
       }
     );
   };
@@ -65,8 +67,8 @@ const ZeroTraceScreen = () => {
   const handleGhostModeToggle = () => {
     if (!ghostModeEnabled) {
       showConfirm(
-        'Enable Ghost Mode?',
-        'When enabled, no logs, history, or traces of vault activity will be recorded.',
+        t('zeroTrace.enableGhost'),
+        t('zeroTrace.ghostModeDesc'),
         () => setGhostModeEnabled(true)
       );
     } else {
@@ -76,17 +78,21 @@ const ZeroTraceScreen = () => {
 
   const handleEditDuressPassword = () => {
     showConfirm(
-      'Edit Duress Password',
-      'Set a password that triggers data self-destruction when entered.',
+      t('zeroTrace.editDuressTitle'),
+      t('zeroTrace.editDuressDesc'),
       () => {
-        showSuccess('Duress Password', 'Duress password has been updated');
+        showSuccess(t('zeroTrace.duressTitle'), t('zeroTrace.duressUpdated'));
       }
     );
   };
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -94,274 +100,327 @@ const ZeroTraceScreen = () => {
             <TopBar />
             <View style={styles.contentArea}>
               <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>Zero-Trace</Text>
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('zeroTrace.pageTitle')}
+                </Text>
                 <Text style={styles.pageSubtitle}>
-                  Ghost mode, self-destruct triggers, and forensic scanning
+                  {t('zeroTrace.pageSubtitle')}
                 </Text>
               </View>
 
-                {/* Ghost Mode Card */}
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardTitleRow}>
-                      <Feather name="eye-off" size={20} color={colors.cyan} />
-                      <Text style={styles.cardTitle}>Ghost Mode</Text>
-                    </View>
-                    <View style={[
+              {/* Ghost Mode Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Feather name="eye-off" size={20} color={colors.cyan} />
+                    <Text style={styles.cardTitle}>{t('zeroTrace.ghostMode')}</Text>
+                  </View>
+                  <View
+                    style={[
                       styles.statusBadge,
                       {
-                        backgroundColor: ghostModeEnabled ? `${colors.green}20` : 'rgba(184, 179, 209, 0.1)',
+                        backgroundColor: ghostModeEnabled
+                          ? `${colors.green}20`
+                          : 'rgba(184, 179, 209, 0.1)',
                         borderColor: ghostModeEnabled ? colors.green : colors.textSecondary,
-                      }
-                    ]}>
-                      <Text style={styles.statusBadgeText}>
-                        {ghostModeEnabled ? 'ACTIVE' : 'INACTIVE'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.cardDescription}>
-                    When enabled, no logs, history, or traces of vault activity are recorded
-                  </Text>
-
-                  <Pressable
-                    style={styles.toggleContainer}
-                    onPress={handleGhostModeToggle}
+                      },
+                    ]}
                   >
-                    <Text style={styles.toggleLabel}>Ghost Mode</Text>
-                    <View style={[
+                    <Text style={styles.statusBadgeText}>
+                      {ghostModeEnabled ? t('zeroTrace.active') : t('zeroTrace.inactive')}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.cardDescription}>
+                  {t('zeroTrace.ghostModeCardDesc')}
+                </Text>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.toggleContainer}
+                  onPress={handleGhostModeToggle}
+                >
+                  <Text style={styles.toggleLabel}>{t('zeroTrace.ghostMode')}</Text>
+                  <View
+                    style={[
                       styles.toggleBase,
                       {
-                        backgroundColor: ghostModeEnabled ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                      }
-                    ]}>
-                      <View style={[
+                        backgroundColor: ghostModeEnabled
+                          ? colors.cyan
+                          : 'rgba(184, 179, 209, 0.2)',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
                         styles.toggleCircle,
                         {
                           alignSelf: ghostModeEnabled ? 'flex-end' : 'flex-start',
-                        }
-                      ]} />
-                    </View>
-                  </Pressable>
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
 
-                  {ghostModeEnabled && (
-                    <View style={styles.subOptionsContainer}>
-                      <Pressable
-                        style={styles.toggleContainer}
-                        onPress={() => setDisableLogging(!disableLogging)}
-                      >
-                        <Text style={styles.toggleLabel}>Disable Activity Logging</Text>
-                        <View style={[
+                {ghostModeEnabled && (
+                  <View style={styles.subOptionsContainer}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.toggleContainer}
+                      onPress={() => setDisableLogging(!disableLogging)}
+                    >
+                      <Text style={styles.toggleLabel}>{t('zeroTrace.disableLogging')}</Text>
+                      <View
+                        style={[
                           styles.toggleBase,
                           {
-                            backgroundColor: disableLogging ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                          }
-                        ]}>
-                          <View style={[
+                            backgroundColor: disableLogging
+                              ? colors.cyan
+                              : 'rgba(184, 179, 209, 0.2)',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
                             styles.toggleCircle,
                             {
                               alignSelf: disableLogging ? 'flex-end' : 'flex-start',
-                            }
-                          ]} />
-                        </View>
-                      </Pressable>
+                            },
+                          ]}
+                        />
+                      </View>
+                    </Pressable>
 
-                      <Pressable
-                        style={styles.toggleContainer}
-                        onPress={() => setClearClipboard(!clearClipboard)}
-                      >
-                        <Text style={styles.toggleLabel}>Clear Clipboard on Lock</Text>
-                        <View style={[
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.toggleContainer}
+                      onPress={() => setClearClipboard(!clearClipboard)}
+                    >
+                      <Text style={styles.toggleLabel}>{t('zeroTrace.clearClipboard')}</Text>
+                      <View
+                        style={[
                           styles.toggleBase,
                           {
-                            backgroundColor: clearClipboard ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                          }
-                        ]}>
-                          <View style={[
+                            backgroundColor: clearClipboard
+                              ? colors.cyan
+                              : 'rgba(184, 179, 209, 0.2)',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
                             styles.toggleCircle,
                             {
                               alignSelf: clearClipboard ? 'flex-end' : 'flex-start',
-                            }
-                          ]} />
-                        </View>
-                      </Pressable>
+                            },
+                          ]}
+                        />
+                      </View>
+                    </Pressable>
 
-                      <Pressable
-                        style={styles.toggleContainer}
-                        onPress={() => setNoRecentFiles(!noRecentFiles)}
-                      >
-                        <Text style={styles.toggleLabel}>No Recent Files</Text>
-                        <View style={[
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.toggleContainer}
+                      onPress={() => setNoRecentFiles(!noRecentFiles)}
+                    >
+                      <Text style={styles.toggleLabel}>{t('zeroTrace.noRecentFiles')}</Text>
+                      <View
+                        style={[
                           styles.toggleBase,
                           {
-                            backgroundColor: noRecentFiles ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                          }
-                        ]}>
-                          <View style={[
+                            backgroundColor: noRecentFiles
+                              ? colors.cyan
+                              : 'rgba(184, 179, 209, 0.2)',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
                             styles.toggleCircle,
                             {
                               alignSelf: noRecentFiles ? 'flex-end' : 'flex-start',
-                            }
-                          ]} />
-                        </View>
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-
-                {/* Self-Destruct Card */}
-                <View style={[styles.card, styles.cardDanger]}>
-                  <View style={styles.cardHeaderDanger}>
-                    <View style={styles.cardTitleRow}>
-                      <Feather name="zap" size={20} color={colors.danger} />
-                      <Text style={[styles.cardTitle, { color: colors.danger }]}>
-                        Self-Destruct Triggers
-                      </Text>
-                    </View>
+                            },
+                          ]}
+                        />
+                      </View>
+                    </Pressable>
                   </View>
+                )}
+              </View>
 
-                  <Text style={styles.cardDescription}>
-                    Automatically destroy vault data when critical security events are detected
-                  </Text>
-
-                  <View style={styles.warningBox}>
-                    <Feather name="alert-triangle" size={16} color={colors.warning} />
-                    <Text style={styles.warningText}>
-                      Triggered actions will permanently delete all vault data
+              {/* Self-Destruct Card */}
+              <View style={[styles.card, styles.cardDanger]}>
+                <View style={styles.cardHeaderDanger}>
+                  <View style={styles.cardTitleRow}>
+                    <Feather name="zap" size={20} color={colors.danger} />
+                    <Text style={[styles.cardTitle, { color: colors.danger }]}>
+                      {t('zeroTrace.selfDestructTriggers')}
                     </Text>
                   </View>
+                </View>
 
-                  <Pressable
-                    style={styles.toggleContainer}
-                    onPress={() => setOnFailedLogin(!onFailedLogin)}
-                  >
-                    <Text style={styles.toggleLabel}>On failed login threshold</Text>
-                    <View style={[
+                <Text style={styles.cardDescription}>
+                  {t('zeroTrace.autoDestroyDesc')}
+                </Text>
+
+                <View style={styles.warningBox}>
+                  <Feather name="alert-triangle" size={16} color={colors.warning} />
+                  <Text style={styles.warningText}>
+                    {t('zeroTrace.triggerWarning')}
+                  </Text>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.toggleContainer}
+                  onPress={() => setOnFailedLogin(!onFailedLogin)}
+                >
+                  <Text style={styles.toggleLabel}>{t('zeroTrace.onFailedLogin')}</Text>
+                  <View
+                    style={[
                       styles.toggleBase,
                       {
                         backgroundColor: onFailedLogin ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                      }
-                    ]}>
-                      <View style={[
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
                         styles.toggleCircle,
                         {
                           alignSelf: onFailedLogin ? 'flex-end' : 'flex-start',
-                        }
-                      ]} />
-                    </View>
-                  </Pressable>
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
 
-                  <Pressable
-                    style={styles.toggleContainer}
-                    onPress={() => setOnTamper(!onTamper)}
-                  >
-                    <Text style={styles.toggleLabel}>On tamper detection</Text>
-                    <View style={[
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.toggleContainer}
+                  onPress={() => setOnTamper(!onTamper)}
+                >
+                  <Text style={styles.toggleLabel}>{t('zeroTrace.onTamper')}</Text>
+                  <View
+                    style={[
                       styles.toggleBase,
                       {
                         backgroundColor: onTamper ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                      }
-                    ]}>
-                      <View style={[
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
                         styles.toggleCircle,
                         {
                           alignSelf: onTamper ? 'flex-end' : 'flex-start',
-                        }
-                      ]} />
-                    </View>
-                  </Pressable>
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
 
-                  <Pressable
-                    style={styles.toggleContainer}
-                    onPress={() => setOnDuressPassword(!onDuressPassword)}
-                  >
-                    <Text style={styles.toggleLabel}>On duress password entry</Text>
-                    <View style={[
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.toggleContainer}
+                  onPress={() => setOnDuressPassword(!onDuressPassword)}
+                >
+                  <Text style={styles.toggleLabel}>{t('zeroTrace.onDuress')}</Text>
+                  <View
+                    style={[
                       styles.toggleBase,
                       {
-                        backgroundColor: onDuressPassword ? colors.cyan : 'rgba(184, 179, 209, 0.2)',
-                      }
-                    ]}>
-                      <View style={[
+                        backgroundColor: onDuressPassword
+                          ? colors.cyan
+                          : 'rgba(184, 179, 209, 0.2)',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
                         styles.toggleCircle,
                         {
                           alignSelf: onDuressPassword ? 'flex-end' : 'flex-start',
-                        }
-                      ]} />
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+
+                <View style={styles.duressPasswordContainer}>
+                  <View>
+                    <Text style={styles.duressLabel}>{t('zeroTrace.duressPassword')}</Text>
+                    <Text style={styles.duressValue}>••••••••</Text>
+                  </View>
+                  <Pressable style={styles.editButton} onPress={handleEditDuressPassword}>
+                    <Feather name="edit-2" size={16} color={colors.cyan} />
+                    <Text style={styles.editButtonText}>{t('zeroTrace.edit')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Forensic Scanner Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Feather name="search" size={20} color={colors.cyan} />
+                    <Text style={styles.cardTitle}>{t('zeroTrace.forensicScanner')}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.cardDescription}>
+                  {t('zeroTrace.forensicDesc')}
+                </Text>
+
+                {lastScanResults ? (
+                  <View style={styles.scanResultsContainer}>
+                    <View style={styles.resultsHeader}>
+                      <Feather name="check-circle" size={18} color={colors.green} />
+                      <Text style={styles.resultsTitle}>
+                        {lastScanResults.count} {t('zeroTrace.artifactsFound')}
+                      </Text>
                     </View>
+                    <View style={styles.artifactsList}>
+                      {lastScanResults.artifacts.map((artifact, idx) => (
+                        <View key={idx} style={styles.artifactItem}>
+                          <Feather name="alert-triangle" size={14} color={colors.warning} />
+                          <Text style={styles.artifactText}>{artifact}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.noScansText}>{t('zeroTrace.noRecentScans')}</Text>
+                )}
+
+                <View style={styles.buttonsRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={[styles.actionButton, styles.scanButton]}
+                    onPress={handleRunScan}
+                    disabled={scanLoading}
+                  >
+                    <Feather name="search" size={16} color={colors.cyan} />
+                    <Text style={styles.scanButtonText}>
+                      {scanLoading ? t('zeroTrace.scanning') : t('zeroTrace.runScan')}
+                    </Text>
                   </Pressable>
 
-                  <View style={styles.duressPasswordContainer}>
-                    <View>
-                      <Text style={styles.duressLabel}>Duress Password</Text>
-                      <Text style={styles.duressValue}>••••••••</Text>
-                    </View>
-                    <Pressable style={styles.editButton} onPress={handleEditDuressPassword}>
-                      <Feather name="edit-2" size={16} color={colors.cyan} />
-                      <Text style={styles.editButtonText}>Edit</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Forensic Scanner Card */}
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardTitleRow}>
-                      <Feather name="search" size={20} color={colors.cyan} />
-                      <Text style={styles.cardTitle}>Forensic Scanner</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.cardDescription}>
-                    Scan your system for trace artifacts left by vault operations
-                  </Text>
-
-                  {lastScanResults ? (
-                    <View style={styles.scanResultsContainer}>
-                      <View style={styles.resultsHeader}>
-                        <Feather name="check-circle" size={18} color={colors.green} />
-                        <Text style={styles.resultsTitle}>
-                          {lastScanResults.count} artifacts found
-                        </Text>
-                      </View>
-                      <View style={styles.artifactsList}>
-                        {lastScanResults.artifacts.map((artifact, idx) => (
-                          <View key={idx} style={styles.artifactItem}>
-                            <Feather name="alert-triangle" size={14} color={colors.warning} />
-                            <Text style={styles.artifactText}>{artifact}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  ) : (
-                    <Text style={styles.noScansText}>No recent scans</Text>
-                  )}
-
-                  <View style={styles.buttonsRow}>
+                  {lastScanResults && (
                     <Pressable
-                      style={[styles.actionButton, styles.scanButton]}
-                      onPress={handleRunScan}
-                      disabled={scanLoading}
+                      accessibilityRole="button"
+                      style={[styles.actionButton, styles.cleanButton]}
+                      onPress={handleCleanAll}
                     >
-                      <Feather name="search" size={16} color={colors.cyan} />
-                      <Text style={styles.scanButtonText}>
-                        {scanLoading ? 'Scanning...' : 'Run Forensic Scan'}
-                      </Text>
+                      <Feather name="trash-2" size={16} color={colors.danger} />
+                      <Text style={styles.cleanButtonText}>{t('zeroTrace.cleanAll')}</Text>
                     </Pressable>
-
-                    {lastScanResults && (
-                      <Pressable
-                        style={[styles.actionButton, styles.cleanButton]}
-                        onPress={handleCleanAll}
-                      >
-                        <Feather name="trash-2" size={16} color={colors.danger} />
-                        <Text style={styles.cleanButtonText}>Clean All Traces</Text>
-                      </Pressable>
-                    )}
-                  </View>
+                  )}
                 </View>
+              </View>
 
-                <View style={styles.bottomSpacing} />
+              <View style={styles.bottomSpacing} />
             </View>
           </View>
         </View>

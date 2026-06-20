@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // ListMembersResponse contains a list of vault members
@@ -46,7 +47,7 @@ type TransferOwnershipResponse struct {
 // Requires vault ID in path and user_id in context.
 func HandleListMembers(rbacService *auth.RBACService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -100,7 +101,7 @@ func HandleAddMember(rbacService *auth.RBACService, auditSvc interface {
 			return
 		}
 
-		currentUserID, ok := r.Context().Value("user_id").(string)
+		currentUserID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -194,7 +195,7 @@ func HandleRemoveMember(rbacService *auth.RBACService, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		currentUserID, ok := r.Context().Value("user_id").(string)
+		currentUserID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -265,7 +266,7 @@ func HandleTransferOwnership(rbacService *auth.RBACService, auditSvc interface {
 			return
 		}
 
-		currentUserID, ok := r.Context().Value("user_id").(string)
+		currentUserID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

@@ -6,7 +6,7 @@
  */
 
 import { DashboardNavItem } from '../types';
-import { navItems } from '../mockData';
+import { navItems } from '../navigationConfig';
 
 // --- Logic extracted from Sidebar component ---
 
@@ -32,11 +32,11 @@ function getActiveId(pathname: string): string {
 }
 
 function getMainItems(items: DashboardNavItem[]): DashboardNavItem[] {
-  return items.filter((item) => item.section !== 'bottom');
+  return items.filter(item => item.section !== 'bottom');
 }
 
 function getBottomItems(items: DashboardNavItem[]): DashboardNavItem[] {
-  return items.filter((item) => item.section === 'bottom');
+  return items.filter(item => item.section === 'bottom');
 }
 
 // --- Tests ---
@@ -54,13 +54,13 @@ describe('Sidebar: Route Map', () => {
       'activity',
       'settings',
     ];
-    expectedIds.forEach((id) => {
+    expectedIds.forEach(id => {
       expect(routeMap).toHaveProperty(id);
     });
   });
 
   it('all routes start with /(tabs)/', () => {
-    Object.values(routeMap).forEach((route) => {
+    Object.values(routeMap).forEach(route => {
       expect(route).toMatch(/^\/\(tabs\)\//);
     });
   });
@@ -136,19 +136,19 @@ describe('Sidebar: Nav Item Sections', () => {
 
   it('main items do not include settings', () => {
     const main = getMainItems(navItems);
-    const mainIds = main.map((item) => item.id);
+    const mainIds = main.map(item => item.id);
     // Settings is in the bottom section
     expect(mainIds).not.toContain('settings');
   });
 
   it('bottom items include settings', () => {
     const bottom = getBottomItems(navItems);
-    const bottomIds = bottom.map((item) => item.id);
+    const bottomIds = bottom.map(item => item.id);
     expect(bottomIds).toContain('settings');
   });
 
   it('each nav item has required fields', () => {
-    navItems.forEach((item) => {
+    navItems.forEach(item => {
       expect(item).toHaveProperty('id');
       expect(item).toHaveProperty('label');
       expect(item).toHaveProperty('iconSet');
@@ -159,10 +159,22 @@ describe('Sidebar: Nav Item Sections', () => {
   });
 
   it('every nav item id has a corresponding route', () => {
-    // All nav items (except 'go-premium') should map to a route
+    // Only main pages (top-level navigation items) should have routes
+    // Action items like 'add-file', 'export-file' are handled within their parent pages
+    const mainPageIds = [
+      'dashboard',
+      'encrypt',
+      'decrypt',
+      'secure-share',
+      'vault',
+      'passwords',
+      'messages',
+      'activity',
+      'settings',
+    ];
     navItems
-      .filter((item) => item.id !== 'go-premium')
-      .forEach((item) => {
+      .filter(item => mainPageIds.includes(item.id))
+      .forEach(item => {
         expect(routeMap).toHaveProperty(item.id);
       });
   });

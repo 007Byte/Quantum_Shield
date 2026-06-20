@@ -7,7 +7,7 @@ import { auditService } from '@/services/auditService';
  */
 export interface StegoResult {
   success: boolean;
-  carrierImageDataUrl?: string;  // Base64 data URL of the stego image
+  carrierImageDataUrl?: string; // Base64 data URL of the stego image
   originalSize: number;
   embeddedSize: number;
   capacityUsedPercent: number;
@@ -72,9 +72,14 @@ class SteganographyServiceImpl {
         imageHeight: height,
       };
     } catch (error) {
-      auditService.log('system', 'stego_capacity_error', {
-        error: (error as Error).message,
-      }, 'error');
+      auditService.log(
+        'system',
+        'stego_capacity_error',
+        {
+          error: (error as Error).message,
+        },
+        'error'
+      );
       return {
         maxBytes: 0,
         availableBytes: 0,
@@ -141,9 +146,7 @@ class SteganographyServiceImpl {
       const lengthBytes = new Uint8Array(4);
       new DataView(lengthBytes.buffer).setUint32(0, secretData.length, false);
 
-      const payload = new Uint8Array(
-        magicBytes.length + 4 + iv.length + encryptedBytes.length
-      );
+      const payload = new Uint8Array(magicBytes.length + 4 + iv.length + encryptedBytes.length);
       let offset = 0;
       payload.set(magicBytes, offset);
       offset += magicBytes.length;
@@ -154,9 +157,7 @@ class SteganographyServiceImpl {
       payload.set(encryptedBytes, offset);
 
       // Get canvas and image data
-      const { canvas, ctx, imageData } = await this.getCanvasWithImage(
-        carrierImageDataUrl
-      );
+      const { canvas, ctx, imageData } = await this.getCanvasWithImage(carrierImageDataUrl);
       const pixelData = imageData.data;
 
       // Embed payload into LSBs
@@ -177,9 +178,7 @@ class SteganographyServiceImpl {
       ctx.putImageData(imageData, 0, 0);
       const stegoImageDataUrl = canvas.toDataURL('image/png');
 
-      const capacityUsedPercent = Math.round(
-        (payload.length / capacity.maxBytes) * 100
-      );
+      const capacityUsedPercent = Math.round((payload.length / capacity.maxBytes) * 100);
 
       auditService.log('system', 'stego_embed_success', {
         embeddedSize: secretData.length,
@@ -198,9 +197,14 @@ class SteganographyServiceImpl {
       };
     } catch (error) {
       const errorMsg = (error as Error).message;
-      auditService.log('system', 'stego_embed_error', {
-        error: errorMsg,
-      }, 'error');
+      auditService.log(
+        'system',
+        'stego_embed_error',
+        {
+          error: errorMsg,
+        },
+        'error'
+      );
       return {
         success: false,
         originalSize: 0,
@@ -214,10 +218,7 @@ class SteganographyServiceImpl {
   /**
    * Extract and decrypt data from steganographic image
    */
-  async extract(
-    stegoImageDataUrl: string,
-    decryptionKeyHex: string
-  ): Promise<StegoExtractResult> {
+  async extract(stegoImageDataUrl: string, decryptionKeyHex: string): Promise<StegoExtractResult> {
     if (Platform.OS !== 'web') {
       return {
         success: false,
@@ -288,10 +289,7 @@ class SteganographyServiceImpl {
         cryptoKey,
         encryptedData as BufferSource
       );
-      const decryptedBytes = new Uint8Array(decryptedData).subarray(
-        0,
-        dataLength
-      );
+      const decryptedBytes = new Uint8Array(decryptedData).subarray(0, dataLength);
 
       auditService.log('system', 'stego_extract_success', {
         extractedSize: dataLength,
@@ -303,9 +301,14 @@ class SteganographyServiceImpl {
       };
     } catch (error) {
       const errorMsg = (error as Error).message;
-      auditService.log('system', 'stego_extract_error', {
-        error: errorMsg,
-      }, 'error');
+      auditService.log(
+        'system',
+        'stego_extract_error',
+        {
+          error: errorMsg,
+        },
+        'error'
+      );
       return {
         success: false,
         error: `Extraction failed: ${errorMsg}`,
@@ -389,9 +392,7 @@ class SteganographyServiceImpl {
         magicBytes.push(byte);
       }
 
-      const extractedMagic = new TextDecoder().decode(
-        new Uint8Array(magicBytes)
-      );
+      const extractedMagic = new TextDecoder().decode(new Uint8Array(magicBytes));
       return extractedMagic === this.MAGIC_BYTES;
     } catch (error) {
       return false;
@@ -429,13 +430,12 @@ class SteganographyServiceImpl {
 
       // Calculate chi-square statistic for 0/1 distribution
       // Expected: ~50% zeros, ~50% ones
-      const zeroCount = lsbValues.filter((bit) => bit === 0).length;
+      const zeroCount = lsbValues.filter(bit => bit === 0).length;
       const oneCount = lsbValues.length - zeroCount;
       const expected = lsbValues.length / 2;
 
       const chiSquare =
-        Math.pow(zeroCount - expected, 2) / expected +
-        Math.pow(oneCount - expected, 2) / expected;
+        Math.pow(zeroCount - expected, 2) / expected + Math.pow(oneCount - expected, 2) / expected;
 
       // Chi-square critical value at 0.05 significance level: ~3.841
       // Higher chi-square = more anomalous = potential stego content
@@ -463,9 +463,14 @@ class SteganographyServiceImpl {
         anomalyDetected,
       };
     } catch (error) {
-      auditService.log('system', 'stego_statistical_error', {
-        error: (error as Error).message,
-      }, 'error');
+      auditService.log(
+        'system',
+        'stego_statistical_error',
+        {
+          error: (error as Error).message,
+        },
+        'error'
+      );
       return {
         chiSquare: 0,
         resistance: 'low',
@@ -477,9 +482,7 @@ class SteganographyServiceImpl {
   /**
    * Get canvas and image data from image data URL
    */
-  private async getCanvasWithImage(
-    imageDataUrl: string
-  ): Promise<{
+  private async getCanvasWithImage(imageDataUrl: string): Promise<{
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     imageData: ImageData;
@@ -516,9 +519,7 @@ class SteganographyServiceImpl {
   /**
    * Get image dimensions from data URL
    */
-  private getImageDimensions(
-    imageDataUrl: string
-  ): Promise<{ width: number; height: number }> {
+  private getImageDimensions(imageDataUrl: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -551,7 +552,7 @@ class SteganographyServiceImpl {
    */
   private bytesToHex(bytes: Uint8Array): string {
     return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map(b => b.toString(16).padStart(2, '0'))
       .join('');
   }
 }

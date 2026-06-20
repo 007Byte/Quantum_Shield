@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { logger } from '@/utils/logger';
 
 export type Theme = 'dark' | 'light' | 'system';
 
@@ -43,7 +44,7 @@ class ThemeService {
         this.currentTheme = stored as Theme;
       }
     } catch (error) {
-      console.error('Failed to load theme from storage:', error);
+      logger.error('Failed to load theme from storage:', error);
       this.currentTheme = 'dark';
     }
   }
@@ -52,7 +53,7 @@ class ThemeService {
     try {
       localStorage.setItem('usbvault:theme', this.currentTheme);
     } catch (error) {
-      console.error('Failed to save theme to storage:', error);
+      logger.error('Failed to save theme to storage:', error);
     }
   }
 
@@ -98,7 +99,7 @@ class ThemeService {
 
   private notifyListeners(): void {
     const resolved = this.getResolvedTheme();
-    this.listeners.forEach((callback) => callback(resolved));
+    this.listeners.forEach(callback => callback(resolved));
   }
 
   getTheme(): Theme {

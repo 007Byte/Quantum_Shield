@@ -53,17 +53,14 @@ describe('KeyVerificationService', () => {
       const localKey = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1';
       const remoteKey = 'f1e2d3c4b5a6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0';
 
-      const safetyNumber = await keyVerificationService.generateSafetyNumber(
-        localKey,
-        remoteKey,
-      );
+      const safetyNumber = await keyVerificationService.generateSafetyNumber(localKey, remoteKey);
 
       expect(safetyNumber).toBeDefined();
       expect(typeof safetyNumber).toBe('string');
       // Safety number should be 12 groups of 5 digits separated by spaces
       const parts = safetyNumber.split(' ');
       expect(parts).toHaveLength(12);
-      parts.forEach((part) => {
+      parts.forEach(part => {
         expect(part).toMatch(/^\d{5}$/);
       });
     });
@@ -72,14 +69,8 @@ describe('KeyVerificationService', () => {
       const localKey = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1';
       const remoteKey = 'f1e2d3c4b5a6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0';
 
-      const num1 = await keyVerificationService.generateSafetyNumber(
-        localKey,
-        remoteKey,
-      );
-      const num2 = await keyVerificationService.generateSafetyNumber(
-        localKey,
-        remoteKey,
-      );
+      const num1 = await keyVerificationService.generateSafetyNumber(localKey, remoteKey);
+      const num2 = await keyVerificationService.generateSafetyNumber(localKey, remoteKey);
 
       expect(num1).toBe(num2);
     });
@@ -89,14 +80,8 @@ describe('KeyVerificationService', () => {
       const remoteKey1 = 'f1e2d3c4b5a6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0';
       const remoteKey2 = '1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d';
 
-      const num1 = await keyVerificationService.generateSafetyNumber(
-        localKey,
-        remoteKey1,
-      );
-      const num2 = await keyVerificationService.generateSafetyNumber(
-        localKey,
-        remoteKey2,
-      );
+      const num1 = await keyVerificationService.generateSafetyNumber(localKey, remoteKey1);
+      const num2 = await keyVerificationService.generateSafetyNumber(localKey, remoteKey2);
 
       expect(num1).not.toBe(num2);
     });
@@ -112,7 +97,7 @@ describe('KeyVerificationService', () => {
       expect(formatted).toBeDefined();
       const parts = formatted.split(' ');
       expect(parts).toHaveLength(12);
-      parts.forEach((part) => {
+      parts.forEach(part => {
         expect(part).toMatch(/^\d{5}$/);
       });
     });
@@ -123,10 +108,7 @@ describe('KeyVerificationService', () => {
       const publicKey = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1';
       const email = 'alice@example.com';
 
-      const payload = await keyVerificationService.generateQRPayload(
-        publicKey,
-        email,
-      );
+      const payload = await keyVerificationService.generateQRPayload(publicKey, email);
 
       expect(payload).toBeDefined();
       expect(payload.email).toBe('alice@example.com');
@@ -140,10 +122,7 @@ describe('KeyVerificationService', () => {
       const publicKey = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1';
       const email = 'ALICE@EXAMPLE.COM';
 
-      const payload = await keyVerificationService.generateQRPayload(
-        publicKey,
-        email,
-      );
+      const payload = await keyVerificationService.generateQRPayload(publicKey, email);
 
       expect(payload.email).toBe('alice@example.com');
     });
@@ -152,7 +131,8 @@ describe('KeyVerificationService', () => {
   describe('verifyContact', () => {
     it('should mark contact as verified with safety number', () => {
       const email = 'bob@example.com';
-      const safetyNumber = '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890';
+      const safetyNumber =
+        '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890';
 
       keyVerificationService.verifyContact(email, true, safetyNumber);
 
@@ -222,7 +202,8 @@ describe('KeyVerificationService', () => {
 
     it('should return verification record for existing contact', () => {
       const email = 'test@example.com';
-      const safetyNumber = '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890';
+      const safetyNumber =
+        '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890';
 
       keyVerificationService.verifyContact(email, true, safetyNumber);
 
@@ -270,7 +251,11 @@ describe('KeyVerificationService', () => {
 
   describe('exportVerifications', () => {
     it('should export verifications as JSON string', () => {
-      keyVerificationService.verifyContact('alice@example.com', true, '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890');
+      keyVerificationService.verifyContact(
+        'alice@example.com',
+        true,
+        '12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890'
+      );
 
       const exported = keyVerificationService.exportVerifications();
 

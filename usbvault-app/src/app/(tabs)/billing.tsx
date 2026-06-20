@@ -5,105 +5,133 @@
  * and plan cancellation. Integrates with tierService for plan information.
  */
 
-import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
-import { useState } from 'react';
+import { StyleSheet, Text, View, Pressable, Alert, Linking, Platform } from 'react-native';
+import { useState, useCallback, useMemo } from 'react';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { webOnly } from '@/utils/webStyle';
-import { Sidebar } from '@/components/dashboard2/Sidebar';
-import { TopBar } from '@/components/dashboard2/TopBar';
-import {
-  dashboardLayout,
-  dashboardSpacing,
-  dashboardColors,
-  glassPanelBase,
-  webOnlyGlass,
-  webOnlyGlowTier2,
-} from '@/components/dashboard2/styles';
-import { tierService } from '@/services/tierService';
+import { ShellLayout } from '@/components/dashboard2/ShellLayout';
+import { dashboardSpacing } from '@/components/dashboard2/styles';
+import { useTheme, resolveLayerStyle } from '@/theme/engine';
+import { useLanguage } from '@/hooks/useLanguage';
+import { tierService } from '@/services/billing';
+import { useVaultListStore } from '@/stores/vaultListStore';
+import { vaultOrchestrator } from '@/services/vaultOrchestrator';
+import { purchaseService } from '@/services/purchaseService';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 
 // ── Main Component ─────────────────────────────────────────────
 
-export default function BillingScreen() {
+function BillingScreen() {
+  const { theme } = useTheme();
+  const { t } = useLanguage();
   const currentTier = tierService.getCurrentTier();
   const tierConfig = tierService.getTierConfig(currentTier);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const invoices = [
-    {
-      id: 'INV-2024-003',
-      date: '2024-03-01',
-      description: 'USBVault Pro - Monthly Subscription',
-      amount: 9.99,
-      status: 'paid' as const,
-    },
-    {
-      id: 'INV-2024-002',
-      date: '2024-02-01',
-      description: 'USBVault Pro - Monthly Subscription',
-      amount: 9.99,
-      status: 'paid' as const,
-    },
-    {
-      id: 'INV-2024-001',
-      date: '2024-01-01',
-      description: 'USBVault Pro - Monthly Subscription',
-      amount: 9.99,
-      status: 'paid' as const,
-    },
-  ];
+  // Real data from stores/services
+  const files = useVaultListStore(s => s.files);
+  const orchestratorIndex = vaultOrchestrator.getIndex();
+  const fileCount = orchestratorIndex ? Object.keys(orchestratorIndex.files).length : files.length;
 
-  const usageStats = [
-    {
-      label: 'Storage Used',
-      value: '2.4 GB',
-      max: '50 GB',
-      percentage: 4.8,
-      icon: 'hard-drive',
-      color: dashboardColors.cyan,
-    },
-    {
-      label: 'Files Encrypted',
-      value: '1,247',
-      max: 'Unlimited',
-      icon: 'lock',
-      color: dashboardColors.cyan,
-    },
-    {
-      label: 'Shares Created',
-      value: '12',
-      max: 'Unlimited',
-      icon: 'share-2',
-      color: dashboardColors.cyan,
-    },
-    {
-      label: 'Messages Sent',
-      value: '284',
-      max: 'Unlimited',
-      icon: 'mail',
-      color: dashboardColors.cyan,
-    },
-  ];
+  // No invoices until payment service is connected — show empty state
+  const invoices: {
+    id: string;
+    date: string;
+    description: string;
+    amount: number;
+    status: 'paid' | 'pending' | 'failed';
+  }[] = [];
+
+  const usageStats = useMemo(
+    () => [
+      {
+        label: t('billing.storageUsed'),
+        value: '—',
+        max: (tierConfig as any)?.storageLimit || '—',
+        icon: 'hard-drive',
+        color: theme.semantic.cyan,
+      },
+      {
+        label: t('billing.filesEncrypted'),
+        value: `${fileCount}`,
+        max: t('billing.unlimited'),
+        icon: 'lock',
+        color: theme.semantic.cyan,
+      },
+    ],
+    [fileCount, tierConfig, theme.semantic.cyan, t]
+  );
 
   const handleDownloadReceipt = (invoiceId: string) => {
-    Alert.alert('Receipt', `Downloading receipt for ${invoiceId}...`);
+    Alert.alert(t('billing.receipt'), t('billing.downloadingReceipt', { id: invoiceId }));
   };
 
-  const handleChangePaymentMethod = () => {
-    Alert.alert('Coming Soon', 'Payment method management coming in the next update.');
-  };
+  const handleChangePaymentMethod = useCallback(async () => {
+    // On native, open the App Store / Play Store subscription management page
+    const managementUrl = await purchaseService.getManagementURL();
+    if (managementUrl) {
+      Linking.openURL(managementUrl);
+      return;
+    }
+    // On web or when no subscription exists, guide user to appropriate store
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        t('billing.paymentMethod'),
+        t('billing.webPaymentMsg')
+      );
+    } else {
+      // No active subscription — open the platform's subscription settings
+      const storeUrl =
+        Platform.OS === 'ios'
+          ? 'https://apps.apple.com/account/subscriptions'
+          : 'https://play.google.com/store/account/subscriptions';
+      Linking.openURL(storeUrl);
+    }
+  }, [t]);
 
-  const handleCancelPlan = () => {
+  const handleCancelPlan = useCallback(async () => {
     setShowCancelConfirm(false);
-    Alert.alert(
-      'Plan Cancelled',
-      'Your subscription has been cancelled. Contact ultimatepqcshield@gmail.com to restore your plan.'
-    );
-  };
+    // Cancellation is handled through the App Store / Play Store
+    const managementUrl = await purchaseService.getManagementURL();
+    if (managementUrl) {
+      Alert.alert(
+        t('billing.cancelSubscription'),
+        t('billing.cancelRedirectMsg'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('billing.continue'),
+            onPress: () => Linking.openURL(managementUrl),
+          },
+        ]
+      );
+    } else if (currentTier === 'free') {
+      Alert.alert(
+        t('billing.cancelSubscription'),
+        t('billing.alreadyFree')
+      );
+    } else {
+      // Fallback: open platform store directly
+      const storeUrl =
+        Platform.OS === 'ios'
+          ? 'https://apps.apple.com/account/subscriptions'
+          : Platform.OS === 'android'
+            ? 'https://play.google.com/store/account/subscriptions'
+            : '';
+      if (storeUrl) {
+        Linking.openURL(storeUrl);
+      } else {
+        Alert.alert(
+          t('billing.cancelSubscription'),
+          t('billing.cancelMobileOnly')
+        );
+      }
+    }
+  }, [currentTier, t]);
 
   const getTierBadgeColor = (tier: string) => {
-    if (tier === 'pro') return dashboardColors.cyan;
-    if (tier === 'enterprise') return dashboardColors.glowPurple;
-    return dashboardColors.textSecondary;
+    if (tier === 'pro') return theme.semantic.cyan;
+    if (tier === 'enterprise') return theme.semantic.purple;
+    return theme.L2.base.text.secondary;
   };
 
   const getStatusBadgeStyle = (status: 'paid' | 'pending' | 'failed') => {
@@ -120,7 +148,7 @@ export default function BillingScreen() {
   const getStatusTextColor = (status: 'paid' | 'pending' | 'failed') => {
     switch (status) {
       case 'paid':
-        return dashboardColors.green;
+        return theme.semantic.green;
       case 'pending':
         return '#FB923C';
       case 'failed':
@@ -129,283 +157,282 @@ export default function BillingScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
-        <View style={styles.shell}>
-          <View style={styles.shellEdgeGlow} />
-          <Sidebar />
+    <ShellLayout>
+      <View style={styles.contentWrapper}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.L2.base.text.primary }]}>
+            {t('billing.pageTitle')}
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.L2.base.text.secondary }]}>
+            {t('billing.pageSubtitle')}
+          </Text>
+        </View>
 
-          <View style={styles.mainCol}>
-            <TopBar />
-
-            <View style={styles.contentWrapper}>
-              {/* Header */}
-              <View style={styles.header}>
-                <Text style={styles.title}>Billing & Subscription</Text>
-                <Text style={styles.subtitle}>
-                  Manage your subscription plan and billing details
-                </Text>
-              </View>
-
-              {/* Current Plan */}
-              <View style={styles.section}>
-                <View style={[styles.currentPlanCard, glassPanelBase, webOnlyGlass, webOnlyGlowTier2]}>
-                  <View style={styles.currentPlanContent}>
-                    <View>
-                      <Text style={styles.planTitle}>Current Plan</Text>
-                      <View style={styles.planNameRow}>
-                        <Text style={styles.planName}>{tierConfig?.name}</Text>
-                        <View style={[styles.planBadge, { borderColor: getTierBadgeColor(currentTier) }]}>
-                          <Text style={[styles.planBadgeText, { color: getTierBadgeColor(currentTier) }]}>
-                            Active
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={styles.planDetails}>
-                      <View style={styles.planDetail}>
-                        <Text style={styles.planDetailLabel}>Price</Text>
-                        <Text style={styles.planDetailValue}>${tierConfig?.priceMonthly}/month</Text>
-                      </View>
-                      <View style={styles.planDetail}>
-                        <Text style={styles.planDetailLabel}>Renewal Date</Text>
-                        <Text style={styles.planDetailValue}>April 1, 2024</Text>
-                      </View>
-                    </View>
+        {/* Current Plan */}
+        <View style={styles.section}>
+          <View style={[styles.currentPlanCard, resolveLayerStyle(theme.L2.base)]}>
+            <View style={styles.currentPlanContent}>
+              <View>
+                <Text style={styles.planTitle}>{t('billing.currentPlan')}</Text>
+                <View style={styles.planNameRow}>
+                  <Text style={styles.planName}>{tierConfig?.name}</Text>
+                  <View style={[styles.planBadge, { borderColor: getTierBadgeColor(currentTier) }]}>
+                    <Text style={[styles.planBadgeText, { color: getTierBadgeColor(currentTier) }]}>
+                      {t('billing.active')}
+                    </Text>
                   </View>
                 </View>
               </View>
-
-              {/* Billing History */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Billing History</Text>
-                <View style={[styles.historyTable, glassPanelBase, webOnlyGlass]}>
-                  {/* Table Header */}
-                  <View style={styles.tableHeader}>
-                    <View style={styles.tableColDate}>
-                      <Text style={styles.tableHeaderText}>Date</Text>
-                    </View>
-                    <View style={styles.tableColDesc}>
-                      <Text style={styles.tableHeaderText}>Description</Text>
-                    </View>
-                    <View style={styles.tableColAmount}>
-                      <Text style={styles.tableHeaderText}>Amount</Text>
-                    </View>
-                    <View style={styles.tableColStatus}>
-                      <Text style={styles.tableHeaderText}>Status</Text>
-                    </View>
-                    <View style={styles.tableColAction}>
-                      <Text style={styles.tableHeaderText}>Action</Text>
-                    </View>
-                  </View>
-
-                  {/* Table Rows */}
-                  {invoices.map((invoice) => (
-                    <View key={invoice.id} style={styles.tableRow}>
-                      <View style={styles.tableColDate}>
-                        <Text style={styles.tableText}>{invoice.date}</Text>
-                      </View>
-                      <View style={styles.tableColDesc}>
-                        <View>
-                          <Text style={styles.tableText}>{invoice.description}</Text>
-                          <Text style={styles.tableSubtext}>{invoice.id}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.tableColAmount}>
-                        <Text style={[styles.tableText, styles.tableAmount]}>${invoice.amount.toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.tableColStatus}>
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            getStatusBadgeStyle(invoice.status),
-                          ]}
-                        >
-                          <Text style={[styles.statusText, { color: getStatusTextColor(invoice.status) }]}>
-                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.tableColAction}>
-                        <Pressable
-                          onPress={() => handleDownloadReceipt(invoice.id)}
-                          style={(state: any) => [
-                            styles.downloadButton,
-                            state.hovered && styles.downloadButtonHover,
-                          ]}
-                        >
-                          <Feather name="download" size={14} color={dashboardColors.cyan} />
-                          <Text style={styles.downloadButtonText}>Receipt</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))}
+              <View style={styles.planDetails}>
+                <View style={styles.planDetail}>
+                  <Text style={styles.planDetailLabel}>{t('billing.price')}</Text>
+                  <Text style={styles.planDetailValue}>
+                    ${tierConfig?.priceMonthly}
+                    {t('billing.perMonth')}
+                  </Text>
                 </View>
-              </View>
-
-              {/* Payment Method */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Payment Method</Text>
-                <View style={[styles.paymentCard, glassPanelBase, webOnlyGlass]}>
-                  <View style={styles.paymentInfo}>
-                    <Feather name="credit-card" size={24} color={dashboardColors.cyan} />
-                    <View style={styles.paymentDetails}>
-                      <Text style={styles.paymentType}>Visa</Text>
-                      <Text style={styles.paymentNumber}>Card ending in 4242</Text>
-                      <Text style={styles.paymentExpiry}>Expires 12/2025</Text>
-                    </View>
-                  </View>
-                  <Pressable
-                    onPress={handleChangePaymentMethod}
-                    style={(state: any) => [
-                      styles.changePaymentButton,
-                      state.hovered && styles.changePaymentButtonHover,
-                    ]}
-                  >
-                    <Text style={styles.changePaymentButtonText}>Change</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Usage Stats */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Usage Statistics</Text>
-                <View style={styles.statsGrid}>
-                  {usageStats.map((stat, index) => (
-                    <View
-                      key={index}
-                      style={[styles.statCard, glassPanelBase, webOnlyGlass]}
-                    >
-                      <View style={styles.statHeader}>
-                        <Feather name={stat.icon as any} size={18} color={stat.color} />
-                        <Text style={styles.statLabel}>{stat.label}</Text>
-                      </View>
-                      <Text style={styles.statValue}>{stat.value}</Text>
-                      {stat.max && <Text style={styles.statMax}>of {stat.max}</Text>}
-                      {stat.percentage !== undefined && (
-                        <View style={styles.statBarContainer}>
-                          <View
-                            style={[
-                              styles.statBar,
-                              { width: `${stat.percentage}%`, backgroundColor: stat.color },
-                            ]}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Cancel Plan */}
-              <View style={styles.section}>
-                <View style={[styles.cancelCard, glassPanelBase, webOnlyGlass]}>
-                  <View style={styles.cancelContent}>
-                    <View style={styles.cancelIconBox}>
-                      <Ionicons name="warning" size={24} color="#EF4444" />
-                    </View>
-                    <View style={styles.cancelText}>
-                      <Text style={styles.cancelTitle}>Danger Zone</Text>
-                      <Text style={styles.cancelDesc}>
-                        Cancelling your subscription will immediately revoke access to premium features. This action is permanent.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {showCancelConfirm ? (
-                    <View style={styles.confirmSection}>
-                      <Text style={styles.confirmText}>
-                        Are you sure? Contact ultimatepqcshield@gmail.com to restore your plan later.
-                      </Text>
-                      <View style={styles.confirmButtons}>
-                        <Pressable
-                          onPress={() => setShowCancelConfirm(false)}
-                          style={(state: any) => [
-                            styles.confirmCancelButton,
-                            state.hovered && styles.confirmCancelButtonHover,
-                          ]}
-                        >
-                          <Text style={styles.confirmCancelButtonText}>Keep Plan</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={handleCancelPlan}
-                          style={(state: any) => [
-                            styles.confirmConfirmButton,
-                            state.hovered && styles.confirmConfirmButtonHover,
-                          ]}
-                        >
-                          <Text style={styles.confirmConfirmButtonText}>Yes, Cancel</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : (
-                    <Pressable
-                      onPress={() => setShowCancelConfirm(true)}
-                      style={(state: any) => [
-                        styles.cancelButton,
-                        state.hovered && styles.cancelButtonHover,
-                      ]}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
-                    </Pressable>
-                  )}
+                <View style={styles.planDetail}>
+                  <Text style={styles.planDetailLabel}>{t('billing.renewalDate')}</Text>
+                  <Text style={styles.planDetailValue}>
+                    {currentTier === 'free'
+                      ? '—'
+                      : t('billing.managedByStore')}
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
-      </ScrollView>
-    </View>
+
+        {/* Billing History */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.L2.base.text.primary }]}>
+            {t('billing.billingHistory')}
+          </Text>
+          <View style={[styles.historyTable, resolveLayerStyle(theme.L2.base)]}>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <View style={styles.tableColDate}>
+                <Text style={[styles.tableHeaderText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.date')}
+                </Text>
+              </View>
+              <View style={styles.tableColDesc}>
+                <Text style={[styles.tableHeaderText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.description')}
+                </Text>
+              </View>
+              <View style={styles.tableColAmount}>
+                <Text style={[styles.tableHeaderText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.amount')}
+                </Text>
+              </View>
+              <View style={styles.tableColStatus}>
+                <Text style={[styles.tableHeaderText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.status')}
+                </Text>
+              </View>
+              <View style={styles.tableColAction}>
+                <Text style={[styles.tableHeaderText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.action')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Table Rows */}
+            {invoices.length === 0 ? (
+              <View style={[styles.tableRow, { justifyContent: 'center' }]}>
+                <Text style={[styles.tableText, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.noInvoices')}
+                </Text>
+              </View>
+            ) : (
+              invoices.map(invoice => (
+                <View key={invoice.id} style={styles.tableRow}>
+                  <View style={styles.tableColDate}>
+                    <Text style={[styles.tableText, { color: theme.L2.base.text.primary }]}>
+                      {invoice.date}
+                    </Text>
+                  </View>
+                  <View style={styles.tableColDesc}>
+                    <View>
+                      <Text style={[styles.tableText, { color: theme.L2.base.text.primary }]}>
+                        {invoice.description}
+                      </Text>
+                      <Text style={[styles.tableSubtext, { color: theme.L2.base.text.secondary }]}>
+                        {invoice.id}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.tableColAmount}>
+                    <Text
+                      style={[styles.tableText, styles.tableAmount, { color: theme.semantic.cyan }]}
+                    >
+                      ${invoice.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.tableColStatus}>
+                    <View style={[styles.statusBadge, getStatusBadgeStyle(invoice.status)]}>
+                      <Text
+                        style={[styles.statusText, { color: getStatusTextColor(invoice.status) }]}
+                      >
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.tableColAction}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => handleDownloadReceipt(invoice.id)}
+                      style={(state: any) => [
+                        styles.downloadButton,
+                        state.hovered && styles.downloadButtonHover,
+                      ]}
+                    >
+                      <Feather name="download" size={14} color={theme.semantic.cyan} />
+                      <Text style={[styles.downloadButtonText, { color: theme.semantic.cyan }]}>
+                        {t('billing.receipt')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* Payment Method */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.L2.base.text.primary }]}>
+            {t('billing.paymentMethod')}
+          </Text>
+          <View style={[styles.paymentCard, resolveLayerStyle(theme.L2.base)]}>
+            <View style={styles.paymentInfo}>
+              <Feather name="credit-card" size={24} color={theme.semantic.cyan} />
+              <View style={styles.paymentDetails}>
+                <Text style={[styles.paymentType, { color: theme.L2.base.text.primary }]}>
+                  {t('billing.noPaymentMethod')}
+                </Text>
+                <Text style={[styles.paymentNumber, { color: theme.L2.base.text.secondary }]}>
+                  {t('billing.addPaymentPrompt')}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleChangePaymentMethod}
+              style={(state: any) => [
+                styles.changePaymentButton,
+                state.hovered && styles.changePaymentButtonHover,
+              ]}
+            >
+              <Text style={[styles.changePaymentButtonText, { color: theme.L2.base.text.primary }]}>
+                {t('billing.change')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Usage Stats */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.L2.base.text.primary }]}>
+            {t('billing.pageSubtitle')}
+          </Text>
+          <View style={styles.statsGrid}>
+            {usageStats.map((stat, index) => (
+              <View key={index} style={[styles.statCard, resolveLayerStyle(theme.L2.base)]}>
+                <View style={styles.statHeader}>
+                  <Feather name={stat.icon as any} size={18} color={stat.color} />
+                  <Text style={[styles.statLabel, { color: theme.L2.base.text.secondary }]}>
+                    {stat.label}
+                  </Text>
+                </View>
+                <Text style={[styles.statValue, { color: theme.L2.base.text.primary }]}>
+                  {stat.value}
+                </Text>
+                {stat.max && (
+                  <Text style={[styles.statMax, { color: theme.L2.base.text.secondary }]}>
+                    {t('billing.ofMax', { max: stat.max })}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Cancel Plan */}
+        <View style={styles.section}>
+          <View style={[styles.cancelCard, resolveLayerStyle(theme.L2.base)]}>
+            <View style={styles.cancelContent}>
+              <View style={styles.cancelIconBox}>
+                <Ionicons name="warning" size={24} color="#EF4444" />
+              </View>
+              <View style={styles.cancelText}>
+                <Text style={styles.cancelTitle}>{t('billing.dangerZone')}</Text>
+                <Text style={[styles.cancelDesc, { color: theme.L2.base.text.secondary }]}>
+                  {t('billing.cancelDesc')}
+                </Text>
+              </View>
+            </View>
+
+            {showCancelConfirm ? (
+              <View style={styles.confirmSection}>
+                <Text style={[styles.confirmText, { color: theme.L2.base.text.secondary }]}>
+                  {t('billing.cancelConfirmMsg')}
+                </Text>
+                <View style={styles.confirmButtons}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowCancelConfirm(false)}
+                    style={(state: any) => [
+                      styles.confirmCancelButton,
+                      state.hovered && styles.confirmCancelButtonHover,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.confirmCancelButtonText,
+                        { color: theme.L2.base.text.primary },
+                      ]}
+                    >
+                      {t('billing.keepPlan')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleCancelPlan}
+                    style={(state: any) => [
+                      styles.confirmConfirmButton,
+                      state.hovered && styles.confirmConfirmButtonHover,
+                    ]}
+                  >
+                    <Text style={styles.confirmConfirmButtonText}>{t('billing.yesCancel')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowCancelConfirm(true)}
+                style={(state: any) => [
+                  styles.cancelButton,
+                  state.hovered && styles.cancelButtonHover,
+                ]}
+              >
+                <Text style={styles.cancelButtonText}>{t('billing.cancelSubscription')}</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </View>
+    </ShellLayout>
   );
 }
 
 // ── Styles ──────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: 'transparent',
-    ...webOnly({ overflow: 'hidden' }),
-  },
-  pageScroll: {
-    flex: 1,
-    width: '100%',
-    ...webOnly({ overflowY: 'auto' }),
-  },
-  pageContent: {
-    paddingHorizontal: dashboardSpacing.md,
-    paddingVertical: dashboardSpacing.md,
-    alignItems: 'center',
-  },
-  shell: {
-    width: '100%',
-    maxWidth: dashboardLayout.maxWidth,
-    alignSelf: 'center',
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.42)',
-    borderRadius: dashboardLayout.radius2Xl,
-    backgroundColor: 'rgba(8,5,20,0.38)',
-    ...webOnly({
-      overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
-    }),
-  },
-  shellEdgeGlow: {
-    position: 'absolute',
-    left: 0, right: 0, top: 0, height: 1,
-    backgroundColor: 'rgba(217,70,239,0.55)',
-  },
-  mainCol: {
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 16,
-  },
   contentWrapper: {
     paddingTop: dashboardSpacing.lg,
   },
@@ -415,12 +442,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: dashboardColors.textSecondary,
     marginTop: 4,
     lineHeight: 20,
   },
@@ -432,7 +457,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: dashboardColors.textPrimary,
     marginBottom: 12,
   },
 
@@ -447,7 +471,6 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: dashboardColors.textSecondary,
     letterSpacing: 0.3,
   },
   planNameRow: {
@@ -459,7 +482,6 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 26,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
   },
   planBadge: {
     paddingHorizontal: 10,
@@ -482,13 +504,11 @@ const styles = StyleSheet.create({
   planDetailLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: dashboardColors.textSecondary,
     letterSpacing: 0.3,
   },
   planDetailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: dashboardColors.textPrimary,
   },
 
   // Billing History Table
@@ -530,22 +550,18 @@ const styles = StyleSheet.create({
   tableHeaderText: {
     fontSize: 11,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
     letterSpacing: 0.3,
   },
   tableText: {
     fontSize: 13,
-    color: dashboardColors.textPrimary,
     fontWeight: '500',
   },
   tableSubtext: {
     fontSize: 11,
-    color: dashboardColors.textSecondary,
     marginTop: 2,
   },
   tableAmount: {
     fontWeight: '700',
-    color: dashboardColors.cyan,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -572,7 +588,6 @@ const styles = StyleSheet.create({
   downloadButtonText: {
     fontSize: 11,
     fontWeight: '600',
-    color: dashboardColors.cyan,
   },
 
   // Payment Method
@@ -596,15 +611,12 @@ const styles = StyleSheet.create({
   paymentType: {
     fontSize: 14,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
   },
   paymentNumber: {
     fontSize: 12,
-    color: dashboardColors.textSecondary,
   },
   paymentExpiry: {
     fontSize: 11,
-    color: dashboardColors.textSecondary,
   },
   changePaymentButton: {
     paddingHorizontal: 14,
@@ -620,7 +632,6 @@ const styles = StyleSheet.create({
   changePaymentButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: dashboardColors.textPrimary,
   },
 
   // Usage Stats
@@ -644,16 +655,13 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: dashboardColors.textSecondary,
   },
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: dashboardColors.textPrimary,
   },
   statMax: {
     fontSize: 11,
-    color: dashboardColors.textSecondary,
   },
   statBarContainer: {
     height: 4,
@@ -698,7 +706,6 @@ const styles = StyleSheet.create({
   },
   cancelDesc: {
     fontSize: 12,
-    color: dashboardColors.textSecondary,
     lineHeight: 16,
   },
   cancelButton: {
@@ -726,7 +733,6 @@ const styles = StyleSheet.create({
   },
   confirmText: {
     fontSize: 12,
-    color: dashboardColors.textSecondary,
     lineHeight: 16,
   },
   confirmButtons: {
@@ -749,7 +755,6 @@ const styles = StyleSheet.create({
   confirmCancelButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: dashboardColors.textPrimary,
   },
   confirmConfirmButton: {
     flex: 1,
@@ -770,3 +775,5 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
 });
+
+export default withErrorBoundary(BillingScreen, 'Billing');

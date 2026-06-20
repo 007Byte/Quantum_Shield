@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH1-FIX: Key hierarchy request/response types for wrappedMek/kekSalt storage
@@ -32,7 +33,7 @@ type KeyHierarchyResponse struct {
 func HandleStoreKeyHierarchy(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vaultID := chi.URLParam(r, "vaultID")
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -119,7 +120,7 @@ func HandleStoreKeyHierarchy(pool *pgxpool.Pool) http.HandlerFunc {
 func HandleGetKeyHierarchy(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vaultID := chi.URLParam(r, "vaultID")
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok || userID == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

@@ -3,8 +3,11 @@ import { Feather } from '@expo/vector-icons';
 import { dashboardColors } from '@/components/dashboard2/styles';
 import { styles } from './styles';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
+import { logger } from '@/utils/logger';
 
 export function PrivacySection() {
+  const { t } = useLanguage();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [crashReportingEnabled, setCrashReportingEnabled] = useState(true);
   const [dataCollectionEnabled, setDataCollectionEnabled] = useState(false);
@@ -20,7 +23,7 @@ export function PrivacySection() {
         setDataCollectionEnabled(prefs.dataCollectionEnabled ?? false);
       }
     } catch (error) {
-      console.error('Failed to load privacy toggles', error);
+      logger.error('Failed to load privacy toggles', error);
     }
   }, []);
 
@@ -32,7 +35,7 @@ export function PrivacySection() {
       const updated = { ...current, ...updates };
       localStorage.setItem('usbvault:privacy_toggles', JSON.stringify(updated));
     } catch (error) {
-      console.error('Failed to save privacy toggles', error);
+      logger.error('Failed to save privacy toggles', error);
     }
   };
 
@@ -67,7 +70,7 @@ export function PrivacySection() {
 
   const handleViewWhitepaper = () => {
     Linking.openURL('https://usbvault.io/security').catch(() => {
-      console.error('Failed to open security whitepaper');
+      logger.error('Failed to open security whitepaper');
     });
   };
 
@@ -75,60 +78,60 @@ export function PrivacySection() {
     <View style={styles.sectionCard}>
       <View style={styles.sectionHeader}>
         <Feather name="key" size={18} color={dashboardColors.cyan} />
-        <Text style={styles.sectionTitle}>Privacy &amp; Encryption</Text>
+        <Text style={styles.sectionTitle}>{t('settings.privacy')}</Text>
       </View>
 
       {/* Encryption pipeline detail */}
       <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>Primary Cipher</Text>
+        <Text style={styles.settingLabel}>{t('settings.primaryCipher')}</Text>
         <Text style={styles.settingValueHighlight}>AES-256-GCM-SIV</Text>
       </View>
 
       <View style={local.detailBlock}>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>CIPHER</Text>
-          <Text style={local.detailValue}>AES-256-GCM-SIV — nonce-misuse resistant AEAD</Text>
+          <Text style={local.detailValue}>{t('settings.cipherSpec')}</Text>
         </View>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>KDF</Text>
-          <Text style={local.detailValue}>Argon2id (64 MB, 3 iterations, 4 lanes)</Text>
+          <Text style={local.detailValue}>{t('settings.kdfSpec')}</Text>
         </View>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>INTEGRITY</Text>
-          <Text style={local.detailValue}>HMAC-SHA256 per record + 16-byte AEAD tag per chunk</Text>
+          <Text style={local.detailValue}>{t('settings.integritySpec')}</Text>
         </View>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>KEY WRAP</Text>
-          <Text style={local.detailValue}>HKDF-SHA256 per-file subkeys from 64-byte MEK</Text>
+          <Text style={local.detailValue}>{t('settings.keyWrapSpec')}</Text>
         </View>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>PQC</Text>
-          <Text style={local.detailValue}>ML-KEM-1024 hybrid key encapsulation (FIPS 203)</Text>
+          <Text style={local.detailValue}>{t('settings.pqcSpec')}</Text>
         </View>
         <View style={local.detailRow}>
           <Text style={local.detailLabel}>SIGNING</Text>
-          <Text style={local.detailValue}>Ed25519 identity + ML-DSA-87 header signature</Text>
+          <Text style={local.detailValue}>{t('settings.signingSpec')}</Text>
         </View>
       </View>
 
       <View style={styles.keyFingerprint}>
-        <Text style={styles.keyLabel}>Public Key Fingerprint</Text>
+        <Text style={styles.keyLabel}>{t('settings.publicKeyFingerprint')}</Text>
         <Text style={styles.keyValue}>0x7C3A... (Ed25519)</Text>
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>Post-Quantum Ready</Text>
+        <Text style={styles.settingLabel}>{t('settings.postQuantumReady')}</Text>
         <View style={styles.enabledBadge}>
           <Feather name="check" size={14} color={dashboardColors.green} />
-          <Text style={styles.enabledText}>Active</Text>
+          <Text style={styles.enabledText}>{t('settings.active')}</Text>
         </View>
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>Zero-Knowledge Architecture</Text>
+        <Text style={styles.settingLabel}>{t('settings.zkArchitecture')}</Text>
         <View style={styles.enabledBadge}>
           <Feather name="check" size={14} color={dashboardColors.green} />
-          <Text style={styles.enabledText}>Enforced</Text>
+          <Text style={styles.enabledText}>{t('settings.enforced')}</Text>
         </View>
       </View>
 
@@ -136,42 +139,40 @@ export function PrivacySection() {
         style={(state: any) => [styles.linkRow, state.hovered && styles.linkRowHover]}
         onPress={handleViewWhitepaper}
       >
-        <Text style={styles.linkText}>View Security Whitepaper</Text>
+        <Text style={styles.linkText}>{t('settings.viewWhitepaper')}</Text>
         <Feather name="external-link" size={14} color={dashboardColors.cyan} />
       </Pressable>
 
-      <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(139,92,246,0.2)' }} />
+      <View
+        style={{
+          marginTop: 16,
+          paddingTop: 16,
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(139,92,246,0.2)',
+        }}
+      />
 
       {/* Privacy Toggles */}
-      <Pressable
-        onPress={handleAnalyticsToggle}
-        style={styles.settingRow}
-      >
+      <Pressable onPress={handleAnalyticsToggle} style={styles.settingRow}>
         <View>
-          <Text style={styles.settingLabel}>Analytics Collection</Text>
-          <Text style={styles.settingMeta}>Allow anonymous usage analytics</Text>
+          <Text style={styles.settingLabel}>{t('settings.analyticsCollection')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.analyticsDesc')}</Text>
         </View>
         <ToggleIndicator enabled={analyticsEnabled} />
       </Pressable>
 
-      <Pressable
-        onPress={handleCrashReportingToggle}
-        style={styles.settingRow}
-      >
+      <Pressable onPress={handleCrashReportingToggle} style={styles.settingRow}>
         <View>
-          <Text style={styles.settingLabel}>Crash Reporting</Text>
-          <Text style={styles.settingMeta}>Send crash reports to improve stability</Text>
+          <Text style={styles.settingLabel}>{t('settings.crashReporting')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.crashReportingDesc')}</Text>
         </View>
         <ToggleIndicator enabled={crashReportingEnabled} />
       </Pressable>
 
-      <Pressable
-        onPress={handleDataCollectionToggle}
-        style={styles.settingRow}
-      >
+      <Pressable onPress={handleDataCollectionToggle} style={styles.settingRow}>
         <View>
-          <Text style={styles.settingLabel}>Data Collection</Text>
-          <Text style={styles.settingMeta}>Share feature usage data</Text>
+          <Text style={styles.settingLabel}>{t('settings.dataCollection')}</Text>
+          <Text style={styles.settingMeta}>{t('settings.dataCollectionDesc')}</Text>
         </View>
         <ToggleIndicator enabled={dataCollectionEnabled} />
       </Pressable>

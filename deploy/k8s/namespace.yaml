@@ -1,0 +1,44 @@
+# =============================================================================
+# USBVault Enterprise — Kubernetes Namespace
+# =============================================================================
+#
+# Creates the "usbvault" namespace where all application resources live.
+# Apply this first before any other manifests in deploy/k8s/:
+#   kubectl apply -f deploy/k8s/namespace.yaml
+#
+# Labels serve two purposes:
+#   1. Network policy selection — NetworkPolicy rules in production-values.yaml
+#      use namespaceSelector.matchLabels to control which namespaces can send
+#      traffic to USBVault pods.
+#   2. Policy enforcement — tools like OPA/Gatekeeper and Kyverno can target
+#      namespaces by label (e.g., enforcing pod security standards only in
+#      namespaces with environment=production).
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: usbvault
+  labels:
+    # Standard Kubernetes label — used by NetworkPolicy namespaceSelector
+    # to reference this namespace in ingress/egress rules.
+    kubernetes.io/metadata.name: usbvault
+
+    # Application identity labels (Kubernetes recommended labels).
+    app.kubernetes.io/name: usbvault
+    app.kubernetes.io/part-of: usbvault-enterprise
+
+    # Environment label — allows policies to differentiate between
+    # production, staging, and development namespaces.
+    environment: production
+
+    # Pod security admission (Kubernetes 1.25+).
+    # "restricted" enforces the strictest pod security standards:
+    #   - Containers must run as non-root
+    #   - Must drop ALL capabilities
+    #   - Must use a read-only root filesystem
+    #   - Seccomp profile must be set
+    # This aligns with the podSecurityContext in production-values.yaml.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

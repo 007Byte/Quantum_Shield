@@ -92,18 +92,21 @@ class EmergencyAccessServiceImpl {
       }
 
       // Seal vault key to contact's public key
-      const vaultKeyBytes = new Uint8Array(vaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const publicKeyBytes = new Uint8Array(publicKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const encryptedVaultKeyBytes = await sealToPublicKey(
-        publicKeyBytes,
-        vaultKeyBytes
+      const vaultKeyBytes = new Uint8Array(
+        vaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
       );
+      const publicKeyBytes = new Uint8Array(
+        publicKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+      );
+      const encryptedVaultKeyBytes = await sealToPublicKey(publicKeyBytes, vaultKeyBytes);
 
       if (!encryptedVaultKeyBytes) {
         throw new Error('Failed to encrypt vault key for contact');
       }
 
-      const encryptedVaultKeyHex = Array.from(encryptedVaultKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const encryptedVaultKeyHex = Array.from(encryptedVaultKeyBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
       const contact: EmergencyContact = {
         id: generateEmergencyId(),
@@ -134,7 +137,12 @@ class EmergencyAccessServiceImpl {
 
       return contact;
     } catch (error) {
-      await auditService.log('system', 'emergency_contact_error', { error: String(error) }, 'error');
+      await auditService.log(
+        'system',
+        'emergency_contact_error',
+        { error: String(error) },
+        'error'
+      );
       throw error;
     }
   }
@@ -153,7 +161,7 @@ class EmergencyAccessServiceImpl {
 
     try {
       const contacts = await this._loadContacts();
-      const contact = contacts.find((c) => c.id === contactId);
+      const contact = contacts.find(c => c.id === contactId);
 
       if (!contact) {
         throw new Error(`Contact ${contactId} not found`);
@@ -165,7 +173,7 @@ class EmergencyAccessServiceImpl {
 
       // Invalidate any pending requests from this contact
       const requests = await this._loadRequests();
-      const updatedRequests = requests.map((req) => {
+      const updatedRequests = requests.map(req => {
         if (req.contactId === contactId && req.status === 'pending') {
           req.status = 'denied';
           req.deniedAt = new Date().toISOString();
@@ -212,19 +220,14 @@ class EmergencyAccessServiceImpl {
    * @returns Emergency access request object
    * @throws Error if contact not found or not active
    */
-  async requestAccess(
-    contactEmail: string,
-    reason?: string
-  ): Promise<EmergencyAccessRequest> {
+  async requestAccess(contactEmail: string, reason?: string): Promise<EmergencyAccessRequest> {
     if (!contactEmail) {
       throw new Error('Contact email is required');
     }
 
     try {
       const contacts = await this._loadContacts();
-      const contact = contacts.find(
-        (c) => c.email === contactEmail && c.status === 'active'
-      );
+      const contact = contacts.find(c => c.email === contactEmail && c.status === 'active');
 
       if (!contact) {
         throw new Error(`Active contact not found for ${contactEmail}`);
@@ -291,7 +294,7 @@ class EmergencyAccessServiceImpl {
 
     try {
       const requests = await this._loadRequests();
-      const request = requests.find((r) => r.id === requestId);
+      const request = requests.find(r => r.id === requestId);
 
       if (!request) {
         throw new Error(`Request ${requestId} not found`);
@@ -346,16 +349,14 @@ class EmergencyAccessServiceImpl {
 
     try {
       const requests = await this._loadRequests();
-      const request = requests.find((r) => r.id === requestId);
+      const request = requests.find(r => r.id === requestId);
 
       if (!request) {
         throw new Error(`Request ${requestId} not found`);
       }
 
       if (request.status === 'denied' || request.status === 'accessed') {
-        throw new Error(
-          `Cannot approve request with status: ${request.status}`
-        );
+        throw new Error(`Cannot approve request with status: ${request.status}`);
       }
 
       const now = new Date().toISOString();
@@ -403,7 +404,7 @@ class EmergencyAccessServiceImpl {
 
     try {
       const requests = await this._loadRequests();
-      const request = requests.find((r) => r.id === requestId);
+      const request = requests.find(r => r.id === requestId);
 
       if (!request) {
         throw new Error(`Request ${requestId} not found`);
@@ -452,7 +453,12 @@ class EmergencyAccessServiceImpl {
 
       return request;
     } catch (error) {
-      await auditService.log('system', 'check_access_status_failed', { error: String(error) }, 'error');
+      await auditService.log(
+        'system',
+        'check_access_status_failed',
+        { error: String(error) },
+        'error'
+      );
       throw error;
     }
   }
@@ -468,12 +474,8 @@ class EmergencyAccessServiceImpl {
       const now = new Date();
 
       // Update expired requests
-      const updated = requests.map((req) => {
-        if (
-          req.status === 'pending' &&
-          new Date(req.expiresAt) < now &&
-          !req.deniedAt
-        ) {
+      const updated = requests.map(req => {
+        if (req.status === 'pending' && new Date(req.expiresAt) < now && !req.deniedAt) {
           req.status = 'expired';
         }
         return req;
@@ -484,11 +486,14 @@ class EmergencyAccessServiceImpl {
         await this._persistRequests(updated);
       }
 
-      return updated.filter(
-        (r) => r.status === 'pending' || r.status === 'approved'
-      );
+      return updated.filter(r => r.status === 'pending' || r.status === 'approved');
     } catch (error) {
-      await auditService.log('system', 'get_active_requests_failed', { error: String(error) }, 'error');
+      await auditService.log(
+        'system',
+        'get_active_requests_failed',
+        { error: String(error) },
+        'error'
+      );
       return [];
     }
   }
@@ -502,17 +507,14 @@ class EmergencyAccessServiceImpl {
    * @returns Encrypted vault key hex
    * @throws Error if request not approved or contact not found
    */
-  async accessVault(
-    requestId: string,
-    contactEmail: string
-  ): Promise<string> {
+  async accessVault(requestId: string, contactEmail: string): Promise<string> {
     if (!requestId || !contactEmail) {
       throw new Error('Request ID and contact email are required');
     }
 
     try {
       const requests = await this._loadRequests();
-      const request = requests.find((r) => r.id === requestId);
+      const request = requests.find(r => r.id === requestId);
 
       if (!request) {
         throw new Error(`Request ${requestId} not found`);
@@ -527,7 +529,7 @@ class EmergencyAccessServiceImpl {
       }
 
       const contacts = await this._loadContacts();
-      const contact = contacts.find((c) => c.id === request.contactId);
+      const contact = contacts.find(c => c.id === request.contactId);
 
       if (!contact || contact.status !== 'active') {
         throw new Error('Contact is not active');
@@ -579,12 +581,12 @@ class EmergencyAccessServiceImpl {
       const now = new Date().toISOString();
 
       // Revoke all contacts
-      contacts.forEach((contact) => {
+      contacts.forEach(contact => {
         contact.status = 'revoked';
       });
 
       // Deny/expire all pending requests
-      requests.forEach((request) => {
+      requests.forEach(request => {
         if (request.status === 'pending' || request.status === 'approved') {
           request.status = 'denied';
           request.deniedAt = now;
@@ -593,7 +595,9 @@ class EmergencyAccessServiceImpl {
 
       // Persist changes
       await this._persistRequests(requests);
-      contacts.forEach((contact) => this._persistContact(contact));
+      for (const contact of contacts) {
+        await this._persistContact(contact);
+      }
 
       // Log action
       await auditService.log('system', 'emergency_all_access_revoked', {
@@ -620,7 +624,12 @@ class EmergencyAccessServiceImpl {
         timestamp: now,
       });
     } catch (error) {
-      await auditService.log('system', 'revoke_all_access_failed', { error: String(error) }, 'error');
+      await auditService.log(
+        'system',
+        'revoke_all_access_failed',
+        { error: String(error) },
+        'error'
+      );
       throw error;
     }
   }
@@ -635,7 +644,12 @@ class EmergencyAccessServiceImpl {
     try {
       return await this._loadHistory();
     } catch (error) {
-      await auditService.log('system', 'get_access_history_failed', { error: String(error) }, 'error');
+      await auditService.log(
+        'system',
+        'get_access_history_failed',
+        { error: String(error) },
+        'error'
+      );
       return [];
     }
   }
@@ -660,7 +674,7 @@ class EmergencyAccessServiceImpl {
    */
   private async _persistContact(contact: EmergencyContact): Promise<void> {
     const contacts = await this._loadContacts();
-    const index = contacts.findIndex((c) => c.id === contact.id);
+    const index = contacts.findIndex(c => c.id === contact.id);
 
     if (index >= 0) {
       contacts[index] = contact;
@@ -695,7 +709,7 @@ class EmergencyAccessServiceImpl {
    */
   private async _persistRequest(request: EmergencyAccessRequest): Promise<void> {
     const requests = await this._loadRequests();
-    const index = requests.findIndex((r) => r.id === request.id);
+    const index = requests.findIndex(r => r.id === request.id);
 
     if (index >= 0) {
       requests[index] = request;
@@ -714,9 +728,7 @@ class EmergencyAccessServiceImpl {
    * Persist multiple requests to storage
    * @private
    */
-  private async _persistRequests(
-    requests: EmergencyAccessRequest[]
-  ): Promise<void> {
+  private async _persistRequests(requests: EmergencyAccessRequest[]): Promise<void> {
     if (Platform.OS === 'web') {
       localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(requests));
     } else {

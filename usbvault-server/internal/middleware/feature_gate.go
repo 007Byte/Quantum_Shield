@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // RM-011: Feature-based access control middleware
@@ -106,7 +107,7 @@ type FeatureGateError struct {
 func RequireFeature(feature Feature, pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value("user_id").(string)
+			userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 			if !ok {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return

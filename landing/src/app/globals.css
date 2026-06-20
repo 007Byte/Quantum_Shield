@@ -1,0 +1,335 @@
+@import "tailwindcss";
+
+/* ── Vault Design Tokens ────────────────────────────────── */
+@theme inline {
+  --color-vault-bg: #09040f;
+  --color-vault-bg-secondary: #110a24;
+  --color-vault-bg-card: rgba(18, 12, 40, 0.65);
+  --color-vault-accent: #753cff;
+  --color-vault-accent-hover: #8B5CF6;
+  --color-vault-cyan: #22D3EE;
+  --color-vault-magenta: #D946EF;
+  --color-vault-green: #10B981;
+  --color-vault-red: #EF4444;
+  --color-vault-text: #F5F3FF;
+  --color-vault-text-secondary: #B7B2D9;
+  --color-vault-text-muted: #8893A7;
+  --color-vault-border: rgba(139, 92, 246, 0.10);
+  --color-vault-border-glow: rgba(139, 92, 246, 0.20);
+  --color-vault-accent-10: rgba(117, 60, 255, 0.1);
+  --color-vault-accent-20: rgba(117, 60, 255, 0.2);
+  --color-vault-accent-30: rgba(117, 60, 255, 0.3);
+  --color-vault-cyan-20: rgba(34, 211, 238, 0.2);
+  --color-vault-cyan-30: rgba(34, 211, 238, 0.3);
+  --color-vault-green-25: rgba(16, 185, 129, 0.25);
+  --color-vault-green-50: rgba(16, 185, 129, 0.5);
+  --color-vault-glass: rgba(18, 12, 40, 0.65);
+  --color-vault-glass-strong: rgba(9, 4, 15, 0.85);
+  --color-vault-glass-shimmer: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+  --color-vault-glass-border-white: rgba(255, 255, 255, 0.06);
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-reverse: float-reverse 8s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 4s ease-in-out infinite;
+  --animate-float-slow: float-slow 10s ease-in-out infinite;
+  --animate-shimmer: shimmer 3s linear infinite;
+  --animate-breathe: breathe 3s ease-in-out infinite;
+  --animate-twinkle: twinkle 3s ease-in-out infinite;
+  --animate-scale-in: scale-in 0.6s ease-out;
+}
+
+/* ── Base Styles ────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-vault-bg);
+  color: var(--color-vault-text);
+  font-family: var(--font-sans);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-vault-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* ── Glass Utility ──────────────────────────────────────── */
+.glass {
+  background: var(--color-vault-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.glass-strong {
+  background: var(--color-vault-glass-strong);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid var(--color-vault-border);
+}
+
+/* ── Orb Keyframes ──────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.02); }
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(15px) scale(0.98); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  33% { transform: translateY(-15px) translateX(10px); }
+  66% { transform: translateY(10px) translateX(-8px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* Shimmer border effect */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Breathing glow for CTA buttons (cyan primary) */
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 153, 255, 0.4), 0 0 40px rgba(0, 153, 255, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 153, 255, 0.6), 0 0 60px rgba(0, 153, 255, 0.3), 0 0 90px rgba(0, 170, 255, 0.15); }
+}
+
+/* Star twinkle */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.8; }
+}
+
+/* Gradient rotation for borders */
+@keyframes rotate-gradient {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+/* Scale bounce in */
+@keyframes scale-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Focus Indicators ──────────────────────────────────── */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--color-vault-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Reduced Motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Text Glow ──────────────────────────────────────────── */
+.text-glow {
+  text-shadow: 0 0 28px rgba(117, 60, 255, 0.45), 0 0 56px rgba(117, 60, 255, 0.2);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.15);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 8px var(--color-vault-green-50), 0 0 20px var(--color-vault-green-25);
+}
+
+/* ── Animated Gradient Border ─────────────────────────────── */
+.gradient-border {
+  position: relative;
+  border: none;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(117, 60, 255, 0.6),
+    rgba(34, 211, 238, 0.4),
+    rgba(217, 70, 239, 0.4),
+    rgba(117, 60, 255, 0.6)
+  );
+  background-size: 200% 200%;
+  animation: shimmer 3s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Gradient Text ────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #F5F3FF 0%, #753cff 40%, #22D3EE 70%, #D946EF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Cyan Action Button ──────────────────────────────────── */
+.btn-action {
+  background: #0099ff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 200ms ease;
+}
+.btn-action:hover {
+  background: #00aaff;
+  box-shadow: 0 0 20px rgba(0, 153, 255, 0.3), 0 0 40px rgba(0, 153, 255, 0.1);
+}
+
+/* ── Pulsing CTA Button ───────────────────────────────────── */
+.btn-pulse {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* ── Star Field Background ────────────────────────────────── */
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.starfield .star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--duration, 3s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  opacity: 0.1;
+}
+
+/* ── Stronger Text Glow ───────────────────────────────────── */
+.text-glow-strong {
+  filter:
+    drop-shadow(0 0 20px rgba(117, 60, 255, 0.6))
+    drop-shadow(0 0 40px rgba(117, 60, 255, 0.4))
+    drop-shadow(0 0 80px rgba(117, 60, 255, 0.2))
+    drop-shadow(0 0 120px rgba(34, 211, 238, 0.1));
+}
+
+/* ── Noise / Grain Texture Overlay ────────────────────────── */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ── Subtle Grid Pattern Background ───────────────────────── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(117, 60, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 60, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Stronger Grid for Hero ───────────────────────────────── */
+.grid-bg-hero {
+  background-image:
+    linear-gradient(rgba(117, 60, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 60, 255, 0.06) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* ── Diagonal Section Dividers ────────────────────────────── */
+.diagonal-top {
+  clip-path: polygon(0 8%, 100% 0, 100% 100%, 0 100%);
+}
+.diagonal-bottom {
+  clip-path: polygon(0 0, 100% 0, 100% 92%, 0 100%);
+}
+
+/* ── Display Font Class ───────────────────────────────────── */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ── Animated Underline ───────────────────────────────────── */
+.animated-underline {
+  position: relative;
+  display: inline-block;
+}
+.animated-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #753cff, #22D3EE, #D946EF);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+  border-radius: 2px;
+}
+
+/* ── Blinking Cursor (terminal effect) ────────────────────── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.terminal-cursor::after {
+  content: "\2588";
+  color: var(--color-vault-green);
+  animation: blink-cursor 1s step-end infinite;
+  margin-left: 2px;
+}
+
+/* ── Scroll Indicator Bounce ──────────────────────────────── */
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(8px); opacity: 1; }
+}

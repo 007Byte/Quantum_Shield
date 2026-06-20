@@ -1,202 +1,510 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
-import {
-  dashboardLayout,
-  dashboardSpacing,
-} from '@/components/dashboard2/styles';
+import { dashboardLayout, dashboardSpacing } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import { vaultOrchestrator } from '@/services/vaultOrchestrator';
+import { usbService } from '@/services/usbService';
+import { useActiveVaultStore } from '@/stores/activeVaultStore';
+import { useVaultListStore } from '@/stores/vaultListStore';
+import { formatFileSize } from '@/utils/formatters';
+import type { PressableState } from '@/types/utilities';
+
+// ── Category configuration ─────────────────────────────────────────────
+const FILE_CATEGORIES: Record<string, { label: string; icon: string; color: string; extensions: string[] }> = {
+  documents: {
+    label: 'Documents',
+    icon: 'file-text',
+    color: '#8B5CF6',
+    extensions: ['pdf', 'doc', 'docx', 'txt', 'md', 'rtf', 'odt', 'csv', 'xls', 'xlsx', 'pptx', 'ppt'],
+  },
+  images: {
+    label: 'Images',
+    icon: 'image',
+    color: '#06B6D4',
+    extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'heic'],
+  },
+  archives: {
+    label: 'Archives',
+    icon: 'archive',
+    color: '#F59E0B',
+    extensions: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'dmg', 'iso'],
+  },
+  media: {
+    label: 'Media',
+    icon: 'film',
+    color: '#EC4899',
+    extensions: ['mp4', 'mp3', 'wav', 'avi', 'mkv', 'mov', 'flac', 'ogg', 'aac', 'wmv'],
+  },
+  other: {
+    label: 'Other',
+    icon: 'file',
+    color: '#6B7280',
+    extensions: [],
+  },
+};
+
+function categorizeFile(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  for (const [category, config] of Object.entries(FILE_CATEGORIES)) {
+    if (category === 'other') continue;
+    if (config.extensions.includes(ext)) return category;
+  }
+  return 'other';
+}
+
+// ── Types ──────────────────────────────────────────────────────────────
+
+interface StorageData {
+  used: number;          // vault container size on disk (bytes)
+  total: number;         // partition total capacity (bytes)
+  maxAllowed: number;    // 50% rule max vault size (bytes)
+  remaining: number;     // remaining space for vault growth (bytes)
+  percentage: number;    // vault size as % of partition total
+  fileCount: number;
+  totalFileBytes: number; // sum of encrypted file record lengths
+}
+
+interface UsageBreakdownItem {
+  label: string;
+  size: number;
+  count: number;
+  icon: string;
+  color: string;
+}
+
+interface VaultFileInfo {
+  name: string;
+  size: number;
+  createdAt: string;
+}
+
+// ── Main screen ────────────────────────────────────────────────────────
 
 const StorageScreen = () => {
-  const [cleanupInProgress, setCleanupInProgress] = useState<string | null>(null);
-  const { modal, showSuccess } = useInAppModal();
+  const { t } = useLanguage();
+  const { modal } = useInAppModal();
 
-  const storageData = {
-    used: 4.2,
-    total: 16,
-    percentage: 26.25,
-  };
+  const activeVaultId = useActiveVaultStore(s => s.activeVaultId);
+  const currentVault = useVaultListStore(s => activeVaultId ? s.vaultsById[activeVaultId] : null);
 
-  const usageBreakdown = [
-    { label: 'Documents', size: 1.8, icon: 'file-text', color: '#b844ff' },
-    { label: 'Archives', size: 1.2, icon: 'archive', color: '#00d9ff' },
-    { label: 'Images', size: 0.6, icon: 'image', color: '#10b981' },
-    { label: 'Passwords', size: 0.2, icon: 'lock', color: '#f59e0b' },
-    { label: 'Other', size: 0.4, icon: 'folder', color: '#6b7280' },
-  ];
+  // State
+  const [storageData, setStorageData] = useState<StorageData | null>(null);
+  const [usageBreakdown, setUsageBreakdown] = useState<UsageBreakdownItem[]>([]);
+  const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [vaultUnlocked, setVaultUnlocked] = useState(() => vaultOrchestrator.isUnlocked());
+  const [largestFile, setLargestFile] = useState<{ name: string; size: number } | null>(null);
 
-  const recommendations = [
-    {
-      id: 'backup-cleanup',
-      title: 'Remove 2 expired backups',
-      description: 'Delete outdated backup files to free 800 MB of space',
-      freeSpace: '800 MB',
-      icon: 'trash-2',
-    },
-    {
-      id: 'vault-compact',
-      title: 'Compact vault structure',
-      description: 'Optimize vault storage layout to recover unused space',
-      freeSpace: '120 MB',
-      icon: 'zap',
-    },
-    {
-      id: 'temp-clean',
-      title: 'Clear temporary files',
-      description: 'Remove cache and temporary data from previous operations',
-      freeSpace: '45 MB',
-      icon: 'wind',
-    },
-  ];
+  // ── Load real data from vault index + USB companion ──────────────────
+  const loadStorageData = useCallback(async () => {
+    const index = vaultOrchestrator.getIndex();
+    const activeVault = vaultOrchestrator.getActiveVault();
+    if (!index || !activeVault) {
+      setStorageData(null);
+      setUsageBreakdown([]);
+      setVaultFiles([]);
+      setLargestFile(null);
+      return;
+    }
 
-  const handleCleanup = (recommendationId: string) => {
-    setCleanupInProgress(recommendationId);
-    setTimeout(() => {
-      setCleanupInProgress(null);
-      showSuccess('Cleanup Complete', 'Storage optimization completed successfully.');
-    }, 2000);
-  };
+    setIsLoading(true);
+    try {
+      // ── 1. Analyze vault index for file-level stats ──────────────────
+      const files = Object.entries(index.files);
+      const fileCount = files.length;
 
-  const usagePercentages = usageBreakdown.map((item) => (item.size / storageData.total) * 100);
+      const categoryMap: Record<string, { size: number; count: number }> = {};
+      let totalFileBytes = 0;
+      let biggest: { name: string; size: number } | null = null;
+      const fileInfos: VaultFileInfo[] = [];
 
+      for (const [, entry] of files) {
+        const cat = categorizeFile(entry.name);
+        if (!categoryMap[cat]) categoryMap[cat] = { size: 0, count: 0 };
+        categoryMap[cat].size += entry.length;
+        categoryMap[cat].count += 1;
+        totalFileBytes += entry.length;
+
+        if (!biggest || entry.length > biggest.size) {
+          biggest = { name: entry.name, size: entry.length };
+        }
+
+        fileInfos.push({
+          name: entry.name,
+          size: entry.length,
+          createdAt: entry.createdAt,
+        });
+      }
+
+      setLargestFile(biggest);
+      setVaultFiles(fileInfos.sort((a, b) => b.size - a.size));
+
+      // Build breakdown from real categories
+      const breakdown: UsageBreakdownItem[] = Object.entries(FILE_CATEGORIES)
+        .map(([key, config]) => {
+          const translated = t(`storage.${key}`);
+          const label = translated && !translated.startsWith('storage.') ? translated : config.label;
+          return {
+            label,
+            size: categoryMap[key]?.size || 0,
+            count: categoryMap[key]?.count || 0,
+            icon: config.icon,
+            color: config.color,
+          };
+        })
+        .filter(item => item.size > 0)
+        .sort((a, b) => b.size - a.size);
+
+      setUsageBreakdown(breakdown);
+
+      // ── 2. Fetch real drive capacity from USB companion ──────────────
+      let driveTotal = 0;
+      let vaultSize = 0;
+      let maxAllowed = 0;
+      let remaining = 0;
+
+      try {
+        const capacity = await usbService.checkCapacity(activeVault.mountPoint);
+        driveTotal = capacity.partitionTotal;
+        vaultSize = capacity.vaultSize;
+        maxAllowed = capacity.maxAllowed;
+        remaining = capacity.remaining;
+      } catch {
+        // Fallback: estimate from file data if companion is unreachable
+        vaultSize = totalFileBytes;
+        driveTotal = totalFileBytes * 4;
+        maxAllowed = driveTotal / 2;
+        remaining = maxAllowed - vaultSize;
+      }
+
+      const percentage = driveTotal > 0 ? (vaultSize / driveTotal) * 100 : 0;
+
+      setStorageData({
+        used: vaultSize,
+        total: driveTotal,
+        maxAllowed,
+        remaining,
+        percentage,
+        fileCount,
+        totalFileBytes,
+      });
+    } catch {
+      setStorageData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  // ── Subscribe to vault lock/unlock ───────────────────────────────────
+  useEffect(() => {
+    setVaultUnlocked(vaultOrchestrator.isUnlocked());
+    const unsub = vaultOrchestrator.onLockStateChange((unlocked: boolean) => {
+      setVaultUnlocked(unlocked);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (vaultUnlocked) {
+      loadStorageData();
+    } else {
+      setStorageData(null);
+      setUsageBreakdown([]);
+      setVaultFiles([]);
+      setLargestFile(null);
+    }
+  }, [vaultUnlocked, loadStorageData]);
+
+  // ── Computed values ──────────────────────────────────────────────────
+  const usagePercentages = useMemo(() => {
+    if (!storageData || storageData.totalFileBytes === 0) return [];
+    return usageBreakdown.map(item => (item.size / storageData.totalFileBytes) * 100);
+  }, [storageData, usageBreakdown]);
+
+  const capacityPercent = storageData ? Math.min(storageData.percentage, 100) : 0;
+  const capacityBarWidth = capacityPercent > 0 && capacityPercent < 1 ? 1 : capacityPercent;
+  const capacityColor = capacityPercent > 90 ? '#EF4444' : capacityPercent > 75 ? '#F59E0B' : '#8B5CF6';
+
+  const formattedPercent = capacityPercent === 0
+    ? '0%'
+    : capacityPercent < 0.1
+      ? '< 0.1%'
+      : capacityPercent < 1
+        ? `${capacityPercent.toFixed(2)}%`
+        : `${capacityPercent.toFixed(1)}%`;
+
+  // Vault overhead = vault container size minus actual file data
+  const overhead = storageData ? Math.max(0, storageData.used - storageData.totalFileBytes) : 0;
+
+  // ── Empty state ──────────────────────────────────────────────────────
+  if (!vaultUnlocked || !storageData) {
+    return (
+      <View style={styles.screen}>
+        <ScrollView
+          style={styles.pageScroll}
+          contentContainerStyle={styles.pageContent}
+          showsVerticalScrollIndicator
+        >
+          <View style={styles.shell}>
+            <View style={styles.shellEdgeGlow} />
+            <Sidebar />
+            <View style={styles.mainCol}>
+              <TopBar />
+              <View style={styles.contentArea}>
+                <View style={styles.headerSection}>
+                  <Text style={styles.pageTitle} accessibilityRole="header">
+                    {t('storage.pageTitle')}
+                  </Text>
+                  <Text style={styles.pageSubtitle}>
+                    {t('storage.pageSubtitle')}
+                  </Text>
+                </View>
+                <View style={[styles.card, styles.emptyStateCard]}>
+                  {isLoading ? (
+                    <>
+                      <ActivityIndicator size="large" color="#8B5CF6" />
+                      <Text style={styles.emptyStateText}>
+                        {t('storage.loading')}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Feather name="hard-drive" size={40} color="rgba(255,255,255,0.4)" />
+                      <Text style={styles.emptyStateText}>
+                        {t('storage.unlockToView')}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+        <InAppModal config={modal} />
+      </View>
+    );
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
-
           <Sidebar />
-
           <View style={styles.mainCol}>
             <TopBar />
-
             <View style={styles.contentArea}>
-            {/* Header Section */}
-            <View style={styles.headerSection}>
-              <Text style={styles.pageTitle}>Storage</Text>
-              <Text style={styles.pageSubtitle}>Monitor vault capacity and usage</Text>
-            </View>
-
-            {/* Storage Overview Card */}
-            <View style={[styles.card, styles.storageOverviewCard]}>
-              <View style={styles.overviewHeader}>
-                <Text style={styles.overviewTitle}>Vault Capacity</Text>
-                <Text style={styles.capacityText}>
-                  {storageData.used} GB / {storageData.total} GB
+              {/* Header */}
+              <View style={styles.headerSection}>
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('storage.pageTitle')}
+                </Text>
+                <Text style={styles.pageSubtitle}>
+                  {t('storage.pageSubtitle')}
+                  {currentVault ? ` — ${currentVault.name}` : ''}
                 </Text>
               </View>
 
-              {/* Capacity Progress Bar */}
-              <View style={styles.capacityBarContainer}>
-                <View style={styles.capacityBarBackground}>
-                  <View
-                    style={[
-                      styles.capacityBarFill,
-                      { width: `${storageData.percentage}%` },
-                    ]}
-                  />
+              {/* ── Storage Overview Card ────────────────────────────── */}
+              <View style={[styles.card, styles.storageOverviewCard]}>
+                <View style={styles.overviewHeader}>
+                  <View>
+                    <Text style={styles.overviewTitle}>
+                      {t('storage.vaultCapacity')}
+                    </Text>
+                    <Text style={styles.overviewSubtitle}>
+                      {storageData.fileCount} {storageData.fileCount === 1 ? t('storage.file') : t('storage.files')} encrypted
+                    </Text>
+                  </View>
+                  <Text style={styles.capacityText}>
+                    {formatFileSize(storageData.used)} / {formatFileSize(storageData.total)}
+                  </Text>
                 </View>
-                <Text style={styles.percentageText}>{storageData.percentage.toFixed(1)}%</Text>
-              </View>
 
-              <Text style={styles.capacitySubtext}>
-                {(storageData.total - storageData.used).toFixed(1)} GB available
-              </Text>
-            </View>
-
-            {/* Usage Breakdown Section */}
-            <View style={styles.breakdownSection}>
-              <Text style={styles.sectionTitle}>Usage Breakdown</Text>
-
-              <View style={styles.breakdownContainer}>
-                {/* Stacked horizontal bar */}
-                <View style={styles.stackedBarContainer}>
-                  {usageBreakdown.map((item, index) => (
+                {/* Capacity bar */}
+                <View style={styles.capacityBarContainer}>
+                  <View style={styles.capacityBarBackground}>
                     <View
-                      key={item.label}
                       style={[
-                        styles.stackedBarSegment,
-                        { width: `${usagePercentages[index]}%`, backgroundColor: item.color },
+                        styles.capacityBarFill,
+                        { width: `${capacityBarWidth}%` },
+                        webOnly({
+                          background: capacityPercent > 90
+                            ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                            : capacityPercent > 75
+                              ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
+                              : 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
+                        }),
+                        { backgroundColor: capacityColor },
                       ]}
                     />
-                  ))}
+                  </View>
+                  <View style={styles.capacityBarLabels}>
+                    <Text style={styles.percentageText}>{formattedPercent} {t('storage.used')}</Text>
+                    <Text style={styles.capacitySubtext}>
+                      {formatFileSize(storageData.remaining)} {t('storage.remaining')}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Breakdown list */}
-                <View style={styles.breakdownList}>
-                  {usageBreakdown.map((item) => (
-                    <View key={item.label} style={styles.breakdownItem}>
-                      <View style={styles.breakdownItemLeft}>
-                        <View style={[styles.colorIndicator, { backgroundColor: item.color }]} />
-                        <View style={styles.breakdownItemText}>
-                          <Text style={styles.breakdownLabel}>{item.label}</Text>
-                          <Text style={styles.breakdownSize}>{item.size} GB</Text>
+                {/* Stats row */}
+                <View style={styles.quotaRow}>
+                  <View style={styles.quotaStat}>
+                    <Text style={styles.quotaLabel}>{t('storage.vaultSize')}</Text>
+                    <Text style={styles.quotaValue}>{formatFileSize(storageData.used)}</Text>
+                  </View>
+                  <View style={styles.quotaDivider} />
+                  <View style={styles.quotaStat}>
+                    <Text style={styles.quotaLabel}>{t('storage.maxAllowed')}</Text>
+                    <Text style={styles.quotaValue}>{formatFileSize(storageData.maxAllowed)}</Text>
+                  </View>
+                  <View style={styles.quotaDivider} />
+                  <View style={styles.quotaStat}>
+                    <Text style={styles.quotaLabel}>{t('storage.fileData')}</Text>
+                    <Text style={styles.quotaValue}>{formatFileSize(storageData.totalFileBytes)}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* ── Usage Breakdown ──────────────────────────────────── */}
+              {usageBreakdown.length > 0 && (
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('storage.usageBreakdown')}
+                  </Text>
+
+                  <View style={styles.breakdownContainer}>
+                    {/* Stacked bar */}
+                    <View style={styles.stackedBarContainer}>
+                      {usageBreakdown.map((item, index) => (
+                        <View
+                          key={item.label}
+                          style={[
+                            styles.stackedBarSegment,
+                            {
+                              width: `${usagePercentages[index]}%`,
+                              backgroundColor: item.color,
+                            },
+                            index === 0 && { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+                            index === usageBreakdown.length - 1 && { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+                          ]}
+                        />
+                      ))}
+                    </View>
+
+                    {/* Category list */}
+                    <View style={styles.breakdownList}>
+                      {usageBreakdown.map(item => (
+                        <View key={item.label} style={styles.breakdownItem}>
+                          <View style={styles.breakdownItemLeft}>
+                            <View style={[styles.colorIndicator, { backgroundColor: item.color }]} />
+                            <View style={styles.breakdownItemTextWrap}>
+                              <Text style={styles.breakdownLabel}>{item.label}</Text>
+                              <Text style={styles.breakdownSize}>
+                                {formatFileSize(item.size)} · {item.count} {item.count === 1 ? t('storage.file') : t('storage.files')}
+                              </Text>
+                            </View>
+                          </View>
+                          <Feather name={item.icon as any} size={18} color={item.color} />
                         </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* ── Vault File List ──────────────────────────────────── */}
+              {vaultFiles.length > 0 && (
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('storage.filesInVault')}
+                  </Text>
+
+                  <View style={styles.breakdownContainer}>
+                    {vaultFiles.map((file, idx) => (
+                      <View
+                        key={`${file.name}-${idx}`}
+                        style={[
+                          styles.fileRow,
+                          idx < vaultFiles.length - 1 && styles.fileRowBorder,
+                        ]}
+                      >
+                        <View style={styles.fileIconWrap}>
+                          <Feather
+                            name={getFileIcon(file.name) as any}
+                            size={16}
+                            color="rgba(139,92,246,0.8)"
+                          />
+                        </View>
+                        <View style={styles.fileInfo}>
+                          <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
+                          <Text style={styles.fileMeta}>{formatFileSize(file.size)}</Text>
+                        </View>
+                        {largestFile && file.name === largestFile.name && (
+                          <View style={styles.largestBadge}>
+                            <Text style={styles.largestBadgeText}>Largest</Text>
+                          </View>
+                        )}
                       </View>
-                      <Feather name={item.icon as any} size={18} color={item.color} />
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Duplicate Detection Card */}
-            <View style={[styles.card, styles.duplicateCard]}>
-              <View style={styles.duplicateHeader}>
-                <View style={styles.duplicateIconContainer}>
-                  <Feather name="copy" size={24} color="#ff6b9d" />
-                </View>
-                <View style={styles.duplicateContent}>
-                  <Text style={styles.duplicateTitle}>Duplicate Files Detected</Text>
-                  <Text style={styles.duplicateCount}>3 potential duplicates found</Text>
-                </View>
-              </View>
-              <Pressable style={styles.reviewButton}>
-                <Text style={styles.reviewButtonText}>Review</Text>
-                <Feather name="arrow-right" size={16} color="#fff" />
-              </Pressable>
-            </View>
-
-            {/* Cleanup Recommendations */}
-            <View style={styles.recommendationsSection}>
-              <Text style={styles.sectionTitle}>Cleanup Recommendations</Text>
-
-              {recommendations.map((rec) => (
-                <View key={rec.id} style={[styles.card, styles.recommendationCard]}>
-                  <View style={styles.recommendationHeader}>
-                    <View style={styles.recommendationIconContainer}>
-                      <Feather name={rec.icon as any} size={20} color="#00d9ff" />
-                    </View>
-                    <View style={styles.recommendationContent}>
-                      <Text style={styles.recommendationTitle}>{rec.title}</Text>
-                      <Text style={styles.recommendationDescription}>{rec.description}</Text>
-                    </View>
+                    ))}
                   </View>
+                </View>
+              )}
 
-                  <View style={styles.recommendationFooter}>
-                    <Text style={styles.freeSpaceText}>Recover {rec.freeSpace}</Text>
-                    <Pressable
-                      style={[
-                        styles.cleanupButton,
-                        cleanupInProgress === rec.id && styles.cleanupButtonActive,
-                      ]}
-                      onPress={() => handleCleanup(rec.id)}
-                      disabled={cleanupInProgress !== null}
-                    >
-                      <Text style={styles.cleanupButtonText}>
-                        {cleanupInProgress === rec.id ? 'Cleaning...' : 'Clean Up'}
+              {/* ── Vault Overhead Card ──────────────────────────────── */}
+              {overhead > 0 && (
+                <View style={[styles.card, styles.overheadCard]}>
+                  <View style={styles.overheadRow}>
+                    <View style={styles.overheadIconWrap}>
+                      <Feather name="layers" size={20} color="#F59E0B" />
+                    </View>
+                    <View style={styles.overheadContent}>
+                      <Text style={styles.overheadTitle}>
+                        {t('storage.vaultOverhead')}
                       </Text>
-                    </Pressable>
+                      <Text style={styles.overheadDescription}>
+                        {formatFileSize(overhead)} used by vault container structure (headers, index, encryption padding)
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              ))}
-            </View>
+              )}
 
-            {/* Spacing */}
-            <View style={{ height: 40 }} />
+              {/* Refresh button */}
+              <View style={styles.refreshRow}>
+                <Pressable
+                  onPress={loadStorageData}
+                  disabled={isLoading}
+                  style={(state: PressableState) => [
+                    styles.refreshButton,
+                    state.hovered && styles.refreshButtonHover,
+                  ] as any}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('storage.refresh')}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#8B5CF6" />
+                  ) : (
+                    <Feather name="refresh-cw" size={14} color="#8B5CF6" />
+                  )}
+                  <Text style={styles.refreshButtonText}>
+                    {isLoading ? t('storage.refreshing') : t('storage.refresh')}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={{ height: 40 }} />
             </View>
           </View>
         </View>
@@ -205,6 +513,22 @@ const StorageScreen = () => {
     </View>
   );
 };
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+function getFileIcon(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['pdf'].includes(ext)) return 'file-text';
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) return 'image';
+  if (['mp4', 'mp3', 'wav', 'avi', 'mkv', 'mov'].includes(ext)) return 'film';
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive';
+  if (['doc', 'docx', 'txt', 'md', 'rtf'].includes(ext)) return 'file-text';
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'grid';
+  if (['pptx', 'ppt'].includes(ext)) return 'monitor';
+  return 'file';
+}
+
+// ── Styles ─────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   screen: {
@@ -235,8 +559,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
@@ -258,7 +584,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
 
-  /* Header Section */
+  /* Header */
   headerSection: {
     marginBottom: dashboardSpacing.lg,
   },
@@ -275,7 +601,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
 
-  /* Storage Overview Card */
+  /* Card base */
   card: {
     backgroundColor: 'rgba(8, 5, 20, 0.55)',
     borderRadius: 16,
@@ -285,19 +611,37 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     ...webOnly({ backdropFilter: 'blur(12px)' }),
   },
-  storageOverviewCard: {
-    backgroundColor: 'rgba(8, 5, 20, 0.55)',
+
+  /* Empty state */
+  emptyStateCard: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 16,
   },
+  emptyStateText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  /* Storage Overview */
+  storageOverviewCard: {},
   overviewHeader: {
     marginBottom: dashboardSpacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   overviewTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  overviewSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 2,
   },
   capacityText: {
     fontSize: 16,
@@ -308,30 +652,67 @@ const styles = StyleSheet.create({
     marginBottom: dashboardSpacing.md,
   },
   capacityBarBackground: {
-    height: 12,
-    borderRadius: 6,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
-    marginBottom: dashboardSpacing.sm,
+    marginBottom: 8,
   },
   capacityBarFill: {
     height: '100%',
-    borderRadius: 6,
-    backgroundColor: '#b844ff',
+    borderRadius: 7,
+    backgroundColor: '#8B5CF6',
     ...webOnly({
-      background: 'linear-gradient(90deg, #b844ff 0%, #00d9ff 100%)',
+      background: 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
     }),
+  },
+  capacityBarLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   percentageText: {
     fontSize: 14,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.75)',
-    textAlign: 'right',
   },
   capacitySubtext: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontWeight: '400',
+  },
+
+  /* Quota row */
+  quotaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: dashboardSpacing.md,
+    paddingTop: dashboardSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  quotaStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  quotaLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  quotaValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  quotaDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
 
   /* Usage Breakdown */
@@ -383,7 +764,7 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  breakdownItemText: {
+  breakdownItemTextWrap: {
     flex: 1,
   },
   breakdownLabel: {
@@ -398,122 +779,114 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
 
-  /* Duplicate Detection Card */
-  duplicateCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: dashboardSpacing.lg,
-  },
-  duplicateHeader: {
+  /* File list */
+  fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: dashboardSpacing.md,
-  },
-  duplicateIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 107, 157, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  duplicateContent: {
-    flex: 1,
-  },
-  duplicateTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 4,
-  },
-  duplicateCount: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontWeight: '400',
-  },
-  reviewButton: {
-    flexDirection: 'row',
-    paddingHorizontal: dashboardSpacing.md,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 217, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.4)',
-    alignItems: 'center',
-    gap: 6,
+    gap: 12,
   },
-  reviewButtonText: {
+  fileRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  fileIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fileName: {
     fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 2,
+  },
+  fileMeta: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  largestBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  largestBadgeText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#00d9ff',
+    color: '#F59E0B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
-  /* Cleanup Recommendations */
-  recommendationsSection: {
-    gap: dashboardSpacing.md,
-  },
-  recommendationCard: {
-    gap: dashboardSpacing.md,
-  },
-  recommendationHeader: {
+  /* Overhead card */
+  overheadCard: {},
+  overheadRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: dashboardSpacing.md,
   },
-  recommendationIconContainer: {
-    width: 48,
-    height: 48,
+  overheadIconWrap: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
-    backgroundColor: 'rgba(0, 217, 255, 0.1)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  recommendationContent: {
+  overheadContent: {
     flex: 1,
   },
-  recommendationTitle: {
+  overheadTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 4,
   },
-  recommendationDescription: {
+  overheadDescription: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.55)',
     lineHeight: 18,
   },
-  recommendationFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+
+  /* Refresh button */
+  refreshRow: {
     alignItems: 'center',
-    paddingLeft: 60,
+    marginTop: dashboardSpacing.lg,
   },
-  freeSpaceText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(0, 217, 255, 0.8)',
-  },
-  cleanupButton: {
-    paddingHorizontal: dashboardSpacing.md,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0, 217, 255, 0.15)',
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.3)',
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    ...webOnly({ cursor: 'pointer', transition: 'all 0.15s ease' }),
   },
-  cleanupButtonActive: {
-    backgroundColor: 'rgba(0, 217, 255, 0.25)',
-    borderColor: 'rgba(0, 217, 255, 0.5)',
+  refreshButtonHover: {
+    backgroundColor: 'rgba(139, 92, 246, 0.18)',
+    borderColor: 'rgba(139, 92, 246, 0.5)',
   },
-  cleanupButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#00d9ff',
+  refreshButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8B5CF6',
   },
 });
 
-export default StorageScreen;
+export default withErrorBoundary(StorageScreen, 'Storage');

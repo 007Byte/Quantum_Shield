@@ -1,0 +1,51 @@
+rules:
+  - id: usbvault-webcrypto-fallback-enabled
+    patterns:
+      - pattern: USE_WEBCRYPTO_FALLBACK = true
+    message: "WebCrypto fallback must be disabled for production. Use Rust crypto module."
+    severity: ERROR
+    languages: [typescript]
+
+  - id: usbvault-low-pbkdf2-iterations
+    patterns:
+      - pattern: PBKDF2_ITERATIONS = $X
+    message: "PBKDF2 iterations must be >= 600000 for production security"
+    severity: ERROR
+    languages: [typescript]
+
+  - id: usbvault-math-random-security
+    pattern: Math.random()
+    message: "Do not use Math.random() for security-sensitive values. Use crypto.getRandomValues()"
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: usbvault-placeholder-cert-pins
+    pattern-regex: "AAAA{8,}|BBBB{8,}|CCCC{8,}"
+    message: "Placeholder certificate pins detected. Replace with real pins before production."
+    severity: ERROR
+    languages: [typescript]
+
+  - id: usbvault-hardcoded-credentials
+    pattern-regex: "(password|secret|token|key)\\s*[:=]\\s*['\"][^'\"]{8,}['\"]"
+    message: "Possible hardcoded credential detected"
+    severity: WARNING
+    languages: [typescript, javascript, go]
+
+  - id: usbvault-user-not-found-disclosure
+    pattern: |
+      http.Error($W, "user not found", ...)
+    message: "User enumeration risk: use generic error messages"
+    severity: ERROR
+    languages: [go]
+
+  - id: usbvault-eval-usage
+    pattern: eval(...)
+    message: "eval() is forbidden - code injection risk"
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: usbvault-innerhtml-xss
+    pattern: .innerHTML = ...
+    message: "innerHTML assignment is an XSS risk. Use textContent or a sanitizer."
+    severity: ERROR
+    languages: [typescript, javascript]

@@ -136,12 +136,10 @@ function readShortcuts(): Shortcut[] {
 }
 
 function _initializeDefaults(): Shortcut[] {
-  const shortcuts: Shortcut[] = Object.entries(DEFAULT_SHORTCUTS).map(
-    ([id, shortcut]) => ({
-      id,
-      ...shortcut,
-    }),
-  );
+  const shortcuts: Shortcut[] = Object.entries(DEFAULT_SHORTCUTS).map(([id, shortcut]) => ({
+    id,
+    ...shortcut,
+  }));
   writeShortcuts(shortcuts);
   return shortcuts;
 }
@@ -179,10 +177,12 @@ function _normalizeKeys(keys: string): string {
 function _matchesKeyCombination(event: KeyboardEvent, keys: string): boolean {
   const parts = keys.split('+');
   const modifiers = new Set(
-    parts.filter(p => ['Ctrl', 'Shift', 'Alt', 'Cmd', 'Meta'].includes(p)).map(p => {
-      if (p === 'Cmd' || p === 'Meta') return 'meta';
-      return p.toLowerCase();
-    }),
+    parts
+      .filter(p => ['Ctrl', 'Shift', 'Alt', 'Cmd', 'Meta'].includes(p))
+      .map(p => {
+        if (p === 'Cmd' || p === 'Meta') return 'meta';
+        return p.toLowerCase();
+      })
   );
 
   const key = parts[parts.length - 1];
@@ -199,15 +199,15 @@ function _matchesKeyCombination(event: KeyboardEvent, keys: string): boolean {
 
   // Handle special key names
   const keyMap: Record<string, string[]> = {
-    'enter': ['enter'],
-    'escape': ['escape'],
-    'tab': ['tab'],
-    'backspace': ['backspace'],
-    'delete': ['delete'],
-    'arrowup': ['arrowup', 'up'],
-    'arrowdown': ['arrowdown', 'down'],
-    'arrowleft': ['arrowleft', 'left'],
-    'arrowright': ['arrowright', 'right'],
+    enter: ['enter'],
+    escape: ['escape'],
+    tab: ['tab'],
+    backspace: ['backspace'],
+    delete: ['delete'],
+    arrowup: ['arrowup', 'up'],
+    arrowdown: ['arrowdown', 'down'],
+    arrowleft: ['arrowleft', 'left'],
+    arrowright: ['arrowright', 'right'],
   };
 
   if (keyMap[shortcutKey]) {

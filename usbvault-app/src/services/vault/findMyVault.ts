@@ -56,7 +56,7 @@ class FindMyVaultService {
         this.knownVaultLocations = JSON.parse(locations);
       }
     } catch (error) {
-      console.error('Failed to load vault scan data from storage:', error);
+      logger.error('Failed to load vault scan data from storage:', error);
       this.lastScanResults = [];
       this.knownVaultLocations = [];
     }
@@ -70,7 +70,7 @@ class FindMyVaultService {
         JSON.stringify(this.knownVaultLocations)
       );
     } catch (error) {
-      console.error('Failed to save vault scan data to storage:', error);
+      logger.error('Failed to save vault scan data to storage:', error);
     }
   }
 
@@ -101,7 +101,8 @@ class FindMyVaultService {
 
       this.scanProgress.status = 'complete';
       this.scanProgress.completedAt = Date.now();
-      this.scanProgress.duration = (this.scanProgress.completedAt - (this.scanProgress.startedAt || 0)) / 1000;
+      this.scanProgress.duration =
+        (this.scanProgress.completedAt - (this.scanProgress.startedAt || 0)) / 1000;
 
       this.lastScanResults = results;
       this.saveToStorage();
@@ -115,7 +116,8 @@ class FindMyVaultService {
     } catch (error) {
       this.scanProgress.status = 'error';
       this.scanProgress.completedAt = Date.now();
-      this.scanProgress.duration = (this.scanProgress.completedAt - (this.scanProgress.startedAt || 0)) / 1000;
+      this.scanProgress.duration =
+        (this.scanProgress.completedAt - (this.scanProgress.startedAt || 0)) / 1000;
 
       await auditService.log('VAULT_SCAN_FAILED' as any, 'vault_scanner', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -169,7 +171,7 @@ class FindMyVaultService {
 
   async verifyVaultIntegrity(path: string): Promise<{ valid: boolean; errors?: string[] }> {
     try {
-      const vault = this.lastScanResults.find((v) => v.path === path);
+      const vault = this.lastScanResults.find(v => v.path === path);
       if (!vault) {
         return { valid: false, errors: ['Vault not found in scan results'] };
       }

@@ -1,0 +1,46 @@
+# Settings Change Flow — USBVault Enterprise
+# Assumes the user is already logged in. Navigates to Settings,
+# scrolls to the security section, and verifies settings are visible.
+appId: com.usbvault.enterprise
+
+---
+
+# Step 1: Navigate to the Settings tab via sidebar
+- tapOn: "Settings"
+- waitForAnimationToEnd
+
+# Step 2: Assert the settings screen loaded
+- assertVisible: "Settings"
+
+# Step 3: Verify the Privacy section is visible (rendered first in left column)
+- assertVisible: "Privacy"
+
+# Step 4: Scroll down to find the Security section
+- scrollUntilVisible:
+    element: "Security"
+    direction: DOWN
+    timeout: 10000
+
+# Step 5: Assert the Security section is visible
+- assertVisible: "Security"
+
+# Step 6: Scroll further to verify Notifications section
+- scrollUntilVisible:
+    element: "Notifications"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Notifications"
+
+# Step 7: Scroll to verify Account section is reachable
+- scrollUntilVisible:
+    element: "Account"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Account"
+
+# Step 8: Verify the Sign Out button is present (in About section)
+- scrollUntilVisible:
+    element: "Sign Out"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Sign Out"

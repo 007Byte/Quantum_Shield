@@ -11,8 +11,9 @@
  */
 
 import { Platform } from 'react-native';
-import { forensicsService, CleanupCategory } from './forensicsService';
+import { forensicsService, CleanupCategory } from './forensics';
 import { auditService } from './auditService';
+import { logger } from '@/utils/logger';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -143,14 +144,18 @@ class FootprintServiceImpl {
   async scanFootprint(): Promise<FootprintItem[]> {
     try {
       const statuses = forensicsService.getCategoryStatuses();
-      const categories: FootprintItem[] = statuses.map((status) => {
+      const categories: FootprintItem[] = statuses.map(status => {
         const footprintCat = mapToFootprintCategory(status.category);
 
+        const mappedStatus: 'clean' | 'dirty' | 'unknown' =
+          status.status === 'not_applicable'
+            ? 'clean'
+            : (status.status as 'clean' | 'dirty' | 'unknown');
         return {
           id: footprintCat,
           name: status.label,
           description: status.description,
-          status: status.status === 'not_applicable' ? 'clean' : status.status,
+          status: mappedStatus,
           itemCount: this.estimateItemCount(status.category),
           lastCleaned: status.lastCleaned || undefined,
         };
@@ -159,18 +164,22 @@ class FootprintServiceImpl {
       const result: ScanResult = {
         timestamp: new Date().toISOString(),
         categories,
-        totalDirty: categories.filter((c) => c.status === 'dirty').length,
-        totalUnknown: categories.filter((c) => c.status === 'unknown').length,
+        totalDirty: categories.filter(c => c.status === 'dirty').length,
+        totalUnknown: categories.filter(c => c.status === 'unknown').length,
       };
 
       writeScanResult(result);
 
-      auditService.log('system', 'footprint_scan_complete', { categories: categories.length }, 'success').catch(() => {});
+      auditService
+        .log('system', 'footprint_scan_complete', { categories: categories.length }, 'success')
+        .catch(() => {});
 
       return categories;
     } catch (err) {
-      console.error('[Footprint] Scan error:', err);
-      auditService.log('system', 'footprint_scan_error', { error: String(err) }, 'error').catch(() => {});
+      logger.error('[Footprint] Scan error:', err);
+      auditService
+        .log('system', 'footprint_scan_error', { error: String(err) }, 'error')
+        .catch(() => {});
       return [];
     }
   }
@@ -209,13 +218,22 @@ class FootprintServiceImpl {
         history.push(op);
         writeCleanupHistory(history);
 
-        auditService.log('system', 'footprint_category_cleaned', { category: categoryId }, 'success').catch(() => {});
+        auditService
+          .log('system', 'footprint_category_cleaned', { category: categoryId }, 'success')
+          .catch(() => {});
       }
 
       return success;
     } catch (err) {
-      console.error(`[Footprint] Failed to clean ${categoryId}:`, err);
-      auditService.log('system', 'footprint_cleanup_error', { category: categoryId, error: String(err) }, 'error').catch(() => {});
+      logger.error(`[Footprint] Failed to clean ${categoryId}:`, err);
+      auditService
+        .log(
+          'system',
+          'footprint_cleanup_error',
+          { category: categoryId, error: String(err) },
+          'error'
+        )
+        .catch(() => {});
       return false;
     }
   }
@@ -237,7 +255,7 @@ class FootprintServiceImpl {
 
       // Record combined operation
       const history = readCleanupHistory();
-      const categories: FootprintCategory[] = scan.map((c) => c.id as FootprintCategory);
+      const categories: FootprintCategory[] = scan.map(c => c.id as FootprintCategory);
       const op: CleanupOperation = {
         timestamp: new Date().toISOString(),
         categories,
@@ -247,12 +265,21 @@ class FootprintServiceImpl {
       history.push(op);
       writeCleanupHistory(history);
 
-      auditService.log('system', 'footprint_full_cleanup', { categoriesCleaned: cleaned, total: scan.length }, 'success').catch(() => {});
+      auditService
+        .log(
+          'system',
+          'footprint_full_cleanup',
+          { categoriesCleaned: cleaned, total: scan.length },
+          'success'
+        )
+        .catch(() => {});
 
       return cleaned;
     } catch (err) {
-      console.error('[Footprint] Full cleanup error:', err);
-      auditService.log('system', 'footprint_cleanup_error', { error: String(err) }, 'error').catch(() => {});
+      logger.error('[Footprint] Full cleanup error:', err);
+      auditService
+        .log('system', 'footprint_cleanup_error', { error: String(err) }, 'error')
+        .catch(() => {});
       return 0;
     }
   }

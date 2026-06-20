@@ -1,12 +1,32 @@
-export { colors } from './colors';
-export { typography } from './typography';
+/**
+ * USBVault Theme — Public API
+ *
+ * Primary exports: layer-based engine (useTheme, resolveLayerStyle, etc.)
+ * Legacy exports: colors, typography, spacing (for gradual migration)
+ */
+
+// ── New Layer-Based Engine (preferred) ──────────────────────────────
+export {
+  useTheme,
+  getTheme,
+  theme,
+  resolveLayerStyle,
+  resolveLayerStyleWith,
+  layerPressable,
+  textColors,
+} from './engine';
+
+// ── Design Tokens ──────────────────────────────────────────────────
 export { spacing } from './spacing';
 export type { SpacingKey } from './spacing';
+export { typography } from './typography';
+export { radii, timing, zIndex, layout } from './tokens';
 
-export const theme = {
-  colors: require('./colors').colors,
-  typography: require('./typography').typography,
-  spacing: require('./spacing').spacing,
-};
+// ── Theme Definitions (for advanced use) ───────────────────────────
+export { darkTheme } from './dark';
+export { lightTheme } from './light';
+export type { ThemeDefinition, LayerStateStyle, Layer, TextColors } from './layers.types';
 
-export type Theme = typeof theme;
+// ── Legacy Compatibility (deprecated — migrate to useTheme) ────────
+export { colors } from './colors';
+export { dashboardColorsCompat, lightGlassCompat, colorsCompat } from './compat';

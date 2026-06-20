@@ -5,7 +5,8 @@
     "prettier"
   ],
   "plugins": [
-    "prettier"
+    "prettier",
+    "import"
   ],
   "rules": {
     "prettier/prettier": "error",
@@ -13,16 +14,86 @@
     "no-console": [
       "warn",
       {
-        "allow": [
-          "warn",
-          "error"
+        "allow": ["warn", "error", "info", "debug"]
+      }
+    ],
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "zones": [
+          {
+            "target": "./src/utils/**",
+            "from": "./src/stores/**",
+            "message": "L0 (utils) cannot import L2 (stores). Pass data as arguments."
+          },
+          {
+            "target": "./src/utils/**",
+            "from": "./src/hooks/**",
+            "message": "L0 (utils) cannot import L2 (hooks)."
+          },
+          {
+            "target": "./src/utils/**",
+            "from": "./src/components/**",
+            "message": "L0 (utils) cannot import L3 (components)."
+          },
+          {
+            "target": "./src/utils/**",
+            "from": "./src/app/**",
+            "message": "L0 (utils) cannot import L4 (screens)."
+          },
+          {
+            "target": "./src/services/**",
+            "from": "./src/stores/**",
+            "message": "L1 (services) cannot import L2 (stores). Receive state as arguments."
+          },
+          {
+            "target": "./src/services/**",
+            "from": "./src/components/**",
+            "message": "L1 (services) cannot import L3 (components)."
+          },
+          {
+            "target": "./src/services/**",
+            "from": "./src/app/**",
+            "message": "L1 (services) cannot import L4 (screens)."
+          },
+          {
+            "target": "./src/hooks/**",
+            "from": "./src/components/**",
+            "message": "L2 (hooks) cannot import L3 (components)."
+          },
+          {
+            "target": "./src/hooks/**",
+            "from": "./src/app/**",
+            "message": "L2 (hooks) cannot import L4 (screens)."
+          },
+          {
+            "target": "./src/stores/**",
+            "from": "./src/components/**",
+            "message": "L2 (stores) cannot import L3 (components)."
+          },
+          {
+            "target": "./src/stores/**",
+            "from": "./src/app/**",
+            "message": "L2 (stores) cannot import L4 (screens)."
+          },
+          {
+            "target": "./src/components/**",
+            "from": "./src/app/**",
+            "message": "L3 (components) cannot import L4 (screens)."
+          }
         ]
       }
     ]
   },
   "env": {
-    "react-native/react-native": true,
     "node": true,
     "es2021": true
+  },
+  "settings": {
+    "import/resolver": {
+      "node": {
+        "extensions": [".js", ".jsx", ".ts", ".tsx"]
+      }
+    }
   }
 }

@@ -500,7 +500,7 @@ func OWASPMobileTop10() []OWASPControl {
 				"HTTPS-only in production",
 				"CORS with explicit allowed origins",
 				"Security headers prevent protocol downgrade",
-				"TLS 1.2+ required",
+				"TLS 1.3 minimum enforced (server TLSConfig.MinVersion)",
 				"No sensitive data in URLs",
 				"Request/response bodies encrypted with X25519/XChaCha20-Poly1305",
 			},

@@ -10,9 +10,10 @@
  * @module services/ghostModeService
  */
 
-import { forensicsService } from './forensicsService';
+import { forensicsService } from './forensics';
 import { auditService } from './auditService';
 import { readLocal, writeLocal } from '@/utils/storageHelpers';
+import { logger } from '@/utils/logger';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -60,19 +61,18 @@ function readSettings(): GhostModeSettings {
   return stored ? { ...DEFAULT_SETTINGS, ...stored } : DEFAULT_SETTINGS;
 }
 
-const writeSettings = (settings: GhostModeSettings) =>
-  writeLocal(SETTINGS_KEY, settings);
+const writeSettings = (settings: GhostModeSettings) => writeLocal(SETTINGS_KEY, settings);
 
-const readStatus = () =>
-  readLocal<GhostModeStatus>(STATUS_KEY, DEFAULT_STATUS);
+const readStatus = () => readLocal<GhostModeStatus>(STATUS_KEY, DEFAULT_STATUS);
 
-const writeStatus = (status: GhostModeStatus) =>
-  writeLocal(STATUS_KEY, status);
+const writeStatus = (status: GhostModeStatus) => writeLocal(STATUS_KEY, status);
 
 /**
  * Record a cleanup operation timestamp.
  */
-function recordCleanupTimestamp(operation: 'ram_scrub' | 'journal_cleanup' | 'metadata_sanitization'): void {
+function recordCleanupTimestamp(
+  operation: 'ram_scrub' | 'journal_cleanup' | 'metadata_sanitization'
+): void {
   const status = readStatus();
 
   switch (operation) {
@@ -113,12 +113,7 @@ class GhostModeServiceImpl {
       cleanOnLock: settings.ramScrubOnLock,
       cleanOnLogout: settings.ramScrubOnLogout,
       scheduledIntervalMin: settings.autoCleanScheduleMinutes,
-      autoCleanCategories: [
-        'clipboard',
-        'app_cache',
-        'session_data',
-        'temp_files',
-      ],
+      autoCleanCategories: ['clipboard', 'app_cache', 'session_data', 'temp_files'],
     });
   }
 
@@ -149,7 +144,9 @@ class GhostModeServiceImpl {
       this.setupClipboardAutoClean();
     }
 
-    auditService.log('settings_change', 'ghost_mode_settings', { settings }, 'success').catch(() => {});
+    auditService
+      .log('settings_change', 'ghost_mode_settings', { settings }, 'success')
+      .catch(() => {});
   }
 
   /**
@@ -163,10 +160,14 @@ class GhostModeServiceImpl {
 
       recordCleanupTimestamp('ram_scrub');
 
-      auditService.log('system', 'ghost_mode_ram_scrub_triggered', { success: result.success }, 'success').catch(() => {});
+      auditService
+        .log('system', 'ghost_mode_ram_scrub_triggered', { success: result.success }, 'success')
+        .catch(() => {});
     } catch (err) {
-      console.error('[GhostMode] RAM scrub failed:', err);
-      auditService.log('system', 'ghost_mode_ram_scrub_failed', { error: String(err) }, 'error').catch(() => {});
+      logger.error('[GhostMode] RAM scrub failed:', err);
+      auditService
+        .log('system', 'ghost_mode_ram_scrub_failed', { error: String(err) }, 'error')
+        .catch(() => {});
     }
   }
 
@@ -178,10 +179,14 @@ class GhostModeServiceImpl {
       await forensicsService.cleanCategory('os_journals');
       recordCleanupTimestamp('journal_cleanup');
 
-      auditService.log('system', 'ghost_mode_journal_cleanup_triggered', {}, 'success').catch(() => {});
+      auditService
+        .log('system', 'ghost_mode_journal_cleanup_triggered', {}, 'success')
+        .catch(() => {});
     } catch (err) {
-      console.error('[GhostMode] Journal cleanup failed:', err);
-      auditService.log('system', 'ghost_mode_journal_cleanup_failed', { error: String(err) }, 'error').catch(() => {});
+      logger.error('[GhostMode] Journal cleanup failed:', err);
+      auditService
+        .log('system', 'ghost_mode_journal_cleanup_failed', { error: String(err) }, 'error')
+        .catch(() => {});
     }
   }
 
@@ -198,10 +203,14 @@ class GhostModeServiceImpl {
 
       recordCleanupTimestamp('metadata_sanitization');
 
-      auditService.log('system', 'ghost_mode_metadata_sanitization_triggered', {}, 'success').catch(() => {});
+      auditService
+        .log('system', 'ghost_mode_metadata_sanitization_triggered', {}, 'success')
+        .catch(() => {});
     } catch (err) {
-      console.error('[GhostMode] Metadata sanitization failed:', err);
-      auditService.log('system', 'ghost_mode_metadata_sanitization_failed', { error: String(err) }, 'error').catch(() => {});
+      logger.error('[GhostMode] Metadata sanitization failed:', err);
+      auditService
+        .log('system', 'ghost_mode_metadata_sanitization_failed', { error: String(err) }, 'error')
+        .catch(() => {});
     }
   }
 
@@ -258,7 +267,7 @@ class GhostModeServiceImpl {
       try {
         await forensicsService.cleanCategory('clipboard');
       } catch (err) {
-        console.error('[GhostMode] Clipboard auto-clean failed:', err);
+        logger.error('[GhostMode] Clipboard auto-clean failed:', err);
       } finally {
         this.clipboardCleanInFlight = false;
       }

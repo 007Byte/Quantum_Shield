@@ -29,7 +29,7 @@ export type CleanupCategory =
   | 'swap_pagefile'
   | 'os_journals';
 
-export type CleanupStatus = 'clean' | 'dirty' | 'unknown' | 'not_applicable';
+export type CleanupStatus = 'clean' | 'dirty' | 'unknown' | 'not_applicable' | 'requires_desktop';
 
 export interface CleanupCategoryStatus {
   category: CleanupCategory;
@@ -45,6 +45,35 @@ export interface CleanupResult {
   categoriesCleaned: CleanupCategory[];
   errors: string[];
   timestamp: string;
+}
+
+/**
+ * Result from wipeTraces — comprehensive cleanup with skip tracking.
+ */
+export interface WipeResult {
+  categoriesCleaned: string[];
+  categoriesSkipped: { category: string; reason: string }[];
+  errors: string[];
+  timestamp: string;
+}
+
+/**
+ * Forensics scan report — summary of detected digital traces.
+ */
+export interface ForensicsReport {
+  timestamp: string;
+  findings: string[];
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+}
+
+// Backward-compatible aliases for consumers importing from forensicsService
+export type CategoryStatus = CleanupCategoryStatus;
+export type GhostModeResult = CleanupResult;
+export interface ForensicsFinding {
+  id: string;
+  severity: string;
+  description: string;
+  canRemediate: boolean;
 }
 
 export interface ForensicsConfig {
@@ -94,7 +123,9 @@ class ForensicsService {
       if (stored) {
         this.config = { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
       }
-    } catch { /* defaults */ }
+    } catch {
+      /* defaults */
+    }
   }
 
   getConfig(): ForensicsConfig {
@@ -107,7 +138,9 @@ class ForensicsService {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(CONFIG_KEY, JSON.stringify(this.config));
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
 
     // Re-schedule if interval changed
     if ('scheduledIntervalMin' in partial) {
@@ -271,12 +304,16 @@ class ForensicsService {
     result.categoriesCleaned.push('session_data');
 
     // Log audit entry
-    auditService.log('vault_lock', 'ghost_mode_cleanup', {
-      categories: result.categoriesCleaned.join(','),
-      errors: result.errors.length,
-    }).catch(() => {});
+    auditService
+      .log('vault_lock', 'ghost_mode_cleanup', {
+        categories: result.categoriesCleaned.join(','),
+        errors: result.errors.length,
+      })
+      .catch(() => {});
 
-    logger.log(`[Forensics] Ghost Mode complete: ${result.categoriesCleaned.length} categories cleaned`);
+    logger.log(
+      `[Forensics] Ghost Mode complete: ${result.categoriesCleaned.length} categories cleaned`
+    );
     return result;
   }
 
@@ -287,6 +324,86 @@ class ForensicsService {
     await this.cleanClipboard();
     await this.cleanSessionData();
     this.scrubRAM();
+  }
+
+  /**
+   * Scan for forensic traces across all categories.
+   * Returns a summary report with findings and risk level.
+   */
+  async scan(): Promise<ForensicsReport> {
+    const statuses = this.getCategoryStatuses();
+    const findings: string[] = [];
+
+    for (const status of statuses) {
+      if (status.status === 'dirty') {
+        findings.push(`${status.label}: ${status.description}`);
+      }
+    }
+
+    const riskLevel: ForensicsReport['riskLevel'] =
+      findings.length === 0
+        ? 'low'
+        : findings.length <= 2
+          ? 'medium'
+          : findings.length <= 4
+            ? 'high'
+            : 'critical';
+
+    return {
+      timestamp: new Date().toISOString(),
+      findings,
+      riskLevel,
+    };
+  }
+
+  /**
+   * Wipe all accessible forensic traces with detailed result tracking.
+   * Reports which categories were cleaned, skipped, or errored.
+   */
+  async wipeTraces(): Promise<WipeResult> {
+    const statuses = this.getCategoryStatuses();
+    const cleaned: string[] = [];
+    const skipped: { category: string; reason: string }[] = [];
+    const errors: string[] = [];
+
+    for (const status of statuses) {
+      if (!status.canClean) {
+        skipped.push({ category: status.category, reason: 'Not available on this platform' });
+        continue;
+      }
+      try {
+        const ok = await this.cleanCategory(status.category);
+        if (ok) {
+          cleaned.push(status.category);
+        } else {
+          skipped.push({ category: status.category, reason: 'Cleanup returned false' });
+        }
+      } catch (err) {
+        errors.push(`${status.category}: ${err instanceof Error ? err.message : 'unknown'}`);
+      }
+    }
+
+    // Always scrub RAM regardless
+    this.scrubRAM();
+
+    auditService
+      .log('vault_lock', 'wipe_traces', {
+        cleaned: cleaned.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      })
+      .catch(() => {});
+
+    logger.log(
+      `[Forensics] Wipe traces complete: ${cleaned.length} cleaned, ${skipped.length} skipped, ${errors.length} errors`
+    );
+
+    return {
+      categoriesCleaned: cleaned,
+      categoriesSkipped: skipped,
+      errors,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   // ── Individual Cleanup Implementations ──
@@ -333,7 +450,9 @@ class ForensicsService {
         }
         logger.log('[Forensics] Session data cleaned');
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   private async cleanRecentFiles(): Promise<void> {
@@ -366,7 +485,9 @@ class ForensicsService {
         }
         view.fill(0);
         count++;
-      } catch { /* buffer may have been detached */ }
+      } catch {
+        /* buffer may have been detached */
+      }
     });
     sensitiveBuffers.clear();
     if (count > 0) {
@@ -438,7 +559,9 @@ class ForensicsService {
       const timestamps = this.getLastCleanTimestamps();
       timestamps[category] = new Date().toISOString();
       localStorage.setItem(LAST_CLEAN_KEY, JSON.stringify(timestamps));
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 }
 

@@ -108,7 +108,7 @@ const QR_EXPIRY_MS = 10 * 60 * 1000;
  */
 function uint8ToHex(arr: Uint8Array): string {
   return Array.from(arr)
-    .map((b) => b.toString(16).padStart(2, '0'))
+    .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -117,7 +117,7 @@ function uint8ToHex(arr: Uint8Array): string {
  */
 function hexToUint8(hex: string): Uint8Array {
   const bytes = hex.match(/.{1,2}/g);
-  return new Uint8Array(bytes ? bytes.map((b) => parseInt(b, 16)) : []);
+  return new Uint8Array(bytes ? bytes.map(b => parseInt(b, 16)) : []);
 }
 
 /**
@@ -186,10 +186,7 @@ class KeyVerificationService {
    * );
    * console.log(safetyNumber); // "12345 67890 12345 67890 ..."
    */
-  async generateSafetyNumber(
-    localPublicKey: string,
-    remotePublicKey: string,
-  ): Promise<string> {
+  async generateSafetyNumber(localPublicKey: string, remotePublicKey: string): Promise<string> {
     try {
       // Validate both keys are valid 32-byte X25519 keys (64 hex chars)
       if (!/^[0-9a-f]{64}$/i.test(localPublicKey)) {
@@ -216,7 +213,7 @@ class KeyVerificationService {
     } catch (err) {
       logger.error('Failed to generate safety number', err);
       throw new Error(
-        `Failed to generate safety number: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to generate safety number: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
@@ -258,7 +255,7 @@ class KeyVerificationService {
     } catch (err) {
       logger.error('Failed to format safety number', err);
       throw new Error(
-        `Failed to format safety number: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to format safety number: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
@@ -283,10 +280,7 @@ class KeyVerificationService {
    * const qrString = JSON.stringify(payload);
    * // Use QR library to encode qrString
    */
-  async generateQRPayload(
-    localPublicKey: string,
-    email: string,
-  ): Promise<QRPayload> {
+  async generateQRPayload(localPublicKey: string, email: string): Promise<QRPayload> {
     try {
       // Generate fingerprint (short hash) from public key
       const encoder = new TextEncoder();
@@ -307,7 +301,7 @@ class KeyVerificationService {
     } catch (err) {
       logger.error('Failed to generate QR payload', err);
       throw new Error(
-        `Failed to generate QR payload: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to generate QR payload: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
@@ -350,7 +344,7 @@ class KeyVerificationService {
    */
   async verifyScannedQR(
     scannedPayload: string,
-    localPublicKeyHex: string,
+    localPublicKeyHex: string
   ): Promise<QRVerificationResult> {
     try {
       // 1. Parse and validate format
@@ -369,7 +363,8 @@ class KeyVerificationService {
         return {
           valid: false,
           status: 'invalid_format',
-          error: 'QR payload missing required fields (email, publicKeyHex, fingerprint, generatedAt)',
+          error:
+            'QR payload missing required fields (email, publicKeyHex, fingerprint, generatedAt)',
         };
       }
 
@@ -417,15 +412,13 @@ class KeyVerificationService {
           valid: false,
           status: 'key_changed',
           email: payload.email,
-          error: 'Contact\'s key has changed since last verification — please confirm their identity',
+          error:
+            "Contact's key has changed since last verification — please confirm their identity",
         };
       }
 
       // 5. Generate safety number from both keys
-      const safetyNumber = await this.generateSafetyNumber(
-        localPublicKeyHex,
-        payload.publicKeyHex,
-      );
+      const safetyNumber = await this.generateSafetyNumber(localPublicKeyHex, payload.publicKeyHex);
 
       // 6. Auto-mark as verified
       await this.verifyContact(payload.email, true, safetyNumber, payload.publicKeyHex);
@@ -466,7 +459,7 @@ class KeyVerificationService {
     contactEmail: string,
     verified: boolean,
     safetyNumber?: string,
-    publicKeyHex?: string,
+    publicKeyHex?: string
   ): Promise<void> {
     try {
       const email = normalizeEmail(contactEmail);
@@ -494,9 +487,7 @@ class KeyVerificationService {
       records.set(email, record);
       writeVerifications(records);
 
-      logger.info(
-        `Marked ${email} as ${verified ? 'verified' : 'unverified'}`,
-      );
+      logger.info(`Marked ${email} as ${verified ? 'verified' : 'unverified'}`);
     } catch (err) {
       logger.error('Failed to verify contact', err);
     }
@@ -521,7 +512,7 @@ class KeyVerificationService {
    */
   async checkKeyChanged(
     contactEmail: string,
-    currentPublicKeyHex: string,
+    currentPublicKeyHex: string
   ): Promise<KeyChangeResult> {
     const email = normalizeEmail(contactEmail);
     const currentHash = await this.hashPublicKey(currentPublicKeyHex);
@@ -547,9 +538,7 @@ class KeyVerificationService {
       records.set(email, record);
       writeVerifications(records);
 
-      logger.warn(
-        `[SG-009] Key change detected for ${email} — verification invalidated`,
-      );
+      logger.warn(`[SG-009] Key change detected for ${email} — verification invalidated`);
     }
 
     return {
@@ -711,7 +700,7 @@ class KeyVerificationService {
     } catch (err) {
       logger.error('Failed to import verifications', err);
       throw new Error(
-        `Failed to import verifications: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to import verifications: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }

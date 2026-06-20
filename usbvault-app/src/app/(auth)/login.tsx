@@ -228,9 +228,9 @@ const styles = StyleSheet.create({
 
 export default function LoginScreen() {
   const router = useRouter();
-  const login = useAuthStore((state) => state.login);
-  const error = useAuthStore((state) => state.error);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const login = useAuthStore(state => state.login);
+  const error = useAuthStore(state => state.error);
+  const isLoading = useAuthStore(state => state.isLoading);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -263,14 +263,13 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🛡️</Text>
-          <Text style={styles.title}>Welcome to USBVault</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Welcome to USBVault
+          </Text>
           <Text style={styles.subtitle}>Zero-Knowledge Security</Text>
         </View>
 
@@ -285,11 +284,11 @@ export default function LoginScreen() {
             <Text style={styles.usbStatusText}>No USB vaults detected</Text>
           </View>
           <View style={styles.usbActions}>
-            <Pressable style={styles.usbRescanBtn} onPress={() => {}}>
+            <Pressable style={styles.usbRescanBtn} onPress={() => {}} accessibilityRole="button" accessibilityLabel="Rescan for USB vaults">
               <Feather name="refresh-cw" size={14} color={colors.accentPrimary} />
               <Text style={styles.usbRescanText}>Rescan</Text>
             </Pressable>
-            <Pressable style={styles.usbSetupBtn} onPress={() => {}}>
+            <Pressable style={styles.usbSetupBtn} onPress={() => {}} accessibilityRole="button" accessibilityLabel="Setup new USB vault">
               <Feather name="plus-circle" size={14} color={colors.accentPrimary} />
               <Text style={styles.usbSetupText}>Setup New USB</Text>
             </Pressable>
@@ -299,9 +298,7 @@ export default function LoginScreen() {
         {/* Errors */}
         {(error || validationError) && (
           <View style={styles.error}>
-            <Text style={styles.errorText}>
-              {error || validationError}
-            </Text>
+            <Text style={styles.errorText}>{error || validationError}</Text>
           </View>
         )}
 
@@ -338,6 +335,7 @@ export default function LoginScreen() {
               disabled={isLoading}
               fullWidth
               testID="login-button"
+              accessibilityLabel="Sign in to your account"
             >
               Sign In
             </Button>
@@ -359,6 +357,7 @@ export default function LoginScreen() {
             }}
             fullWidth
             testID="login-biometric-button"
+            accessibilityLabel="Sign in with biometric unlock"
           >
             <Text style={styles.methodIcon}>👆</Text>
             Biometric Unlock
@@ -371,6 +370,7 @@ export default function LoginScreen() {
             }}
             fullWidth
             testID="login-fido2-button"
+            accessibilityLabel="Sign in with security key"
           >
             <Text style={styles.methodIcon}>🔐</Text>
             Security Key
@@ -384,6 +384,7 @@ export default function LoginScreen() {
             variant="link"
             onPress={() => router.push('/(auth)/register')}
             testID="login-register-link"
+            accessibilityLabel="Create a new account"
           >
             Create Account
           </Button>

@@ -1,0 +1,47 @@
+# Encrypt File Flow — USBVault Enterprise
+# Assumes the user is already logged in. Navigates to Encrypt & Store,
+# selects a file, configures encryption, and asserts success.
+appId: com.usbvault.enterprise
+
+---
+
+# Step 1: Navigate to the Encrypt & Store tab via sidebar
+- tapOn: "Encrypt & Store"
+- waitForAnimationToEnd
+
+# Step 2: Assert the encrypt screen loaded
+- assertVisible: "Encrypt & Store"
+
+# Step 3: Tap the Select File drop zone / button
+- tapOn: "Select File"
+- waitForAnimationToEnd
+
+# Step 4: Wait for the file picker or file selection to complete
+# On native, DocumentPicker will open; on web, a file input dialog appears.
+# In CI, a pre-staged test file should be available.
+- waitForAnimationToEnd
+
+# Step 5: Verify algorithm selection step is visible
+- assertVisible: "Choose Algorithm"
+
+# Step 6: Select the default algorithm (AES-256-GCM-SIV)
+- tapOn: "AES-256-GCM-SIV"
+- waitForAnimationToEnd
+
+# Step 7: Verify security level step is visible
+- assertVisible: "Choose Security Level"
+
+# Step 8: Select Standard security level
+- tapOn: "Standard"
+- waitForAnimationToEnd
+
+# Step 9: Tap the Encrypt & Store button
+- tapOn: "Encrypt & Store"
+
+# Step 10: Wait for encryption to complete
+- extendedWaitUntil:
+    visible: "encrypted"
+    timeout: 30000
+
+# Step 11: Assert success — encryption completed
+- assertVisible: "encrypted"

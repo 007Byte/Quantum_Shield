@@ -15,6 +15,7 @@
  */
 
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require('nativewind/metro');
 const path = require('path');
 
 const config = getDefaultConfig(__dirname);
@@ -70,11 +71,8 @@ config.transformer = {
       // PH9-FIX: Comments removal (strip all non-license comments)
       comments: false,
 
-      // PH9-FIX: Avoid escaping special characters
+      // PH9-FIX: Minimize whitespace for smaller output
       beautify: false,
-
-      // PH9-FIX: Disable pretty printing for smaller output
-      compress: true,
     },
   },
 };
@@ -84,10 +82,6 @@ config.transformer = {
 // but NEVER shipped inside the APK/IPA bundle.
 config.serializer = {
   ...config.serializer,
-  // RM-004: Exclude test and __mocks__ directories from the bundle
-  getModulesRunBeforeMainModule() {
-    return [];
-  },
 };
 
 // PH9-FIX: Ensure resolver configuration for proper module resolution
@@ -103,4 +97,25 @@ if (!config.resolver.sourceExts.includes('ts')) {
   config.resolver.sourceExts = [...config.resolver.sourceExts, 'ts', 'tsx'];
 }
 
+// FIX: Remove .mjs from sourceExts to prevent Metro from resolving ESM entry
+// points (e.g. zustand/esm/index.mjs) that use `import.meta.env` — which is a
+// syntax error in the non-module <script> bundle Metro produces for web.
+config.resolver.sourceExts = config.resolver.sourceExts.filter(ext => ext !== 'mjs');
+
+// ── USB Dev Middleware ────────────────────────────────────────────────
+// In development, embed USB Companion API directly into Metro dev server.
+// This avoids cross-origin issues between the frontend (localhost:8081)
+// and a separate companion service. In production (Electron/Tauri), a
+// standalone companion service handles USB operations instead.
+const { createUsbMiddleware } = require('./usb-dev-middleware');
+
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware) => createUsbMiddleware(middleware),
+};
+
+// NativeWind/Tailwind CSS is installed but not yet active in Metro.
+// Enable when migrating components to Tailwind classes:
+//   module.exports = withNativeWind(config, { input: './global.css' });
+// For now, use plain Metro config to avoid web bundling issues.
 module.exports = config;

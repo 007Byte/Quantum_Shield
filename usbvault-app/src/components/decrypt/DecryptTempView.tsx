@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable, Image, Platform } from 'react-native
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { dashboardSpacing, dashboardColors } from '@/components/dashboard2/styles';
-import { FileInfo } from '@/stores/vaultStore';
+import type { FileInfo } from '@/types/domain';
 import type { PressableState } from '@/types/utilities';
 
 const formatFileSize = (bytes: number): string => {
@@ -57,7 +57,9 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
         <View style={styles.previewPlaceholder}>
           <Feather name="image" size={48} color={dashboardColors.cyan} />
           <Text style={styles.previewCaption}>{fileName}</Text>
-          <Text style={styles.previewHint}>Image preview — original file data not available in demo</Text>
+          <Text style={styles.previewHint}>
+            Image preview — original file data not available in demo
+          </Text>
         </View>
       );
     }
@@ -83,16 +85,20 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
           <Feather name="file-text" size={48} color="#E11D48" />
           <Text style={styles.previewCaption}>{fileName}</Text>
           <Text style={styles.previewHint}>
-            PDF document — {fileUri ? 'tap to open in external viewer' : 'preview not available in demo'}
+            PDF document —{' '}
+            {fileUri ? 'tap to open in external viewer' : 'preview not available in demo'}
           </Text>
           {fileUri && (
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 if (Platform.OS === 'web') {
                   window.open(fileUri, '_blank');
                 }
               }}
-              style={(state: PressableState) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any}
+              style={(state: PressableState) =>
+                [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any
+              }
             >
               <Feather name="external-link" size={14} color="#FFFFFF" />
               <Text style={styles.openExternalText}>Open in New Tab</Text>
@@ -108,7 +114,9 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
         <View style={styles.previewPlaceholder}>
           <Feather name="file-text" size={48} color={dashboardColors.purple} />
           <Text style={styles.previewCaption}>{fileName}</Text>
-          <Text style={styles.previewHint}>Text file — full content preview available after server integration</Text>
+          <Text style={styles.previewHint}>
+            Text file — full content preview available after server integration
+          </Text>
         </View>
       );
     }
@@ -124,14 +132,21 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
         </View>
         {fileUri && Platform.OS === 'web' && (
           <Pressable
+            accessibilityRole="button"
             onPress={() => window.open(fileUri, '_blank')}
-            style={(state: PressableState) => [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any}
+            style={(state: PressableState) =>
+              [styles.openExternalButton, state.hovered && styles.openExternalButtonHover] as any
+            }
           >
             <Feather name="external-link" size={14} color="#FFFFFF" />
             <Text style={styles.openExternalText}>Open in New Tab</Text>
           </Pressable>
         )}
-        {!fileUri && <Text style={styles.previewHint}>File preview requires server decryption integration</Text>}
+        {!fileUri && (
+          <Text style={styles.previewHint}>
+            File preview requires server decryption integration
+          </Text>
+        )}
       </View>
     );
   };
@@ -147,8 +162,11 @@ export function DecryptTempView({ file, onClose }: DecryptTempViewProps) {
           </View>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={onClose}
-          style={(state: PressableState) => [styles.tempViewClose, state.hovered && styles.tempViewCloseHover] as any}
+          style={(state: PressableState) =>
+            [styles.tempViewClose, state.hovered && styles.tempViewCloseHover] as any
+          }
         >
           <Feather name="x" size={16} color="#FFFFFF" />
           <Text style={styles.tempViewCloseText}>Close & Clear</Text>

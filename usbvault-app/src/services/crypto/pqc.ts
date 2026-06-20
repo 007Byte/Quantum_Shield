@@ -107,16 +107,8 @@ interface USBVaultPQCNative {
     x25519Sec: string;
     mlKemSec: string;
   }>;
-  pqcSeal(
-    x25519Pub: string,
-    mlKemPub: string,
-    plaintextBase64: string
-  ): Promise<string>;
-  pqcOpen(
-    x25519Sec: string,
-    mlKemSec: string,
-    sealedBase64: string
-  ): Promise<string>;
+  pqcSeal(x25519Pub: string, mlKemPub: string, plaintextBase64: string): Promise<string>;
+  pqcOpen(x25519Sec: string, mlKemSec: string, sealedBase64: string): Promise<string>;
   pqcIsAvailable(): Promise<boolean>;
 }
 
@@ -170,7 +162,9 @@ const generateKeyId = (): string => {
   try {
     const buffer = new Uint8Array(16);
     crypto.getRandomValues(buffer);
-    return `pqc-key-${Array.from(buffer).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+    return `pqc-key-${Array.from(buffer)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')}`;
   } catch {
     return `pqc-key-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
   }
@@ -218,14 +212,16 @@ function getDefaultStatus(): PQCStatus {
         standard: 'FIPS 203',
         strength: '~256-bit AES-equivalent',
         status: 'unavailable',
-        description: 'Post-quantum key encapsulation mechanism (Module-Lattice-Based Key-Encapsulation Mechanism)',
+        description:
+          'Post-quantum key encapsulation mechanism (Module-Lattice-Based Key-Encapsulation Mechanism)',
       },
       {
         name: 'ML-DSA-87',
         standard: 'FIPS 204',
         strength: '~256-bit AES-equivalent',
         status: 'unavailable',
-        description: 'Post-quantum digital signature algorithm (Module-Lattice-Based Digital Signature Algorithm)',
+        description:
+          'Post-quantum digital signature algorithm (Module-Lattice-Based Digital Signature Algorithm)',
       },
       {
         name: 'AES-256-GCM-SIV',
@@ -311,11 +307,16 @@ export async function generateHybridKeypair(): Promise<HybridKeypair> {
   try {
     const result = await native.pqcGenerateKeypair();
 
-    await auditService.log('crypto', 'pqc_keypair_generated', {
-      algorithm: 'X25519+ML-KEM-1024',
-      x25519PubLength: result.x25519Pub.length,
-      mlKemPubLength: result.mlKemPub.length,
-    }, 'success');
+    await auditService.log(
+      'crypto',
+      'pqc_keypair_generated',
+      {
+        algorithm: 'X25519+ML-KEM-1024',
+        x25519PubLength: result.x25519Pub.length,
+        mlKemPubLength: result.mlKemPub.length,
+      },
+      'success'
+    );
 
     return {
       publicKey: {
@@ -360,10 +361,14 @@ export async function hybridSeal(
   const mlKemBytes = base64ToByteLength(recipientPublicKey.mlKem);
 
   if (x25519Bytes !== X25519_KEY_SIZE) {
-    throw new Error(`Invalid X25519 public key size: expected ${X25519_KEY_SIZE}, got ${x25519Bytes}`);
+    throw new Error(
+      `Invalid X25519 public key size: expected ${X25519_KEY_SIZE}, got ${x25519Bytes}`
+    );
   }
   if (mlKemBytes !== MLKEM_PUBLIC_KEY_SIZE) {
-    throw new Error(`Invalid ML-KEM public key size: expected ${MLKEM_PUBLIC_KEY_SIZE}, got ${mlKemBytes}`);
+    throw new Error(
+      `Invalid ML-KEM public key size: expected ${MLKEM_PUBLIC_KEY_SIZE}, got ${mlKemBytes}`
+    );
   }
 
   try {
@@ -373,11 +378,16 @@ export async function hybridSeal(
       plaintextBase64
     );
 
-    await auditService.log('crypto', 'pqc_seal', {
-      algorithm: 'X25519+ML-KEM-1024+XChaCha20-Poly1305',
-      plaintextSize: base64ToByteLength(plaintextBase64),
-      sealedSize: base64ToByteLength(sealedBase64),
-    }, 'success');
+    await auditService.log(
+      'crypto',
+      'pqc_seal',
+      {
+        algorithm: 'X25519+ML-KEM-1024+XChaCha20-Poly1305',
+        plaintextSize: base64ToByteLength(plaintextBase64),
+        sealedSize: base64ToByteLength(sealedBase64),
+      },
+      'success'
+    );
 
     return sealedBase64;
   } catch (error) {
@@ -413,16 +423,17 @@ export async function hybridOpen(
   }
 
   try {
-    const plaintextBase64 = await native.pqcOpen(
-      secretKey.x25519,
-      secretKey.mlKem,
-      sealedBase64
-    );
+    const plaintextBase64 = await native.pqcOpen(secretKey.x25519, secretKey.mlKem, sealedBase64);
 
-    await auditService.log('crypto', 'pqc_open', {
-      algorithm: 'X25519+ML-KEM-1024+XChaCha20-Poly1305',
-      sealedSize: sealedBytes,
-    }, 'success');
+    await auditService.log(
+      'crypto',
+      'pqc_open',
+      {
+        algorithm: 'X25519+ML-KEM-1024+XChaCha20-Poly1305',
+        sealedSize: sealedBytes,
+      },
+      'success'
+    );
 
     return plaintextBase64;
   } catch (error) {
@@ -482,7 +493,7 @@ export function enrollMLKEM(): void {
   status.mlKemEnrolled = true;
   status.mlKemKeyId = keyId;
 
-  const mlKemDetail = status.algorithmDetails.find((a) => a.name === 'ML-KEM-1024');
+  const mlKemDetail = status.algorithmDetails.find(a => a.name === 'ML-KEM-1024');
   if (mlKemDetail) {
     mlKemDetail.status = 'active';
   }
@@ -490,7 +501,12 @@ export function enrollMLKEM(): void {
   status.cnsaCompliant = status.mlKemEnrolled && status.mlDsaEnrolled;
 
   writeStatus(status);
-  auditService.log('system', 'pqc', { algorithm: 'ML-KEM-1024', action: 'enrolled', keyId }, 'success');
+  auditService.log(
+    'system',
+    'pqc',
+    { algorithm: 'ML-KEM-1024', action: 'enrolled', keyId },
+    'success'
+  );
 }
 
 /**
@@ -504,7 +520,7 @@ export function enrollMLDSA(): void {
   status.mlDsaEnrolled = true;
   status.mlDsaKeyId = keyId;
 
-  const mlDsaDetail = status.algorithmDetails.find((a) => a.name === 'ML-DSA-87');
+  const mlDsaDetail = status.algorithmDetails.find(a => a.name === 'ML-DSA-87');
   if (mlDsaDetail) {
     mlDsaDetail.status = 'active';
   }
@@ -512,7 +528,12 @@ export function enrollMLDSA(): void {
   status.cnsaCompliant = status.mlKemEnrolled && status.mlDsaEnrolled;
 
   writeStatus(status);
-  auditService.log('system', 'pqc', { algorithm: 'ML-DSA-87', action: 'enrolled', keyId }, 'success');
+  auditService.log(
+    'system',
+    'pqc',
+    { algorithm: 'ML-DSA-87', action: 'enrolled', keyId },
+    'success'
+  );
 }
 
 /**
@@ -552,10 +573,15 @@ export function rotateKeys(): void {
 
   writeStatus(status);
 
-  auditService.log('key_rotation', 'pqc', {
-    algorithms: ['ML-KEM-1024', 'ML-DSA-87'],
-    nextRotation: status.nextKeyRotation,
-  }, 'success');
+  auditService.log(
+    'key_rotation',
+    'pqc',
+    {
+      algorithms: ['ML-KEM-1024', 'ML-DSA-87'],
+      nextRotation: status.nextKeyRotation,
+    },
+    'success'
+  );
 }
 
 /**
@@ -593,8 +619,12 @@ export function isKeyRotationDue(): boolean {
 export function activateAllAlgorithms(): void {
   const status = readStatus();
 
-  status.algorithmDetails.forEach((detail) => {
-    if (['ML-KEM-1024', 'ML-DSA-87', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(detail.name)) {
+  status.algorithmDetails.forEach(detail => {
+    if (
+      ['ML-KEM-1024', 'ML-DSA-87', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(
+        detail.name
+      )
+    ) {
       detail.status = 'active';
     }
   });

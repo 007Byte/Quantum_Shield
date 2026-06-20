@@ -42,13 +42,21 @@ if (Platform.OS !== 'web') {
   // Web stubs
   AsyncStorage = {
     getItem: async (key: string) => {
-      try { return localStorage.getItem(key); } catch { return null; }
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
     },
     setItem: async (key: string, value: string) => {
-      try { localStorage.setItem(key, value); } catch {}
+      try {
+        localStorage.setItem(key, value);
+      } catch {}
     },
     removeItem: async (key: string) => {
-      try { localStorage.removeItem(key); } catch {}
+      try {
+        localStorage.removeItem(key);
+      } catch {}
     },
   };
 }
@@ -66,7 +74,6 @@ if (Platform.OS !== 'web') {
  * - PH9-FIX: Secure storage with Keychain/EncryptedSharedPreferences
  */
 
-
 export interface AuthState {
   isAuthenticated: boolean;
   userId: string | null;
@@ -83,9 +90,11 @@ export interface BiometricAvailability {
 }
 
 // PH9-FIX: Secure storage options for iOS Keychain and Android EncryptedSharedPreferences
-const SECURE_STORE_OPTIONS = SecureStore ? {
-  keychainAccessible: SecureStore?.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-} : {};
+const SECURE_STORE_OPTIONS = SecureStore
+  ? {
+      keychainAccessible: SecureStore?.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    }
+  : {};
 
 // In-memory store for master key (never persisted)
 let masterKey: Uint8Array | null = null;
@@ -107,15 +116,15 @@ export async function login(email: string, password: string): Promise<void> {
   // SECURITY FIX: Web authentication requires proper server integration
   // No dev bypasses allowed - fail closed for security
   if (Platform.OS === 'web') {
-    throw new Error('Web authentication requires server integration. Please use the native app or configure the web auth endpoint.');
+    throw new Error(
+      'Web authentication requires server integration. Please use the native app or configure the web auth endpoint.'
+    );
   }
 
   try {
     // Step 1: Get SRP parameters from server
     const srpInitResp = await api.srpInit(email);
-    const srpSalt = new Uint8Array(
-      Buffer.from(srpInitResp.salt, 'hex')
-    );
+    const srpSalt = new Uint8Array(Buffer.from(srpInitResp.salt, 'hex'));
     const B = new Uint8Array(Buffer.from(srpInitResp.B, 'hex'));
     const sessionId = srpInitResp.sessionId;
 
@@ -155,11 +164,7 @@ export async function login(email: string, password: string): Promise<void> {
       logger.log('Biometric authentication available for user');
     }
 
-    logger.log(
-      'Login successful:',
-      srpVerify.userId,
-      srpVerify.email
-    );
+    logger.log('Login successful:', srpVerify.userId, srpVerify.email);
   } catch (error) {
     logger.error('Login failed:', error);
     throw new Error('Failed to login. Please check your credentials.');
@@ -182,7 +187,9 @@ export async function register(email: string, password: string): Promise<void> {
   // SECURITY FIX: Web authentication requires server integration
   // No dev bypasses allowed - fail closed for security
   if (Platform.OS === 'web') {
-    throw new Error('Web authentication requires server integration. Please use the native app or configure the web auth endpoint.');
+    throw new Error(
+      'Web authentication requires server integration. Please use the native app or configure the web auth endpoint.'
+    );
   }
   try {
     // Step 1: Generate random SRP salt (32 bytes)
@@ -217,17 +224,20 @@ export async function register(email: string, password: string): Promise<void> {
     const publicKeyEd25519 = Buffer.from(signingKeypair.publicKey).toString('base64');
 
     // Step 5: Send registration data to server
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        srp_salt: Buffer.from(srpSalt).toString('hex'),
-        srp_verifier: srpVerifier,
-        public_key_x25519: publicKeyX25519,
-        public_key_ed25519: publicKeyEd25519,
-      }),
-    });
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/auth/register`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          srp_salt: Buffer.from(srpSalt).toString('hex'),
+          srp_verifier: srpVerifier,
+          public_key_x25519: publicKeyX25519,
+          public_key_ed25519: publicKeyEd25519,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -506,11 +516,7 @@ async function computeSrpProof(
 }
 
 // TD-002 FIX: Compute expected M2 = H(A, M1, K) for mutual authentication
-async function computeExpectedM2(
-  A: Buffer,
-  M1: Buffer,
-  sessionKey: Buffer
-): Promise<Buffer> {
+async function computeExpectedM2(A: Buffer, M1: Buffer, sessionKey: Buffer): Promise<Buffer> {
   // M2 = SHA256(A || M1 || K) - must match server's computation in srp.go
   const combined = Buffer.concat([A, M1, sessionKey]);
   const m2Hex = await crypto.hashSha256(new Uint8Array(combined));

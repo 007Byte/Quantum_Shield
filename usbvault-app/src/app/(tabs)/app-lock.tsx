@@ -5,7 +5,12 @@ import { webOnly } from '@/utils/webStyle';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { Sidebar } from '@/components/dashboard2/Sidebar';
 import { TopBar } from '@/components/dashboard2/TopBar';
-import { dashboardLayout, dashboardSpacing, webOnlyTransition } from '@/components/dashboard2/styles';
+import { useLanguage } from '@/hooks/useLanguage';
+import {
+  dashboardLayout,
+  dashboardSpacing,
+  webOnlyTransition,
+} from '@/components/dashboard2/styles';
 
 const textPrimary = '#F5F3FF';
 const textSecondary = '#B8B3D1';
@@ -18,6 +23,7 @@ const glassmorphicBorder = 'rgba(34, 211, 238, 0.1)';
 type LockOption = 'immediate' | '1min' | '5min' | '15min' | 'never';
 
 export default function AppLock() {
+  const { t } = useLanguage();
   const { modal, showSuccess } = useInAppModal();
   const [selectedTimer, setSelectedTimer] = useState<LockOption>('5min');
   const [lockOnMinimize, setLockOnMinimize] = useState(true);
@@ -26,23 +32,21 @@ export default function AppLock() {
   const [requireBiometric, setRequireBiometric] = useState(false);
 
   const timerOptions: Array<{ id: LockOption; label: string; description: string }> = [
-    { id: 'immediate', label: 'Immediate', description: 'Lock vault instantly' },
-    { id: '1min', label: '1 minute', description: 'Lock after 1 minute of inactivity' },
-    { id: '5min', label: '5 minutes', description: 'Lock after 5 minutes of inactivity' },
-    { id: '15min', label: '15 minutes', description: 'Lock after 15 minutes of inactivity' },
-    { id: 'never', label: 'Never', description: 'Manual locking only' },
+    { id: 'immediate', label: t('appLock.immediately'), description: t('appLock.lockInstantly') },
+    { id: '1min', label: t('appLock.after1min'), description: t('appLock.lockAfter1Min') },
+    { id: '5min', label: t('appLock.after5min'), description: t('appLock.lockAfter5Min') },
+    { id: '15min', label: t('appLock.after15min'), description: t('appLock.lockAfter15Min') },
+    { id: 'never', label: t('appLock.never'), description: t('appLock.manualLocking') },
   ];
 
   const handleSaveSettings = () => {
-    showSuccess('Settings Saved', 'App lock configuration has been updated successfully');
+    showSuccess(t('appLock.settingsSaved'), t('appLock.lockConfigUpdated'));
   };
 
   const ToggleSwitch = ({ value, onToggle }: { value: boolean; onToggle: () => void }) => (
     <Pressable
-      style={[
-        styles.toggleSwitch,
-        { backgroundColor: value ? cyan : 'rgba(184, 179, 209, 0.2)' },
-      ]}
+      accessibilityRole="button"
+      style={[styles.toggleSwitch, { backgroundColor: value ? cyan : 'rgba(184, 179, 209, 0.2)' }]}
       onPress={onToggle}
     >
       <View
@@ -58,19 +62,18 @@ export default function AppLock() {
   );
 
   const RadioIndicator = ({ selected }: { selected: boolean }) => (
-    <View
-      style={[
-        styles.radioOuter,
-        { borderColor: selected ? cyan : textSecondary },
-      ]}
-    >
+    <View style={[styles.radioOuter, { borderColor: selected ? cyan : textSecondary }]}>
       {selected && <View style={[styles.radioInner, { backgroundColor: cyan }]} />}
     </View>
   );
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -79,18 +82,21 @@ export default function AppLock() {
             <View style={styles.contentArea}>
               {/* Page Header */}
               <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>App Lock</Text>
-                <Text style={styles.pageSubtitle}>
-                  Configure automatic vault locking behavior
+                <Text style={styles.pageTitle} accessibilityRole="header">
+                  {t('appLock.pageTitle')}
                 </Text>
+                <Text style={styles.pageSubtitle}>{t('appLock.pageSubtitle')}</Text>
               </View>
 
               {/* Auto-Lock Timer Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Auto-Lock Timer</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('appLock.autoLock')}
+                </Text>
                 <View style={styles.glassmorphicCard}>
-                  {timerOptions.map((option) => (
+                  {timerOptions.map(option => (
                     <Pressable
+                      accessibilityRole="button"
                       key={option.id}
                       style={styles.timerOptionRow}
                       onPress={() => setSelectedTimer(option.id)}
@@ -98,13 +104,9 @@ export default function AppLock() {
                       <RadioIndicator selected={selectedTimer === option.id} />
                       <View style={styles.timerOptionContent}>
                         <Text style={styles.timerOptionLabel}>{option.label}</Text>
-                        <Text style={styles.timerOptionDescription}>
-                          {option.description}
-                        </Text>
+                        <Text style={styles.timerOptionDescription}>{option.description}</Text>
                       </View>
-                      {selectedTimer === option.id && (
-                        <View style={styles.selectedBorder} />
-                      )}
+                      {selectedTimer === option.id && <View style={styles.selectedBorder} />}
                     </Pressable>
                   ))}
                 </View>
@@ -112,16 +114,16 @@ export default function AppLock() {
 
               {/* Lock Triggers Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Lock Triggers</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('appLock.lockTriggers')}
+                </Text>
                 <View style={styles.glassmorphicCard}>
                   {/* Lock on Minimize */}
                   <View style={styles.toggleRow}>
                     <Feather name="minimize-2" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
-                      <Text style={styles.toggleLabel}>Lock on Minimize</Text>
-                      <Text style={styles.toggleDescription}>
-                        Lock vault when app is minimized
-                      </Text>
+                      <Text style={styles.toggleLabel}>{t('appLock.lockOnBackground')}</Text>
+                      <Text style={styles.toggleDescription}>{t('appLock.lockOnBackgroundDesc')}</Text>
                     </View>
                     <ToggleSwitch
                       value={lockOnMinimize}
@@ -133,9 +135,9 @@ export default function AppLock() {
                   <View style={[styles.toggleRow, styles.toggleRowBorder]}>
                     <Feather name="moon" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
-                      <Text style={styles.toggleLabel}>Lock on Screen Sleep</Text>
+                      <Text style={styles.toggleLabel}>{t('appLock.lockOnScreenSleep')}</Text>
                       <Text style={styles.toggleDescription}>
-                        Lock vault when screen goes to sleep
+                        {t('appLock.lockOnScreenSleepDesc')}
                       </Text>
                     </View>
                     <ToggleSwitch
@@ -148,9 +150,9 @@ export default function AppLock() {
                   <View style={[styles.toggleRow, styles.toggleRowBorder]}>
                     <Feather name="disc" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
-                      <Text style={styles.toggleLabel}>Lock on USB Removal</Text>
+                      <Text style={styles.toggleLabel}>{t('appLock.lockOnUsbRemoval')}</Text>
                       <Text style={styles.toggleDescription}>
-                        Lock vault when USB drive is disconnected
+                        {t('appLock.lockOnUsbRemovalDesc')}
                       </Text>
                     </View>
                     <ToggleSwitch
@@ -163,9 +165,9 @@ export default function AppLock() {
                   <View style={[styles.toggleRow, styles.toggleRowBorder]}>
                     <Feather name="lock" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
-                      <Text style={styles.toggleLabel}>Require Biometric</Text>
+                      <Text style={styles.toggleLabel}>{t('appLock.biometric')}</Text>
                       <Text style={styles.toggleDescription}>
-                        Require biometric verification to unlock
+                        {t('appLock.biometricDesc')}
                       </Text>
                     </View>
                     <ToggleSwitch
@@ -178,10 +180,11 @@ export default function AppLock() {
 
               {/* Save Button */}
               <Pressable
+                accessibilityRole="button"
                 style={styles.saveButton}
                 onPress={handleSaveSettings}
               >
-                <Text style={styles.saveButtonText}>Save Settings</Text>
+                <Text style={styles.saveButtonText}>{t('appLock.save')}</Text>
               </Pressable>
             </View>
           </View>
@@ -223,8 +226,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {

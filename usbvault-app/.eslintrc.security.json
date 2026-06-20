@@ -17,6 +17,20 @@
     "no-new-func": "error",
     "security/detect-object-injection": "off"
   },
+  "overrides": [
+    {
+      "files": ["**/services/**", "**/crypto/**"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+            "message": "Math.random() is forbidden in services/crypto code. Use crypto.getRandomValues() instead."
+          }
+        ]
+      }
+    }
+  ],
   "env": {
     "react-native/react-native": true,
     "node": true,

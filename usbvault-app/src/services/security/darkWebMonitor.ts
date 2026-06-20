@@ -1,6 +1,7 @@
 // PH4-FIX: Consolidated into security domain
 import { Platform } from 'react-native';
 import { auditService } from '@/services/auditService';
+import { logger } from '@/utils/logger';
 import crypto from 'crypto';
 
 /**
@@ -95,7 +96,7 @@ class DarkWebMonitorService {
           return JSON.parse(stored);
         }
       } catch (error) {
-        console.error('Failed to load monitor config:', error);
+        logger.error('Failed to load monitor config:', error);
       }
     }
 
@@ -116,7 +117,7 @@ class DarkWebMonitorService {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config));
       } catch (error) {
-        console.error('Failed to save monitor config:', error);
+        logger.error('Failed to save monitor config:', error);
       }
     }
   }
@@ -132,7 +133,11 @@ class DarkWebMonitorService {
   async checkEmail(email: string): Promise<BreachRecord[]> {
     try {
       // Create SHA-1 hash of the email
-      const hash = crypto.createHash('sha1').update(email.toLowerCase()).digest('hex').toUpperCase();
+      const hash = crypto
+        .createHash('sha1')
+        .update(email.toLowerCase())
+        .digest('hex')
+        .toUpperCase();
       const suffix = hash.substring(5);
 
       // Call HIBP k-anonymity API with only the prefix
@@ -164,20 +169,45 @@ class DarkWebMonitorService {
 
       return breaches;
     } catch (error) {
-      console.error(`Failed to check email ${email}:`, error);
+      logger.error(`Failed to check email ${email}:`, error);
       auditService.log('breach_check_error', `email:${email}`, { error: String(error) });
       return [];
     }
   }
 
   /**
-   * HIBP k-anonymity API stub.
-   * In production, this would call: https://api.pwnedpasswords.com/range/{prefix}
+   * HIBP k-anonymity API call.
+   * Sends only the first 5 hex characters of the SHA-1 hash, protecting privacy.
+   * The API returns all hash suffixes matching that prefix so we can check locally.
+   *
+   * Rate limit: HIBP allows ~1 req/1.5s without API key.
+   * @see https://haveibeenpwned.com/API/v3#SearchingPwnedPasswordsByRange
    */
-  private async fetchHIBPPrefix(_prefix: string): Promise<string[]> {
-    // This is a stub implementation
-    // Real implementation would call the actual HIBP API
-    return [];
+  private async fetchHIBPPrefix(prefix: string): Promise<string[]> {
+    try {
+      const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        headers: {
+          'User-Agent': 'USBVault-Enterprise-BreachMonitor',
+          'Add-Padding': 'true', // Pad response to prevent length-based analysis
+        },
+      });
+
+      if (!response.ok) {
+        // Rate limited or service unavailable — fail gracefully
+        if (response.status === 429) {
+          logger.warn('[DarkWebMonitor] HIBP rate limited, retrying later');
+        }
+        return [];
+      }
+
+      const text = await response.text();
+      // Response format: "SUFFIX:count\r\nSUFFIX:count\r\n..."
+      return text.split('\r\n').filter((line: string) => line.length > 0);
+    } catch (error) {
+      // Network failure — don't block the app
+      logger.error('[DarkWebMonitor] HIBP fetch failed:', error);
+      return [];
+    }
   }
 
   /**
@@ -278,7 +308,7 @@ class DarkWebMonitorService {
           return JSON.parse(stored);
         }
       } catch (error) {
-        console.error('Failed to load breach history:', error);
+        logger.error('Failed to load breach history:', error);
       }
     }
     return [];
@@ -300,7 +330,7 @@ class DarkWebMonitorService {
         const combined = [...existing, ...allBreaches];
         localStorage.setItem(BREACH_HISTORY_KEY, JSON.stringify(combined));
       } catch (error) {
-        console.error('Failed to save breach history:', error);
+        logger.error('Failed to save breach history:', error);
       }
     }
   }
@@ -313,7 +343,7 @@ class DarkWebMonitorService {
    */
   markRemediated(breachName: string, email: string): void {
     const history = this.getBreachHistory();
-    const breach = history.find((b) => b.name === breachName);
+    const breach = history.find(b => b.name === breachName);
 
     if (breach) {
       breach.remediated = true;
@@ -322,7 +352,7 @@ class DarkWebMonitorService {
         try {
           localStorage.setItem(BREACH_HISTORY_KEY, JSON.stringify(history));
         } catch (error) {
-          console.error('Failed to save remediation:', error);
+          logger.error('Failed to save remediation:', error);
         }
       }
 
@@ -343,14 +373,10 @@ class DarkWebMonitorService {
     const criticalClasses = ['passwords', 'payment-info', 'ssn', 'credit-card'];
     const highClasses = ['email-addresses', 'usernames', 'account-names'];
 
-    const hasCritical = breach.dataClasses.some((dc) =>
-      criticalClasses.includes(dc.toLowerCase())
-    );
+    const hasCritical = breach.dataClasses.some(dc => criticalClasses.includes(dc.toLowerCase()));
     if (hasCritical) return 'critical';
 
-    const hasHigh = breach.dataClasses.some((dc) =>
-      highClasses.includes(dc.toLowerCase())
-    );
+    const hasHigh = breach.dataClasses.some(dc => highClasses.includes(dc.toLowerCase()));
     if (hasHigh) return 'high';
 
     return breach.dataClasses.length > 2 ? 'medium' : 'low';
@@ -373,14 +399,14 @@ class DarkWebMonitorService {
     const intervalMs = this.config.checkIntervalHours * 60 * 60 * 1000;
 
     // Check immediately on schedule
-    this.checkAllEmails().catch((error) => {
-      console.error('Scheduled breach check failed:', error);
+    this.checkAllEmails().catch(error => {
+      logger.error('Scheduled breach check failed:', error);
     });
 
     // Set up interval for periodic checks
     this.checkIntervalHandle = setInterval(() => {
-      this.checkAllEmails().catch((error) => {
-        console.error('Scheduled breach check failed:', error);
+      this.checkAllEmails().catch(error => {
+        logger.error('Scheduled breach check failed:', error);
       });
     }, intervalMs);
 
@@ -396,8 +422,8 @@ class DarkWebMonitorService {
    */
   getMonitoringStatus(): MonitoringStatus {
     const history = this.getBreachHistory();
-    const unremediated = history.filter((b) => !b.remediated);
-    const uniqueBreaches = new Set(history.map((b) => b.name));
+    const unremediated = history.filter(b => !b.remediated);
+    const uniqueBreaches = new Set(history.map(b => b.name));
 
     let nextCheck: number | null = null;
     if (this.config.lastCheckAt && this.config.enabled) {

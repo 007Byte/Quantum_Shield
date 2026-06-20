@@ -83,3 +83,16 @@ credentials/
 *.cert
 *.crt
 !.env.example
+
+# USB-COMP-1: Vendored Node.js binaries (downloaded at build time)
+usb-companion/node/
+
+# REPO-1: Pre-built static assets (built from source in CI)
+usb-companion/static/
+
+# Terraform providers (too large for GitHub)
+.terraform/
+deploy/terraform/.terraform/
+
+# npm cache
+.npm-cache/

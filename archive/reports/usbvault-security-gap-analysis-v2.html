@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>USBVault Enterprise — Security Architecture Gap Analysis v2</title>
+<style>
+  :root {
+    --bg: #0a0618; --card: #110b29; --border: rgba(139,92,246,0.3);
+    --cyan: #22d3ee; --purple: #a78bfa; --green: #34d399; --yellow: #fbbf24;
+    --red: #f87171; --orange: #fb923c; --text: #e2e8f0; --muted: #94a3b8; --dim: #475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 32px; max-width: 1200px; margin: 0 auto; line-height: 1.6; }
+  h1 { font-size: 28px; font-weight: 800; background: linear-gradient(90deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  .verdict { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
+  .verdict-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--cyan); }
+  .verdict p { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+  .verdict strong { color: var(--text); }
+  .change-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; margin-left: 8px; vertical-align: middle; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-fixed { background: rgba(52,211,153,0.2); color: var(--green); border: 1px solid rgba(52,211,153,0.4); }
+  .badge-improved { background: rgba(34,211,238,0.15); color: var(--cyan); border: 1px solid rgba(34,211,238,0.3); }
+  .badge-new { background: rgba(139,92,246,0.2); color: var(--purple); border: 1px solid rgba(139,92,246,0.4); }
+  .badge-unchanged { background: rgba(148,163,184,0.1); color: var(--dim); border: 1px solid rgba(148,163,184,0.2); }
+  .kpi-row { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .kpi { flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-val { font-size: 28px; font-weight: 800; }
+  .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-delta { font-size: 11px; margin-top: 4px; }
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 16px; overflow: hidden; }
+  .sec-head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; cursor: pointer; user-select: none; }
+  .sec-head:hover { background: rgba(139,92,246,0.06); }
+  .sec-num { font-size: 12px; font-weight: 700; color: var(--purple); background: rgba(139,92,246,0.15); padding: 2px 10px; border-radius: 8px; }
+  .sec-title { flex: 1; font-size: 16px; font-weight: 700; }
+  .severity { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sev-critical { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .sev-high { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+  .sev-medium { background: rgba(251,191,36,0.15); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+  .sev-good { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+  .sev-resolved { background: rgba(52,211,153,0.08); color: rgba(52,211,153,0.6); border: 1px solid rgba(52,211,153,0.2); text-decoration: line-through; }
+  .chevron { color: var(--dim); transition: transform 0.2s; font-size: 16px; }
+  .section.open .chevron { transform: rotate(180deg); }
+  .sec-body { display: none; padding: 0 24px 24px; }
+  .section.open .sec-body { display: block; }
+  .claim { background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .claim-label { font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .resolved { background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .resolved-label { font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .finding { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+  .finding-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .finding-label { font-size: 12px; font-weight: 700; color: var(--cyan); min-width: 80px; }
+  .finding-val { font-size: 13px; color: var(--muted); }
+  .code { font-family: 'JetBrains Mono', 'Fira Code', monospace; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--cyan); }
+  .rec { background: rgba(52,211,153,0.06); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 14px; border-radius: 0 8px 8px 0; }
+  .rec-title { font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+  .rec p { font-size: 13px; color: var(--muted); }
+  .remaining { background: rgba(251,191,36,0.06); border-left: 3px solid var(--yellow); padding: 12px 16px; margin-top: 14px; border-radius: 0 8px 8px 0; }
+  .remaining-title { font-size: 12px; font-weight: 700; color: var(--yellow); margin-bottom: 4px; }
+  .remaining p { font-size: 13px; color: var(--muted); }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot-yes { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-partial { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .dot-no { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  table.matrix { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+  table.matrix th { text-align: left; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.matrix td { padding: 8px 10px; border-bottom: 1px solid rgba(139,92,246,0.1); vertical-align: top; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; margin-right: 4px; }
+  .tag-rust { background: rgba(255,107,107,0.12); color: #ff9f7f; }
+  .tag-go { background: rgba(52,211,153,0.12); color: var(--green); }
+  .tag-ts { background: rgba(96,165,250,0.12); color: #93bbfc; }
+  .comparison { display: flex; gap: 16px; margin-bottom: 28px; }
+  .comparison-col { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .comparison-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Security Architecture Gap Analysis — v2</h1>
+<p class="subtitle">USBVault Enterprise · Updated March 12, 2026 · Delta from v1 (March 8, 2026)</p>
+
+<div class="verdict">
+  <div class="verdict-title">Bottom-Line Assessment — Significantly Improved</div>
+  <p><strong>Since v1 (March 8), 7 of the 8 critical and high gaps have been fully resolved.</strong> The two-layer key hierarchy (KEK + MEK), per-file HKDF keys, recovery codes, vault index encryption, FIDO2, SRP Argon2id verifier migration, key change notifications, and rollback protection are all now implemented and verified in code.</p>
+  <p><strong>The core cryptographic architecture is now production-grade:</strong> Argon2id KDF → KEK → random MEK → per-file HKDF keys, with XChaCha20-Poly1305/AES-256-GCM-SIV AEAD, encrypted vault index, monotonic version counters, recovery codes, and full FIDO2/WebAuthn.</p>
+  <p><strong>Remaining gaps are operational (not architectural):</strong> PQC is available but not integrated into the main key path, certificate pinning needs production pins, and the forensics service is partially stubbed. The "zero-knowledge" claim is now substantially more accurate — file names are encrypted in the vault index, and a metadata reduction service handles timing/size obfuscation.</p>
+</div>
+
+<div class="comparison">
+  <div class="comparison-col">
+    <div class="comparison-title">v1 — March 8, 2026</div>
+    <div class="kpi-row" style="margin-bottom:0">
+      <div class="kpi"><div class="kpi-val" style="color:var(--red)">3</div><div class="kpi-lbl">Critical</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--orange)">5</div><div class="kpi-lbl">High</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--yellow)">4</div><div class="kpi-lbl">Medium</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--green)">7</div><div class="kpi-lbl">Solid</div></div>
+    </div>
+  </div>
+  <div class="comparison-col">
+    <div class="comparison-title">v2 — March 12, 2026</div>
+    <div class="kpi-row" style="margin-bottom:0">
+      <div class="kpi"><div class="kpi-val" style="color:var(--red)">1</div><div class="kpi-lbl">Critical</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--orange)">0</div><div class="kpi-lbl">High</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--yellow)">3</div><div class="kpi-lbl">Medium</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:var(--green)">15</div><div class="kpi-lbl">Solid</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 1: PQC -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <span class="sec-title">Post-Quantum Cryptography (PQC)</span>
+    <span class="severity sev-critical">Critical Gap</span>
+    <span class="change-badge badge-improved">Improved</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">Progress Since v1</div>
+      <p style="font-size:13px;color:var(--text)">ML-KEM-1024 is now available as an optional Cargo feature (<span class="code">pqc</span> feature flag in Cargo.toml) with FFI integration harness tests for keypair generation, seal, and open. However, it is <strong>not yet integrated into the main key hierarchy</strong>.</p>
+    </div>
+    <div class="claim">
+      <div class="claim-label">Remaining Gap</div>
+      <p style="font-size:13px;color:var(--text)">The <span class="code">pqc</span> feature is opt-in and not wired into production key exchange. X25519 is still the sole KEM for sharing. No ML-DSA (Dilithium) for signatures. CNSA 2.0 compliance document claims should still be qualified until hybrid KEM is the default path.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-row"><span class="finding-label">Cargo.toml</span><span class="finding-val">Line 53: ML-KEM-1024 dependency (optional). Line 63: <span class="code">pqc = [...]</span> feature flag defined</span></div>
+      <div class="finding-row"><span class="finding-label">FFI Tests</span><span class="finding-val"><span class="code">ffi_integration_harness_test.rs</span>: ML-KEM keypair, seal/open operations tested</span></div>
+      <div class="finding-row"><span class="finding-label">Production</span><span class="finding-val">Feature flag not enabled by default — hybrid KEM not in main key path</span></div>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Remaining Action</div>
+      <p>Enable the <span class="code">pqc</span> feature flag and wire hybrid X25519 + ML-KEM-768 into the sharing sealed-box flow. Combine shared secrets via HKDF. Add ML-DSA-65 for signature operations. Until then, qualify CNSA 2.0 claims as "PQC-ready" rather than "PQC-compliant."</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2: Key Management — RESOLVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <span class="sec-title">Key Management & Key Hierarchy</span>
+    <span class="severity sev-good">Resolved</span>
+    <span class="change-badge badge-fixed">Fixed</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">Fully Resolved Since v1</div>
+      <p style="font-size:13px;color:var(--text)">The two-layer key hierarchy recommended in v1 is now implemented in <span class="code">keyHierarchy.ts</span>. Password → Argon2id → KEK (wrapping key, 32 bytes) → wraps random MEK (64 bytes) → HKDF per-file keys. Password change is O(1) — only re-wraps MEK.</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Two-layer key hierarchy (KEK + MEK)</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyHierarchy.ts:10-20</span> — full KEK + MEK architecture</td></tr>
+      <tr><td>Per-file encryption keys (HKDF)</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyHierarchy.ts:186-201</span> — <span class="code">deriveFileKey(mek, fileId)</span> via HKDF</td></tr>
+      <tr><td>Password change without re-encryption</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyHierarchy.ts:141-184</span> — <span class="code">rotatePassword()</span> re-wraps MEK only</td></tr>
+      <tr><td>Hardware security (TPM/Enclave)</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-partial"></span>Foundation</td><td>Architecture supports future hardware backing of unwrapped MEK</td></tr>
+      <tr><td>Secure memory (zeroize + mlock)</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>Unchanged — <span class="code">Zeroizing&lt;Vec&lt;u8&gt;&gt;</span> on all key material</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 3: Metadata Leakage — IMPROVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <span class="sec-title">Metadata Leakage & "Zero-Knowledge" Claim</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="change-badge badge-improved">Improved</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">Major Improvement Since v1</div>
+      <p style="font-size:13px;color:var(--text)">The vault index (file names + metadata) is now encrypted client-side with XChaCha20-Poly1305 using a key derived via <span class="code">HKDF(master_key, "vault_index_encryption")</span>. A metadata reduction service provides timing jitter, message padding, and EXIF stripping. The "zero-knowledge" claim is now substantially more accurate.</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Metadata Type</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>File contents</td><td><span class="status-dot dot-yes"></span>Encrypted</td><td><span class="status-dot dot-yes"></span>Encrypted</td><td>XChaCha20-Poly1305 / AES-256-GCM-SIV AEAD</td></tr>
+      <tr><td>File names</td><td><span class="status-dot dot-no"></span><strong>PLAINTEXT</strong></td><td><span class="status-dot dot-yes"></span><strong>Encrypted</strong></td><td><span class="code">vault/index.rs:76-101</span> — encrypted vault index</td></tr>
+      <tr><td>File sizes</td><td><span class="status-dot dot-no"></span>Visible</td><td><span class="status-dot dot-yes"></span>Encrypted</td><td>Sizes encrypted within per-file metadata blobs</td></tr>
+      <tr><td>Access patterns</td><td><span class="status-dot dot-no"></span>Visible</td><td><span class="status-dot dot-partial"></span>Reducible</td><td><span class="code">metadataReductionService.ts</span> — timing jitter, batch delivery (configurable)</td></tr>
+      <tr><td>Sharing graph</td><td><span class="status-dot dot-no"></span>Visible</td><td><span class="status-dot dot-partial"></span>Partially encrypted</td><td>Sharing metadata encrypted in share service</td></tr>
+      <tr><td>Account existence</td><td><span class="status-dot dot-partial"></span>Protected</td><td><span class="status-dot dot-yes"></span>Protected</td><td>SRP dummy computation + random delay + constant-time</td></tr>
+      <tr><td>File count</td><td><span class="status-dot dot-no"></span>Visible</td><td><span class="status-dot dot-partial"></span>Implicit</td><td>Count inferable from sync events but not directly exposed</td></tr>
+    </table>
+    <div class="remaining">
+      <div class="remaining-title">Remaining Work</div>
+      <p>Operational metadata (sync event timing, device sessions) remains visible to the server — this is inherent in any client-server architecture. Timing jitter and batch delivery are configurable but disabled by default. Consider enabling by default in enterprise tier. ORAM remains impractical for the current architecture.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: AEAD — SOLID -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <span class="sec-title">AEAD, Nonce Strategy & Integrity</span>
+    <span class="severity sev-good">Solid</span>
+    <span class="change-badge badge-improved">Improved</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>AEAD choice</td><td><span class="status-dot dot-yes"></span>Strong</td><td><span class="status-dot dot-yes"></span>Strong</td><td>XChaCha20-Poly1305 + AES-256-GCM-SIV</td></tr>
+      <tr><td>Nonce generation</td><td><span class="status-dot dot-yes"></span>Random</td><td><span class="status-dot dot-yes"></span>Random</td><td><span class="code">cipher.rs</span>: CSPRNG per encryption</td></tr>
+      <tr><td>Chunking for large files</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>64KB chunks, HKDF-derived per-chunk nonces</td></tr>
+      <tr><td>Domain separation</td><td><span class="status-dot dot-partial"></span>Partial</td><td><span class="status-dot dot-yes"></span>Comprehensive</td><td>HKDF context: "seal", "index_encryption", "file_encryption:&lt;id&gt;", "vault_index_encryption"</td></tr>
+      <tr><td>Rollback protection</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">index.rs:20-24</span> — monotonic <span class="code">version: u64</span> per file entry</td></tr>
+      <tr><td>Version/format tagging</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>V1=0x01, V2=0x02 in record headers</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 5: Public Key — RESOLVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <span class="sec-title">Public Key Authenticity & MITM Resistance</span>
+    <span class="severity sev-good">Resolved</span>
+    <span class="change-badge badge-fixed">Fixed</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">Key Change Notifications Implemented</div>
+      <p style="font-size:13px;color:var(--text)">Signal-style safety numbers (12 groups × 5 digits) are now implemented in <span class="code">keyVerification.ts</span>. Key change detection triggers automatic verification invalidation and a <span class="code">keyChangeWarning</span> flag on sharing requests.</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Key fingerprint generation</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>SHA-256 fingerprint, colon-separated hex</td></tr>
+      <tr><td>Out-of-band verification</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">VerifyContact()</span> + <span class="code">contact_verifications</span> table</td></tr>
+      <tr><td>Safety number display</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyVerification.ts</span> — Signal-style 60-digit format</td></tr>
+      <tr><td>Key change notifications</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">checkKeyChanged()</span> compares <span class="code">publicKeyHash</span>, sets <span class="code">keyChanged</span> flag</td></tr>
+      <tr><td>Sharing key verification</td><td><span class="status-dot dot-partial"></span>Partial</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">sharing.ts:44-47</span> — <span class="code">recipientKeyVerified</span> + <span class="code">keyChangeWarning</span></td></tr>
+      <tr><td>QR code verification</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-no"></span>Missing</td><td>Not yet — numeric comparison only</td></tr>
+    </table>
+    <div class="remaining">
+      <div class="remaining-title">Nice-to-Have</div>
+      <p>QR code scanning for in-person key verification is not implemented. Current numeric safety number comparison is sufficient for most use cases.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6: SRP-6a — RESOLVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">06</span>
+    <span class="sec-title">SRP-6a Implementation</span>
+    <span class="severity sev-good">Resolved</span>
+    <span class="change-badge badge-fixed">Fixed</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">Argon2id Verifier Migration Implemented</div>
+      <p style="font-size:13px;color:var(--text)">The SRP verifier now uses Argon2id (64 MB, 3 iterations, parallelism 4) via <span class="code">HashVerifierArgon2id()</span> in <span class="code">srp.go:80-86</span>. Transparent migration from SHA-256 to Argon2id occurs on successful login (<span class="code">srp.go:342-365</span>).</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Group parameters (RFC 5054)</td><td><span class="status-dot dot-yes"></span>3072-bit</td><td><span class="status-dot dot-yes"></span>3072-bit</td><td>Hardcoded in both Go + Rust</td></tr>
+      <tr><td>Parameter validation</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>B≠0, A-range, k=H(PAD(N)||PAD(g)), constant-time</td></tr>
+      <tr><td>Account enumeration protection</td><td><span class="status-dot dot-yes"></span>Protected</td><td><span class="status-dot dot-yes"></span>Protected</td><td>Dummy computation + random delay</td></tr>
+      <tr><td>Password hash for verifier</td><td><span class="status-dot dot-partial"></span>SHA only</td><td><span class="status-dot dot-yes"></span>Argon2id</td><td><span class="code">srp.go:80-86</span> — <span class="code">HashVerifierArgon2id()</span></td></tr>
+      <tr><td>Transparent rehashing on login</td><td><span class="status-dot dot-no"></span>N/A</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">srp.go:342-365</span> — auto-upgrades legacy SHA verifiers</td></tr>
+      <tr><td>TLS channel binding</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-no"></span>Missing</td><td>Not implemented — lower priority given mutual SRP auth</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 7: Device Trust — IMPROVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">07</span>
+    <span class="sec-title">Device Trust & Multi-Device</span>
+    <span class="severity sev-good">Solid</span>
+    <span class="change-badge badge-improved">Improved</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Device enrollment protocol</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">device/device.ts</span> + <span class="code">internal/device/</span> — fingerprint, trust, revoke</td></tr>
+      <tr><td>FIDO2/WebAuthn</td><td><span class="status-dot dot-partial"></span>Partial</td><td><span class="status-dot dot-yes"></span>Full</td><td><span class="code">fido2Service.ts</span> (520 lines) + <span class="code">fido2.go</span> — passkeys + PRF</td></tr>
+      <tr><td>Biometric auth</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">auth.ts:78-168</span> — Face ID, Touch ID, Iris</td></tr>
+      <tr><td>Max concurrent sessions</td><td><span class="status-dot dot-no"></span>Unlimited</td><td><span class="status-dot dot-yes"></span>5 per user</td><td><span class="code">sync/service.go:34</span></td></tr>
+      <tr><td>Remote attestation</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-no"></span>Missing</td><td>No iOS App Attest / Android Play Integrity</td></tr>
+      <tr><td>Reproducible builds</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-no"></span>Missing</td><td>No deterministic build infrastructure</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 8: Recovery — RESOLVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">08</span>
+    <span class="sec-title">Recovery, Reset & Password Change</span>
+    <span class="severity sev-good">Resolved</span>
+    <span class="change-badge badge-fixed">Fixed</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="resolved">
+      <div class="resolved-label">All v1 Recommendations Implemented</div>
+      <p style="font-size:13px;color:var(--text)">Recovery codes (10 per user, XXXX-XXXX-XXXX format) with SHA-256 hashing and constant-time verification. Two-layer key hierarchy enables password change via O(1) MEK re-wrap without file re-encryption.</p>
+    </div>
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Recovery codes</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">internal/recovery/service.go</span> — 10 codes, SHA-256, constant-time</td></tr>
+      <tr><td>Password change → key update</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyHierarchy.ts:141-184</span> — re-wraps MEK with new KEK</td></tr>
+      <tr><td>Key escrow (none)</td><td><span class="status-dot dot-yes"></span>None (good)</td><td><span class="status-dot dot-yes"></span>None (good)</td><td>Server never holds master keys</td></tr>
+      <tr><td>Enterprise recovery (Shamir)</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-partial"></span>Framework</td><td>Shamir SSS in <span class="code">vault/recovery.ts</span> — available for enterprise admin recovery</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 9: Forward Secrecy — RESOLVED -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">09</span>
+    <span class="sec-title">Forward Secrecy & Key Rotation</span>
+    <span class="severity sev-good">Resolved</span>
+    <span class="change-badge badge-fixed">Fixed</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>v1 Status</th><th>v2 Status</th><th>Evidence</th></tr>
+      <tr><td>Per-file encryption keys</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">keyHierarchy.ts:186-201</span> — HKDF per-file key derivation</td></tr>
+      <tr><td>Ephemeral keys for sharing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>X25519 ephemeral keypair per share</td></tr>
+      <tr><td>Key rotation on password change</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>MEK re-wrap via <span class="code">rotatePassword()</span></td></tr>
+      <tr><td>JWT key rotation</td><td><span class="status-dot dot-no"></span>N/A</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>ED25519 key rotation in <span class="code">key_rotation.go</span></td></tr>
+      <tr><td>Share revocation re-encryption</td><td><span class="status-dot dot-no"></span>Missing</td><td><span class="status-dot dot-partial"></span>Partial</td><td>Architecture supports it — per-file keys can be rotated per file on revoke</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Section 10: Formal Verification -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">10</span>
+    <span class="sec-title">Formal Verification & Audit</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="change-badge badge-unchanged">Unchanged</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Property</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>Formal verification (Kani/Verus)</td><td><span class="status-dot dot-no"></span>Missing</td><td>No formal verification tooling configured</td></tr>
+      <tr><td>Fuzz testing</td><td><span class="status-dot dot-yes"></span>Comprehensive</td><td>5 cargo-fuzz targets: cipher, streaming, vault_header, kdf, sharing</td></tr>
+      <tr><td>Property-based testing</td><td><span class="status-dot dot-yes"></span>Implemented</td><td>proptest crate for roundtrip and edge cases</td></tr>
+      <tr><td>Constant-time verification</td><td><span class="status-dot dot-yes"></span>Implemented</td><td><span class="code">subtle</span> crate + <span class="code">crypto/subtle.ConstantTimeCompare</span></td></tr>
+      <tr><td>Independent security audit</td><td><span class="status-dot dot-no"></span>Not done</td><td>Should be done before production launch</td></tr>
+      <tr><td>DAST scanning</td><td><span class="status-dot dot-partial"></span>Config only</td><td><span class="code">dast_config.go</span> — framework present, no scan results committed</td></tr>
+    </table>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p>Commission an independent audit of the Rust crypto core before launch. Execute DAST scans (ZAP/Burp) against the Go API and commit results. Formal verification via Kani on AEAD paths is a stretch goal.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 11: Client Integrity -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">11</span>
+    <span class="sec-title">Client Integrity & Forensics</span>
+    <span class="severity sev-medium">Medium Gap</span>
+    <span class="change-badge badge-unchanged">Unchanged</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <div class="finding">
+      <div class="finding-row"><span class="finding-label">Forensics</span><span class="finding-val"><span class="code">forensicsService.ts</span> — clipboard + sessionStorage clearing implemented. OS journal, swap wipe, temp file deletion, browser cache: <strong>STUBBED</strong>. <span class="code">scan()</span> returns empty, <span class="code">wipeTraces()</span> is no-op.</span></div>
+      <div class="finding-row"><span class="finding-label">Cert Pinning</span><span class="finding-val"><span class="code">certificatePinning.ts</span> — full implementation with env var support. <strong>Production pins are placeholders</strong> (sha256/AAAA...). Must be replaced before deploy.</span></div>
+      <div class="finding-row"><span class="finding-label">Integrity</span><span class="finding-val"><span class="code">deviceIntegrity.ts</span> (19KB) — jailbreak/root detection, tamper checks. No remote attestation.</span></div>
+    </div>
+    <div class="rec">
+      <div class="rec-title">Recommendation</div>
+      <p><strong>Before launch:</strong> Replace certificate pinning placeholders with real SHA-256 SPKI hashes from production certificates. <strong>Decision required:</strong> Either implement native forensics module for OS-level trace cleanup, or remove "Zero Trace" from the UI and marketing until it's real.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 12: Strengths -->
+<div class="section" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">12</span>
+    <span class="sec-title">What's Already Solid (Strengths)</span>
+    <span class="severity sev-good">Strong</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>Area</th><th>Assessment</th></tr>
+      <tr><td>AEAD cipher selection</td><td><span class="status-dot dot-yes"></span>XChaCha20-Poly1305 + AES-256-GCM-SIV — nonce-misuse-resistant</td></tr>
+      <tr><td>KDF parameters</td><td><span class="status-dot dot-yes"></span>Argon2id: 65MB memory, 3 iterations — well above minimum</td></tr>
+      <tr><td>Two-layer key hierarchy</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> KEK + MEK with per-file HKDF keys — textbook architecture</td></tr>
+      <tr><td>Memory safety (Rust)</td><td><span class="status-dot dot-yes"></span>Zero unsafe blocks, zeroize on key material, mlock on sensitive pages</td></tr>
+      <tr><td>SRP-6a with Argon2id</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> Argon2id verifier + transparent rehashing on login</td></tr>
+      <tr><td>FIDO2/WebAuthn</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> Full passkey + PRF support, 520-line client, Go server</td></tr>
+      <tr><td>Recovery codes</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> 10 per user, SHA-256, constant-time, one-time use</td></tr>
+      <tr><td>Encrypted vault index</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> File names no longer plaintext — XChaCha20 encrypted</td></tr>
+      <tr><td>Key change notifications</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> Signal-style safety numbers, automatic invalidation on change</td></tr>
+      <tr><td>Rollback protection</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> Monotonic version counter per file in vault index</td></tr>
+      <tr><td>Streaming encryption</td><td><span class="status-dot dot-yes"></span>64KB chunks with HKDF-derived per-chunk nonces</td></tr>
+      <tr><td>Fuzz testing coverage</td><td><span class="status-dot dot-yes"></span>5 fuzz targets covering all major crypto operations</td></tr>
+      <tr><td>Audit logging</td><td><span class="status-dot dot-yes"></span>SHA-256 hash-chain with anomaly detection — tamper-evident</td></tr>
+      <tr><td>E2E sync</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> WebSocket sync with XChaCha20 encrypted payloads</td></tr>
+      <tr><td>Internationalization</td><td><span class="status-dot dot-yes"></span><strong>NEW:</strong> 1,409 translation keys across EN/ES/FR/DE — 100% coverage</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Priority Matrix -->
+<div class="section open" onclick="this.classList.toggle('open')">
+  <div class="sec-head">
+    <span class="sec-num">★</span>
+    <span class="sec-title">Remaining Remediation Roadmap</span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="sec-body">
+    <table class="matrix">
+      <tr><th>#</th><th>Action</th><th>Severity</th><th>Effort</th><th>Impact</th></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Two-layer key hierarchy</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in keyHierarchy.ts</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Per-file encryption keys</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved via HKDF derivation</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Encrypt vault index</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in vault/index.rs</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Recovery codes</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in internal/recovery/</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Argon2id for SRP verifier</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in srp.go</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Key change notifications</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in keyVerification.ts</td></tr>
+      <tr style="text-decoration:line-through;opacity:0.4"><td>—</td><td>Rollback protection</td><td><span class="severity sev-resolved" style="font-size:10px">Done</span></td><td>—</td><td>Resolved in index.rs</td></tr>
+      <tr><td>1</td><td><strong>Replace certificate pinning placeholders</strong> with production SHA-256 SPKI hashes</td><td><span class="severity sev-critical" style="font-size:10px">Critical</span></td><td>1 hour</td><td>Required before any production deploy</td></tr>
+      <tr><td>2</td><td><strong>Implement or descope forensics service</strong> — Zero Trace claims vs. stub reality</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>5–7 days</td><td>Trust issue if shipped as-is</td></tr>
+      <tr><td>3</td><td><strong>Integrate ML-KEM into main key path</strong> — enable PQC feature flag, wire hybrid KEM</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>3–5 days</td><td>Fulfills CNSA 2.0 claims</td></tr>
+      <tr><td>4</td><td><strong>Independent crypto audit</strong> of Rust core</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>External</td><td>Third-party validation before launch</td></tr>
+      <tr><td>5</td><td><strong>Execute DAST scans</strong> and commit results</td><td><span class="severity sev-medium" style="font-size:10px">Medium</span></td><td>2–3 days</td><td>Validates runtime security posture</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center;color:var(--dim);font-size:12px;margin-top:32px;padding-bottom:32px">
+  USBVault Enterprise Security Gap Analysis v2 · Generated March 12, 2026 · Delta from v1 (March 8, 2026)
+</div>
+
+</body>
+</html>

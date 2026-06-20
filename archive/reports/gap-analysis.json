@@ -1,0 +1,1132 @@
+{
+  "metadata": {
+    "title": "USBVault Enterprise Edition - Gap Analysis",
+    "description": "Gap analysis of USBVault Enterprise Edition codebase against the original USBVault V2.0 Fortress technical specification",
+    "generated_date": "2026-03-15",
+    "spec_version": "V2.0 Fortress",
+    "enterprise_version": "Enterprise Edition",
+    "tech_stack": {
+      "rust": {
+        "component": "usbvault-crypto",
+        "purpose": "Cryptographic core - Argon2id, AEAD ciphers, streaming, vault header, PQC",
+        "key_deps": ["chacha20poly1305", "aes-gcm-siv", "ml-kem", "argon2", "ed25519-dalek"]
+      },
+      "typescript": {
+        "component": "usbvault-app",
+        "purpose": "Expo Router frontend, 34 tab pages, Zustand stores",
+        "key_deps": ["react@19.1", "expo@54", "zustand", "i18next"]
+      },
+      "go": {
+        "component": "usbvault-server",
+        "purpose": "REST API server with chi router, PostgreSQL, Redis, S3",
+        "key_deps": ["go@1.25", "chi", "pgx", "redis"]
+      },
+      "nodejs": {
+        "component": "usb-companion",
+        "purpose": "Express local service for USB hardware operations",
+        "key_deps": ["express", "helmet"]
+      }
+    },
+    "summary": {
+      "total_requirements": 52,
+      "done": 28,
+      "partial": 12,
+      "stub": 3,
+      "missing": 3,
+      "divergent": 6,
+      "completion_percentage": 72
+    }
+  },
+  "domains": [
+    {
+      "domain": "Data Domain (Binary Format, Schema)",
+      "domain_code": "DATA",
+      "completion_percentage": 80,
+      "requirements": [
+        {
+          "id": "REQ-DATA-001",
+          "title": "V2 Header 4096 bytes with 35+ fields at specified offsets",
+          "status": "DIVERGENT",
+          "impact": 3,
+          "effort": 1,
+          "priority": 15,
+          "description": "Enterprise uses V4 header (24576 bytes, USBVLT04 magic) instead of V2 (4096 bytes, USBVLT02). Fields are reorganized but core data preserved.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs",
+            "vaultContainerService.js HEADER_SIZE=24576"
+          ],
+          "action": "Document V4 as evolution of V2. No code change needed - V4 is superset."
+        },
+        {
+          "id": "REQ-DATA-002",
+          "title": "V3 PQC extension header (16384 bytes) with ML-KEM-1024 and ML-DSA-87 fields",
+          "status": "DIVERGENT",
+          "impact": 2,
+          "effort": 1,
+          "priority": 10,
+          "description": "PQC is implemented via feature-gated hybrid seal (X25519 + ML-KEM-1024) in pqc/hybrid.rs, not as a header extension.",
+          "evidence": [
+            "usbvault-crypto/src/pqc/hybrid.rs (370 lines)",
+            "Cargo.toml default=[\"pqc\"]"
+          ],
+          "action": "Document architectural decision. PQC implemented differently but functionally equivalent."
+        },
+        {
+          "id": "REQ-DATA-003",
+          "title": "Index blob format with V2I1 magic, dual-slot storage",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Dual-index atomic commits implemented with slot flip, commit counter, state version.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs lines 684-710",
+            "vault/index.rs"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-DATA-004",
+          "title": "Chunked record format V2RC with 64KB chunks",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "V2RC magic, 64KB chunks, per-chunk nonce derivation, final HMAC.",
+          "evidence": [
+            "usbvault-crypto/src/streaming.rs (732 lines)"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-DATA-005",
+          "title": "TFA credential wire format in header (offset 866, 540 bytes)",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 3,
+          "priority": 9,
+          "description": "FIDO2 service exists with registration/auth framework, but credential packing into header not implemented in Enterprise V4 header format.",
+          "evidence": [
+            "usbvault-app/src/services/fido2Service.ts",
+            "usbvault-server/internal/auth/fido2.go"
+          ],
+          "action": "Implement credential packing into V4 header format or document alternative server-side storage approach."
+        },
+        {
+          "id": "REQ-DATA-006",
+          "title": "Identity block at header offset 224 (544 bytes, JSON with label/created_at)",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Identity stored in V4 header, readable without password for vault discovery.",
+          "evidence": [
+            "vaultContainerService.js readVaultIdentity() reads offset 224"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-DATA-007",
+          "title": "Fail counter block at header offset 1408 with BE encoding",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Fail counter with domain-separated HMAC USBVault-FailCounter-v1.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs lines 511-682"
+          ],
+          "action": null
+        }
+      ]
+    },
+    {
+      "domain": "Crypto Domain",
+      "domain_code": "BIZ",
+      "completion_percentage": 72,
+      "requirements": [
+        {
+          "id": "REQ-BIZ-001",
+          "title": "Argon2id KDF with 64MiB memory, 3 time cost, 4 parallelism, 64-byte output",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Argon2id KDF fully implemented with specified parameters.",
+          "evidence": [
+            "usbvault-crypto/src/kdf.rs lines 129-160"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-002",
+          "title": "XChaCha20-Poly1305 AEAD (cipher_id=2, 24B nonce, 16B tag)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "XChaCha20-Poly1305 AEAD cipher fully implemented.",
+          "evidence": [
+            "usbvault-crypto/src/cipher.rs lines 1-123"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-003",
+          "title": "AES-256-GCM-SIV AEAD (cipher_id=3, 12B nonce, nonce-misuse resistant)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "AES-256-GCM-SIV AEAD cipher fully implemented.",
+          "evidence": [
+            "usbvault-crypto/src/cipher.rs lines 125-162"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-004",
+          "title": "Per-chunk nonce derivation (base_nonce XOR chunk_index)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Per-chunk nonce derivation implemented via XOR with chunk index.",
+          "evidence": [
+            "usbvault-crypto/src/streaming.rs lines 149-156"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-005",
+          "title": "Header HMAC-SHA256 over header with HMAC field zeroed",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Header integrity verified via HMAC-SHA256 with self-zeroed HMAC field.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs lines 456-473"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-006",
+          "title": "Fail counter HMAC with domain separation USBVault-FailCounter-v1",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Fail counter protected with domain-separated HMAC.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs line 512"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-007",
+          "title": "Verify marker with USBVAULT_VERIFY prefix encrypted at header",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Uses USBVAULT_VERIFY_OK_0000 prefix for password verification.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs lines 540-551"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-008",
+          "title": "PQC hybrid KEM (ML-KEM-1024 + classical)",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Uses X25519 + ML-KEM-1024 + HKDF hybrid seal.",
+          "evidence": [
+            "usbvault-crypto/src/pqc/hybrid.rs (370 lines)"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-009",
+          "title": "FIDO2 with hmac-secret extension, credential registration/authentication",
+          "status": "PARTIAL",
+          "impact": 4,
+          "effort": 3,
+          "priority": 12,
+          "description": "Registration/auth framework present, hmac-secret extension NOT wired.",
+          "evidence": [
+            "fido2Service.ts has prfSupported field but no hmac-secret processing"
+          ],
+          "action": "Wire hmac-secret extension into FIDO2 authentication flow for key derivation."
+        },
+        {
+          "id": "REQ-BIZ-010",
+          "title": "Self-destruct 3-pass random overwrite of header on max failures",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "3-pass overwrite (random, zeros, random) on wrapped_mek.",
+          "evidence": [
+            "usbvault-crypto/src/vault/header.rs lines 712-726"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-BIZ-011",
+          "title": "6-stage boot hardening (anti-debug, integrity, mlock, brute-force, self-destruct, ghost)",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 4,
+          "priority": 6,
+          "description": "Memory locking done, anti-debug partial (device integrity only, no ptrace), no ghost mode.",
+          "evidence": [
+            "memory.rs (mlock)",
+            "deviceIntegrity.ts",
+            "antiThreat.ts"
+          ],
+          "action": "Implement remaining boot hardening stages: ptrace detection and ghost mode integration."
+        },
+        {
+          "id": "REQ-BIZ-012",
+          "title": "Ghost mode (timestamp suppression, log disabling, anti-forensic)",
+          "status": "MISSING",
+          "impact": 3,
+          "effort": 4,
+          "priority": 6,
+          "description": "Ghost mode not implemented in the Enterprise codebase.",
+          "evidence": [],
+          "action": "Implement ghost mode service with timestamp sanitization, log suppression, clipboard clearing."
+        },
+        {
+          "id": "REQ-BIZ-013",
+          "title": "Password policy 15-char min, 10-point scoring, 98735 weak password dictionary",
+          "status": "PARTIAL",
+          "impact": 4,
+          "effort": 2,
+          "priority": 16,
+          "description": "15-char min exists, scoring exists, but only ~120 weak passwords (not 98,735). HIBP fallback present.",
+          "evidence": [
+            "usbvault-app/src/utils/passwordPolicy.ts"
+          ],
+          "action": "Add full 98,735-entry weak password dictionary or bloom filter."
+        },
+        {
+          "id": "REQ-BIZ-014",
+          "title": "Brute-force exponential backoff with fail counter in header",
+          "status": "PARTIAL",
+          "impact": 4,
+          "effort": 2,
+          "priority": 16,
+          "description": "Fail counter in header (Rust), but no exponential backoff in app layer.",
+          "evidence": [
+            "header.rs has fail counter",
+            "No delay logic in app unlock flow"
+          ],
+          "action": "Add exponential backoff delay calculation based on fail_count in unlock flow."
+        },
+        {
+          "id": "REQ-BIZ-015",
+          "title": "Memory locking (mlock/VirtualLock) for key material with guard pages",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 3,
+          "priority": 9,
+          "description": "mlock/VirtualLock cross-platform done, guard pages NOT implemented.",
+          "evidence": [
+            "usbvault-crypto/src/memory.rs (165 lines)"
+          ],
+          "action": "Add guard pages (mmap PROT_NONE) before and after key material allocations."
+        },
+        {
+          "id": "REQ-BIZ-016",
+          "title": "Ed25519-signed SHA-256 manifest for binary integrity",
+          "status": "STUB",
+          "impact": 2,
+          "effort": 3,
+          "priority": 6,
+          "description": "ed25519-dalek in Cargo.toml but never called in code.",
+          "evidence": [
+            "Cargo.toml lists ed25519-dalek",
+            "No usage found in codebase"
+          ],
+          "action": "Implement manifest generation and verification, or remove unused dependency."
+        },
+        {
+          "id": "REQ-BIZ-017",
+          "title": "String obfuscation (XOR-encoded sensitive constants)",
+          "status": "MISSING",
+          "impact": 1,
+          "effort": 3,
+          "priority": 3,
+          "description": "Not applicable to Enterprise edition (web app, not compiled binary).",
+          "evidence": [],
+          "action": "Not applicable to Enterprise edition. Remove from requirements."
+        },
+        {
+          "id": "REQ-BIZ-018",
+          "title": "Dual-index atomic commits with crash recovery",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Dual-index atomic commits implemented with slot flip and commit counter.",
+          "evidence": [
+            "header.rs lines 684-710",
+            "commit_new_index() with slot flip"
+          ],
+          "action": null
+        }
+      ]
+    },
+    {
+      "domain": "USB Domain",
+      "domain_code": "API",
+      "completion_percentage": 89,
+      "requirements": [
+        {
+          "id": "REQ-API-001",
+          "title": "USB detection on macOS (diskutil), Linux (lsblk), Windows (PowerShell)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Cross-platform USB detection fully implemented.",
+          "evidence": [
+            "usb-companion/src/services/usbDetector.js (471 lines)"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-002",
+          "title": "GPT + ExFAT dual partition (TOOLS 500MB + SECURE remainder)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "GPT + ExFAT dual partition provisioning implemented.",
+          "evidence": [
+            "usbProvisioner.js lines 380-699"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-003",
+          "title": "Provisioning on macOS (diskutil partitionDisk), Linux (parted), Windows (PowerShell)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Cross-platform provisioning fully implemented.",
+          "evidence": [
+            "usbProvisioner.js"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-004",
+          "title": "Mount/unmount SECURE partition",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Secure partition mount/unmount implemented.",
+          "evidence": [
+            "usb-companion/src/services/usbMounter.js (284 lines)"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-005",
+          "title": "USB eject (macOS diskutil eject, Linux udisksctl power-off, Windows 10-step)",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 2,
+          "priority": 12,
+          "description": "Unmount implemented, explicit eject/power-off not implemented.",
+          "evidence": [
+            "No POST /usb/eject route found"
+          ],
+          "action": "Add eject endpoint with platform-specific power-off."
+        },
+        {
+          "id": "REQ-API-006",
+          "title": "VAULT.bin at partition ROOT (not subdirectory)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "VAULT.bin placed at partition root.",
+          "evidence": [
+            "vaultContainerService.js line 59"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-007",
+          "title": "Partition hiding (unmount SECURE after provisioning)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Secure partition hidden after provisioning.",
+          "evidence": [
+            "usbProvisioner.js hideVaultFiles()"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-008",
+          "title": "Companion localhost-only with CORS, rate limiting, helmet, no shell=true",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Companion hardened with localhost binding, CORS, rate limiting, helmet, no shell usage.",
+          "evidence": [
+            "server.js lines 37-80"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-API-009",
+          "title": "VAULT.bin binary I/O routes (header read/write, bytes read, append, size, compact)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "All binary I/O routes implemented.",
+          "evidence": [
+            "usb.js routes lines 387-592"
+          ],
+          "action": null
+        }
+      ]
+    },
+    {
+      "domain": "UI Domain",
+      "domain_code": "UI",
+      "completion_percentage": 57,
+      "requirements": [
+        {
+          "id": "REQ-UI-001",
+          "title": "24 GUI view pages",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 4,
+          "priority": 6,
+          "description": "18/24 pages exist in some form, 6 completely missing.",
+          "evidence": [
+            "34 tab pages exist but some are Enterprise-specific additions"
+          ],
+          "missing_pages": [
+            "File Details",
+            "Compact",
+            "Self-Destruct config",
+            "Ghost Mode",
+            "Alert Settings",
+            "USB Eject"
+          ],
+          "action": "Create the 6 missing pages."
+        },
+        {
+          "id": "REQ-UI-002",
+          "title": "Theme engine with dark/light mode",
+          "status": "DONE",
+          "impact": 3,
+          "effort": 5,
+          "priority": 3,
+          "description": "CSS-in-JS with glassmorphic design, dark/light toggle, persistent.",
+          "evidence": [
+            "themeStore.ts",
+            "theme/colors.ts"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-UI-003",
+          "title": "VaultController with 28 signals (Qt signals in original)",
+          "status": "DIVERGENT",
+          "impact": 2,
+          "effort": 1,
+          "priority": 10,
+          "description": "Uses Zustand stores + React hooks instead of Qt signals (expected for web app).",
+          "evidence": [
+            "7 Zustand stores manage equivalent state"
+          ],
+          "action": "No code change needed. Document architectural divergence."
+        },
+        {
+          "id": "REQ-UI-004",
+          "title": "Dashboard with file list, vault statistics, quick actions",
+          "status": "PARTIAL",
+          "impact": 4,
+          "effort": 3,
+          "priority": 12,
+          "description": "Dashboard renders but may use mock data for some stats.",
+          "evidence": [
+            "dashboard.tsx",
+            "HeroSection",
+            "VaultTable",
+            "RightRail"
+          ],
+          "action": "Wire dashboard stats to real vault data instead of mock data."
+        },
+        {
+          "id": "REQ-UI-005",
+          "title": "Crypto Classroom with 7 ciphers, 6 KDFs, brute-force demos",
+          "status": "STUB",
+          "impact": 1,
+          "effort": 4,
+          "priority": 2,
+          "description": "Coming in v1.1 placeholder with locked course modules.",
+          "evidence": [
+            "classroom.tsx (13KB, placeholder)"
+          ],
+          "action": "Implement interactive cipher demos and KDF explanations, or defer to v1.1."
+        },
+        {
+          "id": "REQ-UI-006",
+          "title": "Onboarding wizard",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 4,
+          "priority": 6,
+          "description": "18KB OnboardingWizard.tsx exists with recovery phrase display.",
+          "evidence": [
+            "src/components/onboarding/OnboardingWizard.tsx"
+          ],
+          "action": "Complete onboarding flow with all required steps."
+        },
+        {
+          "id": "REQ-UI-007",
+          "title": "i18n / internationalization support",
+          "status": "DONE",
+          "impact": 3,
+          "effort": 5,
+          "priority": 3,
+          "description": "i18next with 4 languages (en, es, fr, de).",
+          "evidence": [
+            "src/i18n/locales/*.json"
+          ],
+          "action": null
+        }
+      ]
+    },
+    {
+      "domain": "Auth Domain",
+      "domain_code": "AUTH",
+      "completion_percentage": 81,
+      "requirements": [
+        {
+          "id": "REQ-AUTH-001",
+          "title": "SRP-6a authentication protocol",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Server has SRP auth, client has SRP client implementation.",
+          "evidence": [
+            "usbvault-server/internal/auth/",
+            "usbvault-crypto/src/srp_client.rs"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-AUTH-002",
+          "title": "JWT with Redis-backed revocation and device fingerprint binding",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "JWT auth with Redis-backed revocation and device fingerprint binding.",
+          "evidence": [
+            "usbvault-server/internal/auth/jwt.go",
+            "middleware/auth.go"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-AUTH-003",
+          "title": "RBAC with vault ownership, membership roles, feature gates",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Role-based access control with vault ownership and feature gates.",
+          "evidence": [
+            "usbvault-server/internal/middleware/rbac.go"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-AUTH-004",
+          "title": "App password (separate from vault password, PBKDF2-SHA256, 150K iterations)",
+          "status": "PARTIAL",
+          "impact": 2,
+          "effort": 3,
+          "priority": 6,
+          "description": "authStore has rate limiting but no separate app password gate.",
+          "evidence": [
+            "authStore.ts has auth flow, no separate app password"
+          ],
+          "action": "Implement separate app password gate with PBKDF2-SHA256 and 150K iterations."
+        }
+      ]
+    },
+    {
+      "domain": "Infrastructure Domain",
+      "domain_code": "INFRA",
+      "completion_percentage": 80,
+      "requirements": [
+        {
+          "id": "REQ-INFRA-001",
+          "title": "CI/CD with SAST/DAST across Rust, Go, TypeScript",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Full CI/CD pipeline with SAST/DAST for all three languages.",
+          "evidence": [
+            ".github/workflows/ci.yml",
+            ".github/workflows/security.yml",
+            ".github/workflows/release.yml"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-INFRA-002",
+          "title": "Docker multi-stage build with non-root user",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Multi-stage Docker build with non-root user.",
+          "evidence": [
+            "usbvault-server/Dockerfile"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-INFRA-003",
+          "title": "Kubernetes deployment with HA, migrations, probes",
+          "status": "DONE",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "K8s deployment with HA, migration jobs, health probes.",
+          "evidence": [
+            "usbvault-server/deploy/k8s/"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-INFRA-004",
+          "title": "Monitoring (Prometheus + Grafana + AlertManager)",
+          "status": "DONE",
+          "impact": 3,
+          "effort": 5,
+          "priority": 3,
+          "description": "Full monitoring stack with Prometheus, Grafana dashboards, and AlertManager.",
+          "evidence": [
+            "usbvault-server/deploy/monitoring/"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-INFRA-005",
+          "title": "5-step signed build pipeline (Cython compile, obfuscate, PyInstaller, Ed25519 sign, verify)",
+          "status": "DIVERGENT",
+          "impact": 2,
+          "effort": 1,
+          "priority": 10,
+          "description": "Enterprise uses Rust compilation instead of Cython/PyInstaller. Build pipeline is CI/CD-based, not the original 5-step.",
+          "evidence": [
+            "Different architecture (Rust+TS+Go vs Python+Cython)"
+          ],
+          "action": "Document architectural divergence. Rust native compilation provides equivalent or better protection."
+        }
+      ]
+    },
+    {
+      "domain": "Test Domain",
+      "domain_code": "TEST",
+      "completion_percentage": 78,
+      "requirements": [
+        {
+          "id": "REQ-TEST-001",
+          "title": "179 tests across 7 test suites",
+          "status": "DIVERGENT",
+          "impact": 4,
+          "effort": 5,
+          "priority": 4,
+          "description": "Enterprise has MORE tests: 45 TS unit + 10 E2E + 62 Go + 12 Rust unit + 7 Rust integration = 136+ test files.",
+          "evidence": [
+            "Test files enumerated across all 3 subsystems"
+          ],
+          "action": "No action needed. Enterprise exceeds original test count."
+        },
+        {
+          "id": "REQ-TEST-002",
+          "title": "Pylint 9.87/10, Bandit 0H/0M, pip-audit 0 vulnerabilities",
+          "status": "DIVERGENT",
+          "impact": 3,
+          "effort": 5,
+          "priority": 3,
+          "description": "Enterprise uses ESLint (security plugin), cargo-audit, gosec, npm audit instead of Python tools.",
+          "evidence": [
+            "ESLint security config",
+            "CI/CD pipelines"
+          ],
+          "action": "No action needed. Equivalent tooling for Enterprise tech stack."
+        },
+        {
+          "id": "REQ-TEST-003",
+          "title": "70% code coverage threshold",
+          "status": "DONE",
+          "impact": 3,
+          "effort": 5,
+          "priority": 3,
+          "description": "Jest configured with 70% coverage threshold.",
+          "evidence": [
+            "jest.config.js coverageThreshold 70%"
+          ],
+          "action": null
+        }
+      ]
+    },
+    {
+      "domain": "Error Handling Domain",
+      "domain_code": "ERR",
+      "completion_percentage": 75,
+      "requirements": [
+        {
+          "id": "REQ-ERR-001",
+          "title": "Coding standards (no shell=true, hmac.compare_digest, bytearray zeroing)",
+          "status": "DONE",
+          "impact": 5,
+          "effort": 5,
+          "priority": 5,
+          "description": "Rust uses Zeroizing<T>, subtle::ConstantTimeEq; Node uses execFile (no shell).",
+          "evidence": [
+            "usbvault-crypto/src/memory.rs",
+            "usb-companion server.js"
+          ],
+          "action": null
+        },
+        {
+          "id": "REQ-ERR-002",
+          "title": "Error codes (WRONG_PASSWORD, TFA_FAILED, LOCKED_OUT, SELF_DESTRUCTED, BAD_MAGIC, etc.)",
+          "status": "PARTIAL",
+          "impact": 3,
+          "effort": 2,
+          "priority": 12,
+          "description": "Rust has CryptoError enum, companion has HTTP error responses, but not all 15+ error codes from spec.",
+          "evidence": [
+            "usbvault-crypto/src/error.rs"
+          ],
+          "action": "Add missing error codes to CryptoError enum and map them through the TypeScript and companion layers."
+        }
+      ]
+    }
+  ],
+  "implementation_roadmap": {
+    "phase_1_critical": {
+      "name": "High-Priority Gaps (Priority >= 12)",
+      "estimated_effort_days": 10,
+      "items": [
+        {
+          "id": "REQ-BIZ-013",
+          "title": "Expand weak password dictionary to 98,735 entries",
+          "priority": 16,
+          "effort_days": 2,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-BIZ-014",
+          "title": "Add exponential backoff to unlock flow",
+          "priority": 16,
+          "effort_days": 1,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-DATA-001",
+          "title": "Document V4 header as V2 evolution",
+          "priority": 15,
+          "effort_days": 0.5,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-BIZ-009",
+          "title": "Wire FIDO2 hmac-secret extension",
+          "priority": 12,
+          "effort_days": 3,
+          "dependencies": ["REQ-DATA-005"]
+        },
+        {
+          "id": "REQ-API-005",
+          "title": "Add USB eject endpoint",
+          "priority": 12,
+          "effort_days": 1,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-UI-004",
+          "title": "Wire dashboard to real vault data",
+          "priority": 12,
+          "effort_days": 2,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-ERR-002",
+          "title": "Complete error code enumeration",
+          "priority": 12,
+          "effort_days": 1,
+          "dependencies": []
+        }
+      ]
+    },
+    "phase_2_important": {
+      "name": "Medium-Priority Gaps (Priority 6-11)",
+      "estimated_effort_days": 18,
+      "items": [
+        {
+          "id": "REQ-DATA-002",
+          "title": "Document PQC architectural decision",
+          "priority": 10,
+          "effort_days": 0.5,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-UI-003",
+          "title": "Document Zustand vs Qt signals divergence",
+          "priority": 10,
+          "effort_days": 0.5,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-INFRA-005",
+          "title": "Document Rust vs Cython build pipeline divergence",
+          "priority": 10,
+          "effort_days": 0.5,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-DATA-005",
+          "title": "Implement TFA credential packing in V4 header",
+          "priority": 9,
+          "effort_days": 3,
+          "dependencies": ["REQ-BIZ-009"]
+        },
+        {
+          "id": "REQ-BIZ-015",
+          "title": "Add guard pages to memory allocations",
+          "priority": 9,
+          "effort_days": 2,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-BIZ-011",
+          "title": "Complete boot hardening stages",
+          "priority": 6,
+          "effort_days": 3,
+          "dependencies": ["REQ-BIZ-012"]
+        },
+        {
+          "id": "REQ-BIZ-012",
+          "title": "Implement ghost mode service",
+          "priority": 6,
+          "effort_days": 4,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-BIZ-016",
+          "title": "Implement or remove Ed25519 manifest signing",
+          "priority": 6,
+          "effort_days": 2,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-UI-001",
+          "title": "Create 6 missing UI pages",
+          "priority": 6,
+          "effort_days": 3,
+          "dependencies": ["REQ-BIZ-012", "REQ-API-005"]
+        },
+        {
+          "id": "REQ-UI-006",
+          "title": "Complete onboarding wizard flow",
+          "priority": 6,
+          "effort_days": 2,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-AUTH-004",
+          "title": "Implement separate app password gate",
+          "priority": 6,
+          "effort_days": 2,
+          "dependencies": []
+        }
+      ]
+    },
+    "phase_3_low": {
+      "name": "Low-Priority Gaps (Priority < 6)",
+      "estimated_effort_days": 5,
+      "items": [
+        {
+          "id": "REQ-BIZ-017",
+          "title": "String obfuscation - mark as N/A for Enterprise",
+          "priority": 3,
+          "effort_days": 0,
+          "dependencies": []
+        },
+        {
+          "id": "REQ-UI-005",
+          "title": "Build Crypto Classroom interactive content",
+          "priority": 2,
+          "effort_days": 5,
+          "dependencies": []
+        }
+      ]
+    }
+  },
+  "dependency_graph": {
+    "nodes": [
+      "REQ-BIZ-009",
+      "REQ-DATA-005",
+      "REQ-BIZ-011",
+      "REQ-BIZ-012",
+      "REQ-UI-001",
+      "REQ-API-005",
+      "REQ-BIZ-013",
+      "REQ-BIZ-014",
+      "REQ-BIZ-015",
+      "REQ-BIZ-016",
+      "REQ-UI-004",
+      "REQ-UI-006",
+      "REQ-AUTH-004",
+      "REQ-ERR-002"
+    ],
+    "edges": [
+      {
+        "from": "REQ-BIZ-009",
+        "to": "REQ-DATA-005",
+        "relation": "FIDO2 hmac-secret wiring enables credential packing in header"
+      },
+      {
+        "from": "REQ-DATA-005",
+        "to": "REQ-BIZ-009",
+        "relation": "Header format must support TFA credential wire format"
+      },
+      {
+        "from": "REQ-BIZ-012",
+        "to": "REQ-BIZ-011",
+        "relation": "Ghost mode is required for complete boot hardening"
+      },
+      {
+        "from": "REQ-BIZ-012",
+        "to": "REQ-UI-001",
+        "relation": "Ghost Mode UI page depends on ghost mode service"
+      },
+      {
+        "from": "REQ-API-005",
+        "to": "REQ-UI-001",
+        "relation": "USB Eject UI page depends on eject endpoint"
+      }
+    ],
+    "critical_path": [
+      "REQ-BIZ-012 (Ghost mode service)",
+      "REQ-BIZ-011 (Boot hardening)",
+      "REQ-UI-001 (Missing UI pages)"
+    ]
+  },
+  "out_of_spec": [
+    {
+      "id": "OOS-001",
+      "title": "Go REST API server with 40+ endpoints",
+      "description": "Original spec was Python-only CLI/GUI. Enterprise adds a full Go server with chi router, PostgreSQL, Redis, S3.",
+      "components": ["usbvault-server"]
+    },
+    {
+      "id": "OOS-002",
+      "title": "Stripe billing integration with tiered subscriptions",
+      "description": "Tiered subscription billing via Stripe, not in original spec.",
+      "components": ["usbvault-server/internal/billing"]
+    },
+    {
+      "id": "OOS-003",
+      "title": "WebSocket sync for multi-device support",
+      "description": "Real-time sync via WebSocket connections for multi-device vault access.",
+      "components": ["usbvault-server/internal/sync"]
+    },
+    {
+      "id": "OOS-004",
+      "title": "E2E encrypted sharing via X25519 sealed boxes",
+      "description": "End-to-end encrypted file and vault sharing between users.",
+      "components": ["usbvault-server/internal/sharing", "usbvault-app/src/services/sharing"]
+    },
+    {
+      "id": "OOS-005",
+      "title": "SRP-6a authentication",
+      "description": "Secure Remote Password protocol for zero-knowledge auth. Original spec had simple password auth.",
+      "components": ["usbvault-server/internal/auth", "usbvault-crypto/src/srp_client.rs"]
+    },
+    {
+      "id": "OOS-006",
+      "title": "Recovery codes (10 SHA-256 hashed codes)",
+      "description": "Account recovery via pre-generated hashed codes.",
+      "components": ["usbvault-server/internal/recovery"]
+    },
+    {
+      "id": "OOS-007",
+      "title": "Vault compaction via atomic rewrite",
+      "description": "Companion route for compacting vault files by rewriting without deleted records.",
+      "components": ["usb-companion"]
+    },
+    {
+      "id": "OOS-008",
+      "title": "i18n with 4 languages",
+      "description": "Internationalization support with English, Spanish, French, and German.",
+      "components": ["usbvault-app/src/i18n"]
+    },
+    {
+      "id": "OOS-009",
+      "title": "Password manager feature",
+      "description": "Built-in encrypted password manager, not in original spec.",
+      "components": ["usbvault-app/src/components/passwords", "usbvault-app/src/hooks/usePasswords.ts"]
+    },
+    {
+      "id": "OOS-010",
+      "title": "Multipart S3 uploads for cloud storage",
+      "description": "Server-side multipart upload handling for large vault files to S3.",
+      "components": ["usbvault-server/internal/storage/multipart_handlers.go"]
+    },
+    {
+      "id": "OOS-011",
+      "title": "IAST middleware for runtime security testing",
+      "description": "Interactive Application Security Testing middleware in the Go server.",
+      "components": ["usbvault-server/internal/middleware/iast_middleware.go"]
+    },
+    {
+      "id": "OOS-012",
+      "title": "OpenTelemetry tracing integration",
+      "description": "Distributed tracing via OpenTelemetry for observability.",
+      "components": ["usbvault-server/internal/tracing"]
+    },
+    {
+      "id": "OOS-013",
+      "title": "Kubernetes deployment with HPA",
+      "description": "Horizontal Pod Autoscaler for auto-scaling the server deployment.",
+      "components": ["usbvault-server/deploy/k8s"]
+    },
+    {
+      "id": "OOS-014",
+      "title": "Monitoring stack (Prometheus, Grafana, AlertManager)",
+      "description": "Full observability stack with dashboards and alerting.",
+      "components": ["usbvault-server/deploy/monitoring"]
+    }
+  ]
+}

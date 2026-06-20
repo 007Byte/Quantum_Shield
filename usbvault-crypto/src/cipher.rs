@@ -7,7 +7,8 @@ use aes_gcm_siv::{
 };
 use chacha20poly1305::XChaCha20Poly1305;
 use generic_array::GenericArray;
-use rand::Rng;
+use rand::rngs::OsRng;
+use rand::RngCore;
 
 /// Cipher algorithm identifier
 #[repr(u8)]
@@ -86,7 +87,7 @@ pub fn decrypt(cipher_id: CipherId, key: &[u8; 32], ciphertext: &[u8]) -> Result
 /// XChaCha20-Poly1305 encryption
 fn encrypt_xchacha20(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill(&mut nonce);
+    OsRng.fill_bytes(&mut nonce);
 
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
@@ -125,7 +126,7 @@ fn decrypt_xchacha20(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>> {
 /// AES-256-GCM-SIV encryption
 fn encrypt_aes256(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     let mut nonce = [0u8; 12];
-    rand::thread_rng().fill(&mut nonce);
+    OsRng.fill_bytes(&mut nonce);
 
     let cipher = Aes256GcmSiv::new(GenericArray::from_slice(key));
     let nonce_array: &GenericArray<u8, _> = GenericArray::from_slice(&nonce);
@@ -219,7 +220,7 @@ fn encrypt_xchacha20_ad(key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<V
     use chacha20poly1305::aead::Payload;
 
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill(&mut nonce);
+    OsRng.fill_bytes(&mut nonce);
 
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
@@ -266,7 +267,7 @@ fn encrypt_aes256_ad(key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<Vec<
     use aes_gcm_siv::aead::Payload;
 
     let mut nonce = [0u8; 12];
-    rand::thread_rng().fill(&mut nonce);
+    OsRng.fill_bytes(&mut nonce);
 
     let cipher = Aes256GcmSiv::new(GenericArray::from_slice(key));
     let nonce_array: &GenericArray<u8, _> = GenericArray::from_slice(&nonce);

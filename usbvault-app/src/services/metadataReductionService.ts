@@ -5,6 +5,8 @@
  * to reduce metadata leakage in communications.
  */
 
+import { registerCleanup } from '@/stores/storeCleanup';
+
 // ── Types ──
 
 export interface MetadataConfig {
@@ -78,7 +80,7 @@ class MetadataReductionServiceImpl {
     if (!VALID_PADDING_SIZES.includes(updated.paddingSize)) {
       // Find nearest valid size
       updated.paddingSize = VALID_PADDING_SIZES.reduce((prev, curr) =>
-        Math.abs(curr - updated.paddingSize) < Math.abs(prev - updated.paddingSize) ? curr : prev,
+        Math.abs(curr - updated.paddingSize) < Math.abs(prev - updated.paddingSize) ? curr : prev
       );
     }
 
@@ -97,7 +99,7 @@ class MetadataReductionServiceImpl {
     if (!config.timingJitterEnabled || config.timingJitterMaxMs <= 0) return;
 
     const delay = Math.floor(Math.random() * config.timingJitterMaxMs);
-    await new Promise((resolve) => setTimeout(resolve, delay));
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
   /**
@@ -160,10 +162,10 @@ class MetadataReductionServiceImpl {
     if (!config.batchDeliveryEnabled) return;
 
     this.stopBatchTimer();
-    this.batchTimer = setInterval(
-      () => this.flushBatch(),
-      config.batchIntervalMs,
-    );
+    this.batchTimer = setInterval(() => this.flushBatch(), config.batchIntervalMs);
+
+    // RELIABILITY FIX (M-4): Register cleanup to stop timer on logout
+    registerCleanup(() => this.stopBatchTimer());
   }
 
   /**

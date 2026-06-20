@@ -195,6 +195,186 @@ int32_t usbvault_pqc_open(const uint8_t *x25519_sec,
                           uintptr_t out_capacity,
                           uintptr_t *out_len);
 
+// A1: Create a new V4 vault header from password.
+//
+// Returns header bytes (24576) + enc_key (32) + hmac_key (32) = 24640 bytes total.
+// The enc_key and hmac_key are the MEK halves for immediate use.
+// Caller MUST zero them after writing the initial empty index.
+//
+// # Safety
+// - password_ptr/password_len: valid UTF-8 password
+// - cipher_id: 2 (XChaCha20) or 3 (AES-GCM-SIV)
+// - out_ptr: capacity >= 24640 bytes
+// - out_len: valid pointer for writing
+int32_t usbvault_vault_create_header(const uint8_t *password_ptr,
+                                     uintptr_t password_len,
+                                     uint8_t cipher_id,
+                                     uint8_t *out_ptr,
+                                     uintptr_t out_capacity,
+                                     uintptr_t *out_len);
+
+// A2: Parse header bytes into JSON metadata (no secrets exposed).
+//
+// Returns JSON string with: version, saltHex, activeIndexSlot,
+// index1Offset, index1Length, index2Offset, index2Length,
+// commitCounter, stateVersion, hasWrappedMek, indexEncrypted
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - out_json_ptr: capacity for JSON string
+// - out_json_len: valid pointer
+int32_t usbvault_vault_read_header(const uint8_t *header_ptr,
+                                   uintptr_t header_len,
+                                   uint8_t *out_json_ptr,
+                                   uintptr_t out_json_capacity,
+                                   uintptr_t *out_json_len);
+
+// A3: Unlock a vault header with password.
+//
+// Returns enc_key (32 bytes) + hmac_key (32 bytes) = 64 bytes total.
+// These are the MEK halves needed for all subsequent operations.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes (24576 for V4)
+// - password_ptr/password_len: valid password
+// - out_ptr: capacity >= 64 bytes
+// - out_len: valid pointer
+int32_t usbvault_vault_unlock(const uint8_t *header_ptr,
+                              uintptr_t header_len,
+                              const uint8_t *password_ptr,
+                              uintptr_t password_len,
+                              uint8_t *out_ptr,
+                              uintptr_t out_capacity,
+                              uintptr_t *out_len);
+
+// A4: Encrypt a VaultIndex JSON blob.
+//
+// # Safety
+// - master_key_ptr: 32-byte encryption key (MEK enc half)
+// - index_json_ptr/index_json_len: valid JSON bytes
+// - out_ptr: capacity for encrypted blob (JSON + nonce + tag overhead)
+int32_t usbvault_vault_encrypt_index(const uint8_t *master_key_ptr,
+                                     uintptr_t master_key_len,
+                                     const uint8_t *index_json_ptr,
+                                     uintptr_t index_json_len,
+                                     uint8_t *out_ptr,
+                                     uintptr_t out_capacity,
+                                     uintptr_t *out_len);
+
+// A5: Decrypt an encrypted VaultIndex blob back to JSON.
+//
+// # Safety
+// - master_key_ptr: 32-byte encryption key
+// - encrypted_ptr/encrypted_len: encrypted blob from encrypt_index
+// - out_json_ptr: capacity for JSON output
+int32_t usbvault_vault_decrypt_index(const uint8_t *master_key_ptr,
+                                     uintptr_t master_key_len,
+                                     const uint8_t *encrypted_ptr,
+                                     uintptr_t encrypted_len,
+                                     uint8_t *out_json_ptr,
+                                     uintptr_t out_json_capacity,
+                                     uintptr_t *out_json_len);
+
+// A6: Encrypt a file as a V2RC chunked AEAD record.
+//
+// # Safety
+// - key_ptr: 32-byte encryption key (per-file key)
+// - cipher_id: 2 or 3
+// - filename_ptr/filename_len: file name
+// - data_ptr/data_len: file content
+// - out_ptr: capacity for V2RC record (data + overhead)
+int32_t usbvault_vault_encrypt_record(const uint8_t *key_ptr,
+                                      uintptr_t key_len,
+                                      uint8_t cipher_id,
+                                      const uint8_t *filename_ptr,
+                                      uintptr_t filename_len,
+                                      const uint8_t *data_ptr,
+                                      uintptr_t data_len,
+                                      uint8_t *out_ptr,
+                                      uintptr_t out_capacity,
+                                      uintptr_t *out_len);
+
+// A7: Decrypt a V2RC record back to filename + file data.
+//
+// Output layout: filename_len(4 LE) + filename + data
+//
+// # Safety
+// - key_ptr: 32-byte key
+// - record_ptr/record_len: V2RC record bytes
+// - out_ptr: capacity for filename_len(4) + filename + data
+int32_t usbvault_vault_decrypt_record(const uint8_t *key_ptr,
+                                      uintptr_t key_len,
+                                      uint8_t cipher_id,
+                                      const uint8_t *record_ptr,
+                                      uintptr_t record_len,
+                                      uint8_t *out_ptr,
+                                      uintptr_t out_capacity,
+                                      uintptr_t *out_len);
+
+// A8: Read and verify the fail counter from header bytes.
+//
+// Returns the counter value in out_count on success.
+// Returns ERR_FAIL_COUNTER_TAMPERED if HMAC verification fails.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - hmac_key_ptr: 32-byte HMAC key (MEK hmac half)
+// - out_count: valid pointer for writing u32
+int32_t usbvault_vault_fail_counter_read(const uint8_t *header_ptr,
+                                         uintptr_t header_len,
+                                         const uint8_t *hmac_key_ptr,
+                                         uintptr_t hmac_key_len,
+                                         uint32_t *out_count);
+
+// A9: Increment the fail counter and return updated header bytes.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - hmac_key_ptr: 32-byte HMAC key
+// - out_ptr: capacity >= header size (24576 for V4)
+int32_t usbvault_vault_fail_counter_increment(const uint8_t *header_ptr,
+                                              uintptr_t header_len,
+                                              const uint8_t *hmac_key_ptr,
+                                              uintptr_t hmac_key_len,
+                                              uint8_t *out_ptr,
+                                              uintptr_t out_capacity,
+                                              uintptr_t *out_len);
+
+// A10: Reset the fail counter to 0 and return updated header bytes.
+//
+// Called after successful unlock.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - hmac_key_ptr: 32-byte HMAC key
+// - out_ptr: capacity >= header size
+int32_t usbvault_vault_fail_counter_reset(const uint8_t *header_ptr,
+                                          uintptr_t header_len,
+                                          const uint8_t *hmac_key_ptr,
+                                          uintptr_t hmac_key_len,
+                                          uint8_t *out_ptr,
+                                          uintptr_t out_capacity,
+                                          uintptr_t *out_len);
+
+// A11: Commit a new index — flip active slot, update offset/length, increment counters.
+//
+// This is the atomic dual-index commit operation.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - hmac_key_ptr: 32-byte HMAC key
+// - new_index_offset/new_index_length: the offset and size of the newly written index blob
+// - out_ptr: capacity >= header size
+int32_t usbvault_vault_commit_index(const uint8_t *header_ptr,
+                                    uintptr_t header_len,
+                                    const uint8_t *hmac_key_ptr,
+                                    uintptr_t hmac_key_len,
+                                    uint32_t new_index_offset,
+                                    uint32_t new_index_length,
+                                    uint8_t *out_ptr,
+                                    uintptr_t out_capacity,
+                                    uintptr_t *out_len);
+
 // Android platform initialization (called from JNI_OnLoad or application startup)
 //
 // # Safety

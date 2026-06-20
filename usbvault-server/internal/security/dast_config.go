@@ -1,5 +1,10 @@
 package security
 
+import (
+	"fmt"
+	"strings"
+)
+
 // PH10-FIX: DAST configuration for dynamic application security testing
 
 // DASTEndpoint represents an API endpoint for dynamic security testing
@@ -573,4 +578,123 @@ func DASTScanConfig() map[string]interface{} {
 			"allowedMethods": []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		},
 	}
+}
+
+// GenerateZAPURLList produces a newline-delimited list of URLs suitable for
+// ZAP's URL import (-U flag). Path parameters like {vaultID} are replaced
+// with placeholder UUIDs so ZAP can spider them.
+func GenerateZAPURLList(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	endpoints := DASTEndpoints()
+
+	var lines []string
+	for _, ep := range endpoints {
+		if ep.Method == "WEBSOCKET" {
+			continue // ZAP URL list does not support WebSocket
+		}
+		path := replacePathParams(ep.Path)
+		lines = append(lines, fmt.Sprintf("%s%s", baseURL, path))
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// GenerateZAPContext produces a YAML-formatted ZAP context file that includes
+// all endpoints, authentication configuration (JWT bearer), and active scan
+// policy settings derived from DASTScanConfig().
+func GenerateZAPContext(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	endpoints := DASTEndpoints()
+	scanConfig := DASTScanConfig()
+
+	var b strings.Builder
+
+	// Header
+	b.WriteString("# ZAP Context — auto-generated from dast_config.go\n")
+	b.WriteString("---\n")
+	b.WriteString("env:\n")
+	b.WriteString("  contexts:\n")
+	b.WriteString("    - name: \"USBVault API\"\n")
+	b.WriteString(fmt.Sprintf("      urls:\n        - \"%s\"\n", baseURL))
+
+	// Include regexes for all paths so ZAP scopes them
+	b.WriteString("      includePaths:\n")
+	for _, ep := range endpoints {
+		if ep.Method == "WEBSOCKET" {
+			continue
+		}
+		// Convert path params to regex wildcards for ZAP scope
+		regexPath := pathToRegex(ep.Path)
+		b.WriteString(fmt.Sprintf("        - \"%s%s\"\n", strings.ReplaceAll(baseURL, ".", "\\."), regexPath))
+	}
+
+	// Authentication section (JWT bearer)
+	auth, _ := scanConfig["authentication"].(map[string]interface{})
+	tokenName, _ := auth["tokenName"].(string)
+	tokenType, _ := auth["tokenType"].(string)
+	b.WriteString("      authentication:\n")
+	b.WriteString("        method: \"header\"\n")
+	b.WriteString("        parameters:\n")
+	b.WriteString(fmt.Sprintf("          headerName: \"%s\"\n", tokenName))
+	b.WriteString(fmt.Sprintf("          headerValue: \"%s {%%token%%}\"\n", tokenType))
+
+	// Endpoint details as technology annotations
+	b.WriteString("  parameters:\n")
+	b.WriteString("    failOnError: true\n")
+	b.WriteString("    progressToStdout: true\n")
+
+	// Active scan policy
+	b.WriteString("  policy:\n")
+	b.WriteString("    name: \"USBVault Security Scan\"\n")
+	b.WriteString("    rules:\n")
+
+	policies, _ := scanConfig["scanPolicy"].(map[string]interface{})
+	policyList, _ := policies["policies"].([]map[string]interface{})
+	for _, p := range policyList {
+		enabled, _ := p["enabled"].(bool)
+		name, _ := p["name"].(string)
+		id, _ := p["policyid"].(string)
+		b.WriteString(fmt.Sprintf("      - id: %s\n", id))
+		b.WriteString(fmt.Sprintf("        name: \"%s\"\n", name))
+		if enabled {
+			b.WriteString("        strength: \"medium\"\n")
+			b.WriteString("        threshold: \"medium\"\n")
+		} else {
+			b.WriteString("        threshold: \"off\"\n")
+		}
+	}
+
+	// Endpoint inventory as comments for reference
+	b.WriteString("  # Endpoint inventory:\n")
+	for _, ep := range endpoints {
+		b.WriteString(fmt.Sprintf("  #   %s %s (auth=%v) tests=%s\n",
+			ep.Method, ep.Path, ep.AuthRequired, strings.Join(ep.TestCases, ",")))
+	}
+
+	return b.String()
+}
+
+// replacePathParams replaces {param} placeholders with deterministic UUIDs
+func replacePathParams(path string) string {
+	replacements := map[string]string{
+		"{vaultID}":      "00000000-0000-0000-0000-000000000001",
+		"{blobID}":       "00000000-0000-0000-0000-000000000002",
+		"{memberUserID}": "00000000-0000-0000-0000-000000000003",
+		"{shareID}":      "00000000-0000-0000-0000-000000000004",
+		"{userID}":       "00000000-0000-0000-0000-000000000005",
+	}
+	result := path
+	for param, value := range replacements {
+		result = strings.ReplaceAll(result, param, value)
+	}
+	return result
+}
+
+// pathToRegex converts a path with {param} segments to a regex for ZAP scope
+func pathToRegex(path string) string {
+	// Escape dots, replace path params with UUID-matching regex
+	result := strings.ReplaceAll(path, ".", "\\.")
+	for _, param := range []string{"{vaultID}", "{blobID}", "{memberUserID}", "{shareID}", "{userID}"} {
+		result = strings.ReplaceAll(result, param, "[^/]+")
+	}
+	return result + "$"
 }

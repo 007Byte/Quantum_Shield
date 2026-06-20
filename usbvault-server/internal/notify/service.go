@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 type Device struct {
@@ -90,6 +91,33 @@ func (ns *NotifyService) SendNotification(ctx context.Context, pool *pgxpool.Poo
 	return nil
 }
 
+// UnregisterDevice removes a device token for a user (e.g., on logout).
+func (ns *NotifyService) UnregisterDevice(ctx context.Context, userID, deviceToken string) error {
+	_, err := ns.pool.Exec(ctx,
+		`DELETE FROM devices WHERE user_id = $1 AND device_token = $2`,
+		userID, deviceToken,
+	)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("failed to unregister device")
+		return err
+	}
+	log.Info().Str("user_id", userID).Msg("device unregistered")
+	return nil
+}
+
+// SendNewDeviceAlert notifies the user that a new device was used to log in.
+func (ns *NotifyService) SendNewDeviceAlert(ctx context.Context, userID, deviceInfo string) error {
+	return ns.SendNotification(ctx, ns.pool, userID,
+		"New Device Login",
+		"Your account was accessed from a new device: "+deviceInfo+". If this wasn't you, change your password immediately.",
+	)
+}
+
+// SendSecurityAlert sends a generic security notification to the user.
+func (ns *NotifyService) SendSecurityAlert(ctx context.Context, userID, title, detail string) error {
+	return ns.SendNotification(ctx, ns.pool, userID, title, detail)
+}
+
 // HTTP Handlers
 
 type RegisterDeviceRequest struct {
@@ -105,7 +133,7 @@ func HandleRegisterDevice(ns *NotifyService) http.HandlerFunc {
 			return
 		}
 
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -121,5 +149,33 @@ func HandleRegisterDevice(ns *NotifyService) http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]string{"status": "registered"})
 
 		log.Info().Str("user_id", userID).Str("platform", req.Platform).Msg("device registered")
+	}
+}
+
+type UnregisterDeviceRequest struct {
+	DeviceToken string `json:"device_token"`
+}
+
+func HandleUnregisterDevice(ns *NotifyService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req UnregisterDeviceRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if err := ns.UnregisterDevice(r.Context(), userID, req.DeviceToken); err != nil {
+			http.Error(w, "failed to unregister device", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "unregistered"})
 	}
 }

@@ -170,9 +170,26 @@ impl SrpClient {
 
         // Ensure a is in valid range (1 < a < N)
         let a = if a >= n { a % (&n - 1u32) + 1u32 } else { a };
+        // H-1* FIX: Explicitly reject a <= 1 (astronomically unlikely but security-critical)
+        if a <= BigUint::from(1u32) {
+            return Err(CryptoError::SrpError(
+                "Ephemeral key 'a' out of valid range".to_string(),
+            ));
+        }
 
         // Compute A = g^a mod N
         let public_a = g.modpow(&a, &n);
+
+        // H-1* FIX: Validate A is not 0 or 1 mod N (weak/trivial values)
+        if public_a == BigUint::from(0u32)
+            || public_a == BigUint::from(1u32)
+            || &public_a % &n == BigUint::from(0u32)
+        {
+            return Err(CryptoError::SrpError(
+                "Computed public key A is weak or trivial".to_string(),
+            ));
+        }
+
         let public_a_bytes = public_a.to_bytes_be();
 
         // Store private key as bytes for zeroizing

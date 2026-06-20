@@ -1,0 +1,24 @@
+# Maestro E2E Test Configuration — USBVault Enterprise
+# https://maestro.mobile.dev/
+
+appId: com.usbvault.enterprise
+name: USBVault Enterprise E2E Tests
+
+# Default timeout for all commands (milliseconds)
+ext:
+  defaultTimeout: 10000
+
+# Environment variables available in all flows
+env:
+  TEST_EMAIL: test@usbvault.io
+  TEST_PASSWORD: TestPassword123!
+  APP_ID: com.usbvault.enterprise
+
+# Flow execution order for full test suite
+flows:
+  - flows/login.yaml
+  - flows/encrypt-file.yaml
+  - flows/decrypt-file.yaml
+  - flows/share-file.yaml
+  - flows/settings-change.yaml
+  - flows/full-cycle.yaml

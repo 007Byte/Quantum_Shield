@@ -468,13 +468,18 @@ func (s *AttestationService) decryptPlayIntegrityToken(ctx context.Context, toke
 	}
 	defer resp.Body.Close()
 
+	// RELIABILITY FIX (M-7): Buffer response body to avoid reading twice
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("play integrity API error (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var verdict PlayIntegrityVerdict
-	if err := json.NewDecoder(resp.Body).Decode(&verdict); err != nil {
+	if err := json.Unmarshal(body, &verdict); err != nil {
 		return nil, fmt.Errorf("decode verdict: %w", err)
 	}
 

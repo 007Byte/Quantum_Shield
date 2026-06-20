@@ -162,10 +162,7 @@ export async function splitSecret(
  * @param secretLength - Expected length of the secret (for validation)
  * @returns Reconstructed secret
  */
-export function reconstructSecret(
-  shares: ShamirShare[],
-  secretLength?: number
-): Uint8Array {
+export function reconstructSecret(shares: ShamirShare[], secretLength?: number): Uint8Array {
   if (shares.length < 2) {
     throw new Error('Need at least 2 shares for reconstruction');
   }
@@ -181,7 +178,7 @@ export function reconstructSecret(
   }
 
   // Check for duplicate indices
-  const indices = new Set(shares.map((s) => s.index));
+  const indices = new Set(shares.map(s => s.index));
   if (indices.size !== shares.length) {
     throw new Error('Duplicate share indices detected');
   }
@@ -344,7 +341,7 @@ export async function generateRecoveryCodes(
 
     logger.info(
       `[recovery] Generated ${config.totalShares} recovery codes ` +
-      `(threshold: ${config.threshold})`
+        `(threshold: ${config.threshold})`
     );
 
     return codes;

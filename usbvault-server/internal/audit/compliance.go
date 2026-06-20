@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // PH6-FIX: ComplianceService generates SOC 2 compliance reports
@@ -186,7 +187,7 @@ func (cs *ComplianceService) GenerateSOC2Report(ctx context.Context, startDate, 
 // PH6-FIX: HandleGenerateComplianceReport is the HTTP handler for generating compliance reports
 func HandleGenerateComplianceReport(cs *ComplianceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -304,7 +305,7 @@ func (cs *ComplianceService) ExportComplianceCSV(ctx context.Context, report *Co
 // PH6-FIX: HandleExportComplianceCSV is the HTTP handler for exporting compliance data as CSV
 func HandleExportComplianceCSV(cs *ComplianceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

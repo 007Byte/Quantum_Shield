@@ -1,6 +1,6 @@
 // ErrorBoundary Component
 export { ErrorBoundary } from './ErrorBoundary';
-export type { } from './ErrorBoundary';
+export type {} from './ErrorBoundary';
 
 // Loading & Skeleton Components
 export { SkeletonLine, SkeletonCard, SkeletonTable, SkeletonAvatar } from './SkeletonLoader';

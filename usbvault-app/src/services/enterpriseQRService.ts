@@ -18,8 +18,8 @@ interface QRIdentity {
   orgId: string;
   employeeNumber: string;
   deviceSerial: string;
-  publicKeyHex: string;      // Ed25519 public key
-  signatureHex: string;      // Ed25519 signature of payload
+  publicKeyHex: string; // Ed25519 public key
+  signatureHex: string; // Ed25519 signature of payload
   issuedAt: string;
   expiresAt: string;
 }
@@ -132,10 +132,7 @@ class EnterpriseQRService {
    * @param publicKeyHex Ed25519 public key for verification
    * @returns Verification result with validity status
    */
-  async verifyQRPayload(
-    payloadJson: string,
-    publicKeyHex: string
-  ): Promise<QRVerificationResult> {
+  async verifyQRPayload(payloadJson: string, publicKeyHex: string): Promise<QRVerificationResult> {
     try {
       const identity = JSON.parse(payloadJson) as QRIdentity;
 
@@ -257,8 +254,7 @@ class EnterpriseQRService {
           const payload = this.fromBase64Url(match[1]);
           const identity = JSON.parse(payload) as QRIdentity;
 
-          await auditService.log('system', identity.deviceSerial, {
-          }, 'success');
+          await auditService.log('system', identity.deviceSerial, {}, 'success');
 
           return identity;
         }
@@ -289,11 +285,7 @@ class EnterpriseQRService {
    * @param employeeNumber Employee ID
    * @param deviceSerial Device serial number
    */
-  async enrollDevice(
-    orgId: string,
-    _employeeNumber: string,
-    deviceSerial: string
-  ): Promise<void> {
+  async enrollDevice(orgId: string, _employeeNumber: string, deviceSerial: string): Promise<void> {
     try {
       // Generate ephemeral signing key pair for this enrollment
       const keyPair = await this.generateKeyPair();
@@ -375,11 +367,10 @@ class EnterpriseQRService {
    */
   private async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
     try {
-      const keyPair = await crypto.subtle.generateKey(
-        { name: 'Ed25519' } as any,
-        true,
-        ['sign', 'verify']
-      );
+      const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519' } as any, true, [
+        'sign',
+        'verify',
+      ]);
 
       const publicKeyBytes = await crypto.subtle.exportKey('raw', keyPair.publicKey as any);
       const privateKeyBytes = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey as any);
@@ -408,11 +399,10 @@ class EnterpriseQRService {
         ['sign']
       );
 
-      const publicKey = await crypto.subtle.generateKey(
-        { name: 'Ed25519' } as any,
-        true,
-        ['sign', 'verify']
-      );
+      const publicKey = await crypto.subtle.generateKey({ name: 'Ed25519' } as any, true, [
+        'sign',
+        'verify',
+      ]);
 
       const publicKeyBytes = await crypto.subtle.exportKey('raw', publicKey.publicKey as any);
       return this.bytesToHex(new Uint8Array(publicKeyBytes));
@@ -491,7 +481,9 @@ class EnterpriseQRService {
    * @private
    */
   private async generateQRMatrix(payload: string, size: number): Promise<boolean[][]> {
-    const matrix: boolean[][] = Array(size).fill(null).map(() => Array(size).fill(false));
+    const matrix: boolean[][] = Array(size)
+      .fill(null)
+      .map(() => Array(size).fill(false));
 
     // Hash payload to create deterministic pattern
     const hash = await this.hashPayload(payload);
@@ -532,7 +524,9 @@ class EnterpriseQRService {
    * @private
    */
   private bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   /**

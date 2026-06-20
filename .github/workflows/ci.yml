@@ -59,23 +59,27 @@ jobs:
 
       - name: Run cargo check (all features including PQC)
         run: cargo check --all-targets --all-features
-        continue-on-error: true
 
       - name: Run cargo test (all features including PQC)
         run: cargo test --all-features
-        continue-on-error: true
 
       - name: Run cargo clippy (all features)
         run: cargo clippy --all-targets --all-features -- -D warnings
-        continue-on-error: true
 
       - name: Run cargo fmt check
         run: cargo fmt --all -- --check
 
-      - name: Run cargo-audit (security)
+      - name: Run cargo-audit (DEP-1 supply chain hardening)
         run: |
           cargo install cargo-audit 2>/dev/null || true
-          cargo audit || true
+          cargo audit --json > cargo-audit-ci.json 2>&1 || true
+          VULN_COUNT=$(jq '.vulnerabilities.found // 0' cargo-audit-ci.json 2>/dev/null || echo 0)
+          echo "cargo-audit: $VULN_COUNT vulnerabilities found"
+          if [ "$VULN_COUNT" -gt 0 ]; then
+            jq '.vulnerabilities.list[]? | {id: .advisory.id, package: .package.name, title: .advisory.title}' cargo-audit-ci.json
+            echo "::error::cargo-audit found $VULN_COUNT known vulnerabilities — failing build"
+            exit 1
+          fi
 
   # ============================================================
   # GO: Zero-Knowledge API Backend
@@ -105,11 +109,9 @@ jobs:
 
       - name: Run go build
         run: go build -v ./...
-        continue-on-error: true
 
       - name: Run go test with race detection and coverage
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
-        continue-on-error: true
 
       - name: Check Go coverage threshold (75%)
         run: |
@@ -128,20 +130,26 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: Run govulncheck
-        run: govulncheck ./...
-        continue-on-error: true
+      - name: Run govulncheck (DEP-1 supply chain hardening)
+        run: |
+          govulncheck -json ./... > govulncheck-results.json 2>&1 || true
+          # Check if any vulnerabilities were found that affect the binary
+          CALLED=$(jq '[.[] | select(.finding != null) | select(.finding.trace[0].function != null)] | length' govulncheck-results.json 2>/dev/null || echo 0)
+          echo "govulncheck: $CALLED called vulnerabilities found"
+          if [ "$CALLED" -gt 0 ]; then
+            echo "::error::govulncheck found $CALLED vulnerabilities in called code — failing build"
+            govulncheck ./...
+            exit 1
+          fi
 
       - name: Run go vet
         run: go vet ./...
-        continue-on-error: true
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           working-directory: usbvault-server
-        continue-on-error: true
 
       - name: Run gosec (security scanner)
         run: |
@@ -189,20 +197,48 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'usbvault-app/package-lock.json'
 
+      - name: Cache Jest transform
+        uses: actions/cache@v4
+        with:
+          path: usbvault-app/.jest-cache
+          key: ${{ runner.os }}-jest-${{ hashFiles('usbvault-app/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-
+
       - name: Install dependencies
         run: npm ci
 
+      - name: Run npm audit (DEP-1 supply chain hardening)
+        run: |
+          npm audit --omit=dev --audit-level=critical 2>&1 || true
+          AUDIT_OUTPUT=$(npm audit --omit=dev --json 2>/dev/null || true)
+          CRITICAL=$(echo "$AUDIT_OUTPUT" | jq '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo 0)
+          HIGH=$(echo "$AUDIT_OUTPUT" | jq '.metadata.vulnerabilities.high // 0' 2>/dev/null || echo 0)
+          echo "npm audit: $CRITICAL critical, $HIGH high vulnerabilities"
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::npm audit found $CRITICAL critical vulnerabilities — failing build"
+            exit 1
+          fi
+          if [ "$HIGH" -gt 0 ]; then
+            echo "::warning::npm audit found $HIGH high-severity vulnerabilities"
+          fi
+
       - name: Run TypeScript type check
         run: npx tsc --noEmit
-        continue-on-error: true
 
       - name: Run ESLint
         run: npx eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file eslint-report.json
-        continue-on-error: true
 
-      - name: Run Jest tests with coverage
-        run: npx jest --coverage --passWithNoTests
-        continue-on-error: true
+      - name: Run service-layer Jest tests with coverage
+        run: npx jest --config jest.config.js --coverage --passWithNoTests --cacheDirectory=.jest-cache
+
+      - name: Run component Jest tests
+        run: |
+          if [ -f jest.config.components.js ]; then
+            npx jest --config jest.config.components.js --passWithNoTests --cacheDirectory=.jest-cache
+          else
+            echo "No component test config found — skipping"
+          fi
 
       - name: Check TypeScript coverage threshold (70%)
         run: |
@@ -235,6 +271,165 @@ jobs:
           path: usbvault-app/eslint-report.json
           retention-days: 30
           if-no-files-found: ignore
+
+  # ============================================================
+  # E2E Tests (Playwright)
+  # ============================================================
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [usbvault-app]
+    if: always() && !cancelled()
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: usbvault-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usbvault-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run Playwright E2E tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload Playwright test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: usbvault-app/playwright-report
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-test-results
+          path: usbvault-app/test-results
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ============================================================
+  # DATABASE: Migration Validation
+  # ============================================================
+  migration-validation:
+    name: Validate Database Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: usbvault
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: usbvault_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U usbvault -d usbvault_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: usbvault-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: 'usbvault-server/go.sum'
+
+      - name: Install PostgreSQL extensions
+        run: |
+          PGPASSWORD=test_password psql -h localhost -U usbvault -d usbvault_test -c \
+            "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";"
+
+      - name: Tidy and download Go dependencies
+        run: |
+          go mod tidy
+          go mod download
+
+      - name: Build migration CLI
+        run: go build -o migrate ./cmd/migrate
+
+      - name: Run all migrations
+        env:
+          DATABASE_URL: "postgres://usbvault:test_password@localhost:5432/usbvault_test?sslmode=disable"
+        run: |
+          echo "=== Running all migrations ==="
+          ./migrate up
+          echo "=== Migration status ==="
+          ./migrate status
+
+      - name: Verify expected tables exist
+        run: |
+          echo "=== Verifying database schema ==="
+          EXPECTED_TABLES=(
+            "schema_migrations"
+            "users"
+            "vaults"
+            "blobs"
+            "vault_members"
+            "share_records"
+            "public_keys"
+            "audit_log"
+            "audit_log_archive"
+            "sessions"
+            "devices"
+            "subscriptions"
+            "device_enrollments"
+            "recovery_codes"
+            "key_rotation_jobs"
+            "jwt_signing_keys"
+            "security_events"
+          )
+          MISSING=0
+          for table in "${EXPECTED_TABLES[@]}"; do
+            RESULT=$(PGPASSWORD=test_password psql -h localhost -U usbvault -d usbvault_test -tAc \
+              "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '$table');")
+            if [ "$RESULT" = "t" ]; then
+              echo "  OK: $table"
+            else
+              echo "  MISSING: $table"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+          if [ $MISSING -gt 0 ]; then
+            echo "::error::$MISSING expected table(s) missing after migrations"
+            exit 1
+          fi
+          echo "All ${#EXPECTED_TABLES[@]} expected tables verified"
+
+      - name: Verify migrations are idempotent
+        env:
+          DATABASE_URL: "postgres://usbvault:test_password@localhost:5432/usbvault_test?sslmode=disable"
+        run: |
+          echo "=== Re-running migrations (idempotency check) ==="
+          ./migrate up
+          echo "Idempotency check passed"
 
   # ============================================================
   # Integration Tests
@@ -273,7 +468,6 @@ jobs:
       - name: Run Rust FFI integration tests
         run: cargo test --all-features --test ffi_integration_harness_test -- --nocapture
         working-directory: usbvault-crypto
-        continue-on-error: true
 
       - name: Tidy Go modules
         run: go mod tidy
@@ -282,7 +476,6 @@ jobs:
       - name: Run Go integration tests
         run: go test -v -tags=integration ./...
         working-directory: usbvault-server
-        continue-on-error: true
 
   # ============================================================
   # Security Tests
@@ -325,7 +518,24 @@ jobs:
       - name: Run KAT vectors
         run: cargo test --all-features known_answer -- --nocapture
         working-directory: usbvault-crypto
-        continue-on-error: true
+
+  # ============================================================
+  # ENV TEMPLATE VALIDATION
+  # ============================================================
+  validate-env:
+    name: Validate Env Template
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-env.sh
+
+      - name: Dry-run validate .env.example
+        run: ./scripts/validate-env.sh --dry-run .env.example
 
   # ============================================================
   # SUMMARY: Aggregate Results
@@ -333,7 +543,7 @@ jobs:
   ci-summary:
     name: CI Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [usbvault-crypto, usbvault-server, usbvault-app, integration-tests, security-tests]
+    needs: [usbvault-crypto, usbvault-server, usbvault-app, e2e-tests, migration-validation, integration-tests, security-tests, validate-env]
     if: always()
 
     steps:
@@ -343,25 +553,35 @@ jobs:
           echo "usbvault-crypto:        ${{ needs.usbvault-crypto.result }}"
           echo "usbvault-server:        ${{ needs.usbvault-server.result }}"
           echo "usbvault-app:           ${{ needs.usbvault-app.result }}"
+          echo "e2e-tests:              ${{ needs.e2e-tests.result }}"
+          echo "migration-validation:   ${{ needs.migration-validation.result }}"
           echo "integration-tests: ${{ needs.integration-tests.result }}"
           echo "security-tests:    ${{ needs.security-tests.result }}"
+          echo "validate-env:      ${{ needs.validate-env.result }}"
           echo ""
 
-          # During active development, report but don't fail
-          # Gate on failures before v1.0 release
-          for job in usbvault-crypto usbvault-server usbvault-app integration-tests security-tests; do
+          FAILED=0
+          for job in usbvault-crypto usbvault-server usbvault-app e2e-tests migration-validation integration-tests security-tests validate-env; do
             case "$job" in
               usbvault-crypto)        RESULT="${{ needs.usbvault-crypto.result }}" ;;
               usbvault-server)        RESULT="${{ needs.usbvault-server.result }}" ;;
               usbvault-app)           RESULT="${{ needs.usbvault-app.result }}" ;;
+              e2e-tests)              RESULT="${{ needs.e2e-tests.result }}" ;;
+              migration-validation)   RESULT="${{ needs.migration-validation.result }}" ;;
               integration-tests) RESULT="${{ needs.integration-tests.result }}" ;;
               security-tests)    RESULT="${{ needs.security-tests.result }}" ;;
+              validate-env)      RESULT="${{ needs.validate-env.result }}" ;;
             esac
             if [ "$RESULT" = "failure" ]; then
-              echo "::warning::$job had failures — review logs and artifacts"
+              echo "::error::$job FAILED — review logs and artifacts"
+              FAILED=$((FAILED + 1))
             fi
           done
 
           echo ""
-          echo "CI Pipeline completed. All failures are non-blocking during active development."
-          echo "Enforce strict gating before v1.0 release."
+          if [ "$FAILED" -gt 0 ]; then
+            echo "CI Pipeline completed with $FAILED job failure(s)."
+            exit 1
+          else
+            echo "CI Pipeline completed successfully. All jobs passed."
+          fi

@@ -14,25 +14,27 @@ import { webOnly } from '@/utils/webStyle';
 import { styles } from './styles';
 import { supportService, TicketCategory, TicketPriority } from '@/services/supportService';
 import { useAuthStore } from '@/stores/authStore';
+import { useLanguage } from '@/hooks/useLanguage';
 
-const CATEGORIES: { value: TicketCategory; label: string }[] = [
-  { value: 'bug', label: 'Bug Report' },
-  { value: 'feature', label: 'Feature Request' },
-  { value: 'security', label: 'Security Issue' },
-  { value: 'account', label: 'Account Help' },
-  { value: 'billing', label: 'Billing' },
-  { value: 'general', label: 'General' },
+const CATEGORIES: { value: TicketCategory; labelKey: string }[] = [
+  { value: 'bug', labelKey: 'help.categoryBug' },
+  { value: 'feature', labelKey: 'help.categoryFeature' },
+  { value: 'security', labelKey: 'help.categorySecurity' },
+  { value: 'account', labelKey: 'help.categoryAccount' },
+  { value: 'billing', labelKey: 'help.categoryBilling' },
+  { value: 'general', labelKey: 'help.categoryGeneral' },
 ];
 
-const PRIORITIES: { value: TicketPriority; label: string; color: string }[] = [
-  { value: 'low', label: 'Low', color: dashboardColors.textSecondary },
-  { value: 'medium', label: 'Medium', color: '#FBBF24' },
-  { value: 'high', label: 'High', color: '#F97316' },
-  { value: 'critical', label: 'Critical', color: '#EF4444' },
+const PRIORITIES: { value: TicketPriority; labelKey: string; color: string }[] = [
+  { value: 'low', labelKey: 'help.priorityLow', color: dashboardColors.textSecondary },
+  { value: 'medium', labelKey: 'help.priorityMedium', color: '#FBBF24' },
+  { value: 'high', labelKey: 'help.priorityHigh', color: '#F97316' },
+  { value: 'critical', labelKey: 'help.priorityCritical', color: '#EF4444' },
 ];
 
 export function HelpSection() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [showFAQ, setShowFAQ] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [faqSearch, setFaqSearch] = useState('');
@@ -65,11 +67,11 @@ export function HelpSection() {
     setTicketError('');
 
     if (!ticketSubject.trim()) {
-      setTicketError('Subject is required');
+      setTicketError(t('help.subjectRequired'));
       return;
     }
     if (!ticketDescription.trim()) {
-      setTicketError('Description is required');
+      setTicketError(t('help.descriptionRequired'));
       return;
     }
 
@@ -93,7 +95,7 @@ export function HelpSection() {
         setTicketPriority('medium');
       }, 2500);
     } catch (err) {
-      setTicketError(err instanceof Error ? err.message : 'Failed to submit ticket');
+      setTicketError(err instanceof Error ? err.message : t('help.submitFailed'));
     }
   };
 
@@ -101,108 +103,121 @@ export function HelpSection() {
     <View style={styles.sectionCard}>
       <View style={styles.sectionHeader}>
         <Feather name="help-circle" size={18} color={dashboardColors.cyan} />
-        <Text style={styles.sectionTitle}>Help &amp; Support</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {t('help.title')}
+        </Text>
       </View>
 
       {/* FAQ / Knowledge Base */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
-        onPress={() => router.push('/(tabs)/help' as any)}
+        onPress={() => router.navigate('/(tabs)/help' as any)}
       >
         <View style={hs.helpRowInner}>
           <Feather name="book-open" size={16} color={dashboardColors.cyan} />
-          <Text style={styles.helpText}>FAQ &amp; Knowledge Base</Text>
+          <Text style={styles.helpText}>{t('help.faqKnowledgeBase')}</Text>
         </View>
         <Feather name="chevron-right" size={16} color={dashboardColors.textSecondary} />
       </Pressable>
 
       {/* Submit Ticket */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => setShowTicketForm(true)}
       >
         <View style={hs.helpRowInner}>
           <Feather name="message-square" size={16} color={dashboardColors.cyan} />
-          <Text style={styles.helpText}>Submit Support Ticket</Text>
+          <Text style={styles.helpText}>{t('help.submitTicket')}</Text>
         </View>
         <Feather name="chevron-right" size={16} color={dashboardColors.textSecondary} />
       </Pressable>
 
       {/* Status Page */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl(config.statusPageUrl)}
       >
         <View style={hs.helpRowInner}>
           <Feather name="activity" size={16} color="#34D399" />
-          <Text style={styles.helpText}>System Status</Text>
+          <Text style={styles.helpText}>{t('help.systemStatus')}</Text>
         </View>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
       </Pressable>
 
       {/* Documentation */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl('https://docs.usbvault.io')}
       >
         <View style={hs.helpRowInner}>
           <Feather name="file-text" size={16} color={dashboardColors.cyan} />
-          <Text style={styles.helpText}>Documentation</Text>
+          <Text style={styles.helpText}>{t('help.documentation')}</Text>
         </View>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
       </Pressable>
 
       {/* Contact */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl(`mailto:${config.supportEmail}`)}
       >
         <View style={hs.helpRowInner}>
           <Feather name="mail" size={16} color={dashboardColors.cyan} />
-          <Text style={styles.helpText}>Email Support</Text>
+          <Text style={styles.helpText}>{t('help.emailSupport')}</Text>
         </View>
         <Text style={hs.emailHint}>{config.supportEmail}</Text>
       </Pressable>
 
       {/* Security disclosure */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl('mailto:security@usbvault.io')}
       >
         <View style={hs.helpRowInner}>
           <Feather name="alert-triangle" size={16} color="#FBBF24" />
-          <Text style={styles.helpText}>Report Security Vulnerability</Text>
+          <Text style={styles.helpText}>{t('help.reportVulnerability')}</Text>
         </View>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
       </Pressable>
 
       {/* Enterprise live chat indicator */}
       {supportService.isLiveChatAvailable() && (
-        <Pressable style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}>
+        <Pressable
+          style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
+          accessibilityRole="button"
+        >
           <View style={hs.helpRowInner}>
             <Feather name="headphones" size={16} color="#A855F7" />
-            <Text style={styles.helpText}>Live Chat (Enterprise)</Text>
+            <Text style={styles.helpText}>{t('help.liveChat')}</Text>
           </View>
           <View style={hs.liveBadge}>
-            <Text style={hs.liveBadgeText}>LIVE</Text>
+            <Text style={hs.liveBadgeText}>{t('help.liveBadge')}</Text>
           </View>
         </Pressable>
       )}
 
       {/* Legal */}
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl('https://usbvault.io/privacy')}
       >
-        <Text style={styles.helpText}>Privacy Policy</Text>
+        <Text style={styles.helpText}>{t('help.privacyPolicy')}</Text>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
       </Pressable>
 
       <Pressable
+        accessibilityRole="button"
         style={(state: any) => [styles.helpRow, state.hovered && styles.helpRowHover]}
         onPress={() => handleOpenUrl('https://usbvault.io/terms')}
       >
-        <Text style={styles.helpText}>Terms of Service</Text>
+        <Text style={styles.helpText}>{t('help.termsOfService')}</Text>
         <Feather name="external-link" size={14} color={dashboardColors.textSecondary} />
       </Pressable>
 
@@ -211,8 +226,8 @@ export function HelpSection() {
         <View style={hs.modalOverlay}>
           <View style={hs.modalContent}>
             <View style={hs.modalHeader}>
-              <Text style={hs.modalTitle}>FAQ &amp; Knowledge Base</Text>
-              <Pressable onPress={() => setShowFAQ(false)}>
+              <Text style={hs.modalTitle}>{t('help.faqKnowledgeBase')}</Text>
+              <Pressable onPress={() => setShowFAQ(false)} accessibilityRole="button">
                 <Feather name="x" size={24} color={dashboardColors.textSecondary} />
               </Pressable>
             </View>
@@ -221,8 +236,9 @@ export function HelpSection() {
             <View style={hs.searchRow}>
               <Feather name="search" size={16} color={dashboardColors.textSecondary} />
               <TextInput
+                accessibilityLabel={t('help.searchFaqAccessibility')}
                 style={hs.searchInput}
-                placeholder="Search FAQ..."
+                placeholder={t('help.searchFaq')}
                 placeholderTextColor={dashboardColors.textSecondary}
                 value={faqSearch}
                 onChangeText={setFaqSearch}
@@ -232,18 +248,26 @@ export function HelpSection() {
             {/* Category filters */}
             <View style={hs.categoryRow}>
               <Pressable
+                accessibilityRole="button"
                 style={[hs.categoryChip, !faqCategory && hs.categoryChipActive]}
                 onPress={() => setFaqCategory(null)}
               >
-                <Text style={[hs.categoryChipText, !faqCategory && hs.categoryChipTextActive]}>All</Text>
+                <Text style={[hs.categoryChipText, !faqCategory && hs.categoryChipTextActive]}>
+                  {t('help.all')}
+                </Text>
               </Pressable>
               {faqCategories.map(cat => (
                 <Pressable
+                  accessibilityRole="button"
                   key={cat}
                   style={[hs.categoryChip, faqCategory === cat && hs.categoryChipActive]}
                   onPress={() => setFaqCategory(faqCategory === cat ? null : cat)}
                 >
-                  <Text style={[hs.categoryChipText, faqCategory === cat && hs.categoryChipTextActive]}>{cat}</Text>
+                  <Text
+                    style={[hs.categoryChipText, faqCategory === cat && hs.categoryChipTextActive]}
+                  >
+                    {cat}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -252,22 +276,23 @@ export function HelpSection() {
             <View style={hs.faqList}>
               {faqItems.map(item => (
                 <Pressable
+                  accessibilityRole="button"
                   key={item.id}
                   style={hs.faqItem}
                   onPress={() => setExpandedFaq(expandedFaq === item.id ? null : item.id)}
                 >
                   <View style={hs.faqQuestion}>
                     <Text style={hs.faqQuestionText}>{item.question}</Text>
-                    <Feather name={expandedFaq === item.id ? 'chevron-up' : 'chevron-down'} size={16} color={dashboardColors.textSecondary} />
+                    <Feather
+                      name={expandedFaq === item.id ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={dashboardColors.textSecondary}
+                    />
                   </View>
-                  {expandedFaq === item.id && (
-                    <Text style={hs.faqAnswer}>{item.answer}</Text>
-                  )}
+                  {expandedFaq === item.id && <Text style={hs.faqAnswer}>{item.answer}</Text>}
                 </Pressable>
               ))}
-              {faqItems.length === 0 && (
-                <Text style={hs.noResults}>No matching FAQ items found.</Text>
-              )}
+              {faqItems.length === 0 && <Text style={hs.noResults}>{t('help.noResults')}</Text>}
             </View>
           </View>
         </View>
@@ -278,8 +303,15 @@ export function HelpSection() {
         <View style={hs.modalOverlay}>
           <View style={hs.modalContent}>
             <View style={hs.modalHeader}>
-              <Text style={hs.modalTitle}>Submit Support Ticket</Text>
-              <Pressable onPress={() => { setShowTicketForm(false); setTicketSubmitted(false); setTicketError(''); }}>
+              <Text style={hs.modalTitle}>{t('help.submitTicket')}</Text>
+              <Pressable
+                onPress={() => {
+                  setShowTicketForm(false);
+                  setTicketSubmitted(false);
+                  setTicketError('');
+                }}
+                accessibilityRole="button"
+              >
                 <Feather name="x" size={24} color={dashboardColors.textSecondary} />
               </Pressable>
             </View>
@@ -287,9 +319,9 @@ export function HelpSection() {
             {ticketSubmitted ? (
               <View style={hs.ticketSuccess}>
                 <Feather name="check-circle" size={48} color="#34D399" />
-                <Text style={hs.ticketSuccessTitle}>Ticket Submitted</Text>
+                <Text style={hs.ticketSuccessTitle}>{t('help.ticketSubmitted')}</Text>
                 <Text style={hs.ticketSuccessText}>
-                  We received your request and will respond to {email || 'your email'} within 24 hours.
+                  {t('help.ticketSubmittedMessage', { email: email || 'your email' })}
                 </Text>
               </View>
             ) : (
@@ -301,54 +333,85 @@ export function HelpSection() {
                   </View>
                 )}
 
-                <Text style={hs.formLabel}>Subject</Text>
+                <Text style={hs.formLabel}>{t('help.subject')}</Text>
                 <TextInput
+                  accessibilityLabel={t('help.subjectAccessibility')}
                   style={hs.formInput}
-                  placeholder="Brief summary of your issue"
+                  placeholder={t('help.subjectPlaceholder')}
                   placeholderTextColor={dashboardColors.textSecondary}
                   value={ticketSubject}
                   onChangeText={setTicketSubject}
                 />
 
-                <Text style={hs.formLabel}>Category</Text>
+                <Text style={hs.formLabel}>{t('help.category')}</Text>
                 <View style={hs.categoryRow}>
                   {CATEGORIES.map(cat => (
                     <Pressable
+                      accessibilityRole="button"
                       key={cat.value}
-                      style={[hs.categoryChip, ticketCategory === cat.value && hs.categoryChipActive]}
+                      style={[
+                        hs.categoryChip,
+                        ticketCategory === cat.value && hs.categoryChipActive,
+                      ]}
                       onPress={() => setTicketCategory(cat.value)}
                     >
-                      <Text style={[hs.categoryChipText, ticketCategory === cat.value && hs.categoryChipTextActive]}>{cat.label}</Text>
+                      <Text
+                        style={[
+                          hs.categoryChipText,
+                          ticketCategory === cat.value && hs.categoryChipTextActive,
+                        ]}
+                      >
+                        {t(cat.labelKey)}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
 
-                <Text style={hs.formLabel}>Priority</Text>
+                <Text style={hs.formLabel}>{t('help.priority')}</Text>
                 <View style={hs.categoryRow}>
                   {PRIORITIES.map(p => (
                     <Pressable
+                      accessibilityRole="button"
                       key={p.value}
-                      style={[hs.categoryChip, ticketPriority === p.value && { borderColor: p.color, backgroundColor: `${p.color}15` }]}
+                      style={[
+                        hs.categoryChip,
+                        ticketPriority === p.value && {
+                          borderColor: p.color,
+                          backgroundColor: `${p.color}15`,
+                        },
+                      ]}
                       onPress={() => setTicketPriority(p.value)}
                     >
-                      <Text style={[hs.categoryChipText, ticketPriority === p.value && { color: p.color }]}>{p.label}</Text>
+                      <Text
+                        style={[
+                          hs.categoryChipText,
+                          ticketPriority === p.value && { color: p.color },
+                        ]}
+                      >
+                        {t(p.labelKey)}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
 
-                <Text style={hs.formLabel}>Description</Text>
+                <Text style={hs.formLabel}>{t('help.description')}</Text>
                 <TextInput
+                  accessibilityLabel={t('help.descriptionPlaceholder')}
                   style={[hs.formInput, { height: 120, textAlignVertical: 'top' }]}
-                  placeholder="Describe your issue in detail..."
+                  placeholder={t('help.descriptionPlaceholder')}
                   placeholderTextColor={dashboardColors.textSecondary}
                   value={ticketDescription}
                   onChangeText={setTicketDescription}
                   multiline
                 />
 
-                <Pressable style={(state: any) => [hs.submitBtn, state.hovered && hs.submitBtnHover]} onPress={handleSubmitTicket}>
+                <Pressable
+                  style={(state: any) => [hs.submitBtn, state.hovered && hs.submitBtnHover]}
+                  onPress={handleSubmitTicket}
+                  accessibilityRole="button"
+                >
                   <Feather name="send" size={16} color="#fff" />
-                  <Text style={hs.submitBtnText}>Submit Ticket</Text>
+                  <Text style={hs.submitBtnText}>{t('help.submitTicketBtn')}</Text>
                 </Pressable>
               </View>
             )}

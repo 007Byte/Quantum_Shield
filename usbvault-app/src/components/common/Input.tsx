@@ -11,6 +11,7 @@ import {
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { webOnly } from '@/utils/webStyle';
 
 type InputVariant = 'default' | 'search';
 
@@ -50,6 +51,10 @@ const styles = StyleSheet.create({
   inputWrapperFocused: {
     borderColor: colors.accentPrimary,
     backgroundColor: colors.bgSecondary,
+    ...webOnly({
+      outline: '2px solid #8B5CF6',
+      outlineOffset: '2px',
+    }),
   },
 
   inputWrapperError: {
@@ -130,6 +135,7 @@ export const Input: React.FC<InputProps> = ({
         <View style={styles.searchWrapper}>
           <Text style={styles.eyeIconText}>🔍</Text>
           <TextInput
+            accessibilityLabel={props.accessibilityLabel || label || 'Search input'}
             style={[styles.input, styles.searchInput]}
             placeholder={placeholder}
             placeholderTextColor={colors.textMuted}
@@ -153,6 +159,7 @@ export const Input: React.FC<InputProps> = ({
         ]}
       >
         <TextInput
+          accessibilityLabel={props.accessibilityLabel || label || 'Text input'}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
@@ -167,10 +174,10 @@ export const Input: React.FC<InputProps> = ({
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
           >
-            <Text style={styles.eyeIconText}>
-              {showPassword ? '👁️' : '👁️‍🗨️'}
-            </Text>
+            <Text style={styles.eyeIconText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
           </TouchableOpacity>
         )}
       </View>

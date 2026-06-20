@@ -1,8 +1,10 @@
-//! Vault V2/V3 header format (byte-level compatible with Python implementation)
+//! Vault V2/V3/V4 header format (byte-level compatible with Python implementation)
 
 use crate::cipher::CipherId;
 use crate::error::{CryptoError, Result};
-use crate::kdf::MasterKey;
+use crate::kdf::{
+    derive_kek, generate_salt, wrap_mek, unwrap_mek, MasterEncryptionKey, MasterKey,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
@@ -182,9 +184,9 @@ impl VaultHeader {
         let argon2_parallelism = data[offset];
         offset += 1;
 
-        // Optional blocks (only in V3)
+        // Optional blocks (V3 and V4)
         let (identity_block, tfa_block, fail_counter_block) =
-            if version == 3 && offset + 12 <= data.len() {
+            if version >= 3 && offset + 12 <= data.len() {
                 // Identity block length (4 bytes)
                 let identity_len = u32::from_le_bytes([
                     data[offset],
@@ -393,8 +395,8 @@ impl VaultHeader {
         data[offset] = self.argon2_parallelism;
         offset += 1;
 
-        // Optional V3 blocks
-        if self.version == 3 {
+        // Optional blocks (V3 and V4)
+        if self.version >= 3 {
             let identity_len = self.identity_block.as_ref().map(|b| b.len()).unwrap_or(0) as u32;
             data[offset..offset + 4].copy_from_slice(&identity_len.to_le_bytes());
             offset += 4;
@@ -501,7 +503,230 @@ impl VaultHeader {
     pub fn increment_state_version(&mut self) {
         self.state_version = self.state_version.saturating_add(1);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // P0: High-level vault operations
+    // ═══════════════════════════════════════════════════════════════
+
+    /// Domain separator for fail counter HMAC
+    const FAIL_COUNTER_DOMAIN: &'static [u8] = b"USBVault-FailCounter-v1:";
+
+    /// Maximum failed unlock attempts before self-destruct
+    pub const MAX_FAIL_ATTEMPTS: u32 = 10;
+
+    /// Create a new V4 vault header from a password.
+    ///
+    /// Generates salt, derives KEK, generates random MEK, wraps MEK,
+    /// creates verify marker, computes header HMAC.
+    ///
+    /// Returns (header, enc_key_32, hmac_key_32) — the MEK halves for
+    /// immediate use. The caller MUST zero these after writing the
+    /// initial empty index.
+    pub fn create_new(
+        password: &[u8],
+        cipher_id: CipherId,
+    ) -> Result<(Self, [u8; 32], [u8; 32])> {
+        let salt = generate_salt();
+
+        // Derive KEK from password
+        let kek = derive_kek(password, &salt)?;
+
+        // Generate random MEK
+        let mek = MasterEncryptionKey::generate();
+
+        // Wrap MEK with KEK
+        let wrapped = wrap_mek(&kek, &mek)?;
+
+        // Create verify marker: encrypt known plaintext with MEK enc key
+        let verify_plaintext = b"USBVAULT_VERIFY_OK_0000";
+        let mut verify_iv = [0u8; 24];
+        rand::rngs::OsRng.fill_bytes(&mut verify_iv);
+        let verify_ciphertext = {
+            use chacha20poly1305::{aead::{Aead, KeyInit}, XChaCha20Poly1305};
+            use generic_array::GenericArray;
+            let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
+            let nonce = chacha20poly1305::XNonce::from_slice(&verify_iv);
+            cipher.encrypt(nonce, verify_plaintext.as_ref())
+                .map_err(|_| CryptoError::KeyDerivationFailed)?
+        };
+
+        // Build header with initial dual-index pointers
+        // Both index slots initially empty (offset=HEADER_SIZE_V4, length=0)
+        let mut header = VaultHeader {
+            version: 4,
+            kdf_hash_id: 2, // Argon2id
+            cipher_id: cipher_id.as_byte(),
+            salt,
+            verify_iv,
+            verify_ciphertext,
+            header_hmac: [0u8; 32], // Computed below
+            active_index_slot: 0,
+            index1_offset: HEADER_SIZE_V4 as u32,
+            index1_length: 0,
+            index2_offset: HEADER_SIZE_V4 as u32,
+            index2_length: 0,
+            commit_counter: 0,
+            argon2_memory: 65536,
+            argon2_time: 3,
+            argon2_parallelism: 4,
+            identity_block: None,
+            tfa_block: None,
+            fail_counter_block: None,
+            wrapped_mek: Some(wrapped),
+            state_version: 1,
+            index_encrypted: true,
+        };
+
+        // Initialize fail counter to 0
+        header.write_fail_counter(mek.hmac_key(), 0);
+
+        // Compute header HMAC
+        header.header_hmac = header.compute_hmac(mek.hmac_key());
+
+        // Extract MEK halves for the caller
+        let mut enc_key = [0u8; 32];
+        let mut hmac_key = [0u8; 32];
+        enc_key.copy_from_slice(mek.encryption_key());
+        hmac_key.copy_from_slice(mek.hmac_key());
+
+        Ok((header, enc_key, hmac_key))
+    }
+
+    /// Unlock a vault header with a password.
+    ///
+    /// Derives KEK, unwraps MEK, verifies password via verify marker.
+    /// Returns the MEK halves (enc_key, hmac_key) on success.
+    pub fn unlock(&self, password: &[u8]) -> Result<([u8; 32], [u8; 32])> {
+        let wrapped = self.wrapped_mek.as_ref()
+            .ok_or(CryptoError::InvalidHeader)?;
+
+        // Derive KEK from password + header salt
+        let kek = derive_kek(password, &self.salt)?;
+
+        // Unwrap MEK
+        let mek = unwrap_mek(&kek, wrapped)
+            .map_err(|_| CryptoError::PasswordWrong)?;
+
+        // Verify password by decrypting verify marker
+        let is_valid = {
+            use chacha20poly1305::{aead::{Aead, KeyInit}, XChaCha20Poly1305};
+            use generic_array::GenericArray;
+            let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
+            let nonce = chacha20poly1305::XNonce::from_slice(&self.verify_iv);
+            match cipher.decrypt(nonce, self.verify_ciphertext.as_ref()) {
+                Ok(plaintext) => plaintext.starts_with(b"USBVAULT_VERIFY"),
+                Err(_) => false,
+            }
+        };
+
+        if !is_valid {
+            return Err(CryptoError::PasswordWrong);
+        }
+
+        // Verify header HMAC
+        let computed = self.compute_hmac(mek.hmac_key());
+        if computed.ct_eq(&self.header_hmac).unwrap_u8() == 0 {
+            return Err(CryptoError::InvalidHeader);
+        }
+
+        let mut enc_key = [0u8; 32];
+        let mut hmac_key = [0u8; 32];
+        enc_key.copy_from_slice(mek.encryption_key());
+        hmac_key.copy_from_slice(mek.hmac_key());
+
+        Ok((enc_key, hmac_key))
+    }
+
+    /// Read the fail counter from the header, verifying its HMAC.
+    ///
+    /// Returns the current fail count, or error if the block is
+    /// tampered or missing.
+    pub fn read_fail_counter(&self, hmac_key: &[u8; 32]) -> Result<u32> {
+        let block = self.fail_counter_block.as_ref()
+            .ok_or(CryptoError::InvalidHeader)?;
+
+        if block.len() != 36 {
+            return Err(CryptoError::InvalidHeader);
+        }
+
+        let counter = u32::from_le_bytes([block[0], block[1], block[2], block[3]]);
+        let stored_hmac = &block[4..36];
+
+        let expected = Self::compute_fail_counter_hmac(hmac_key, counter);
+        if expected.ct_eq(stored_hmac).unwrap_u8() == 0 {
+            return Err(CryptoError::FailCounterTampered);
+        }
+
+        Ok(counter)
+    }
+
+    /// Write a new fail counter value with HMAC protection.
+    pub fn write_fail_counter(&mut self, hmac_key: &[u8; 32], count: u32) {
+        let mut block = vec![0u8; 36];
+        block[0..4].copy_from_slice(&count.to_le_bytes());
+        let mac = Self::compute_fail_counter_hmac(hmac_key, count);
+        block[4..36].copy_from_slice(&mac);
+        self.fail_counter_block = Some(block);
+    }
+
+    /// Compute HMAC for fail counter value (domain-separated).
+    fn compute_fail_counter_hmac(hmac_key: &[u8; 32], counter: u32) -> [u8; 32] {
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(hmac_key).unwrap();
+        mac.update(Self::FAIL_COUNTER_DOMAIN);
+        mac.update(&counter.to_le_bytes());
+        let result = mac.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&result.into_bytes());
+        out
+    }
+
+    /// Commit a new index: flip the active index slot, update the
+    /// inactive slot's offset/length, increment counters, recompute HMAC.
+    ///
+    /// This is the atomic commit operation for dual-index crash safety.
+    pub fn commit_new_index(
+        &mut self,
+        hmac_key: &[u8; 32],
+        new_index_offset: u32,
+        new_index_length: u32,
+    ) {
+        // Write to the INACTIVE slot
+        if self.active_index_slot == 0 {
+            self.index2_offset = new_index_offset;
+            self.index2_length = new_index_length;
+            self.active_index_slot = 1;
+        } else {
+            self.index1_offset = new_index_offset;
+            self.index1_length = new_index_length;
+            self.active_index_slot = 0;
+        }
+
+        self.commit_counter = self.commit_counter.saturating_add(1);
+        self.increment_state_version();
+
+        // Recompute header HMAC
+        self.header_hmac = self.compute_hmac(hmac_key);
+    }
+
+    /// Self-destruct: overwrite the wrapped MEK with random bytes,
+    /// making the vault permanently inaccessible.
+    pub fn self_destruct(&mut self, hmac_key: &[u8; 32]) {
+        use rand::RngCore;
+
+        if let Some(ref mut wmek) = self.wrapped_mek {
+            // 3-pass overwrite: random, zeros, random
+            rand::rngs::OsRng.fill_bytes(wmek);
+            wmek.iter_mut().for_each(|b| *b = 0);
+            rand::rngs::OsRng.fill_bytes(wmek);
+        }
+
+        self.increment_state_version();
+        self.header_hmac = self.compute_hmac(hmac_key);
+    }
 }
+
+use rand::RngCore;
 
 #[cfg(test)]
 mod tests {

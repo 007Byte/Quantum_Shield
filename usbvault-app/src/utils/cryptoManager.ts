@@ -101,10 +101,7 @@ export function generateSalt(): Uint8Array {
  * @param salt - 32-byte random salt
  * @returns 32-byte derived key
  */
-export async function deriveEncryptionKey(
-  password: string,
-  salt: Uint8Array,
-): Promise<Uint8Array> {
+export async function deriveEncryptionKey(password: string, salt: Uint8Array): Promise<Uint8Array> {
   return deriveKey(password, salt);
 }
 
@@ -123,7 +120,7 @@ async function readFileAsBytes(fileUri: string): Promise<Uint8Array> {
   } else {
     // On native, use Expo FileSystem
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64' as any,
     });
     return base64ToUint8Array(base64);
   }
@@ -135,7 +132,7 @@ async function readFileAsBytes(fileUri: string): Promise<Uint8Array> {
  */
 async function* readFileInChunks(
   fileData: Uint8Array,
-  chunkSize: number = CHUNK_SIZE,
+  chunkSize: number = CHUNK_SIZE
 ): AsyncGenerator<{ chunk: Uint8Array; offset: number; isFinal: boolean }> {
   const totalSize = fileData.length;
   let offset = 0;
@@ -168,7 +165,7 @@ export async function encryptFile(
   fileUri: string,
   password: string,
   cipherId: CipherId = CipherId.Aes256GcmSiv,
-  onProgress?: ProgressCallback,
+  onProgress?: ProgressCallback
 ): Promise<EncryptionResult> {
   // Read the file
   onProgress?.(0);
@@ -217,7 +214,7 @@ async function streamEncryptFile(
   fileData: Uint8Array,
   cipherId: CipherId,
   salt: Uint8Array,
-  onProgress?: ProgressCallback,
+  onProgress?: ProgressCallback
 ): Promise<EncryptionResult> {
   const sessionId = await streamEncryptInit(key);
   const encryptedChunks: Uint8Array[] = [];
@@ -277,7 +274,7 @@ export async function decryptData(
   cipherId: CipherId = CipherId.Aes256GcmSiv,
   isStreamed: boolean = false,
   _originalSize?: number,
-  onProgress?: ProgressCallback,
+  onProgress?: ProgressCallback
 ): Promise<DecryptionResult> {
   onProgress?.(0);
 
@@ -308,7 +305,7 @@ export async function decryptData(
 async function streamDecryptData(
   key: Uint8Array,
   encryptedData: Uint8Array,
-  onProgress?: ProgressCallback,
+  onProgress?: ProgressCallback
 ): Promise<DecryptionResult> {
   const sessionId = await streamDecryptInit(key);
   const decryptedChunks: Uint8Array[] = [];
@@ -349,7 +346,7 @@ async function streamDecryptData(
 export function downloadDecryptedFile(
   data: Uint8Array,
   filename: string,
-  mimeType: string = 'application/octet-stream',
+  mimeType: string = 'application/octet-stream'
 ): void {
   if (Platform.OS !== 'web') {
     throw new Error('downloadDecryptedFile is only available on web');

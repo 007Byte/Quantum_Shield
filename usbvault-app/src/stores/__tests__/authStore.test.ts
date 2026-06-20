@@ -78,14 +78,10 @@ describe('Auth Store (Zustand)', () => {
     });
 
     it('should set error on login failure', async () => {
-      (authService.login as jest.Mock).mockRejectedValue(
-        new Error('Invalid credentials')
-      );
+      (authService.login as jest.Mock).mockRejectedValue(new Error('Invalid credentials'));
 
       const store = useAuthStore.getState();
-      await expect(
-        store.login('test@example.com', 'wrong-password')
-      ).rejects.toThrow();
+      await expect(store.login('test@example.com', 'wrong-password')).rejects.toThrow();
 
       const updatedState = useAuthStore.getState();
       expect(updatedState.isAuthenticated).toBe(false);
@@ -95,7 +91,7 @@ describe('Auth Store (Zustand)', () => {
     it('should set isLoading to true during login', async () => {
       (authService.login as jest.Mock).mockImplementation(
         () =>
-          new Promise((resolve) => {
+          new Promise(resolve => {
             setTimeout(resolve, 100);
           })
       );
@@ -147,14 +143,10 @@ describe('Auth Store (Zustand)', () => {
     });
 
     it('should set error on registration failure', async () => {
-      (authService.register as jest.Mock).mockRejectedValue(
-        new Error('Email already exists')
-      );
+      (authService.register as jest.Mock).mockRejectedValue(new Error('Email already exists'));
 
       const store = useAuthStore.getState();
-      await expect(
-        store.register('existing@example.com', 'password123')
-      ).rejects.toThrow();
+      await expect(store.register('existing@example.com', 'password123')).rejects.toThrow();
 
       const updatedState = useAuthStore.getState();
       expect(updatedState.isAuthenticated).toBe(false);
@@ -198,9 +190,7 @@ describe('Auth Store (Zustand)', () => {
     });
 
     it('should set error if logout fails', async () => {
-      (authService.logout as jest.Mock).mockRejectedValue(
-        new Error('Storage error')
-      );
+      (authService.logout as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
       const store = useAuthStore.getState();
       await expect(store.logout()).rejects.toThrow();
@@ -254,9 +244,7 @@ describe('Auth Store (Zustand)', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      (authService.isAuthenticated as jest.Mock).mockRejectedValue(
-        new Error('Check failed')
-      );
+      (authService.isAuthenticated as jest.Mock).mockRejectedValue(new Error('Check failed'));
 
       const store = useAuthStore.getState();
       await store.checkAuth();

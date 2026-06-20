@@ -20,15 +20,22 @@ import {
   webOnlyGlass,
 } from '@/components/dashboard2/styles';
 
+import { useLanguage } from '@/hooks/useLanguage';
+import { withErrorBoundary } from '@/components/common/withErrorBoundary';
+import { EmptyState } from '@/components/common/EmptyState';
+
 // ── Main Component ─────────────────────────────────────────────
 
-export default function KeysScreen() {
-  const [selectedProvider, setSelectedProvider] = useState<'password' | 'pqc' | 'hardware' | 'hsm'>('pqc');
+function KeysScreen() {
+  const { t } = useLanguage();
+  const [selectedProvider, setSelectedProvider] = useState<'password' | 'pqc' | 'hardware' | 'hsm'>(
+    'pqc'
+  );
 
   const keys = [
     {
       id: 'ed25519',
-      name: 'Ed25519 Identity Key',
+      name: t('keys.ed25519Name'),
       algorithm: 'Ed25519',
       type: 'signing',
       created: '2024-01-15',
@@ -36,7 +43,7 @@ export default function KeysScreen() {
     },
     {
       id: 'x25519',
-      name: 'X25519 Exchange Key',
+      name: t('keys.x25519Name'),
       algorithm: 'X25519',
       type: 'key agreement',
       created: '2024-01-15',
@@ -44,7 +51,7 @@ export default function KeysScreen() {
     },
     {
       id: 'ml-kem',
-      name: 'ML-KEM-1024 PQC Key',
+      name: t('keys.mlkemName'),
       algorithm: 'ML-KEM-1024',
       type: 'post-quantum encapsulation',
       created: '2024-01-20',
@@ -52,7 +59,7 @@ export default function KeysScreen() {
     },
     {
       id: 'ml-dsa',
-      name: 'ML-DSA-87 PQC Key',
+      name: t('keys.mldsaName'),
       algorithm: 'ML-DSA-87',
       type: 'post-quantum signing',
       created: '2024-01-20',
@@ -60,7 +67,7 @@ export default function KeysScreen() {
     },
     {
       id: 'aes256',
-      name: 'AES-256 Master Encryption Key',
+      name: t('keys.aes256Name'),
       algorithm: 'AES-256',
       type: 'encryption',
       created: '2023-12-01',
@@ -70,27 +77,29 @@ export default function KeysScreen() {
 
   const handleRotateKey = () => {
     Alert.alert(
-      'Rotate Keys',
-      'Generate new cryptographic keys? Last rotation: 45 days ago. Next recommended: 15 days.',
+      t('keys.rotateKeys'),
+      t('keys.rotateConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('keys.cancel'), style: 'cancel' },
         {
-          text: 'Rotate Now',
-          onPress: () => Alert.alert('Success', 'Key rotation initiated.'),
+          text: t('keys.rotateNow'),
+          onPress: () => Alert.alert(t('keys.success'), t('keys.rotationInitiated')),
         },
       ]
     );
   };
 
-
   const handleExportPublicKey = () => {
-    Alert.alert('Export', 'Public key fingerprints exported successfully.');
+    Alert.alert(t('keys.export'), t('keys.exportSuccess'));
   };
-
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.shell}>
           <View style={styles.shellEdgeGlow} />
           <Sidebar />
@@ -101,17 +110,20 @@ export default function KeysScreen() {
             <View style={styles.contentWrapper}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.title}>Key Management</Text>
-                <Text style={styles.subtitle}>
-                  Manage cryptographic keys and rotation policies
+                <Text style={styles.title} accessibilityRole="header">
+                  {t('keys.pageTitle')}
                 </Text>
+                <Text style={styles.subtitle}>{t('keys.pageSubtitle')}</Text>
               </View>
 
               {/* Active Keys Section */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Active Keys</Text>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    {t('keys.activeKeys')}
+                  </Text>
                   <Pressable
+                    accessibilityRole="button"
                     onPress={handleRotateKey}
                     style={(state: any) => [
                       styles.rotateButton,
@@ -119,16 +131,20 @@ export default function KeysScreen() {
                     ]}
                   >
                     <Feather name="rotate-cw" size={14} color={dashboardColors.cyan} />
-                    <Text style={styles.rotateButtonText}>Rotate Keys</Text>
+                    <Text style={styles.rotateButtonText}>{t('keys.rotateKeys')}</Text>
                   </Pressable>
                 </View>
 
+                {keys.length === 0 ? (
+                  <EmptyState
+                    icon="key"
+                    title={t('empty.keys')}
+                    description={t('empty.keysDescription')}
+                  />
+                ) : (
                 <View style={styles.keysGrid}>
-                  {keys.map((key) => (
-                    <View
-                      key={key.id}
-                      style={[styles.keyCard, glassPanelBase, webOnlyGlass]}
-                    >
+                  {keys.map(key => (
+                    <View key={key.id} style={[styles.keyCard, glassPanelBase, webOnlyGlass]}>
                       <View style={styles.keyCardHeader}>
                         <View>
                           <Text style={styles.keyName}>{key.name}</Text>
@@ -136,32 +152,48 @@ export default function KeysScreen() {
                         </View>
                         <View style={[styles.statusBadge, styles.statusActive]}>
                           <View style={styles.statusDot} />
-                          <Text style={styles.statusText}>Active</Text>
+                          <Text style={styles.statusText}>{t('keys.active')}</Text>
                         </View>
                       </View>
 
                       <View style={styles.keyCardContent}>
                         <View style={styles.keyDetail}>
-                          <Text style={styles.keyLabel}>Created</Text>
+                          <Text style={styles.keyLabel}>{t('keys.created')}</Text>
                           <Text style={styles.keyValue}>{key.created}</Text>
                         </View>
                       </View>
                     </View>
                   ))}
                 </View>
+                )}
               </View>
 
               {/* Key Provider Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Key Provider</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('keys.keyProvider')}
+                </Text>
                 <View style={[styles.providerCard, glassPanelBase, webOnlyGlass]}>
                   {[
-                    { value: 'password' as const, label: 'Password-derived (Argon2id KDF)', icon: 'lock' },
-                    { value: 'pqc' as const, label: 'Hybrid PQC (ML-KEM + X25519)', icon: 'shield' },
-                    { value: 'hardware' as const, label: 'Hardware Key (FIDO2/YubiKey)', icon: 'key' },
-                    { value: 'hsm' as const, label: 'External HSM', icon: 'cpu' },
-                  ].map((provider) => (
+                    {
+                      value: 'password' as const,
+                      label: t('keys.providerPassword'),
+                      icon: 'lock',
+                    },
+                    {
+                      value: 'pqc' as const,
+                      label: t('keys.providerPQC'),
+                      icon: 'shield',
+                    },
+                    {
+                      value: 'hardware' as const,
+                      label: t('keys.providerHardware'),
+                      icon: 'key',
+                    },
+                    { value: 'hsm' as const, label: t('keys.providerHSM'), icon: 'cpu' },
+                  ].map(provider => (
                     <Pressable
+                      accessibilityRole="button"
                       key={provider.value}
                       onPress={() => setSelectedProvider(provider.value)}
                       style={(state: any) => [
@@ -177,7 +209,9 @@ export default function KeysScreen() {
                             selectedProvider === provider.value && styles.providerRadioSelected,
                           ]}
                         >
-                          {selectedProvider === provider.value && <View style={styles.providerRadioInner} />}
+                          {selectedProvider === provider.value && (
+                            <View style={styles.providerRadioInner} />
+                          )}
                         </View>
                       </View>
                       <Feather name={provider.icon as any} size={18} color={dashboardColors.cyan} />
@@ -189,19 +223,22 @@ export default function KeysScreen() {
 
               {/* Key Export Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Key Export</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('keys.keyExport')}
+                </Text>
                 <View style={[styles.exportCard, glassPanelBase, webOnlyGlass]}>
                   <View style={styles.exportInfo}>
                     <Ionicons name="information-circle" size={20} color={dashboardColors.cyan} />
                     <View style={styles.exportInfoText}>
-                      <Text style={styles.exportTitle}>Export Public Fingerprints</Text>
+                      <Text style={styles.exportTitle}>{t('keys.exportPublicKeys')}</Text>
                       <Text style={styles.exportDesc}>
-                        Download your public key fingerprints for sharing with trusted contacts. Private keys are never exported.
+                        {t('keys.exportDescription')}
                       </Text>
                     </View>
                   </View>
 
                   <Pressable
+                    accessibilityRole="button"
                     onPress={handleExportPublicKey}
                     style={(state: any) => [
                       styles.exportButton,
@@ -209,22 +246,24 @@ export default function KeysScreen() {
                     ]}
                   >
                     <Feather name="download" size={16} color={dashboardColors.cyan} />
-                    <Text style={styles.exportButtonText}>Export Public Keys</Text>
+                    <Text style={styles.exportButtonText}>{t('keys.exportBtn')}</Text>
                   </Pressable>
                 </View>
               </View>
 
               {/* Rotation History */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Rotation History</Text>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  {t('keys.rotationHistory')}
+                </Text>
                 <View style={[styles.historyCard, glassPanelBase, webOnlyGlass]}>
                   <View style={styles.historyItem}>
                     <View style={styles.historyDate}>
-                      <Text style={styles.historyDateText}>45 days ago</Text>
+                      <Text style={styles.historyDateText}>{t('keys.45DaysAgo')}</Text>
                       <Text style={styles.historyDateSubtext}>2024-01-20</Text>
                     </View>
                     <View style={styles.historyEvent}>
-                      <Text style={styles.historyEventText}>All keys rotated</Text>
+                      <Text style={styles.historyEventText}>{t('keys.allKeysRotated')}</Text>
                       <Text style={styles.historyEventDesc}>ML-DSA-87, ML-KEM-1024, X25519</Text>
                     </View>
                   </View>
@@ -233,11 +272,11 @@ export default function KeysScreen() {
 
                   <View style={styles.historyItem}>
                     <View style={styles.historyDate}>
-                      <Text style={styles.historyDateText}>90 days ago</Text>
+                      <Text style={styles.historyDateText}>{t('keys.90DaysAgo')}</Text>
                       <Text style={styles.historyDateSubtext}>2023-12-01</Text>
                     </View>
                     <View style={styles.historyEvent}>
-                      <Text style={styles.historyEventText}>Master key initialized</Text>
+                      <Text style={styles.historyEventText}>{t('keys.masterKeyInit')}</Text>
                       <Text style={styles.historyEventDesc}>AES-256 encryption key</Text>
                     </View>
                   </View>
@@ -282,13 +321,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,5,20,0.38)',
     ...webOnly({
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
-      boxShadow: '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
+      background:
+        'linear-gradient(180deg, rgba(19,11,41,0.32) 0%, rgba(8,5,20,0.40) 56%, rgba(8,5,20,0.50) 100%)',
+      boxShadow:
+        '0 0 0 1px rgba(139,92,246,0.26), 0 0 24px rgba(139,92,246,0.3), 0 0 58px rgba(34,211,238,0.14), inset 0 0 38px rgba(96,165,250,0.08)',
     }),
   },
   shellEdgeGlow: {
     position: 'absolute',
-    left: 0, right: 0, top: 0, height: 1,
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1,
     backgroundColor: 'rgba(217,70,239,0.55)',
   },
   mainCol: {
@@ -576,3 +620,5 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 });
+
+export default withErrorBoundary(KeysScreen, 'Keys');

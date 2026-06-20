@@ -54,12 +54,13 @@ async function generateToken(): Promise<string> {
   try {
     const buffer = new Uint8Array(32);
     crypto.getRandomValues(buffer);
-    return Array.from(buffer).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(buffer)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   } catch {
     return `token-${Date.now()}-${Math.random().toString(36).substr(2, 16)}`;
   }
 }
-
 
 /**
  * Read sessions from storage.
@@ -179,7 +180,7 @@ class SessionServiceImpl {
    */
   async validateSession(token: string): Promise<Session | null> {
     const sessions = readSessions();
-    const session = sessions.find((s) => s.token === token);
+    const session = sessions.find(s => s.token === token);
 
     if (!session) return null;
     if (!session.isActive) return null;
@@ -196,7 +197,7 @@ class SessionServiceImpl {
    */
   async refreshSession(token: string): Promise<Session | null> {
     const sessions = readSessions();
-    const index = sessions.findIndex((s) => s.token === token);
+    const index = sessions.findIndex(s => s.token === token);
 
     if (index === -1) return null;
 
@@ -212,7 +213,9 @@ class SessionServiceImpl {
     session.expiresAt = expiresAt.toISOString();
 
     writeSessions(sessions);
-    auditService.log('system', `session_refresh`, { userId: session.userId }, 'success').catch(() => {});
+    auditService
+      .log('system', `session_refresh`, { userId: session.userId }, 'success')
+      .catch(() => {});
 
     return session;
   }
@@ -225,7 +228,7 @@ class SessionServiceImpl {
    */
   async revokeSession(token: string): Promise<boolean> {
     const sessions = readSessions();
-    const index = sessions.findIndex((s) => s.token === token);
+    const index = sessions.findIndex(s => s.token === token);
 
     if (index === -1) return false;
 
@@ -276,7 +279,9 @@ class SessionServiceImpl {
           // Silent fail
         }
       }
-      auditService.log('settings_change', 'session_duration', { minutes }, 'success').catch(() => {});
+      auditService
+        .log('settings_change', 'session_duration', { minutes }, 'success')
+        .catch(() => {});
     }
   }
 
@@ -297,12 +302,12 @@ class SessionServiceImpl {
    */
   isDeviceRemembered(deviceId: string): boolean {
     const devices = readRememberedDevices();
-    const device = devices.find((d) => d.deviceId === deviceId);
+    const device = devices.find(d => d.deviceId === deviceId);
 
     if (!device) return false;
     if (new Date(device.expiresAt) <= new Date()) {
       // Token expired, clean up
-      const filtered = devices.filter((d) => d.deviceId !== deviceId);
+      const filtered = devices.filter(d => d.deviceId !== deviceId);
       writeRememberedDevices(filtered);
       return false;
     }
@@ -332,11 +337,13 @@ class SessionServiceImpl {
 
     const devices = readRememberedDevices();
     // Remove any existing token for this device
-    const filtered = devices.filter((d) => d.deviceId !== deviceId);
+    const filtered = devices.filter(d => d.deviceId !== deviceId);
     filtered.push(device);
     writeRememberedDevices(filtered);
 
-    auditService.log('system', 'device_remembered', { deviceId, userId }, 'success').catch(() => {});
+    auditService
+      .log('system', 'device_remembered', { deviceId, userId }, 'success')
+      .catch(() => {});
 
     return rememberToken;
   }
@@ -349,7 +356,7 @@ class SessionServiceImpl {
    */
   async forgetDevice(deviceId: string): Promise<boolean> {
     const devices = readRememberedDevices();
-    const filtered = devices.filter((d) => d.deviceId !== deviceId);
+    const filtered = devices.filter(d => d.deviceId !== deviceId);
 
     if (filtered.length === devices.length) return false;
 

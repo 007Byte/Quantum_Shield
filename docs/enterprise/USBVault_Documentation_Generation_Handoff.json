@@ -1,0 +1,518 @@
+{
+  "meta": {
+    "title": "USBVault Enterprise — Documentation Generation Handoff",
+    "purpose": "Complete knowledge base for generating ALL enterprise documentation. Feed this entire file to Claude and ask it to generate each document listed in the 'documents_to_generate' section.",
+    "generated": "2026-03-15",
+    "generated_by": "Claude Opus 4.6 — after completing Phases 1-5 of Enterprise development",
+    "instructions_for_receiving_claude": "Use this JSON as the single source of truth. Generate each document in the 'documents_to_generate' array. Each document spec includes its title, audience, format, and complete content outline. Do NOT invent features — only document what is listed as 'status: COMPLETE' in this file."
+  },
+
+  "product_identity": {
+    "name": "USBVault Enterprise Edition",
+    "version": "2.0",
+    "codename": "Fortress Enterprise",
+    "tagline": "Portable Encrypted File Storage — Intelligence-Grade Security for Everyone",
+    "mission": "Carry sensitive files in your pocket, plug into any computer running Windows, macOS, or Linux, access your files with a password, and walk away leaving zero evidence you were ever there.",
+    "company_promise": "USBVault was engineered to the operational standards demanded by intelligence professionals — and made accessible to everyone who needs that level of protection.",
+    "target_users": [
+      "Intelligence operatives and field agents",
+      "Government and defense personnel",
+      "Journalists protecting sources",
+      "Legal and medical professionals",
+      "Corporate executives and security teams",
+      "Travelers facing device inspection",
+      "Privacy-conscious citizens"
+    ],
+    "guiding_principles": {
+      "PORTABLE": {"status": "TRUE", "description": "No installation. Runs from USB via double-click launcher. Portable Node.js bundled on TOOLS partition."},
+      "SECURE": {"status": "TRUE", "description": "Argon2id (64 MiB) + XChaCha20-Poly1305 / AES-256-GCM-SIV. Rust crypto core with constant-time comparisons."},
+      "INVISIBLE": {"status": "TRUE", "description": "SECURE partition unmounted (invisible). chflags hidden (macOS), attrib +H+S (Windows). Encrypted filenames in AEAD chunks."},
+      "RESILIENT": {"status": "TRUE", "description": "Dual-index atomic commits. Monotonic commit counter. Append-only VAULT.bin. State version rollback protection."},
+      "SIMPLE": {"status": "TRUE", "description": "Double-click launcher → browser opens → password → done. No technical knowledge required."},
+      "ZERO_TRACE": {"status": "TRUE", "description": "23 forensic artifact cleaners across 3 platforms. Auto-clean on eject. Restart advisory displayed."},
+      "ZERO_TRUST": {"status": "PARTIAL", "description": "Wrapped MEK architecture (password→KEK→MEK). Cloud split-key (HKDF(LOCAL||REMOTE)) planned for V3.0."},
+      "PQC_COMPLIANT": {"status": "TRUE", "description": "ML-KEM-1024 + X25519 hybrid sealed boxes. Feature-gated in Rust. Quantum-resistant key exchange."}
+    },
+    "subscription_tiers": {
+      "free": {"vaults": 1, "storage": "100 MB", "ciphers": ["AES-256-GCM"]},
+      "individual": {"vaults": 5, "storage": "10 GB", "ciphers": ["AES-256-GCM-SIV", "XChaCha20-Poly1305", "ML-KEM-1024"]},
+      "team": {"vaults": 50, "storage": "100 GB", "ciphers": "all", "sharing": true, "audit": true},
+      "enterprise": {"vaults": "unlimited", "storage": "1 TB", "ciphers": "all", "sharing": true, "audit": true, "priority_support": true}
+    }
+  },
+
+  "architecture": {
+    "overview": "Four-subsystem architecture with zero-knowledge design. All crypto runs client-side in Rust. Server never sees plaintext. Dual-mode: USB-only (offline) or cloud-connected.",
+    "subsystems": [
+      {
+        "name": "usbvault-crypto",
+        "language": "Rust (2021 edition)",
+        "purpose": "ALL cryptographic operations — Argon2id KDF, AEAD ciphers, streaming encryption, vault header, PQC hybrid KEM, TFA credential packing, memory security",
+        "key_files": ["cipher.rs", "kdf.rs", "streaming.rs", "vault/header.rs", "vault/index.rs", "vault/tfa.rs", "pqc/hybrid.rs", "memory.rs", "error.rs", "sharing.rs", "srp_client.rs"],
+        "test_count": 234,
+        "dependencies": ["chacha20poly1305", "aes-gcm-siv", "argon2", "x25519-dalek", "ml-kem", "zeroize", "hmac", "sha2", "hkdf", "sharks"],
+        "build": "cargo build --release (LTO, strip, panic=abort)",
+        "security_features": ["Zeroize on drop", "mlock (3 platforms)", "Guard pages (mmap PROT_NONE)", "Constant-time comparisons (subtle crate)", "Nonce reuse detection"]
+      },
+      {
+        "name": "usbvault-app",
+        "language": "TypeScript / React Native",
+        "purpose": "Cross-platform frontend — web, iOS, Android. File management, vault operations, settings, educational content",
+        "framework": "Expo 54 + React Native 0.81 + React 19.1",
+        "pages": 37,
+        "state_management": "Zustand (7 stores: auth, vault, theme, sidebar, language, offline, sync)",
+        "i18n": "i18next (en, es, fr, de)",
+        "key_services": ["vaultOrchestrator.ts (central coordinator)", "usbService.ts (companion bridge)", "fido2Service.ts (WebAuthn + PRF)", "passwordPolicy.ts (NIST/OWASP scoring)", "weakPasswordBloom.ts (98,735-entry bloom filter)"],
+        "security_services": 19,
+        "dual_mode": {
+          "cloud_connected": "EXPO_PUBLIC_API_URL set → SRP-6a auth → cloud sync/sharing/billing",
+          "usb_standalone": "No API URL → vault password is session → sessionStorage only → zero-trace"
+        }
+      },
+      {
+        "name": "usbvault-server",
+        "language": "Go 1.25",
+        "purpose": "REST API server — authentication, vault management, blob storage, billing, sync",
+        "router": "chi/v5",
+        "database": "PostgreSQL 16 (pgx/v5, 14 migrations)",
+        "cache": "Redis (go-redis/v9)",
+        "storage": "S3 (AWS SDK v2)",
+        "auth": "SRP-6a + JWT + FIDO2 (WebAuthn) + recovery codes",
+        "billing": "Stripe (subscriptions, webhooks, checkout/portal)",
+        "sync": "WebSocket with CRDT for multi-device",
+        "monitoring": "Prometheus + Grafana + AlertManager + Sentry + OpenTelemetry",
+        "deployment": "Docker (Alpine, non-root) + Kubernetes (3 replicas, HPA)",
+        "test_count": 61,
+        "zero_knowledge": "Server NEVER handles plaintext, filenames, or encryption keys"
+      },
+      {
+        "name": "usb-companion",
+        "language": "Node.js / Express",
+        "purpose": "Local USB hardware bridge — runs on user's machine, bridges app to OS USB subsystem",
+        "binding": "127.0.0.1:3001 (localhost only, never network-exposed)",
+        "services": ["usbDetector.js", "usbProvisioner.js", "usbResetter.js", "usbMounter.js", "usbEjector.js", "vaultContainerService.js", "vaultFileService.js", "zeroTraceService.js"],
+        "endpoints": 19,
+        "security": ["Helmet headers", "CORS whitelist", "Rate limiting (60/min general, 5/min destructive)", "execFile only (never shell=true)", "Input validation", "Audit logging", "fsync after every write"],
+        "standalone_mode": "Also serves static web app (express.static) when deployed to USB TOOLS partition",
+        "zero_trace_cleaners": 23
+      }
+    ],
+    "trust_boundaries": [
+      {"boundary": "App ↔ Rust FFI", "crosses": "Password (once, for KDF), encrypted bytes", "never_crosses": "Derived keys, plaintext data"},
+      {"boundary": "App ↔ Companion", "crosses": "Encrypted VAULT.bin bytes, drive IDs", "never_crosses": "Passwords, keys, plaintext"},
+      {"boundary": "App ↔ Server", "crosses": "Encrypted blobs, auth tokens", "never_crosses": "Vault password, file content, keys"},
+      {"boundary": "Companion ↔ USB", "crosses": "Raw encrypted bytes (fsync'd)", "never_crosses": "Keys, plaintext"}
+    ],
+    "key_architecture_decisions": [
+      {"id": "ADR-001", "title": "Go backend (not Python/Django)"},
+      {"id": "ADR-002", "title": "Rust crypto core (not Python/Cython)"},
+      {"id": "ADR-003", "title": "Expo/React Native (not Qt/PySide6)"},
+      {"id": "ADR-004", "title": "PostgreSQL primary store"},
+      {"id": "ADR-005", "title": "XChaCha20-Poly1305 default AEAD"},
+      {"id": "ADR-006", "title": "Zero-knowledge architecture"},
+      {"id": "ADR-007", "title": "Redis for sessions/rate-limiting"},
+      {"id": "ADR-008", "title": "S3 blob storage"},
+      {"id": "ADR-009", "title": "ML-KEM-1024 post-quantum KEM"},
+      {"id": "ADR-010", "title": "Zustand state management"},
+      {"id": "ADR-011", "title": "PQC Hybrid vs V3 fixed header block"},
+      {"id": "ADR-012", "title": "Zustand reactive stores vs Qt signals"},
+      {"id": "ADR-013", "title": "Rust FFI vs Cython compilation"},
+      {"id": "ADR-014", "title": "Build pipeline vs Ed25519 manifest signing"}
+    ]
+  },
+
+  "cryptography": {
+    "kdf": {
+      "algorithm": "Argon2id",
+      "parameters": {"memory_kib": 65536, "time_cost": 3, "parallelism": 4, "output_bytes": 64, "salt_bytes": 32},
+      "output_split": "enc_key[0:32] + hmac_key[32:64]",
+      "implementation": "usbvault-crypto/src/kdf.rs"
+    },
+    "ciphers": [
+      {"name": "XChaCha20-Poly1305", "cipher_id": 2, "default": true, "nonce": 24, "tag": 16, "key": 32, "fips": false},
+      {"name": "AES-256-GCM-SIV", "cipher_id": 3, "default": false, "nonce": 12, "tag": 16, "key": 32, "fips": true}
+    ],
+    "streaming": {
+      "chunk_size": 65536,
+      "magic": "V2RC",
+      "format": "magic(4B) + version(1B) + base_nonce(24B) + chunks[length(4B) + AEAD(data + 16B tag)] + final_HMAC(32B)",
+      "nonce_derivation": "Per-chunk via HKDF domain separation",
+      "max_file_size": "~256 TiB (2^32 chunks × 64 KiB)"
+    },
+    "key_architecture": {
+      "v4_wrapped_mek": "password → Argon2id → KEK → unwrap(wrapped_mek) → MEK",
+      "benefit": "Password change is O(1) — only re-wraps MEK",
+      "fido2": "If enabled: final_key = enc_key XOR PRF_output"
+    },
+    "integrity": {
+      "header_hmac": "HMAC-SHA256 over all header fields (HMAC field zeroed during compute)",
+      "fail_counter_hmac": "Domain-separated: 'USBVault-FailCounter-v1:' + counter bytes",
+      "verify_marker": "Encrypt 'USBVAULT_VERIFY_OK_0000' with MEK — decrypt to confirm password"
+    },
+    "self_destruct": {
+      "trigger": "fail_count >= 10 (MAX_FAIL_ATTEMPTS)",
+      "action": "3-pass overwrite of wrapped_mek: random → zeros → random",
+      "result": "Vault permanently inaccessible — data records remain but can't be decrypted"
+    },
+    "backoff": {
+      "formula": "min(2^failCount × 1000ms, 3,600,000ms)",
+      "max_delay": "1 hour",
+      "enforcement": "vaultOrchestrator.ts blocks unlock attempts during cooldown"
+    },
+    "pqc": {
+      "algorithm": "X25519 + ML-KEM-1024 hybrid sealed boxes",
+      "combination": "HKDF-SHA256 with domain 'hybrid_seal_x25519_mlkem1024'",
+      "security": "Secure if EITHER X25519 OR ML-KEM-1024 remains unbroken",
+      "feature_gated": true
+    }
+  },
+
+  "vault_format": {
+    "header": {
+      "magic": "USBVLT04",
+      "size": 24576,
+      "format": "Sequential length-prefixed (not fixed offsets)",
+      "backward_compat": "Accepts USBVLT02, USBVLT03 for discovery",
+      "fields": ["version", "kdf_hash_id", "cipher_id", "salt(32B)", "verify_iv(24B)", "verify_ct(var)", "header_hmac(32B)", "active_index_slot", "index1/2_offset+length(u32)", "commit_counter(u64)", "argon2_params", "identity_block(len-prefixed)", "tfa_block(len-prefixed)", "fail_counter_block(len-prefixed)", "wrapped_mek(len-prefixed)", "state_version(u64)", "index_encrypted(bool)"]
+    },
+    "vault_bin": {
+      "location": "SECURE partition root (VAULT.bin)",
+      "structure": "header(24KB) + encrypted_records(append-only) + encrypted_indexes",
+      "fifty_percent_rule": "VAULT.bin never exceeds 50% of SECURE partition",
+      "multi_vault": "Additional vaults in vault_<uuid>/VAULT.bin subdirectories"
+    },
+    "tfa_wire_format": "cred_id_len(2B u16 LE) + credential_id(var) + aaguid(16B) + label_len(1B) + label(var, max 32B)"
+  },
+
+  "usb_operations": {
+    "partition_layout": {
+      "scheme": "GPT + ExFAT",
+      "tools_partition": {"size": "500 MB", "visible": true, "contents": ["Platform launchers", "Portable Node.js", "Companion service", "Static web app", "README", "Recovery guide"]},
+      "secure_partition": {"size": "remaining", "visible": false, "contents": ["VAULT.bin"]}
+    },
+    "platform_support": {
+      "detection": {"macos": "diskutil list -plist external", "linux": "lsblk -J -b", "windows": "PowerShell Get-Disk BusType USB"},
+      "partitioning": {"macos": "diskutil partitionDisk", "linux": "parted + mkfs.exfat", "windows": "PowerShell Clear-Disk + New-Partition"},
+      "mounting": {"macos": "diskutil mount", "linux": "udisksctl mount", "windows": "Add-PartitionAccessPath"},
+      "ejecting": {"macos": "diskutil eject", "linux": "udisksctl power-off", "windows": "10-step PowerShell protocol"},
+      "hiding": {"macos": "chflags hidden", "windows": "attrib +H +S", "linux": "partition unmounting"}
+    },
+    "companion_endpoints": [
+      "GET /usb/drives", "GET /usb/provision/preflight", "POST /usb/provision", "POST /usb/provision/elevate",
+      "POST /usb/reset", "POST /usb/mount-secure", "POST /usb/unmount-secure", "POST /usb/eject",
+      "POST /usb/zero-trace", "POST /usb/zero-trace/scan", "GET /usb/vaults",
+      "POST /usb/vault/init", "GET /usb/vault/container/header", "PUT /usb/vault/container/header",
+      "GET /usb/vault/container/bytes", "POST /usb/vault/container/append",
+      "GET /usb/vault/container/size", "GET /usb/vault/container/capacity", "POST /usb/vault/container/compact"
+    ]
+  },
+
+  "security_layers": {
+    "defense_in_depth": [
+      {"layer": "L1", "name": "Steganographic Delivery", "status": "PLANNED (V4.0)", "description": "Hide VAULT.bin inside carrier files"},
+      {"layer": "L2", "name": "Hardware Key (FIDO2)", "status": "COMPLETE", "description": "PRF/hmac-secret extension, XOR with Argon2id key"},
+      {"layer": "L3", "name": "Cloud Split-Key", "status": "PLANNED (V3.0)", "description": "HKDF(LOCAL || REMOTE) = MASTER_KEY"},
+      {"layer": "L4", "name": "XChaCha20-Poly1305 AEAD", "status": "COMPLETE", "description": "Per-chunk authenticated encryption"},
+      {"layer": "L5", "name": "Argon2id KDF (64 MiB)", "status": "COMPLETE", "description": "Memory-hard key derivation"},
+      {"layer": "L6", "name": "Memory Protection", "status": "COMPLETE", "description": "mlock + guard pages + Zeroize"},
+      {"layer": "L7", "name": "Hidden Partition", "status": "COMPLETE", "description": "SECURE unmounted after provisioning"},
+      {"layer": "L8", "name": "Hidden File Attributes", "status": "COMPLETE", "description": "chflags/attrib on VAULT.bin"},
+      {"layer": "L9", "name": "Encrypted Filenames", "status": "COMPLETE", "description": "Filenames in AEAD metadata chunks"},
+      {"layer": "L10", "name": "Zero-Trace Cleanup", "status": "COMPLETE", "description": "23 cleaners, auto-clean on eject"},
+      {"layer": "L11", "name": "App Password + Lockout", "status": "COMPLETE", "description": "PBKDF2-SHA256 150K iterations"},
+      {"layer": "L12", "name": "Crash-Safe Dual-Index", "status": "COMPLETE", "description": "Append-only, commit counter, fsync"}
+    ],
+    "boot_hardening": {
+      "stages": ["Anti-Debug (device integrity)", "Integrity (CSP/code signature)", "Memory Lock (WebCrypto init)", "Brute-Force (fail state)", "Self-Destruct (arm callbacks)", "Ghost Mode (re-activate)"],
+      "file": "usbvault-app/src/services/security/bootHardening.ts"
+    },
+    "zero_trace_coverage": {
+      "windows_user_level": ["Recent Items (.lnk)", "Jump Lists", "Thumbnail Cache", "Shellbags (Registry)", "Registry MRU", "Search Index", "Recycle Bin", "USB Volume Metadata", "Session Files", "Temp Artifacts"],
+      "windows_admin_only": ["Prefetch", "Event Logs"],
+      "macos": [".DS_Store", "QuickLook cache", "USB metadata (.Trashes, .fseventsd, Spotlight)", "Recent Documents (TCC-aware)", "Spotlight re-index", "Session files"],
+      "linux": ["recently-used.xbel", "Zeitgeist DB", "Thumbnail cache", "USB Trash dirs", "Temp files", "GNOME Tracker cache"]
+    },
+    "password_policy": {
+      "min_length": 15,
+      "scoring": "Entropy-based + OWASP diversity + contextual penalties",
+      "weak_dictionary": "98,735 entries via SHA-256 bloom filter (k=10, FPR ~0.1%)",
+      "hibp": "k-anonymity API with bloom filter fallback",
+      "app_password": "Separate gate: PBKDF2-SHA256, 150K iterations, 12-char min, 3 attempts, 30s lockout"
+    }
+  },
+
+  "error_codes": {
+    "vault": ["WRONG_PASSWORD", "TFA_FAILED", "LOCKED_OUT", "SELF_DESTRUCTED", "BAD_MAGIC", "BAD_HMAC", "BAD_INDEX", "CHUNK_AUTH_FAIL", "ROLLBACK_DETECTED", "DISK_FULL"],
+    "usb": ["NO_USB", "EJECT_FAILED", "PROVISION_FAILED", "MOUNT_FAILED", "ADMIN_REQUIRED", "ADMIN_AUTH_FAILED"],
+    "files": ["usbvault-app/src/errors/index.ts", "usbvault-crypto/src/error.rs", "usb-companion/src/utils/errorCodes.js"]
+  },
+
+  "user_flows": {
+    "first_time_setup": [
+      "Plug in blank USB drive",
+      "Double-click launcher (or run from dev server)",
+      "Login / register (or USB standalone: just enter email + password)",
+      "Onboarding wizard: PQC detection → cipher selection → identity → confirm",
+      "Navigate to 'Setup USB' tab",
+      "Select USB drive, enter vault name and master password",
+      "System creates dual partitions (TOOLS + SECURE), writes VAULT.bin header",
+      "SECURE partition hidden automatically",
+      "Vault ready for use"
+    ],
+    "daily_use": [
+      "Plug in USB drive",
+      "Double-click launcher from TOOLS partition (or use dev server)",
+      "Enter password (exponential backoff if failed attempts)",
+      "If FIDO2 enabled: tap hardware key (PRF extension)",
+      "6-stage boot hardening runs automatically",
+      "Dashboard shows vault files and security status",
+      "Add files: pick file → vaultOrchestrator encrypts (Rust FFI) → appends to VAULT.bin → atomic index commit",
+      "Decrypt files: select → vaultOrchestrator reads + decrypts → download or temp view",
+      "Remove files: select → remove from index → atomic commit (data orphaned, reclaimed by compact)",
+      "Compact vault: rewrites VAULT.bin with only active records",
+      "Eject: zero-trace cleanup (23 artifacts) → unmount SECURE → eject drive → restart advisory"
+    ],
+    "recovery": {
+      "forgotten_password": "24-word BIP39 recovery phrase (shown once at provisioning, user must save)",
+      "lost_fido2_key": "Recovery blob (AES-GCM-SIV encrypted) stored in vault header",
+      "corrupted_vault": "Dual-index fallback — if active index corrupted, use backup slot",
+      "usb_failure": "Cloud backup restore (if cloud-connected mode used)"
+    }
+  },
+
+  "testing": {
+    "rust": {
+      "total_tests": 234,
+      "all_passing": true,
+      "suites": [
+        {"name": "Unit tests (lib)", "count": 77},
+        {"name": "format_compatibility_tests", "count": 28},
+        {"name": "integration_tests", "count": 40},
+        {"name": "property_tests (proptest fuzzing)", "count": 19},
+        {"name": "sharing_tests", "count": 32},
+        {"name": "srp_protocol_tests", "count": 23},
+        {"name": "vault_lifecycle_tests", "count": 15}
+      ]
+    },
+    "typescript": {"test_files": 45, "coverage_threshold": "70%", "framework": "Jest + Playwright"},
+    "go": {"test_files": 61, "coverage": "Auth, billing, sharing, sync, middleware, BOLA"},
+    "total": "340 test files across 3 subsystems"
+  },
+
+  "constants": {
+    "HEADER_SIZE_V4": 24576,
+    "MAGIC_V4": "USBVLT04",
+    "CHUNK_SIZE": 65536,
+    "REC_MAGIC_CHUNKED": "V2RC",
+    "ARGON2_MEMORY_KIB": 65536,
+    "ARGON2_TIME_COST": 3,
+    "ARGON2_PARALLELISM": 4,
+    "MAX_FAIL_ATTEMPTS": 10,
+    "SELF_DESTRUCT_PASSES": 3,
+    "FAIL_COUNTER_HMAC_DOMAIN": "USBVault-FailCounter-v1:",
+    "VAULT_SIZE_LIMIT_PERCENT": 0.50,
+    "MAX_BACKOFF_MS": 3600000,
+    "PASSWORD_MIN_LENGTH": 15,
+    "APP_PASSWORD_MIN_LENGTH": 12,
+    "APP_PASSWORD_PBKDF2_ITERS": 150000,
+    "BLOOM_ENTRIES": 98735,
+    "BLOOM_K": 10,
+    "COMPANION_PORT": 3001,
+    "TOOLS_PARTITION_MB": 500
+  },
+
+  "documents_to_generate": [
+    {
+      "id": "DOC-001",
+      "title": "USBVault Enterprise — Technical Specification",
+      "filename": "USBVault_Enterprise_Technical_Specification_v2.docx",
+      "format": "docx",
+      "audience": "Engineers, security auditors, pen testers",
+      "sections": [
+        "Executive Summary (product overview, tech stack, quality metrics)",
+        "Vault Binary Format (V4 header field map, V2RC record format, index blob, TFA wire format)",
+        "Cryptographic Protocols (Argon2id, AEAD ciphers, streaming, nonce derivation, HMAC computations, PQC hybrid, verify marker, self-destruct, backoff)",
+        "USB Operations (partition layout, platform tools matrix, companion API reference with all 19 endpoints, 50% capacity rule)",
+        "Security Modules (12 defense layers with status, module mapping table V2.0→Enterprise, boot hardening stages)",
+        "Password Policy (scoring system, bloom filter parameters, HIBP integration, app password gate)",
+        "Error Codes (16 typed codes with HTTP status mapping)",
+        "Build System (Rust/TypeScript/Go/Docker/K8s pipeline, CI/CD)",
+        "Testing (234 Rust + 45 TS + 61 Go tests, coverage areas)",
+        "Constants Reference (all named constants with values and files)",
+        "Appendix A: V2→V4 Header Field Mapping",
+        "Appendix B: Architecture Decision Records (14 ADRs)",
+        "Appendix C: Threat Model (brute-force, tamper, nonce reuse, memory dump, quantum, index corruption, weak password)"
+      ]
+    },
+    {
+      "id": "DOC-002",
+      "title": "USBVault Enterprise — Architecture & System Design",
+      "filename": "USBVault_Enterprise_Architecture_v2.docx",
+      "format": "docx",
+      "audience": "System architects, engineering leads, DevOps",
+      "sections": [
+        "System Overview (design goals, trust boundaries, zero-knowledge principle)",
+        "Architecture Principles (zero trust, defense in depth, crash safety, least privilege, cryptographic agility, fail secure)",
+        "Component Architecture (4 subsystems, interaction diagram, data flow)",
+        "Data Flow (encrypt file flow 9 steps, decrypt flow 6 steps, unlock flow 11 steps)",
+        "Security Architecture (trust boundaries table, key hierarchy diagram, boot hardening stages)",
+        "Deployment Architecture (Kubernetes config, Docker, database schema, monitoring stack)",
+        "Database Schema (12 tables with key columns)",
+        "API Design (9 route groups with auth requirements)",
+        "Frontend Architecture (framework, 7 stores, i18n, crypto bridge, dual-mode)",
+        "USB Hardware Bridge (companion security model, endpoint reference)",
+        "Cryptographic Architecture (algorithm selection, key lifecycle, memory protection)",
+        "Observability (Prometheus, Grafana, AlertManager, Sentry, OpenTelemetry)",
+        "Disaster Recovery (6 scenarios with RTO/RPO)",
+        "Technology Stack (complete dependency matrix with versions)",
+        "Non-Functional Requirements (availability, latency, throughput, compliance)"
+      ]
+    },
+    {
+      "id": "DOC-003",
+      "title": "USBVault Enterprise — User Manual",
+      "filename": "USBVault_Enterprise_User_Manual.docx",
+      "format": "docx",
+      "audience": "Non-technical end users, customers",
+      "tone": "Friendly, clear, no jargon. Assume zero technical knowledge.",
+      "sections": [
+        "Welcome (what USBVault does, who it's for, the privacy promise)",
+        "Getting Started (what you need: USB drive + computer, first-time setup walkthrough with screenshots descriptions)",
+        "Setting Up Your USB (plug in → run Setup USB → choose name → set password → done)",
+        "Your Master Password (why 15+ characters, password tips, NEVER share, NEVER forget, recovery phrase)",
+        "Daily Use (plug in → double-click → password → you're in)",
+        "Adding Files (select file → choose encryption → one click → file encrypted and stored)",
+        "Viewing Files (select file → decrypt → view or download)",
+        "Removing Files (select → delete → confirm → compaction available)",
+        "Safely Ejecting (click Eject → zero-trace cleanup runs → restart advisory → remove USB)",
+        "Security Features (FIDO2 hardware key, app password, auto-lock, ghost mode, zero-trace)",
+        "Settings (theme, language, security, account, notifications)",
+        "Password Manager (storing passwords securely, import from CSV)",
+        "Troubleshooting (common errors, what to do if password wrong, USB not detected, vault corrupted)",
+        "Recovery (using recovery phrase, lost hardware key, backup restore)",
+        "FAQ (Is my data safe? Can USBVault be hacked? What if I lose the USB? What about quantum computers?)"
+      ]
+    },
+    {
+      "id": "DOC-004",
+      "title": "USBVault Enterprise — IT Deployment Guide",
+      "filename": "USBVault_Enterprise_IT_Deployment_Guide.docx",
+      "format": "docx",
+      "audience": "IT administrators, enterprise deployment teams",
+      "sections": [
+        "Overview (what IT needs to know, architecture summary, zero-knowledge guarantee)",
+        "Deployment Models (USB-only standalone vs cloud-connected, when to use which)",
+        "USB-Only Deployment (package TOOLS partition: Node.js + companion + static app + launchers, no server needed)",
+        "Cloud-Connected Deployment (Go server setup, PostgreSQL, Redis, S3, environment variables)",
+        "Kubernetes Deployment (deployment.yaml, HPA, secrets management, migration job)",
+        "Docker Deployment (docker-compose for development, multi-stage Alpine build)",
+        "Network Requirements (localhost:3001 for companion, HTTPS for server API, WebSocket for sync)",
+        "Security Configuration (CORS, rate limiting, JWT rotation, certificate pinning)",
+        "Monitoring Setup (Prometheus scrape config, Grafana dashboard import, alerting rules)",
+        "Backup & Recovery (database backups, vault recovery phrases, disaster recovery procedures)",
+        "Compliance (NIST SP 800-63B password policy, FIPS 140-3 cipher option, GDPR data handling)",
+        "Bulk USB Provisioning (script for creating multiple USB drives, ISO/IMG creation)",
+        "Troubleshooting (companion won't start, USB not detected, permission errors, port conflicts)"
+      ]
+    },
+    {
+      "id": "DOC-005",
+      "title": "USBVault Enterprise — Product Specification",
+      "filename": "USBVault_Enterprise_Product_Specification.docx",
+      "format": "docx",
+      "audience": "Product managers, stakeholders, sales engineers, investors",
+      "sections": [
+        "Product Vision & Mission (mission statement, guiding principles table with status)",
+        "Target Market (7 user segments with use cases)",
+        "Product Architecture (high-level diagram, 4 subsystems, dual-mode)",
+        "Feature Matrix by Tier (free/individual/team/enterprise comparison table)",
+        "Security Capabilities (12 defense layers, each with plain-English description)",
+        "Platform Support (macOS, Windows, Linux — what works on each)",
+        "Encryption at a Glance (Argon2id + XChaCha20 in simple terms, post-quantum readiness)",
+        "Zero-Trace Privacy (what gets cleaned, platform coverage, auto-clean on eject)",
+        "USB Experience (partition layout, hidden storage, double-click simplicity)",
+        "Cloud Features (sync, sharing, backup, billing, multi-device)",
+        "FIDO2 Hardware Key Support (YubiKey, security key, passkeys)",
+        "Crypto Classroom (educational tool, 4 interactive cipher demos, brute-force visualization)",
+        "Quality & Testing (234 Rust tests, 340 total, property-based fuzzing)",
+        "Roadmap (V3.0 cloud split-key, V4.0 steganography + security tiers + duress password)",
+        "Competitive Differentiation (what USBVault does that no competitor does)"
+      ]
+    },
+    {
+      "id": "DOC-006",
+      "title": "USBVault Enterprise — Security Audit Package",
+      "filename": "USBVault_Enterprise_Security_Audit_Package.docx",
+      "format": "docx",
+      "audience": "Third-party penetration testers, security auditors",
+      "sections": [
+        "Scope (what to test: companion API, web app, Rust crypto, Go server)",
+        "Architecture Overview (trust boundaries, data flow, key management)",
+        "Cryptographic Algorithms (Argon2id params, AEAD ciphers, nonce derivation, HMAC domains, PQC)",
+        "Key Lifecycle (generation, derivation, wrapping, zeroing, storage)",
+        "Authentication Flows (SRP-6a, JWT, FIDO2, app password, USB standalone)",
+        "Input Validation (companion validation rules, file name sanitization, mount point validation)",
+        "Rate Limiting (per-IP, per-user, per-endpoint limits)",
+        "Error Handling (error code enumeration, no secrets in errors)",
+        "Memory Security (Zeroize, mlock, guard pages, no key persistence)",
+        "Zero-Trace Operations (what's cleaned, what's NOT cleaned, known limitations)",
+        "Known Limitations (web cannot clear registry/prefetch, no process isolation, no ptrace anti-debug in web)",
+        "Threat Model (13 threats with mitigations)",
+        "SAST/DAST Results (cargo-audit, gosec, npm audit, Snyk — all clean)",
+        "Test Coverage Summary (234 Rust, 45 TS, 61 Go)"
+      ]
+    },
+    {
+      "id": "DOC-007",
+      "title": "USBVault Enterprise — Recovery Procedures",
+      "filename": "USBVault_Enterprise_Recovery_Procedures.docx",
+      "format": "docx",
+      "audience": "End users, IT support staff",
+      "sections": [
+        "Recovery Phrase (what it is, why you need it, how to use it, what happens if lost)",
+        "Forgotten Master Password (use recovery phrase → create new vault → import backup)",
+        "Lost FIDO2 Hardware Key (recovery blob in vault header, AES-GCM-SIV encrypted backup key)",
+        "Corrupted Vault (dual-index recovery — if active slot corrupted, fall back to backup slot)",
+        "USB Drive Failure (cloud backup restore if cloud-connected, otherwise data is lost — importance of backups)",
+        "Self-Destruct Triggered (vault is permanently destroyed — this is by design, restore from backup only)",
+        "Wrong Password Lockout (exponential backoff — wait up to 1 hour, or use different session)",
+        "Vault Not Detected (check SECURE partition mounted, verify VAULT.bin exists, try manual mount)",
+        "Companion Service Won't Start (port 3001 conflict, Node.js version, permission issues)",
+        "Cross-Platform Issues (vault created on Windows, opened on macOS — should work, ExFAT is universal)"
+      ]
+    }
+  ],
+
+  "future_phases_todo": {
+    "description": "Work items deferred to after current Enterprise V2.0 is 100% working and validated. NOT to be included in current documentation as features — document as 'roadmap' only.",
+    "phase_6_v3_cloud_split_key": {
+      "effort_days": 10,
+      "items": [
+        "Key splitting protocol: MASTER_KEY = HKDF(LOCAL_KEY || REMOTE_KEY)",
+        "Server-side key shard storage (Go endpoint, encrypted with SRP key)",
+        "Client-side HKDF combination in vaultOrchestrator",
+        "Offline grace period (cached shard with configurable TTL)",
+        "Migration path: V4 single-key → split-key upgrade flow"
+      ]
+    },
+    "phase_7_v4_advanced_security": {
+      "effort_days": 15,
+      "items": [
+        "Steganographic embedding (hide VAULT.bin inside PNG/JPEG/WAV)",
+        "Security tier selection (SECRET / TOP-SECRET / PRESIDENTIAL)",
+        "Hardware key enforcement for TOP-SECRET+",
+        "Duress password (triggers self-destruct, shows decoy data)",
+        "Secure file viewer with auto-wipe timer (90 seconds)"
+      ]
+    },
+    "phase_8_launch_readiness": {
+      "effort_days": 5,
+      "items": [
+        "Security audit preparation (pen test package)",
+        "Legal & compliance (GDPR, export control for crypto software)",
+        "USB image packaging (ISO/IMG for direct USB write)",
+        "Support infrastructure (bug reporting, knowledge base, Sentry production)"
+      ]
+    }
+  }
+}

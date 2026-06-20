@@ -28,6 +28,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
+
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // maxConnectionsPerUser limits concurrent WebSocket connections per user to prevent resource exhaustion
@@ -144,14 +146,14 @@ func validateBase64(data string) error {
 func (ss *SyncService) HandleWebSocket(wsService *SyncService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// RM-007: Extract user ID from context (set by auth middleware)
-		userID, ok := r.Context().Value("user_id").(string)
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		// RM-007: Extract device ID for connection tracking
-		deviceID, _ := r.Context().Value("device_id").(string)
+		deviceID, _ := r.Context().Value(ctxkeys.DeviceID).(string)
 		if deviceID == "" {
 			deviceID = "unknown"
 		}

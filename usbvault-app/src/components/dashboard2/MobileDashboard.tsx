@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Pressable,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import {
-  dashboardColors,
-  dashboardSpacing,
-} from './styles';
+import { dashboardColors, dashboardSpacing } from './styles';
+import { useLanguage } from '@/hooks/useLanguage';
 
 /**
  * MobileDashboard - Mobile-optimized dashboard layout
@@ -20,32 +12,58 @@ import {
  */
 export const MobileDashboard: React.FC = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'encrypt':
-        router.push('/(tabs)/encrypt' as any);
+        router.navigate('/(tabs)/encrypt-store' as any);
         break;
       case 'decrypt':
-        router.push('/(tabs)/decrypt' as any);
+        router.navigate('/(tabs)/decrypt-export' as any);
         break;
       case 'share':
-        router.push('/(tabs)/share' as any);
+        router.navigate('/(tabs)/share' as any);
         break;
       case 'messages':
-        router.push('/(tabs)/messages' as any);
+        router.navigate('/(tabs)/messages' as any);
         break;
     }
   };
 
   // Mock data for activity
   const recentActivity = [
-    { id: '1', type: 'encrypt', title: 'File encrypted', time: '2 hours ago' },
-    { id: '2', type: 'share', title: 'Shared with John', time: '4 hours ago' },
-    { id: '3', type: 'decrypt', title: 'File decrypted', time: '1 day ago' },
-    { id: '4', type: 'sync', title: 'Vault synced', time: '2 days ago' },
-    { id: '5', type: 'update', title: 'Security updated', time: '3 days ago' },
+    {
+      id: '1',
+      type: 'encrypt',
+      titleKey: 'mobileDashboard.fileEncrypted',
+      time: t('mobileDashboard.twoHoursAgo'),
+    },
+    {
+      id: '2',
+      type: 'share',
+      titleKey: 'mobileDashboard.sharedWithJohn',
+      time: t('mobileDashboard.fourHoursAgo'),
+    },
+    {
+      id: '3',
+      type: 'decrypt',
+      titleKey: 'mobileDashboard.fileDecrypted',
+      time: t('mobileDashboard.oneDayAgo'),
+    },
+    {
+      id: '4',
+      type: 'sync',
+      titleKey: 'mobileDashboard.vaultSynced',
+      time: t('mobileDashboard.twoDaysAgo'),
+    },
+    {
+      id: '5',
+      type: 'update',
+      titleKey: 'mobileDashboard.securityUpdated',
+      time: t('mobileDashboard.threeDaysAgo'),
+    },
   ];
 
   return (
@@ -57,13 +75,10 @@ export const MobileDashboard: React.FC = () => {
       {/* Header with Menu */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>USBVault</Text>
+          <Text style={styles.headerTitle}>{t('app.name')}</Text>
         </View>
         <Pressable
-          style={({ pressed }) => [
-            styles.menuButton,
-            pressed && { opacity: 0.7 },
-          ]}
+          style={({ pressed }) => [styles.menuButton, pressed && { opacity: 0.7 }]}
           onPress={() => setMenuOpen(!menuOpen)}
         >
           <Feather name="menu" size={24} color={dashboardColors.textPrimary} />
@@ -73,41 +88,26 @@ export const MobileDashboard: React.FC = () => {
       {/* Security Score Card */}
       <View style={styles.securityCard}>
         <View style={styles.securityHeader}>
-          <Text style={styles.securityLabel}>Security Score</Text>
+          <Text style={styles.securityLabel}>{t('mobileDashboard.securityScore')}</Text>
           <Feather name="shield" size={20} color={dashboardColors.cyan} />
         </View>
         <View style={styles.securityScoreContainer}>
           <View style={styles.scoreCircle}>
-            <Text style={styles.scoreText}>92</Text>
-            <Text style={styles.scoreLabel}>Excellent</Text>
+            <Text style={styles.scoreText}>{t('mobileDashboard.scoreNumber') || '92'}</Text>
+            <Text style={styles.scoreLabel}>{t('mobileDashboard.excellent')}</Text>
           </View>
           <View style={styles.scoreDetails}>
             <View style={styles.scoreDetailRow}>
-              <View
-                style={[
-                  styles.scoreIndicator,
-                  { backgroundColor: dashboardColors.green },
-                ]}
-              />
-              <Text style={styles.scoreDetailText}>Encryption: Active</Text>
+              <View style={[styles.scoreIndicator, { backgroundColor: dashboardColors.green }]} />
+              <Text style={styles.scoreDetailText}>{t('mobileDashboard.encryptionActive')}</Text>
             </View>
             <View style={styles.scoreDetailRow}>
-              <View
-                style={[
-                  styles.scoreIndicator,
-                  { backgroundColor: dashboardColors.green },
-                ]}
-              />
-              <Text style={styles.scoreDetailText}>PQC Protection: On</Text>
+              <View style={[styles.scoreIndicator, { backgroundColor: dashboardColors.green }]} />
+              <Text style={styles.scoreDetailText}>{t('mobileDashboard.pqcProtectionOn')}</Text>
             </View>
             <View style={styles.scoreDetailRow}>
-              <View
-                style={[
-                  styles.scoreIndicator,
-                  { backgroundColor: dashboardColors.green },
-                ]}
-              />
-              <Text style={styles.scoreDetailText}>2FA Enabled</Text>
+              <View style={[styles.scoreIndicator, { backgroundColor: dashboardColors.green }]} />
+              <Text style={styles.scoreDetailText}>{t('mobileDashboard.twoFAEnabled')}</Text>
             </View>
           </View>
         </View>
@@ -115,66 +115,38 @@ export const MobileDashboard: React.FC = () => {
 
       {/* Quick Actions Grid */}
       <View style={styles.actionsSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>{t('mobileDashboard.quickActions')}</Text>
         <View style={styles.actionsGrid}>
           <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => handleQuickAction('encrypt')}
           >
-            <Feather
-              name="lock"
-              size={24}
-              color={dashboardColors.cyan}
-            />
-            <Text style={styles.actionButtonText}>Encrypt</Text>
+            <Feather name="lock" size={24} color={dashboardColors.cyan} />
+            <Text style={styles.actionButtonText}>{t('mobileDashboard.encrypt')}</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => handleQuickAction('decrypt')}
           >
-            <Feather
-              name="unlock"
-              size={24}
-              color={dashboardColors.cyan}
-            />
-            <Text style={styles.actionButtonText}>Decrypt</Text>
+            <Feather name="unlock" size={24} color={dashboardColors.cyan} />
+            <Text style={styles.actionButtonText}>{t('mobileDashboard.decrypt')}</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => handleQuickAction('share')}
           >
-            <Feather
-              name="share-2"
-              size={24}
-              color={dashboardColors.cyan}
-            />
-            <Text style={styles.actionButtonText}>Share</Text>
+            <Feather name="share-2" size={24} color={dashboardColors.cyan} />
+            <Text style={styles.actionButtonText}>{t('mobileDashboard.share')}</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => handleQuickAction('messages')}
           >
-            <Feather
-              name="mail"
-              size={24}
-              color={dashboardColors.cyan}
-            />
-            <Text style={styles.actionButtonText}>Messages</Text>
+            <Feather name="mail" size={24} color={dashboardColors.cyan} />
+            <Text style={styles.actionButtonText}>{t('mobileDashboard.messages')}</Text>
           </Pressable>
         </View>
       </View>
@@ -182,7 +154,7 @@ export const MobileDashboard: React.FC = () => {
       {/* Recent Activity Card */}
       <View style={styles.activityCard}>
         <View style={styles.activityHeader}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <Text style={styles.sectionTitle}>{t('mobileDashboard.recentActivity')}</Text>
           <Feather name="clock" size={18} color={dashboardColors.cyan} />
         </View>
         <View style={styles.activityList}>
@@ -200,19 +172,19 @@ export const MobileDashboard: React.FC = () => {
                     item.type === 'encrypt'
                       ? 'lock'
                       : item.type === 'decrypt'
-                      ? 'unlock'
-                      : item.type === 'share'
-                      ? 'share-2'
-                      : item.type === 'sync'
-                      ? 'refresh-cw'
-                      : 'shield'
+                        ? 'unlock'
+                        : item.type === 'share'
+                          ? 'share-2'
+                          : item.type === 'sync'
+                            ? 'refresh-cw'
+                            : 'shield'
                   }
                   size={16}
                   color={dashboardColors.cyan}
                 />
               </View>
               <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>{item.title}</Text>
+                <Text style={styles.activityTitle}>{t(item.titleKey)}</Text>
                 <Text style={styles.activityTime}>{item.time}</Text>
               </View>
             </View>
@@ -222,15 +194,15 @@ export const MobileDashboard: React.FC = () => {
 
       {/* Vault Stats Card */}
       <View style={styles.statsCard}>
-        <Text style={styles.sectionTitle}>Vault Stats</Text>
+        <Text style={styles.sectionTitle}>{t('mobileDashboard.vaultStats')}</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <View style={styles.statIconContainer}>
               <Feather name="file" size={20} color={dashboardColors.cyan} />
             </View>
             <View style={styles.statContent}>
-              <Text style={styles.statNumber}>1,247</Text>
-              <Text style={styles.statLabel}>Files</Text>
+              <Text style={styles.statNumber}>{t('mobileDashboard.filesCount') || '1,247'}</Text>
+              <Text style={styles.statLabel}>{t('mobileDashboard.files')}</Text>
             </View>
           </View>
 
@@ -239,8 +211,8 @@ export const MobileDashboard: React.FC = () => {
               <Feather name="hard-drive" size={20} color={dashboardColors.cyan} />
             </View>
             <View style={styles.statContent}>
-              <Text style={styles.statNumber}>2.4 GB</Text>
-              <Text style={styles.statLabel}>Storage</Text>
+              <Text style={styles.statNumber}>{t('mobileDashboard.storageSize') || '2.4 GB'}</Text>
+              <Text style={styles.statLabel}>{t('mobileDashboard.storage')}</Text>
             </View>
           </View>
         </View>
