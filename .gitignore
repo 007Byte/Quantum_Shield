@@ -96,3 +96,30 @@ deploy/terraform/.terraform/
 
 # npm cache
 .npm-cache/
+
+# Archive / dead code
+archive/
+
+# Generated analysis artifacts
+codebase_*.png
+codebase_*.html
+
+# Claude Code config (local only)
+.claude/
+
+# Misc logs and temp files
+*.log
+.npm-install-log.txt
+
+# Build output
+.next/
+out/
+playwright-report/
+test-results/
+
+# Enterprise docs (generated from .md sources)
+docs/enterprise/*.docx
+
+# Claude AI config
+CLAUDE.md
+**/CLAUDE.md
