@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/usbvault/usbvault-server/internal/testutil"
 )
 
 // PH3-FIX: Concurrent vault access test suite for data race prevention and consistency
@@ -21,7 +23,7 @@ func setupConcurrentAccessTestDB(t *testing.T) (*pgxpool.Pool, context.Context) 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	dsn := "postgres://postgres:postgres@localhost:5432/usbvault_test"
+	dsn := testutil.IntegrationDSN()
 	pool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err, "failed to connect to test database")
 

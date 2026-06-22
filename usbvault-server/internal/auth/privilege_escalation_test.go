@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/usbvault/usbvault-server/internal/testutil"
 )
 
 // PH3-FIX: Privilege escalation test suite for vertical and horizontal privilege escalation
@@ -20,7 +22,7 @@ func setupPrivilegeEscalationTestDB(t *testing.T) (*pgxpool.Pool, context.Contex
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	dsn := "postgres://postgres:postgres@localhost:5432/usbvault_test"
+	dsn := testutil.IntegrationDSN()
 	pool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err, "failed to connect to test database")
 
@@ -322,8 +324,8 @@ func TestPrivilegeEscalation_IDORViaDirectObjectReference(t *testing.T) {
 	// Even if User A directly references vault2 or vault3 in a URL/API call,
 	// they should be denied access
 	testCases := []struct {
-		userID    string
-		vaultID   string
+		userID     string
+		vaultID    string
 		shouldHave bool
 	}{
 		{userAID, vault1, true},  // Own vault - OK
