@@ -163,12 +163,13 @@ describe('USB Setup Wizard Integration', () => {
       expect(result.vaultId).toBe('vault-abc123');
       expect(result.recoveryPhrase).toHaveLength(24);
       expect(result.secureMountPoint).toBeDefined();
-      expect(mockPost).toHaveBeenCalledWith('/usb/provision', {
+      expect(mockPost).toHaveBeenCalledWith('/usb/provision', expect.objectContaining({
         drive_id: 'drive-001',
         format_type: 'quick',
         file_system: 'exfat',
         master_password: 'SecureP@ss123',
-      });
+        confirm: true,
+      }));
     });
 
     it('full setup flow: health -> list -> select -> provision', async () => {

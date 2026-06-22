@@ -44,12 +44,21 @@ jest.mock('@/crypto/bridge', () => ({
 }));
 
 // Mock USB service
-jest.mock('../usbService', () => ({
+// readVaultHeader must return a header whose first 8 bytes spell "USBVLT\0\0",
+// because both provision() and unlock() verify the magic bytes before proceeding.
+jest.mock('../usbService', () => {
+  const makeValidHeaderBytes = () => {
+    const bytes = new Uint8Array(256);
+    const magic = new TextEncoder().encode('USBVLT');
+    bytes.set(magic, 0);
+    return bytes;
+  };
+  return {
   usbService: {
     initVaultContainer: jest.fn().mockResolvedValue(undefined),
     appendVaultBytes: jest.fn().mockResolvedValue({ offset: 256, length: 128 }),
     writeVaultHeader: jest.fn().mockResolvedValue(undefined),
-    readVaultHeader: jest.fn().mockResolvedValue(new Uint8Array(256)),
+    readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
     readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(128)),
     checkCapacity: jest.fn().mockResolvedValue({
       total: 1073741824,
@@ -66,7 +75,8 @@ jest.mock('../usbService', () => ({
       spaceSaved: 512,
     }),
   },
-}));
+  };
+});
 
 // Mock audit service
 jest.mock('../auditService', () => ({
@@ -143,7 +153,9 @@ describe('VaultOrchestrator', () => {
       const { usbService } = require('../usbService');
       await vaultOrchestrator.provision('/mnt/usb', 'password');
 
-      expect(usbService.initVaultContainer).toHaveBeenCalledWith(
+      // provision() overwrites the companion-created VAULT.bin placeholder header
+      // via writeVaultHeader (the container already exists at this point).
+      expect(usbService.writeVaultHeader).toHaveBeenCalledWith(
         '/mnt/usb',
         expect.any(Uint8Array)
       );

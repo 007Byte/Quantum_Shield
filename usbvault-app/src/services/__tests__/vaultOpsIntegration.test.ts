@@ -12,15 +12,24 @@
  */
 
 jest.mock('@/crypto/bridge');
-jest.mock('@/services/usbService', () => ({
-  usbService: {
-    initVaultContainer: jest.fn().mockResolvedValue(undefined),
-    appendVaultBytes: jest.fn().mockResolvedValue({ offset: 512, length: 256 }),
-    writeVaultHeader: jest.fn().mockResolvedValue(undefined),
-    readVaultHeader: jest.fn().mockResolvedValue(new Uint8Array(512)),
-    readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(256)),
-  },
-}));
+jest.mock('@/services/usbService', () => {
+  // readVaultHeader must carry the "USBVLT" magic bytes — provision()/unlock()
+  // verify them before continuing.
+  const makeValidHeaderBytes = () => {
+    const bytes = new Uint8Array(512);
+    bytes.set(new TextEncoder().encode('USBVLT'), 0);
+    return bytes;
+  };
+  return {
+    usbService: {
+      initVaultContainer: jest.fn().mockResolvedValue(undefined),
+      appendVaultBytes: jest.fn().mockResolvedValue({ offset: 512, length: 256 }),
+      writeVaultHeader: jest.fn().mockResolvedValue(undefined),
+      readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
+      readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(256)),
+    },
+  };
+});
 jest.mock('@/services/auditService', () => ({
   auditService: {
     log: jest.fn().mockResolvedValue(undefined),

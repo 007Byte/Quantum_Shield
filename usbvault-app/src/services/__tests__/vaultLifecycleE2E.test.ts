@@ -504,7 +504,9 @@ describe('Vault Lifecycle E2E', () => {
   describe('3. Error recovery', () => {
     test('companion unavailable during provision -> error propagated', async () => {
       const usb = require('@/services/usbService').usbService;
-      usb.initVaultContainer.mockRejectedValueOnce(
+      // provision() writes the Rust-generated header to the (already-created)
+      // VAULT.bin via writeVaultHeader — that is the first USB call it makes.
+      usb.writeVaultHeader.mockRejectedValueOnce(
         new Error('USB_COMPANION_UNAVAILABLE: Connection refused')
       );
 
