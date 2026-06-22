@@ -14,8 +14,7 @@ fn test_kdf_and_header_roundtrip() {
     let password = b"correct-horse-battery-staple-15ch";
     let salt = kdf::generate_salt();
 
-    let master_key = kdf::derive_master_key(password, &salt)
-        .expect("KDF failed");
+    let master_key = kdf::derive_master_key(password, &salt).expect("KDF failed");
 
     // Output must be 64 bytes: 32 enc + 32 hmac
     assert_eq!(master_key.as_bytes().len(), 64);
@@ -59,8 +58,7 @@ fn test_header_parse_write_parse() {
     assert_eq!(&bytes[0..8], b"USBVLT04");
 
     // Parse back
-    let parsed = vault::header::VaultHeader::read(&bytes)
-        .expect("Header parse failed");
+    let parsed = vault::header::VaultHeader::read(&bytes).expect("Header parse failed");
 
     assert_eq!(parsed.version, 4);
     assert_eq!(parsed.cipher_id, 2);
@@ -88,8 +86,8 @@ fn test_xchacha20_encrypt_decrypt() {
         .expect("Encrypt failed");
     assert!(ct.len() > plaintext.len()); // nonce + ciphertext + tag
 
-    let pt = cipher::decrypt(cipher::CipherId::XChaCha20Poly1305, &key, &ct)
-        .expect("Decrypt failed");
+    let pt =
+        cipher::decrypt(cipher::CipherId::XChaCha20Poly1305, &key, &ct).expect("Decrypt failed");
     assert_eq!(pt, plaintext);
 }
 
@@ -98,11 +96,10 @@ fn test_aes_gcm_siv_encrypt_decrypt() {
     let key = [0x42u8; 32];
     let plaintext = b"AES-256-GCM-SIV test data for roundtrip";
 
-    let ct = cipher::encrypt(cipher::CipherId::Aes256GcmSiv, &key, plaintext)
-        .expect("Encrypt failed");
+    let ct =
+        cipher::encrypt(cipher::CipherId::Aes256GcmSiv, &key, plaintext).expect("Encrypt failed");
 
-    let pt = cipher::decrypt(cipher::CipherId::Aes256GcmSiv, &key, &ct)
-        .expect("Decrypt failed");
+    let pt = cipher::decrypt(cipher::CipherId::Aes256GcmSiv, &key, &ct).expect("Decrypt failed");
     assert_eq!(pt, plaintext);
 }
 
@@ -132,7 +129,10 @@ fn test_tampered_ciphertext_fails() {
     ct[mid] ^= 0xFF;
 
     let result = cipher::decrypt(cipher::CipherId::XChaCha20Poly1305, &key, &ct);
-    assert!(result.is_err(), "Tampered ciphertext must fail AEAD verification");
+    assert!(
+        result.is_err(),
+        "Tampered ciphertext must fail AEAD verification"
+    );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -144,18 +144,21 @@ fn test_streaming_small_file_roundtrip() {
     let key = [0x42u8; 32];
     let plaintext = b"Small file content for streaming test";
 
-    let mut encryptor = streaming::StreamingEncryptor::new(
-        cipher::CipherId::XChaCha20Poly1305, &key,
-    );
-    let encrypted = encryptor.encrypt_record("test.txt", plaintext)
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let encrypted = encryptor
+        .encrypt_record("test.txt", plaintext)
         .expect("Encrypt failed");
 
     // Verify magic
     assert_eq!(&encrypted[0..4], b"V2RC");
 
     let (filename, data) = streaming::StreamingDecryptor::decrypt_record(
-        cipher::CipherId::XChaCha20Poly1305, &key, &encrypted,
-    ).expect("Decrypt failed");
+        cipher::CipherId::XChaCha20Poly1305,
+        &key,
+        &encrypted,
+    )
+    .expect("Decrypt failed");
 
     assert_eq!(filename, "test.txt");
     assert_eq!(data, plaintext);
@@ -166,15 +169,18 @@ fn test_streaming_large_file_multi_chunk() {
     let key = [0x42u8; 32];
     let plaintext: Vec<u8> = (0..200_000).map(|i| (i % 256) as u8).collect();
 
-    let mut encryptor = streaming::StreamingEncryptor::new(
-        cipher::CipherId::XChaCha20Poly1305, &key,
-    );
-    let encrypted = encryptor.encrypt_record("large_file.bin", &plaintext)
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let encrypted = encryptor
+        .encrypt_record("large_file.bin", &plaintext)
         .expect("Encrypt failed");
 
     let (filename, data) = streaming::StreamingDecryptor::decrypt_record(
-        cipher::CipherId::XChaCha20Poly1305, &key, &encrypted,
-    ).expect("Decrypt failed");
+        cipher::CipherId::XChaCha20Poly1305,
+        &key,
+        &encrypted,
+    )
+    .expect("Decrypt failed");
 
     assert_eq!(filename, "large_file.bin");
     assert_eq!(data.len(), plaintext.len());
@@ -186,10 +192,10 @@ fn test_streaming_tamper_detection() {
     let key = [0x42u8; 32];
     let plaintext = b"Tamper-evident streaming data";
 
-    let mut encryptor = streaming::StreamingEncryptor::new(
-        cipher::CipherId::XChaCha20Poly1305, &key,
-    );
-    let encrypted = encryptor.encrypt_record("tamper.txt", plaintext)
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let encrypted = encryptor
+        .encrypt_record("tamper.txt", plaintext)
         .expect("Encrypt failed");
 
     // Tamper with data portion
@@ -198,7 +204,9 @@ fn test_streaming_tamper_detection() {
     tampered[mid] ^= 0xFF;
 
     let result = streaming::StreamingDecryptor::decrypt_record(
-        cipher::CipherId::XChaCha20Poly1305, &key, &tampered,
+        cipher::CipherId::XChaCha20Poly1305,
+        &key,
+        &tampered,
     );
     assert!(result.is_err(), "Tampered stream must fail");
 }
@@ -208,14 +216,16 @@ fn test_streaming_wrong_key_fails() {
     let key = [0x42u8; 32];
     let wrong_key = [0x99u8; 32];
 
-    let mut encryptor = streaming::StreamingEncryptor::new(
-        cipher::CipherId::XChaCha20Poly1305, &key,
-    );
-    let encrypted = encryptor.encrypt_record("secret.txt", b"secret")
+    let mut encryptor =
+        streaming::StreamingEncryptor::new(cipher::CipherId::XChaCha20Poly1305, &key);
+    let encrypted = encryptor
+        .encrypt_record("secret.txt", b"secret")
         .expect("Encrypt failed");
 
     let result = streaming::StreamingDecryptor::decrypt_record(
-        cipher::CipherId::XChaCha20Poly1305, &wrong_key, &encrypted,
+        cipher::CipherId::XChaCha20Poly1305,
+        &wrong_key,
+        &encrypted,
     );
     assert!(result.is_err(), "Wrong key must fail streaming decryption");
 }

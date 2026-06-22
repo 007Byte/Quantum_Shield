@@ -9,8 +9,12 @@
 //! - Ephemeral key randomness
 //! - RFC 5054 group parameters
 
+// Sanity assertions deliberately check compile-time constants, and some test
+// fixtures hold fields/helpers used only in a subset of scenarios.
+#![allow(clippy::assertions_on_constants, dead_code)]
+
 use num_bigint::BigUint;
-use usbvault_crypto::srp_client::{SrpClient, SrpClientSession};
+use usbvault_crypto::srp_client::SrpClient;
 
 // Helper module for simulating server-side SRP operations
 mod srp_server {
@@ -223,7 +227,7 @@ fn test_full_srp_handshake_client_server_match() {
 
     // Authentication phase
     let mut client_auth = SrpClient::new(username, password);
-    let (client_a, mut client_session) = client_auth.start_auth().expect("Auth start failed");
+    let (_client_a, mut client_session) = client_auth.start_auth().expect("Auth start failed");
 
     // Server starts authentication
     let server = srp_server::SrpServer::new(username, salt.to_vec(), verifier);
@@ -360,7 +364,7 @@ fn test_m2_verification_succeeds_with_correct_m2() {
     // For testing, we simulate it (in real scenario this would come from server)
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
-    hasher.update(&BigUint::from_bytes_be(&client_a).to_bytes_be());
+    hasher.update(BigUint::from_bytes_be(&client_a).to_bytes_be());
     hasher.update(session.client_proof_m1());
     hasher.update(session.session_key());
     let simulated_m2 = hasher.finalize();
@@ -423,7 +427,7 @@ fn test_m2_verification_fails_with_tampered_m2() {
     // Correct M2, then tamper with it
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
-    hasher.update(&BigUint::from_bytes_be(&[0u8; 32]).to_bytes_be());
+    hasher.update(BigUint::from_bytes_be(&[0u8; 32]).to_bytes_be());
     hasher.update(session.client_proof_m1());
     hasher.update(session.session_key());
     let mut tampered_m2 = hasher.finalize().to_vec();

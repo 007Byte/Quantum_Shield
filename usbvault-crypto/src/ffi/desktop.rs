@@ -1,5 +1,9 @@
 //! Desktop platform-specific FFI bindings (macOS, Windows, Linux)
 
+// Platform lifecycle hooks intended for embedders; not all are called from
+// within the crate itself.
+#![allow(dead_code)]
+
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub mod platform {
     /// Desktop platform initialization

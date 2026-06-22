@@ -5,4 +5,5 @@ CREATE INDEX IF NOT EXISTS idx_shares_recipient_expires ON share_records (recipi
 CREATE INDEX IF NOT EXISTS idx_audit_user_timestamp ON audit_log (user_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_blobs_deleted_at_asc ON blobs (deleted_at ASC) WHERE deleted_at IS NOT NULL;
 -- idx_security_events_user_timestamp moved to 012_security_events.sql (table created there)
-CREATE INDEX IF NOT EXISTS idx_key_rotation_vault_status ON key_rotation_jobs (vault_id, status);
+-- idx_key_rotation_vault_status removed: key_rotation_jobs is created later in 009,
+-- which already defines an equivalent index idx_key_rotation_jobs_vault (vault_id, status).

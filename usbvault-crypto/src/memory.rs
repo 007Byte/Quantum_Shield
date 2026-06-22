@@ -170,11 +170,14 @@ impl GuardedBuffer {
 
         extern "C" {
             fn mmap(
-                addr: *mut c_void, length: usize, prot: c_int,
-                flags: c_int, fd: c_int, offset: i64,
+                addr: *mut c_void,
+                length: usize,
+                prot: c_int,
+                flags: c_int,
+                fd: c_int,
+                offset: i64,
             ) -> *mut c_void;
             fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
-            fn munmap(addr: *mut c_void, length: usize) -> c_int;
         }
 
         const PROT_NONE: c_int = 0x0;
@@ -184,7 +187,7 @@ impl GuardedBuffer {
         #[cfg(target_os = "macos")]
         const MAP_ANONYMOUS: c_int = 0x1000; // MAP_ANON on macOS
         #[cfg(not(target_os = "macos"))]
-        const MAP_ANONYMOUS: c_int = 0x20;   // MAP_ANONYMOUS on Linux
+        const MAP_ANONYMOUS: c_int = 0x20; // MAP_ANONYMOUS on Linux
         const MAP_FAILED: *mut c_void = !0 as *mut c_void;
 
         if size == 0 {
@@ -200,8 +203,12 @@ impl GuardedBuffer {
             // Allocate entire region as PROT_NONE, then open up the data region.
             // This avoids mprotect race conditions on macOS/Rosetta 2.
             let base = mmap(
-                std::ptr::null_mut(), total, PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0,
+                std::ptr::null_mut(),
+                total,
+                PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS,
+                -1,
+                0,
             );
             if base == MAP_FAILED || base.is_null() {
                 return Err(CryptoError::MemoryError);
@@ -227,21 +234,13 @@ impl GuardedBuffer {
 
     /// Get a mutable slice to the data region.
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe {
-            std::slice::from_raw_parts_mut(
-                self.base.add(self.data_offset),
-                self.data_len,
-            )
-        }
+        unsafe { std::slice::from_raw_parts_mut(self.base.add(self.data_offset), self.data_len) }
     }
 
     /// Get an immutable slice to the data region.
     pub fn as_slice(&self) -> &[u8] {
         unsafe {
-            std::slice::from_raw_parts(
-                self.base.add(self.data_offset) as *const u8,
-                self.data_len,
-            )
+            std::slice::from_raw_parts(self.base.add(self.data_offset) as *const u8, self.data_len)
         }
     }
 }
@@ -304,8 +303,9 @@ mod tests {
 
     // Guard page tests are integration-level — they use mmap/mprotect
     // which can fail under Rosetta 2 emulation or sandbox restrictions.
-    // Run with: cargo test --features guard_page_tests memory::tests::test_guarded
-    #[cfg(all(unix, feature = "guard_page_tests"))]
+    // Opt-in via a cfg flag (not a feature, so `--all-features` skips them):
+    //   RUSTFLAGS="--cfg guard_page_tests" cargo test memory::tests::test_guarded
+    #[cfg(all(unix, guard_page_tests))]
     #[test]
     fn test_guarded_buffer() {
         let mut buf = GuardedBuffer::new(64).expect("Failed to allocate guarded buffer");
@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(buf.as_slice()[63], 0xAD);
     }
 
-    #[cfg(all(unix, feature = "guard_page_tests"))]
+    #[cfg(all(unix, guard_page_tests))]
     #[test]
     fn test_guarded_buffer_page_alignment() {
         let buf = GuardedBuffer::new(100).expect("Failed to allocate");

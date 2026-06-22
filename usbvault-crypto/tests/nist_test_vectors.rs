@@ -121,10 +121,8 @@ fn test_hmac_sha256_rfc4231_test_case_1() {
 
     let key = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
     let data = b"Hi There";
-    let expected = hex::decode(
-        "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
-    )
-    .unwrap();
+    let expected =
+        hex::decode("b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7").unwrap();
 
     let mut mac = Hmac::<Sha256>::new_from_slice(&key).expect("HMAC key init failed");
     mac.update(data);
@@ -148,10 +146,8 @@ fn test_hmac_sha256_rfc4231_test_case_2() {
 
     let key = b"Jefe";
     let data = b"what do ya want for nothing?";
-    let expected = hex::decode(
-        "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
-    )
-    .unwrap();
+    let expected =
+        hex::decode("5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843").unwrap();
 
     let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC key init failed");
     mac.update(data);
@@ -175,10 +171,8 @@ fn test_hmac_sha256_rfc4231_test_case_3() {
 
     let key = vec![0xaau8; 20];
     let data = vec![0xddu8; 50];
-    let expected = hex::decode(
-        "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe",
-    )
-    .unwrap();
+    let expected =
+        hex::decode("773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe").unwrap();
 
     let mut mac = Hmac::<Sha256>::new_from_slice(&key).expect("HMAC key init failed");
     mac.update(&data);
@@ -210,8 +204,7 @@ fn test_aes256_gcm_siv_rfc8452_test_case() {
     use generic_array::GenericArray;
 
     let key_bytes =
-        hex::decode("0100000000000000000000000000000000000000000000000000000000000000")
-            .unwrap();
+        hex::decode("0100000000000000000000000000000000000000000000000000000000000000").unwrap();
     let nonce_bytes = hex::decode("030000000000000000000000").unwrap();
     let plaintext = hex::decode("0100000000000000").unwrap();
     let expected_ct = hex::decode("c2ef328e5c71c83b843122130f7364b761e0b97427e3df28").unwrap();
@@ -250,14 +243,11 @@ fn test_aes256_gcm_siv_rfc8452_with_aad() {
     use generic_array::GenericArray;
 
     let key_bytes =
-        hex::decode("0100000000000000000000000000000000000000000000000000000000000000")
-            .unwrap();
+        hex::decode("0100000000000000000000000000000000000000000000000000000000000000").unwrap();
     let nonce_bytes = hex::decode("030000000000000000000000").unwrap();
     let aad = hex::decode("01").unwrap();
     let plaintext = hex::decode("0200000000000000").unwrap();
-    let expected_ct =
-        hex::decode("1de22967237a813291213f267e3b452f02d01ae33e4ec854")
-            .unwrap();
+    let expected_ct = hex::decode("1de22967237a813291213f267e3b452f02d01ae33e4ec854").unwrap();
 
     let cipher = Aes256GcmSiv::new(GenericArray::from_slice(&key_bytes));
     let nonce = GenericArray::from_slice(&nonce_bytes);
@@ -297,8 +287,7 @@ fn test_xchacha20_poly1305_draft_irtf_vector() {
     use generic_array::GenericArray;
 
     let key =
-        hex::decode("808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f")
-            .unwrap();
+        hex::decode("808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f").unwrap();
     let nonce = hex::decode("404142434445464748494a4b4c4d4e4f5051525354555657").unwrap();
     let aad = hex::decode("50515253c0c1c2c3c4c5c6c7").unwrap();
     let plaintext = b"Ladies and Gentlemen of the class of '99: \

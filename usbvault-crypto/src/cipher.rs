@@ -93,7 +93,7 @@ fn encrypt_xchacha20(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
 
     let ciphertext = cipher
-        .encrypt(&nonce_array, plaintext)
+        .encrypt(nonce_array, plaintext)
         .map_err(|_| CryptoError::DecryptionFailed)?;
 
     // Return: nonce || ciphertext
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_invalid_key() {
-        let short_key = [0u8; 16];
+        let _short_key = [0u8; 16];
         let plaintext = b"test";
         let result = encrypt(CipherId::XChaCha20Poly1305, &[0u8; 32], plaintext);
         assert!(result.is_ok()); // 32 bytes is valid

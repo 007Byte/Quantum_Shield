@@ -1,5 +1,11 @@
 //! C ABI FFI exports for USBVault React Native integration
 
+// These are `extern "C"` exports that intentionally take raw pointers across the
+// C ABI boundary; their safety contracts are documented in each `# Safety` section
+// and enforced via `panic::catch_unwind`. Marking every export `unsafe fn` would
+// change the generated C header surface, so we allow the lint module-wide instead.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use crate::cipher::{self, CipherId};
 use crate::error::CryptoError;
 use crate::kdf::{derive_master_key, generate_salt};
@@ -44,6 +50,12 @@ const ERR_FAIL_COUNTER_TAMPERED: i32 = -18;
 const ERR_FAIL_COUNTER_EXCEEDED: i32 = -19;
 #[allow(dead_code)]
 const ERR_ROLLBACK_DETECTED: i32 = -20;
+const ERR_SELF_DESTRUCTED: i32 = -21;
+const ERR_DISK_FULL: i32 = -22;
+const ERR_FILE_NOT_FOUND: i32 = -23;
+const ERR_TFA_FAILED: i32 = -24;
+const ERR_NO_AUTHENTICATOR: i32 = -25;
+const ERR_LOCKED_OUT: i32 = -26;
 
 /// Convert CryptoError to FFI error code
 fn crypto_error_to_code(err: &CryptoError) -> i32 {
@@ -72,6 +84,12 @@ fn crypto_error_to_code(err: &CryptoError) -> i32 {
         CryptoError::PasswordWrong => ERR_PASSWORD_WRONG,
         CryptoError::FailCounterTampered => ERR_FAIL_COUNTER_TAMPERED,
         CryptoError::FailCounterExceeded => ERR_FAIL_COUNTER_EXCEEDED,
+        CryptoError::SelfDestructed => ERR_SELF_DESTRUCTED,
+        CryptoError::DiskFull => ERR_DISK_FULL,
+        CryptoError::FileNotFound => ERR_FILE_NOT_FOUND,
+        CryptoError::TfaFailed => ERR_TFA_FAILED,
+        CryptoError::NoAuthenticator => ERR_NO_AUTHENTICATOR,
+        CryptoError::LockedOut => ERR_LOCKED_OUT,
     }
 }
 
@@ -856,7 +874,11 @@ pub extern "C" fn usbvault_vault_encrypt_index(
     out_capacity: usize,
     out_len: *mut usize,
 ) -> i32 {
-    if master_key_ptr.is_null() || index_json_ptr.is_null() || out_ptr.is_null() || out_len.is_null() {
+    if master_key_ptr.is_null()
+        || index_json_ptr.is_null()
+        || out_ptr.is_null()
+        || out_len.is_null()
+    {
         return ERR_INVALID_ARGUMENT;
     }
     if master_key_len != 32 {
@@ -911,7 +933,11 @@ pub extern "C" fn usbvault_vault_decrypt_index(
     out_json_capacity: usize,
     out_json_len: *mut usize,
 ) -> i32 {
-    if master_key_ptr.is_null() || encrypted_ptr.is_null() || out_json_ptr.is_null() || out_json_len.is_null() {
+    if master_key_ptr.is_null()
+        || encrypted_ptr.is_null()
+        || out_json_ptr.is_null()
+        || out_json_len.is_null()
+    {
         return ERR_INVALID_ARGUMENT;
     }
     if master_key_len != 32 {
@@ -926,20 +952,18 @@ pub extern "C" fn usbvault_vault_decrypt_index(
         key.copy_from_slice(key_slice);
 
         match VaultIndex::decrypt(&key, encrypted) {
-            Ok(index) => {
-                match index.to_json() {
-                    Ok(json) => {
-                        if json.len() > out_json_capacity {
-                            return ERR_BUFFER_TOO_SMALL;
-                        }
-                        let output = slice::from_raw_parts_mut(out_json_ptr, out_json_capacity);
-                        output[..json.len()].copy_from_slice(&json);
-                        *out_json_len = json.len();
-                        ERR_SUCCESS
+            Ok(index) => match index.to_json() {
+                Ok(json) => {
+                    if json.len() > out_json_capacity {
+                        return ERR_BUFFER_TOO_SMALL;
                     }
-                    Err(e) => crypto_error_to_code(&e),
+                    let output = slice::from_raw_parts_mut(out_json_ptr, out_json_capacity);
+                    output[..json.len()].copy_from_slice(&json);
+                    *out_json_len = json.len();
+                    ERR_SUCCESS
                 }
-            }
+                Err(e) => crypto_error_to_code(&e),
+            },
             Err(e) => crypto_error_to_code(&e),
         }
     }));
@@ -971,8 +995,11 @@ pub extern "C" fn usbvault_vault_encrypt_record(
     out_capacity: usize,
     out_len: *mut usize,
 ) -> i32 {
-    if key_ptr.is_null() || filename_ptr.is_null() || data_ptr.is_null()
-        || out_ptr.is_null() || out_len.is_null()
+    if key_ptr.is_null()
+        || filename_ptr.is_null()
+        || data_ptr.is_null()
+        || out_ptr.is_null()
+        || out_len.is_null()
     {
         return ERR_INVALID_ARGUMENT;
     }

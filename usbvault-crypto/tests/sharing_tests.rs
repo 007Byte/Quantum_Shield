@@ -182,10 +182,10 @@ fn test_seal_open_various_patterns() {
 
     for (plaintext, description) in test_patterns {
         let (public, secret) = sharing::generate_keypair();
-        let sealed =
-            sharing::seal(&public, plaintext).expect(&format!("Seal failed for {}", description));
-        let opened =
-            sharing::open(&secret, &sealed).expect(&format!("Open failed for {}", description));
+        let sealed = sharing::seal(&public, plaintext)
+            .unwrap_or_else(|_| panic!("Seal failed for {}", description));
+        let opened = sharing::open(&secret, &sealed)
+            .unwrap_or_else(|_| panic!("Open failed for {}", description));
 
         assert_eq!(
             plaintext,
@@ -239,7 +239,7 @@ fn test_message_confidentiality() {
 
     let (alice_pub, _) = sharing::generate_keypair();
     let (bob_pub, bob_sec) = sharing::generate_keypair();
-    let (carol_pub, carol_sec) = sharing::generate_keypair();
+    let (_carol_pub, carol_sec) = sharing::generate_keypair();
 
     let sealed_for_alice = sharing::seal(&alice_pub, plaintext1).expect("Seal 1 failed");
     let sealed_for_bob = sharing::seal(&bob_pub, plaintext2).expect("Seal 2 failed");
@@ -485,7 +485,7 @@ fn test_corrupted_ephemeral_key_fails_decryption() {
     let mut sealed = sharing::seal(&public, plaintext).expect("Seal failed");
 
     // Corrupt ephemeral public key (first 32 bytes)
-    if sealed.len() > 0 {
+    if !sealed.is_empty() {
         sealed[0] ^= 0xFF;
     }
 
@@ -530,7 +530,7 @@ fn test_truncated_sealed_box_fails() {
 
 #[test]
 fn test_short_sealed_box_fails() {
-    let (public, secret) = sharing::generate_keypair();
+    let (_public, secret) = sharing::generate_keypair();
 
     // Sealed box too short to contain header
     let short_box = vec![0u8; 30];

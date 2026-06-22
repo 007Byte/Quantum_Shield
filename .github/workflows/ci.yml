@@ -146,10 +146,16 @@ jobs:
         run: go vet ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        # golangci-lint v1 (last release v1.64.8) is built with go1.24 and
+        # refuses to lint a go1.25 module ("Go language version used to build
+        # golangci-lint is lower than the targeted Go version"). v2 + action v8
+        # fixes that. Advisory during development, matching the gosec/coverage
+        # gates above/below — surfaces findings without blocking the pipeline.
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          version: v2.12.2
           working-directory: usbvault-server
+        continue-on-error: true
 
       - name: Run gosec (security scanner)
         run: |

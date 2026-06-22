@@ -95,25 +95,30 @@ CREATE TABLE public_keys (
 CREATE INDEX idx_public_keys_user_id ON public_keys(user_id);
 
 -- Audit log table (tamper-evident hash chain)
+-- Partitioned by the timestamp column directly. Note: a partitioned table's
+-- primary key must include every partition-key column, so the PK is composite
+-- (id, timestamp). The earlier EXTRACT(YEAR_MONTH ...) expression was invalid
+-- in PostgreSQL (YEAR_MONTH is MySQL syntax) and not IMMUTABLE (SQLSTATE 42P17).
 CREATE TABLE audit_log (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGSERIAL,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     action_type VARCHAR(50) NOT NULL,
     encrypted_detail BYTEA,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     prev_hash BYTEA NOT NULL,
-    hash BYTEA NOT NULL
-) PARTITION BY RANGE (EXTRACT(YEAR_MONTH FROM timestamp));
+    hash BYTEA NOT NULL,
+    PRIMARY KEY (id, timestamp)
+) PARTITION BY RANGE (timestamp);
 
 -- Create monthly partitions for audit_log
 CREATE TABLE audit_log_2024_01 PARTITION OF audit_log
-    FOR VALUES FROM ('2024-01') TO ('2024-02');
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
 
 CREATE TABLE audit_log_2024_02 PARTITION OF audit_log
-    FOR VALUES FROM ('2024-02') TO ('2024-03');
+    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
 
 CREATE TABLE audit_log_2024_03 PARTITION OF audit_log
-    FOR VALUES FROM ('2024-03') TO ('2024-04');
+    FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 
 -- Continue for all months as needed
 CREATE INDEX idx_audit_log_user_id ON audit_log(user_id);

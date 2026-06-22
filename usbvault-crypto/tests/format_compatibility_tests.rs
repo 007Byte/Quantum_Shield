@@ -370,7 +370,7 @@ fn test_v2rc_record_final_hmac_32_bytes() {
 #[test]
 fn test_v2rc_record_chunk_size_is_65536() {
     // Streaming should use 65536 byte chunks (except possibly the last one)
-    let key = [0x42u8; 32];
+    let _key = [0x42u8; 32];
     let chunk_size = streaming::CHUNK_SIZE;
     assert_eq!(chunk_size, 65536, "CHUNK_SIZE must be 65536 bytes (64KB)");
 }
