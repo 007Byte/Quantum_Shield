@@ -87,11 +87,42 @@ updates:
     rebase-strategy: "auto"
     allow:
       - dependency-type: "all"
+    # Group the Expo/React-Native SDK packages into a single PR. They are
+    # version-locked to the installed Expo SDK and must move together; updating
+    # them piecemeal breaks the SDK compatibility matrix (e.g. Dependabot once
+    # bumped expo-crypto/expo-linking/expo-notifications to 55.x against SDK 54,
+    # breaking `npm ci` with ERESOLVE).
+    groups:
+      expo-sdk:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "react-native"
+          - "react-native-*"
+          - "react"
+          - "react-dom"
+          - "react-test-renderer"
+          - "@types/react"
+          - "@types/react-native"
     ignore:
-      # Ignore major version updates for critical dependencies
+      # SDK-managed packages: do NOT let Dependabot bump majors/minors. These
+      # are pinned by the Expo SDK; upgrade them deliberately via
+      # `npx expo install --fix` during an SDK bump, not via Dependabot.
+      # (Patch updates within the SDK are still allowed.)
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-native"
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-native-*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
 
   # ============================================================
