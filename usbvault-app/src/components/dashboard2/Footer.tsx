@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
 
 export function Footer() {
   const { t } = useLanguage();
-  const { colorScheme, theme } = useTheme();
+  const { colorScheme } = useTheme();
   const isLight = colorScheme === 'light';
   return (
     <View style={[styles.footer, isLight && styles.footerLight]}>

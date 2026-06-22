@@ -252,18 +252,18 @@ describe('UsbService', () => {
     it('checkCapacity should return capacity info', async () => {
       mockGet.mockResolvedValue({
         data: {
-          total: 1073741824,
-          available: 536870912,
           allowed: true,
-          remaining: 536870912,
+          vaultSize: 536870912,
+          partitionTotal: 1073741824,
           maxAllowed: 536870912,
+          remaining: 536870912,
         },
       });
 
       const capacity = await usbService.checkCapacity('/mnt/usb', 1024);
 
       expect(capacity.allowed).toBe(true);
-      expect(capacity.total).toBe(1073741824);
+      expect(capacity.partitionTotal).toBe(1073741824);
     });
   });
 

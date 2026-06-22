@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { webOnly } from '@/utils/webStyle';
 import { InAppModal } from '@/components/common';
@@ -142,7 +142,7 @@ function RemoveFileScreen() {
   );
 }
 
-export default withErrorBoundary(RemoveFileScreen);
+export default withErrorBoundary(RemoveFileScreen, 'RemoveFile');
 
 const styles = StyleSheet.create({
   contentArea: {

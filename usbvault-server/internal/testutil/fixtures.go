@@ -35,7 +35,7 @@ func WithTestTransaction(t *testing.T, pool *pgxpool.Pool, fn func(ctx context.C
 // SetupTestDB creates a test database connection pool
 func SetupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := "postgres://test:test@localhost:5432/usbvault_test?sslmode=disable"
+	dbURL := "postgres://test:test@localhost:5432/usbvault_test?sslmode=disable" //gosec:disable G101 -- static localhost credentials for the test database, not a real secret
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		t.Skipf("skipping integration test: %v", err)

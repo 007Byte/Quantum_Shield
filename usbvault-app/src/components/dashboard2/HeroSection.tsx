@@ -14,7 +14,6 @@ import {
   webOnlyGlowTier1,
   webOnlyGlowTier1Light,
   webOnlyGlowTier2,
-  webOnlyGlowTier2Light,
   webOnlyTransition,
 } from './styles';
 import { HeroAction } from './types';

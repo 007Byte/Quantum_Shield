@@ -13,33 +13,13 @@ import (
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pashagolub/pgxmock/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Mock Audit Service
-// ============================================================================
-
-type mockAuditService struct {
-	loggedActions []struct {
-		userID        string
-		actionType    string
-		encryptedData []byte
-	}
-}
-
-func (m *mockAuditService) LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error {
-	m.loggedActions = append(m.loggedActions, struct {
-		userID        string
-		actionType    string
-		encryptedData []byte
-	}{userID, actionType, encryptedDetail})
-	return nil
-}
+// mockAuditService is defined once in integration_test.go and shared here.
 
 // ============================================================================
 // Test HandleFIDO2Challenge
@@ -248,7 +228,7 @@ func TestFIDO2SessionStorageAndExpiry(t *testing.T) {
 		// This test validates that session data is properly stored
 		// with 10-minute expiration as per the implementation
 		sessionData := webauthn.SessionData{
-			Challenge: []byte("test-challenge"),
+			Challenge: "test-challenge",
 			UserID:    []byte("user-123"),
 		}
 
@@ -358,6 +338,7 @@ func TestFIDO2ErrorHandling(t *testing.T) {
 		if credentialsJSON == nil {
 			// Should return "no credentials registered" error
 			assert.True(t, credentialsJSON == nil)
+			assert.Empty(t, credentials)
 		}
 	})
 }

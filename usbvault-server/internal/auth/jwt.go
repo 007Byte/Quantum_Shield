@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -80,11 +81,13 @@ func loadOrGenerateKeys() {
 	pubKeyPath := os.Getenv("JWT_ED25519_PUBLIC_KEY_FILE")
 
 	if privKeyPath != "" && pubKeyPath != "" {
-		privPEM, err := os.ReadFile(privKeyPath)
+		privKeyPath = filepath.Clean(privKeyPath)
+		pubKeyPath = filepath.Clean(pubKeyPath)
+		privPEM, err := os.ReadFile(privKeyPath) //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
 		if err != nil {
 			log.Fatal().Err(err).Str("path", privKeyPath).Msg("failed to read JWT private key file")
 		}
-		pubPEM, err := os.ReadFile(pubKeyPath)
+		pubPEM, err := os.ReadFile(pubKeyPath) //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
 		if err != nil {
 			log.Fatal().Err(err).Str("path", pubKeyPath).Msg("failed to read JWT public key file")
 		}

@@ -256,5 +256,5 @@ func randomJitter(max time.Duration) time.Duration {
 	if max <= 0 {
 		return 0
 	}
-	return time.Duration(rand.Int63n(int64(max)))
+	return time.Duration(rand.Int63n(int64(max))) //gosec:disable G404 -- non-cryptographic jitter for scheduler timing, not security-sensitive
 }

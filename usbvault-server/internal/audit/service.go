@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 type AuditEntry struct {
@@ -61,10 +61,10 @@ const (
 )
 
 type AuditService struct {
-	pool *pgxpool.Pool
+	pool database.TransactionExecutor
 }
 
-func NewAuditService(pool *pgxpool.Pool) *AuditService {
+func NewAuditService(pool database.TransactionExecutor) *AuditService {
 	return &AuditService{pool: pool}
 }
 

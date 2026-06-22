@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -52,7 +53,8 @@ func LoadBackupConfig() (*BackupConfig, error) {
 	// Support key file path
 	keyFilePath := os.Getenv("BACKUP_ENCRYPTION_KEY_FILE")
 	if keyFilePath != "" {
-		keyBytes, err := os.ReadFile(keyFilePath)
+		keyFilePath = filepath.Clean(keyFilePath)
+		keyBytes, err := os.ReadFile(keyFilePath) //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
 		if err != nil {
 			return nil, fmt.Errorf("failed to read backup encryption key file: %w", err)
 		}

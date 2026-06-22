@@ -146,7 +146,6 @@ class USBDebugTracer {
    */
   traceExit(method: string, result: any): void {
     const timestamp = Date.now();
-    const operationId = `${method}:${timestamp}`;
 
     // Find the most recent entry for this method that doesn't have a result
     const entry = this.traces.findLast(e => e.method === method && !e.result && !e.error);
@@ -203,7 +202,6 @@ class USBDebugTracer {
 
     for (const entry of this.traces) {
       const status = entry.success ? '✓' : '✗';
-      const statusColor = entry.success ? 'green' : 'red';
       output += `[${entry.timestamp}] ${status} ${entry.method} (${entry.duration}ms)\n`;
 
       if (Object.keys(entry.args).length > 0) {

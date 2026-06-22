@@ -1,6 +1,5 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 import { OfflineIndicator } from '../OfflineIndicator';
 
 // Save original navigator.onLine descriptor

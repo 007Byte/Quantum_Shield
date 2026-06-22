@@ -65,9 +65,9 @@ export default function TabsLayout() {
       }}
     >
       <Tabs
-        sceneContainerStyle={{ backgroundColor: 'transparent' }}
         screenOptions={{
           headerShown: false,
+          sceneStyle: { backgroundColor: 'transparent' },
           tabBarActiveTintColor: colors.accentPrimary,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle:

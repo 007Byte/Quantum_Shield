@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/config"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 type FIDO2RegisterChallengeRequest struct {
@@ -44,7 +44,7 @@ type FIDO2Credential struct {
 
 // HandleFIDO2RegisterChallenge initiates credential registration for an authenticated user
 // Requires authenticated user (JWT in context)
-func HandleFIDO2RegisterChallenge(pool *pgxpool.Pool, redisClient *redis.Client) http.HandlerFunc {
+func HandleFIDO2RegisterChallenge(pool database.TransactionExecutor, redisClient *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context (set by AuthMiddleware)
 		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
@@ -138,7 +138,7 @@ func HandleFIDO2RegisterChallenge(pool *pgxpool.Pool, redisClient *redis.Client)
 
 // HandleFIDO2RegisterVerify completes credential registration
 // Requires authenticated user and valid registration session
-func HandleFIDO2RegisterVerify(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc interface {
+func HandleFIDO2RegisterVerify(pool database.TransactionExecutor, redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -276,7 +276,7 @@ func HandleFIDO2RegisterVerify(pool *pgxpool.Pool, redisClient *redis.Client, au
 }
 
 // HandleFIDO2ListCredentials lists registered FIDO2 credentials without exposing secrets
-func HandleFIDO2ListCredentials(pool *pgxpool.Pool) http.HandlerFunc {
+func HandleFIDO2ListCredentials(pool database.TransactionExecutor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user_id from context
 		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
@@ -328,7 +328,7 @@ func HandleFIDO2ListCredentials(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // HandleFIDO2DeleteCredential removes a registered credential
-func HandleFIDO2DeleteCredential(pool *pgxpool.Pool, auditSvc interface {
+func HandleFIDO2DeleteCredential(pool database.TransactionExecutor, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

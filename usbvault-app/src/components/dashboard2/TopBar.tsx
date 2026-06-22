@@ -7,6 +7,7 @@ import { dashboardColors, dashboardSpacing, webOnlyEdgeLit, webOnlyGlassLuxury }
 import { webOnly } from '@/utils/webStyle';
 import { useAuthStore } from '@/stores/authStore';
 import { useLanguage } from '@/hooks/useLanguage';
+import type { SupportedLanguage } from '@/stores/languageStore';
 import { InAppModal, useInAppModal } from '@/components/common';
 import { auditService, AuditLogEntry, getActionIcon } from '@/services/auditService';
 import { vaultOrchestrator } from '@/services/vaultOrchestrator';
@@ -57,7 +58,7 @@ const LANG_CODE_TO_NAME: Record<string, string> = {
   fr: 'French',
   de: 'German',
 };
-const LANG_NAME_TO_CODE: Record<string, string> = {
+const LANG_NAME_TO_CODE: Record<string, SupportedLanguage> = {
   English: 'en',
   Spanish: 'es',
   French: 'fr',

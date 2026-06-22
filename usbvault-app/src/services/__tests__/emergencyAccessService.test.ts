@@ -326,7 +326,7 @@ describe('EmergencyAccessService', () => {
   // ============================================================================
   describe('accessVault', () => {
     it('should return encrypted vault key for approved request', async () => {
-      const contact = await emergencyAccessService.designateContact(
+      await emergencyAccessService.designateContact(
         'vault-access@example.com',
         'Vault Access',
         'aabbccdd'

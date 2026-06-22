@@ -89,7 +89,7 @@ func AuditMiddleware(auditSvc *audit.AuditService, config AuditMiddlewareConfig)
 				requestID = r.Header.Get("X-Trace-ID")
 			}
 
-			go func() {
+			go func() { //gosec:disable G118 -- async audit logging intentionally outlives the request so cancellation cannot drop audit events
 				eventType := classifyEvent(method, path)
 				severity := classifySeverity(statusCode)
 				outcome := "success"

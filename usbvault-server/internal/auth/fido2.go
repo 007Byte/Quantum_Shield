@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/config"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 type FIDO2ChallengeRequest struct {
@@ -33,7 +33,7 @@ type FIDO2VerifyResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func HandleFIDO2Challenge(pool *pgxpool.Pool, redisClient *redis.Client) http.HandlerFunc {
+func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req FIDO2ChallengeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -121,7 +121,7 @@ func HandleFIDO2Challenge(pool *pgxpool.Pool, redisClient *redis.Client) http.Ha
 	}
 }
 
-func HandleFIDO2Verify(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc interface {
+func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

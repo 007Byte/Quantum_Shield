@@ -58,6 +58,7 @@ export interface WebOnlyStyles {
 
   // Form inputs
   outlineWidth?: number;
+  outlineOffset?: string | number;
 
   // Other
   appearance?: string;

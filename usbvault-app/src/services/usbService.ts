@@ -466,15 +466,8 @@ class UsbServiceImpl {
     try {
       const bridge = getElectronBridge();
       if (bridge) {
-        const result = await bridge.getCapacity(mountPoint, requestedBytes ?? 0);
         // IPC returns vaultContainerService.checkCapacity() format directly
-        const capacity = result as {
-          allowed: boolean;
-          vaultSize: number;
-          partitionTotal: number;
-          maxAllowed: number;
-          remaining: number;
-        };
+        const capacity = await bridge.getCapacity(mountPoint, requestedBytes ?? 0);
         usbDebug.traceExit('checkCapacity', {
           allowed: capacity.allowed,
           remaining: capacity.remaining,

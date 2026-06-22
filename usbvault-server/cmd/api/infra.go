@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -36,8 +37,8 @@ func (a *App) connectDB(ctx context.Context) error {
 	maxConns := getIntEnvOrDefault("DB_MAX_CONNECTIONS", 30)
 	minConns := getIntEnvOrDefault("DB_MIN_CONNECTIONS", 5)
 
-	poolConfig.MaxConns = int32(maxConns)
-	poolConfig.MinConns = int32(minConns)
+	poolConfig.MaxConns = int32(maxConns) //gosec:disable G115 -- DB pool sizes are small operator-set values, no overflow
+	poolConfig.MinConns = int32(minConns) //gosec:disable G115 -- DB pool sizes are small operator-set values, no overflow
 	poolConfig.MaxConnLifetime = 30 * time.Minute
 	poolConfig.MaxConnIdleTime = 5 * time.Minute
 
@@ -61,7 +62,8 @@ func (a *App) connectDB(ctx context.Context) error {
 	if migrationsDir == "" {
 		migrationsDir = "migrations"
 	}
-	if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() {
+	migrationsDir = filepath.Clean(migrationsDir)
+	if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() { //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
 		migrator := migrations.NewMigrator(dbPool, migrationsDir)
 		if err := migrator.Migrate(ctx); err != nil {
 			log.Fatal().Err(err).Msg("database migration failed")

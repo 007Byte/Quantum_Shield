@@ -47,7 +47,7 @@ func (le *LeaderElector) Start(ctx context.Context) {
 	ctx, le.cancel = context.WithCancel(ctx)
 	le.wg.Add(1)
 
-	go func() {
+	go func() { //gosec:disable G118 -- long-lived leader-election worker with its own lifecycle context, intentionally decoupled from any request
 		defer le.wg.Done()
 
 		// Try to acquire immediately

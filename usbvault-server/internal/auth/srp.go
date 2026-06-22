@@ -350,7 +350,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// PHASE 2.1: Transparent rehashing of SRP verifier from SHA-256 to Argon2id
 		// This happens automatically on successful login, upgrading legacy verifiers
 		if state.RequiresRehash {
-			go func() {
+			go func() { //gosec:disable G118 -- intentional fire-and-forget background rehash; login response already sent, uses its own timeout context
 				// Use background context with timeout since the login response is already sent
 				rehashCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()

@@ -68,7 +68,8 @@ class SecuritySettingsStorage {
     try {
       const raw = localStorage.getItem(SECURITY_SETTINGS_KEY);
       if (raw) {
-        this.cache = { ...DEFAULT_SECURITY_SETTINGS, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw) as Partial<SecuritySettings>;
+        this.cache = { ...DEFAULT_SECURITY_SETTINGS, ...parsed };
         return { ...this.cache };
       }
     } catch {

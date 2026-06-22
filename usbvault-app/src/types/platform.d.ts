@@ -49,9 +49,18 @@ declare global {
       readHeader: (mountPoint: string) => Promise<Buffer>;
       writeHeader: (mountPoint: string, headerBytes: Buffer | Uint8Array) => Promise<{ success: boolean }>;
       readBytes: (mountPoint: string, offset: number, length: number) => Promise<Buffer>;
-      appendBytes: (mountPoint: string, data: Buffer | Uint8Array) => Promise<{ success: boolean; newSize: number }>;
+      appendBytes: (mountPoint: string, data: Buffer | Uint8Array) => Promise<{ offset: number; length: number }>;
       getSize: (mountPoint: string) => Promise<number>;
-      getCapacity: (mountPoint: string, additionalBytes?: number) => Promise<{ available: number; required: number; canFit: boolean }>;
+      getCapacity: (
+        mountPoint: string,
+        additionalBytes?: number
+      ) => Promise<{
+        allowed: boolean;
+        vaultSize: number;
+        partitionTotal: number;
+        maxAllowed: number;
+        remaining: number;
+      }>;
       hasVault: (mountPoint: string) => Promise<boolean>;
       readVaultIdentity: (mountPoint: string) => Promise<any>;
       discoverVaults: () => Promise<any[]>;
@@ -59,6 +68,25 @@ declare global {
       addVaultFile: (vaultId: string, fileName: string, fileData: Buffer | Uint8Array) => Promise<any>;
       removeVaultFile: (vaultId: string, fileId: string) => Promise<{ success: boolean }>;
       eject: (driveId: string) => Promise<{ success: boolean }>;
+      /** Provision a new encrypted vault on a USB drive. */
+      provisionVault: (params: {
+        driveId: string;
+        formatType: 'quick' | 'full';
+        fileSystem: string;
+        masterPassword: string;
+        vaultName?: string;
+        partitionName?: string;
+        cipherAlgorithm?: string;
+        adminPassword?: string;
+      }) => Promise<{
+        vaultId: string;
+        recoveryPhrase: string[];
+        secureMountPoint?: string;
+      }>;
+      /** Mount the SECURE partition of a USB drive. */
+      mountSecure: (driveId: string) => Promise<{ mountPoint: string }>;
+      /** Unmount a securely mounted vault partition. */
+      unmountSecure: (driveId: string) => Promise<{ success: boolean }>;
     };
   }
 

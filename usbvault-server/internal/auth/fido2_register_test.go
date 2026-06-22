@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pashagolub/pgxmock/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -219,7 +218,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Create handler
-			handler := HandleFIDO2RegisterVerify(mock, mockRedis)
+			handler := HandleFIDO2RegisterVerify(mock, mockRedis, &mockAuditService{})
 			handler(w, httpReq)
 
 			assert.Equal(t, tt.expectStatus, w.Code)
@@ -445,7 +444,7 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Create handler
-			handler := HandleFIDO2DeleteCredential(mock)
+			handler := HandleFIDO2DeleteCredential(mock, &mockAuditService{})
 			handler(w, req)
 
 			assert.Equal(t, tt.expectStatus, w.Code)
@@ -524,7 +523,7 @@ func TestFIDO2RegisterSessionHandling(t *testing.T) {
 
 	t.Run("session data structures are valid", func(t *testing.T) {
 		sessionData := webauthn.SessionData{
-			Challenge: []byte("test-challenge"),
+			Challenge: "test-challenge",
 			UserID:    []byte("user-123"),
 		}
 

@@ -50,8 +50,6 @@ jest.mock('react-native', () => ({
 }));
 
 // References for assertions (matchMedia mock is defined at the top of the file)
-const mockAddEventListener = jest.fn();
-const mockRemoveEventListener = jest.fn();
 
 describe('ThemeService', () => {
   beforeEach(() => {
