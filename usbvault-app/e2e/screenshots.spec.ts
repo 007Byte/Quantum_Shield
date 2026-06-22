@@ -27,7 +27,11 @@ function screenshotPath(project: string, name: string): string {
 }
 
 test.describe('App Store Screenshots', () => {
-  const projectName = test.info().project.name || 'default';
+  // test.info() is only valid inside a running test/hook, not at describe level.
+  let projectName = 'default';
+  test.beforeEach(({}, testInfo) => {
+    projectName = testInfo.project.name || 'default';
+  });
 
   test('01 - Login Screen', async ({ page }) => {
     await page.goto('/');
