@@ -89,6 +89,27 @@ func setupBOLAExtendedTestDB(t *testing.T) (*pgxpool.Pool, context.Context) {
 			status VARCHAR(20),
 			created_at TIMESTAMP NOT NULL DEFAULT NOW()
 		);
+
+		-- The production schema enforces vault_members.vault_id -> vaults(id)
+		-- (see migrations/001_initial.sql). The RBAC service under test inserts
+		-- vault_members rows directly and assumes the parent vault already
+		-- exists. These tests drive RBAC via AssignRole without first creating
+		-- the owning vault, so we auto-provision the parent vault row here,
+		-- keeping the real foreign key constraint in force while letting the
+		-- tests focus on authorization behaviour. (shared_files rows are only
+		-- inserted for vaults that AssignRole has already provisioned.)
+		CREATE OR REPLACE FUNCTION ensure_vault_exists() RETURNS trigger AS $$
+		BEGIN
+			INSERT INTO vaults (id, owner_id)
+			VALUES (NEW.vault_id, NEW.granted_by)
+			ON CONFLICT (id) DO NOTHING;
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE TRIGGER trg_ensure_vault_exists
+			BEFORE INSERT ON vault_members
+			FOR EACH ROW EXECUTE FUNCTION ensure_vault_exists();
 	`)
 	require.NoError(t, err, "failed to create test tables")
 

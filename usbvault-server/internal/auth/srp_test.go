@@ -68,7 +68,7 @@ func TestSRPInit_ValidUser(t *testing.T) {
 		sessionID := "test-session-id"
 		state := srpServerState{
 			B:           B.String(),
-			b:           b,
+			BPrivate:    b.String(),
 			Salt:        testSalt,
 			SRPVerifier: testVerifier,
 			EmailHash:   emailHash,
@@ -260,7 +260,7 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 	// Store state in Redis
 	state := srpServerState{
 		B:           B.String(),
-		b:           b,
+		BPrivate:    b.String(),
 		A:           A,
 		Salt:        []byte("test-salt"),
 		SRPVerifier: testVerifier,
@@ -306,7 +306,9 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 		vu := new(big.Int).Exp(v, u, N)
 		Avu := new(big.Int).Mul(A, vu)
 		Avu.Mod(Avu, N)
-		S := new(big.Int).Exp(Avu, state.b, N)
+		sb := new(big.Int)
+		sb.SetString(state.BPrivate, 10)
+		S := new(big.Int).Exp(Avu, sb, N)
 		K := sha256.Sum256(S.Bytes())
 
 		M1Computed := computeSRPProofM1(A, state.B, K[:])
@@ -455,11 +457,11 @@ func TestSRPVerify_ReplayPrevention(t *testing.T) {
 
 	// Store a session
 	state := srpServerState{
-		B:           "test-b",
-		b:           big.NewInt(123),
-		EmailHash:   "test-hash",
-		UserID:      "user123",
-		CreatedAt:   time.Now(),
+		B:         "test-b",
+		BPrivate:  big.NewInt(123).String(),
+		EmailHash: "test-hash",
+		UserID:    "user123",
+		CreatedAt: time.Now(),
 	}
 	stateJSON, _ := json.Marshal(state)
 	redisClient.Set(ctx, "srp:"+sessionID, stateJSON, 5*time.Minute)
@@ -516,7 +518,7 @@ func TestSRPVerify_WrongProof(t *testing.T) {
 
 	state := srpServerState{
 		B:           B.String(),
-		b:           b,
+		BPrivate:    b.String(),
 		A:           A,
 		Salt:        []byte("salt"),
 		SRPVerifier: testVerifier,
@@ -568,7 +570,9 @@ func TestSRPVerify_WrongProof(t *testing.T) {
 		vu := new(big.Int).Exp(v, u, N)
 		Avu := new(big.Int).Mul(A, vu)
 		Avu.Mod(Avu, N)
-		S := new(big.Int).Exp(Avu, state.b, N)
+		sb := new(big.Int)
+		sb.SetString(state.BPrivate, 10)
+		S := new(big.Int).Exp(Avu, sb, N)
 		K := sha256.Sum256(S.Bytes())
 
 		M1Computed := computeSRPProofM1(A, state.B, K[:])

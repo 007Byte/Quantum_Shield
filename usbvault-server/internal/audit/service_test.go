@@ -46,13 +46,13 @@ func TestLogAction(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		userID         string
-		actionType     string
-		encryptedData  []byte
-		setupDB        func(pgxmock.PgxPoolIface)
-		expectError    bool
-		validateEntry  func(*testing.T, *AuditEntry)
+		name          string
+		userID        string
+		actionType    string
+		encryptedData []byte
+		setupDB       func(pgxmock.PgxPoolIface)
+		expectError   bool
+		validateEntry func(*testing.T, *AuditEntry)
 	}{
 		{
 			name:          "logs action for new user",
@@ -92,10 +92,10 @@ func TestLogAction(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:           "handles database errors gracefully",
-			userID:         "user-789",
-			actionType:     "PERMISSION_DENIED",
-			encryptedData:  []byte("denial_data"),
+			name:          "handles database errors gracefully",
+			userID:        "user-789",
+			actionType:    "PERMISSION_DENIED",
+			encryptedData: []byte("denial_data"),
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No previous entries
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
@@ -223,18 +223,23 @@ func TestVerifyChain(t *testing.T) {
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				prevHash := make([]byte, 32)
 
+				// VerifyChain recomputes the hash over the stored timestamp using
+				// time.RFC3339Nano, so the expected hash must be computed over the
+				// exact timestamp value stored in the row.
+				ts := time.Date(2024, 3, 7, 10, 0, 0, 0, time.UTC)
+
 				h := sha256.New()
 				h.Write(prevHash)
 				h.Write([]byte("LOGIN"))
 				h.Write([]byte("data"))
-				h.Write([]byte("2024-03-07T10:00:00Z"))
+				h.Write([]byte(ts.Format(time.RFC3339Nano)))
 				currentHash := h.Sum(nil)
 
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-					WithArgs("user-123").
+					WithArgs("user-123", int64(0), 1000).
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "action_type", "encrypted_detail", "timestamp", "prev_hash", "hash"},
-					).AddRow(1, "LOGIN", []byte("data"), time.Now(), prevHash, currentHash))
+					).AddRow(int64(1), "LOGIN", []byte("data"), ts, prevHash, currentHash))
 			},
 			expectValid: true,
 			expectError: false,
@@ -244,7 +249,7 @@ func TestVerifyChain(t *testing.T) {
 			userID: "user-456",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-					WithArgs("user-456").
+					WithArgs("user-456", int64(0), 1000).
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "action_type", "encrypted_detail", "timestamp", "prev_hash", "hash"},
 					))
@@ -256,18 +261,30 @@ func TestVerifyChain(t *testing.T) {
 			name:   "broken chain returns false",
 			userID: "user-789",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				// Chain broken: prev_hash doesn't match previous entry's hash
-				prevHash := make([]byte, 32)
-				wrongHash := make([]byte, 32)
-				wrongHash[0] = 0xFF
+				// Chain broken: entry 2's prev_hash doesn't match entry 1's hash.
+				// Entry 1 must be internally valid so verification reaches entry 2
+				// and trips the prev_hash continuity check.
+				ts := time.Date(2024, 3, 7, 10, 0, 0, 0, time.UTC)
+				entry1Prev := make([]byte, 32)
+
+				h1 := sha256.New()
+				h1.Write(entry1Prev)
+				h1.Write([]byte("ACTION1"))
+				h1.Write([]byte("data1"))
+				h1.Write([]byte(ts.Format(time.RFC3339Nano)))
+				entry1Hash := h1.Sum(nil)
+
+				// Entry 2 claims a prev_hash that does not equal entry 1's hash.
+				wrongPrev := make([]byte, 32)
+				wrongPrev[0] = 0xFF
 
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-					WithArgs("user-789").
+					WithArgs("user-789", int64(0), 1000).
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "action_type", "encrypted_detail", "timestamp", "prev_hash", "hash"},
 					).
-						AddRow(1, "ACTION1", []byte("data1"), time.Now(), make([]byte, 32), prevHash).
-						AddRow(2, "ACTION2", []byte("data2"), time.Now(), wrongHash, make([]byte, 32))) // Wrong prev_hash
+						AddRow(int64(1), "ACTION1", []byte("data1"), ts, entry1Prev, entry1Hash).
+						AddRow(int64(2), "ACTION2", []byte("data2"), ts, wrongPrev, make([]byte, 32))) // Wrong prev_hash
 			},
 			expectValid: false,
 			expectError: false,
@@ -281,10 +298,10 @@ func TestVerifyChain(t *testing.T) {
 				tamperedHash[0] = 0xFF // Doesn't match computed hash
 
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-					WithArgs("user-101").
+					WithArgs("user-101", int64(0), 1000).
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "action_type", "encrypted_detail", "timestamp", "prev_hash", "hash"},
-					).AddRow(1, "ACTION", []byte("data"), time.Now(), prevHash, tamperedHash)) // Stored hash doesn't match computed
+					).AddRow(int64(1), "ACTION", []byte("data"), time.Now(), prevHash, tamperedHash)) // Stored hash doesn't match computed
 			},
 			expectValid: false,
 			expectError: false,
@@ -294,7 +311,7 @@ func TestVerifyChain(t *testing.T) {
 			userID: "user-202",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-					WithArgs("user-202").
+					WithArgs("user-202", int64(0), 1000).
 					WillReturnError(context.DeadlineExceeded)
 			},
 			expectValid: false,
@@ -355,9 +372,9 @@ func TestListAuditLog(t *testing.T) {
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "user_id", "action_type", "timestamp", "hash"},
 					).
-						AddRow(1, "user-123", "LOGIN", time.Now(), make([]byte, 32)).
-						AddRow(2, "user-123", "FILE_ACCESSED", time.Now(), make([]byte, 32)).
-						AddRow(3, "user-123", "LOGOUT", time.Now(), make([]byte, 32)))
+						AddRow(int64(1), "user-123", "LOGIN", time.Now(), make([]byte, 32)).
+						AddRow(int64(2), "user-123", "FILE_ACCESSED", time.Now(), make([]byte, 32)).
+						AddRow(int64(3), "user-123", "LOGOUT", time.Now(), make([]byte, 32)))
 			},
 			expectCount: 3,
 			expectError: false,
@@ -373,8 +390,8 @@ func TestListAuditLog(t *testing.T) {
 					WillReturnRows(pgxmock.NewRows(
 						[]string{"id", "user_id", "action_type", "timestamp", "hash"},
 					).
-						AddRow(11, "user-456", "ACTION1", time.Now(), make([]byte, 32)).
-						AddRow(12, "user-456", "ACTION2", time.Now(), make([]byte, 32)))
+						AddRow(int64(11), "user-456", "ACTION1", time.Now(), make([]byte, 32)).
+						AddRow(int64(12), "user-456", "ACTION2", time.Now(), make([]byte, 32)))
 			},
 			expectCount: 2,
 			expectError: false,
@@ -480,7 +497,7 @@ func TestHandleListAuditLog(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows(
 				[]string{"id", "user_id", "action_type", "timestamp", "hash"},
 			).
-				AddRow(1, "user-123", "LOGIN", time.Now(), make([]byte, 32)))
+				AddRow(int64(1), "user-123", "LOGIN", time.Now(), make([]byte, 32)))
 
 		svc := NewAuditService(mock)
 		handler := HandleListAuditLog(svc)
@@ -527,7 +544,7 @@ func TestHandleVerifyChain(t *testing.T) {
 		defer mock.Close()
 
 		mock.ExpectQuery("SELECT id, action_type, encrypted_detail, timestamp, prev_hash, hash FROM audit_log").
-			WithArgs("user-123").
+			WithArgs("user-123", int64(0), 1000).
 			WillReturnRows(pgxmock.NewRows(
 				[]string{"id", "action_type", "encrypted_detail", "timestamp", "prev_hash", "hash"},
 			))

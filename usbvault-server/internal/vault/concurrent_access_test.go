@@ -176,13 +176,19 @@ func TestConcurrentAccess_SimultaneousWrites_SerializedCorrectly(t *testing.T) {
 	}
 	assert.Greater(t, successCount, 0, "at least one write should succeed")
 
-	// Verify final version is correctly incremented
+	// Verify final version reflects correct serialization. Each writer takes a
+	// row lock via SELECT ... FOR UPDATE, reads the latest committed version, and
+	// writes current+1. Postgres serializes these (FOR UPDATE blocks rather than
+	// aborting under Read Committed), so every successful write increments the
+	// version by exactly one with no lost updates. The final version must
+	// therefore equal the number of successful writes — that gapless equality is
+	// precisely the serialization guarantee this test asserts.
 	var finalVersion int
 	err = pool.QueryRow(ctx, `
 		SELECT version FROM vault_state WHERE id = $1
 	`, vaultID).Scan(&finalVersion)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, finalVersion, "version should be 1 after first successful write")
+	assert.Equal(t, successCount, finalVersion, "final version should equal the number of serialized successful writes (no lost updates)")
 }
 
 // TestConcurrentAccess_ReadDuringWrite_ConsistentState verifies reads during writes get consistent state
