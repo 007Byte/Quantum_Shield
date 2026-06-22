@@ -29,8 +29,7 @@ module.exports = {
     '^@components/(.*)$': '<rootDir>/src/components/$1',
   },
   testMatch: ['<rootDir>/src/components/**/__tests__/**/*.test.tsx'],
-  setupFilesAfterSetup: undefined,
-  setupFiles: ['<rootDir>/jest.setup.components.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.components.js'],
   transformIgnorePatterns: [
     'node_modules/(?!(react-native|@react-native|expo|@expo|@testing-library)/)',
   ],

@@ -13,7 +13,7 @@ if (typeof global.TextEncoder === 'undefined') {
 // exist before any test module is imported (this file is setupFilesAfterEnv,
 // which runs before each test file). Tests may still override it to assert.
 if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
-  window.matchMedia = (query) => ({
+  window.matchMedia = query => ({
     matches: false,
     media: query,
     onchange: null,
