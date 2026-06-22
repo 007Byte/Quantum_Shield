@@ -29,11 +29,14 @@ mkdir -p "$(dirname "$OUTPUT_FILE")"
 count_controls() {
     local file="$1"
     local status="$2"
+    # grep -c prints "0" AND exits 1 on no match, so `|| echo 0` would emit a
+    # second line ("0\n0") that breaks the $(( ... )) arithmetic at the call
+    # sites. Capture once and normalise to a single integer.
+    local c=0
     if [[ -f "$file" ]]; then
-        grep -ci "Status: $status" "$file" 2>/dev/null || echo 0
-    else
-        echo 0
+        c=$(grep -ci "Status: $status" "$file" 2>/dev/null || true)
     fi
+    echo "${c:-0}"
 }
 
 # Aggregate from all audit docs
