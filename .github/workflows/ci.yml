@@ -521,19 +521,15 @@ jobs:
         run: go mod tidy
         working-directory: usbvault-server
 
-      # ADVISORY (non-blocking) during development — matches the gosec/golangci/
-      # coverage gates. The integration-tagged suite has not been maintained
-      # against the current code (stale pgxmock query expectations in
-      # internal/audit; test-data/FK-ordering bugs in the internal/auth BOLA
-      # authorization tests; similar in internal/vault). The Postgres service
-      # above lets them run; ~55 currently fail and are tracked for a dedicated
-      # pass. Re-make blocking (remove continue-on-error) once they're repaired —
-      # they are security-critical authorization tests and must not be forced
-      # green without validating the property they assert.
+      # BLOCKING. The //go:build integration suite was repaired and now passes
+      # against the Postgres service above: internal/audit (pgxmock), internal/
+      # auth (162 tests — BOLA/privilege/RBAC/SRP/FIDO2; a CRITICAL SRP login bug
+      # was found and fixed here), and internal/vault. internal/integration's
+      # full-stack tests skip when no live API server is reachable (they need a
+      # running stack + an SRP/presigned-S3 client rewrite — tracked separately).
       - name: Run Go integration tests
         run: go test -v -tags=integration ./...
         working-directory: usbvault-server
-        continue-on-error: true
 
   # ============================================================
   # Security Tests
