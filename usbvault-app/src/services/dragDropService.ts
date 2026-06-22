@@ -65,11 +65,11 @@ export interface DropConfig {
 export interface UploadRecord {
   id: string;
   timestamp: string;
-  files: Array<{
+  files: {
     name: string;
     size: number;
     type: string;
-  }>;
+  }[];
   totalSize: number;
   success: boolean;
 }

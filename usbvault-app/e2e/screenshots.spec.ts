@@ -47,10 +47,15 @@ test.describe('App Store Screenshots', () => {
     const emailInput = page.locator('input[type="email"], [placeholder*="email" i]').first();
     if (await emailInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await emailInput.fill('demo@usbvault.io');
-      const passwordInput = page.locator('input[type="password"], [placeholder*="password" i]').first();
+      const passwordInput = page
+        .locator('input[type="password"], [placeholder*="password" i]')
+        .first();
       if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await passwordInput.fill('DemoPassword123!');
-        const loginButton = page.locator('button, [role="button"]').filter({ hasText: /log\s*in|sign\s*in/i }).first();
+        const loginButton = page
+          .locator('button, [role="button"]')
+          .filter({ hasText: /log\s*in|sign\s*in/i })
+          .first();
         if (await loginButton.isVisible({ timeout: 2000 }).catch(() => false)) {
           await loginButton.click();
           await waitForAppReady(page);

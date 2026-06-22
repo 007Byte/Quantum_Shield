@@ -57,7 +57,9 @@ test.describe('Authentication Flow', () => {
       if (await settingsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
         await settingsTab.click();
         await page.waitForTimeout(500);
-        const logoutInSettings = page.locator('[data-testid*="logout"], [data-testid*="sign-out"]').first();
+        const logoutInSettings = page
+          .locator('[data-testid*="logout"], [data-testid*="sign-out"]')
+          .first();
         await logoutInSettings.click();
         await page.waitForTimeout(1000);
       }

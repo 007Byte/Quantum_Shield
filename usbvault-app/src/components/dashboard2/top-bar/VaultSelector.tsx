@@ -277,7 +277,9 @@ export const VaultSelector = React.memo(function VaultSelector({
                     style={[styles.vaultDropdownMeta, { color: theme.L2.base.text.secondary }]}
                     numberOfLines={1}
                   >
-                    {isUsb ? `${vault.driveName || t('topBar.usb') || 'USB'} · ${vault.mountPoint}` : t('topBar.localStorage') || 'Local Storage'}
+                    {isUsb
+                      ? `${vault.driveName || t('topBar.usb') || 'USB'} · ${vault.mountPoint}`
+                      : t('topBar.localStorage') || 'Local Storage'}
                     {(() => {
                       let count = vault.fileCount;
                       if (count === 0 && isActive) {

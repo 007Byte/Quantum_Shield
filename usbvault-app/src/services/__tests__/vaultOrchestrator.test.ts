@@ -38,8 +38,8 @@ jest.mock('@/crypto/bridge', () => ({
     data: new Uint8Array([72, 101, 108, 108, 111]),
   }),
   readFailCounter: jest.fn().mockResolvedValue(0),
-  resetFailCounter: jest.fn().mockImplementation((header) => Promise.resolve(header)),
-  incrementFailCounter: jest.fn().mockImplementation((header) => Promise.resolve(header)),
+  resetFailCounter: jest.fn().mockImplementation(header => Promise.resolve(header)),
+  incrementFailCounter: jest.fn().mockImplementation(header => Promise.resolve(header)),
   commitVaultIndex: jest.fn().mockResolvedValue(new Uint8Array(256)),
 }));
 
@@ -54,27 +54,27 @@ jest.mock('../usbService', () => {
     return bytes;
   };
   return {
-  usbService: {
-    initVaultContainer: jest.fn().mockResolvedValue(undefined),
-    appendVaultBytes: jest.fn().mockResolvedValue({ offset: 256, length: 128 }),
-    writeVaultHeader: jest.fn().mockResolvedValue(undefined),
-    readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
-    readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(128)),
-    checkCapacity: jest.fn().mockResolvedValue({
-      total: 1073741824,
-      available: 536870912,
-      allowed: true,
-      remaining: 536870912,
-      maxAllowed: 536870912,
-    }),
-    compactVaultContainer: jest.fn().mockResolvedValue({
-      entries: [],
-      newOffsets: {},
-      oldSize: 1024,
-      newSize: 512,
-      spaceSaved: 512,
-    }),
-  },
+    usbService: {
+      initVaultContainer: jest.fn().mockResolvedValue(undefined),
+      appendVaultBytes: jest.fn().mockResolvedValue({ offset: 256, length: 128 }),
+      writeVaultHeader: jest.fn().mockResolvedValue(undefined),
+      readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
+      readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(128)),
+      checkCapacity: jest.fn().mockResolvedValue({
+        total: 1073741824,
+        available: 536870912,
+        allowed: true,
+        remaining: 536870912,
+        maxAllowed: 536870912,
+      }),
+      compactVaultContainer: jest.fn().mockResolvedValue({
+        entries: [],
+        newOffsets: {},
+        oldSize: 1024,
+        newSize: 512,
+        spaceSaved: 512,
+      }),
+    },
   };
 });
 
@@ -100,7 +100,11 @@ jest.mock('@/utils/logger', () => ({
 // Mock errors
 jest.mock('@/errors/typed', () => ({
   RateLimitError: class RateLimitError extends Error {
-    constructor(message: string, public retryAfter: number, public attempts: number) {
+    constructor(
+      message: string,
+      public retryAfter: number,
+      public attempts: number
+    ) {
       super(message);
       this.name = 'RateLimitError';
     }
@@ -155,10 +159,7 @@ describe('VaultOrchestrator', () => {
 
       // provision() overwrites the companion-created VAULT.bin placeholder header
       // via writeVaultHeader (the container already exists at this point).
-      expect(usbService.writeVaultHeader).toHaveBeenCalledWith(
-        '/mnt/usb',
-        expect.any(Uint8Array)
-      );
+      expect(usbService.writeVaultHeader).toHaveBeenCalledWith('/mnt/usb', expect.any(Uint8Array));
     });
 
     it('should write empty index to both slots', async () => {
@@ -252,10 +253,7 @@ describe('VaultOrchestrator', () => {
 
       await vaultOrchestrator.addFile('file1', 'test.txt', new Uint8Array(100));
 
-      expect(usbService.checkCapacity).toHaveBeenCalledWith(
-        '/mnt/usb',
-        expect.any(Number)
-      );
+      expect(usbService.checkCapacity).toHaveBeenCalledWith('/mnt/usb', expect.any(Number));
     });
 
     it('should throw when vault is at capacity', async () => {

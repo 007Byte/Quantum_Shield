@@ -38,9 +38,11 @@ test.describe('Error Scenarios', () => {
     await expect(page.getByTestId('login-email-input')).toBeVisible();
 
     // Look for an error message
-    const errorMessage = page.locator(
-      '[data-testid*="error"], [data-testid*="alert"], text=/invalid|incorrect|wrong|failed|error/i'
-    ).first();
+    const errorMessage = page
+      .locator(
+        '[data-testid*="error"], [data-testid*="alert"], text=/invalid|incorrect|wrong|failed|error/i'
+      )
+      .first();
 
     if (await errorMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(errorMessage).toBeVisible();
@@ -58,9 +60,11 @@ test.describe('Error Scenarios', () => {
     // Should remain on login
     await expect(page.getByTestId('login-email-input')).toBeVisible();
 
-    const errorMessage = page.locator(
-      '[data-testid*="error"], [data-testid*="alert"], text=/not found|invalid|no account|error|failed/i'
-    ).first();
+    const errorMessage = page
+      .locator(
+        '[data-testid*="error"], [data-testid*="alert"], text=/not found|invalid|no account|error|failed/i'
+      )
+      .first();
 
     if (await errorMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(errorMessage).toBeVisible();
@@ -82,9 +86,9 @@ test.describe('Error Scenarios', () => {
     // Should remain on register screen
     await expect(page.getByTestId('register-email-input')).toBeVisible();
 
-    const errorMessage = page.locator(
-      '[data-testid*="error"], text=/match|mismatch|do not match|passwords/i'
-    ).first();
+    const errorMessage = page
+      .locator('[data-testid*="error"], text=/match|mismatch|do not match|passwords/i')
+      .first();
 
     if (await errorMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(errorMessage).toBeVisible();
@@ -104,9 +108,9 @@ test.describe('Error Scenarios', () => {
     // Should remain on register screen
     await expect(page.getByTestId('register-email-input')).toBeVisible();
 
-    const errorMessage = page.locator(
-      '[data-testid*="error"], text=/weak|strong|minimum|requirement|length|character/i'
-    ).first();
+    const errorMessage = page
+      .locator('[data-testid*="error"], text=/weak|strong|minimum|requirement|length|character/i')
+      .first();
 
     if (await errorMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(errorMessage).toBeVisible();
@@ -125,9 +129,11 @@ test.describe('Error Scenarios', () => {
     // Should remain on login
     await expect(page.getByTestId('login-email-input')).toBeVisible();
 
-    const validationMessage = page.locator(
-      '[data-testid*="error"], [data-testid*="validation"], text=/required|enter|fill|empty|email/i'
-    ).first();
+    const validationMessage = page
+      .locator(
+        '[data-testid*="error"], [data-testid*="validation"], text=/required|enter|fill|empty|email/i'
+      )
+      .first();
 
     if (await validationMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(validationMessage).toBeVisible();
@@ -144,9 +150,11 @@ test.describe('Error Scenarios', () => {
     // Should remain on register
     await expect(page.getByTestId('register-email-input')).toBeVisible();
 
-    const validationMessage = page.locator(
-      '[data-testid*="error"], [data-testid*="validation"], text=/required|enter|fill|empty/i'
-    ).first();
+    const validationMessage = page
+      .locator(
+        '[data-testid*="error"], [data-testid*="validation"], text=/required|enter|fill|empty/i'
+      )
+      .first();
 
     if (await validationMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(validationMessage).toBeVisible();
@@ -157,14 +165,14 @@ test.describe('Error Scenarios', () => {
 
   test('network failure on login shows error gracefully', async ({ page }) => {
     // Intercept API calls and return 500
-    await page.route('**/api/**', (route) =>
+    await page.route('**/api/**', route =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',
         body: JSON.stringify({ error: 'Internal Server Error' }),
       })
     );
-    await page.route('**/auth/**', (route) =>
+    await page.route('**/auth/**', route =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -183,9 +191,11 @@ test.describe('Error Scenarios', () => {
     await expect(page.getByTestId('login-email-input')).toBeVisible();
 
     // Check for a user-facing error
-    const errorMessage = page.locator(
-      '[data-testid*="error"], [data-testid*="alert"], text=/error|failed|unavailable|try again|network/i'
-    ).first();
+    const errorMessage = page
+      .locator(
+        '[data-testid*="error"], [data-testid*="alert"], text=/error|failed|unavailable|try again|network/i'
+      )
+      .first();
 
     if (await errorMessage.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(errorMessage).toBeVisible();
@@ -193,14 +203,14 @@ test.describe('Error Scenarios', () => {
   });
 
   test('network failure on register shows error gracefully', async ({ page }) => {
-    await page.route('**/api/**', (route) =>
+    await page.route('**/api/**', route =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',
         body: JSON.stringify({ error: 'Internal Server Error' }),
       })
     );
-    await page.route('**/auth/**', (route) =>
+    await page.route('**/auth/**', route =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',

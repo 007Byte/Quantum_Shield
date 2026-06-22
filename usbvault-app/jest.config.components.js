@@ -28,9 +28,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@components/(.*)$': '<rootDir>/src/components/$1',
   },
-  testMatch: [
-    '<rootDir>/src/components/**/__tests__/**/*.test.tsx',
-  ],
+  testMatch: ['<rootDir>/src/components/**/__tests__/**/*.test.tsx'],
   setupFilesAfterSetup: undefined,
   setupFiles: ['<rootDir>/jest.setup.components.js'],
   transformIgnorePatterns: [

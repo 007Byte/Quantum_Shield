@@ -160,7 +160,10 @@ export function ChecksumValidatorTool({ t: externalT }: ChecksumValidatorToolPro
 
     const digestName = webCryptoName(algo);
     if (!digestName) {
-      setResult({ status: 'error', message: t('tools.algorithmUnsupported').replace('{{algorithm}}', algo) });
+      setResult({
+        status: 'error',
+        message: t('tools.algorithmUnsupported').replace('{{algorithm}}', algo),
+      });
       return;
     }
 

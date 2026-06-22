@@ -374,7 +374,9 @@ export function SecureNotepadTool({ t: externalT }: SecureNotepadToolProps) {
           accessibilityLabel={t('tools.clear')}
         >
           <Feather name="trash-2" size={14} color={theme.L2.base.text.secondary} />
-          <Text style={[styles.clearBtnText, { color: theme.L2.base.text.secondary }]}>{t('tools.clear')}</Text>
+          <Text style={[styles.clearBtnText, { color: theme.L2.base.text.secondary }]}>
+            {t('tools.clear')}
+          </Text>
         </Pressable>
       </View>
 

@@ -137,11 +137,12 @@ function writeU32LE(buf: Uint8Array, offset: number, value: number): void {
 /** Read a u32 little-endian from buf at offset. */
 function readU32LE(buf: Uint8Array, offset: number): number {
   return (
-    (buf[offset]) |
-    (buf[offset + 1] << 8) |
-    (buf[offset + 2] << 16) |
-    ((buf[offset + 3] << 24) >>> 0)
-  ) >>> 0;
+    (buf[offset] |
+      (buf[offset + 1] << 8) |
+      (buf[offset + 2] << 16) |
+      ((buf[offset + 3] << 24) >>> 0)) >>>
+    0
+  );
 }
 
 /** Write a u64 little-endian into buf at offset (limited to Number.MAX_SAFE_INTEGER). */
@@ -173,10 +174,7 @@ async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
 }
 
 /** AES-GCM encrypt raw bytes with a 32-byte key, returning nonce(12) || ciphertext+tag. */
-async function aesGcmEncryptRaw(
-  keyBytes: Uint8Array,
-  plaintext: Uint8Array
-): Promise<Uint8Array> {
+async function aesGcmEncryptRaw(keyBytes: Uint8Array, plaintext: Uint8Array): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await crypto.subtle.importKey(
     'raw',
@@ -197,10 +195,7 @@ async function aesGcmEncryptRaw(
 }
 
 /** AES-GCM decrypt nonce(12) || ciphertext+tag with a 32-byte key. */
-async function aesGcmDecryptRaw(
-  keyBytes: Uint8Array,
-  data: Uint8Array
-): Promise<Uint8Array> {
+async function aesGcmDecryptRaw(keyBytes: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
   const iv = data.slice(0, 12);
   const ct = data.slice(12);
   const key = await crypto.subtle.importKey(
@@ -286,7 +281,7 @@ const webCryptoFallback: USBVaultCryptoModule = {
       parallelism: 4,
       iterations: 3,
       memorySize: 65536, // 64 MiB
-      hashLength: 32,    // 256-bit key
+      hashLength: 32, // 256-bit key
       outputType: 'hex',
     });
     return hash;
@@ -540,13 +535,9 @@ const webCryptoFallback: USBVaultCryptoModule = {
       );
 
       // Import shared secret as AES-GCM key for decryption
-      const sharedKey = await crypto.subtle.importKey(
-        'raw',
-        sharedSecretBits,
-        'AES-GCM',
-        false,
-        ['decrypt']
-      );
+      const sharedKey = await crypto.subtle.importKey('raw', sharedSecretBits, 'AES-GCM', false, [
+        'decrypt',
+      ]);
 
       const plaintext = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv },
@@ -570,11 +561,9 @@ const webCryptoFallback: USBVaultCryptoModule = {
     // The SRP-6a protocol requires the public value A = g^a mod N. In our Web Crypto
     // adaptation, we use P-256 ECDH as the underlying DH group, so A and a are a
     // mathematically related keypair that can be used for key agreement.
-    const keyPair = await crypto.subtle.generateKey(
-      { name: 'ECDH', namedCurve: 'P-256' },
-      true,
-      ['deriveBits']
-    );
+    const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+      'deriveBits',
+    ]);
 
     const privateKeyData = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
     const publicKeyData = await crypto.subtle.exportKey('spki', keyPair.publicKey);
@@ -601,13 +590,13 @@ const webCryptoFallback: USBVaultCryptoModule = {
       parallelism: 4,
       iterations: 3,
       memorySize: 65536, // 64 MiB — matches native Argon2id parameters
-      hashLength: 64,    // 512 bits: 32 bytes proof + 32 bytes key
+      hashLength: 64, // 512 bits: 32 bytes proof + 32 bytes key
       outputType: 'hex',
     });
 
     return {
-      proof: hash.slice(0, 64),  // First 32 bytes (64 hex chars)
-      key: hash.slice(64, 128),  // Second 32 bytes (64 hex chars)
+      proof: hash.slice(0, 64), // First 32 bytes (64 hex chars)
+      key: hash.slice(64, 128), // Second 32 bytes (64 hex chars)
     };
   },
 
@@ -812,7 +801,12 @@ const webCryptoFallback: USBVaultCryptoModule = {
     console.warn('[PROVISION-DIAG] wrappedMek length:', wrappedMek.length);
     console.warn('[PROVISION-DIAG] wrappedMek first 16 bytes:', toHex(wrappedMek.slice(0, 16)));
     console.warn('[PROVISION-DIAG] wrappedMek written at offset:', offset - wrappedMek.length);
-    console.warn('[PROVISION-DIAG] Password length:', password.length, 'first3chars:', password.substring(0, 3));
+    console.warn(
+      '[PROVISION-DIAG] Password length:',
+      password.length,
+      'first3chars:',
+      password.substring(0, 3)
+    );
     // ────────────────────────────────────────────────────────────────
 
     // state_version = 1 (u64 LE)
@@ -856,15 +850,22 @@ const webCryptoFallback: USBVaultCryptoModule = {
     const activeIndexSlot = header[metaOffset];
     let off = metaOffset + 1;
 
-    const index1Offset = readU32LE(header, off); off += 4;
-    const index1Length = readU32LE(header, off); off += 4;
-    const index2Offset = readU32LE(header, off); off += 4;
-    const index2Length = readU32LE(header, off); off += 4;
+    const index1Offset = readU32LE(header, off);
+    off += 4;
+    const index1Length = readU32LE(header, off);
+    off += 4;
+    const index2Offset = readU32LE(header, off);
+    off += 4;
+    const index2Length = readU32LE(header, off);
+    off += 4;
     off += 8; // commit_counter
 
-    const argon2Memory = readU32LE(header, off); off += 4;
-    const argon2Time = readU32LE(header, off); off += 4;
-    const argon2Parallelism = header[off]; off += 1;
+    const argon2Memory = readU32LE(header, off);
+    off += 4;
+    const argon2Time = readU32LE(header, off);
+    off += 4;
+    const argon2Parallelism = header[off];
+    off += 1;
 
     // Determine active index offset/length
     const indexOffset = activeIndexSlot === 0 ? index1Offset : index2Offset;
@@ -913,8 +914,10 @@ const webCryptoFallback: USBVaultCryptoModule = {
     // Read Argon2 params from header
     const metaOffset = getIndexMetadataOffset(header);
     let off = metaOffset + 1 + 4 + 4 + 4 + 4 + 8; // skip to argon2 params
-    const argon2Memory = readU32LE(header, off); off += 4;
-    const argon2Time = readU32LE(header, off); off += 4;
+    const argon2Memory = readU32LE(header, off);
+    off += 4;
+    const argon2Time = readU32LE(header, off);
+    off += 4;
     const argon2Parallelism = header[off];
 
     // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
@@ -923,8 +926,20 @@ const webCryptoFallback: USBVaultCryptoModule = {
     console.warn('[UNLOCK-DIAG] Cipher byte @9:', header[9]);
     console.warn('[UNLOCK-DIAG] Salt hex:', toHex(salt));
     console.warn('[UNLOCK-DIAG] metaOffset:', metaOffset);
-    console.warn('[UNLOCK-DIAG] Argon2 params: memory=', argon2Memory, 'time=', argon2Time, 'parallelism=', argon2Parallelism);
-    console.warn('[UNLOCK-DIAG] Password length:', password.length, 'first3chars:', password.substring(0, 3));
+    console.warn(
+      '[UNLOCK-DIAG] Argon2 params: memory=',
+      argon2Memory,
+      'time=',
+      argon2Time,
+      'parallelism=',
+      argon2Parallelism
+    );
+    console.warn(
+      '[UNLOCK-DIAG] Password length:',
+      password.length,
+      'first3chars:',
+      password.substring(0, 3)
+    );
     // ────────────────────────────────────────────────────────────────
 
     // Derive KEK from password + salt using header's Argon2 params
@@ -962,7 +977,9 @@ const webCryptoFallback: USBVaultCryptoModule = {
       mek = await aesGcmDecryptRaw(kek, wrappedMek);
     } catch (unwrapErr) {
       console.error('[UNLOCK-DIAG] MEK unwrap FAILED!', unwrapErr);
-      console.error('[UNLOCK-DIAG] This means KEK does not match the one used to wrap MEK during provision.');
+      console.error(
+        '[UNLOCK-DIAG] This means KEK does not match the one used to wrap MEK during provision.'
+      );
       console.error('[UNLOCK-DIAG] Full KEK:', kekHex);
       console.error('[UNLOCK-DIAG] Full wrappedMek hex:', toHex(wrappedMek));
       throw unwrapErr;
@@ -1159,9 +1176,7 @@ function getModule(): USBVaultCryptoModule {
   if (_resolvedModule) return _resolvedModule;
 
   if (Platform.OS === 'web') {
-    logger.info(
-      '[USBVault] Using Web Crypto API with WASM Argon2id for web platform.'
-    );
+    logger.info('[USBVault] Using Web Crypto API with WASM Argon2id for web platform.');
     _resolvedModule = webCryptoFallback;
     return _resolvedModule;
   }

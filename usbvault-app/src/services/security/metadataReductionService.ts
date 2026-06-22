@@ -16,7 +16,7 @@
  */
 
 import { logger } from '@/utils/logger';
-import { registerCleanup } from '@/stores/storeCleanup';
+import { registerCleanup } from '@/utils/cleanupRegistry';
 
 const STORAGE_KEY = 'usbvault_metadata_reduction_config';
 

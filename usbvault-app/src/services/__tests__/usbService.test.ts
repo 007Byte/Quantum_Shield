@@ -12,6 +12,8 @@
 
 // Mock the companion HTTP client. usbService calls axios.create() once and
 // caches the instance, so axios.create must always return the same stub.
+import { usbService } from '../usbService';
+
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockPut = jest.fn();
@@ -49,8 +51,6 @@ jest.mock('@/utils/logger', () => ({
   },
 }));
 
-import { usbService } from '../usbService';
-
 describe('UsbService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -64,8 +64,22 @@ describe('UsbService', () => {
       mockGet.mockResolvedValue({
         data: {
           drives: [
-            { id: 'drive1', name: 'USB Drive 1', capacity: '32GB', device: '/dev/sdb', available: true, hasVault: false },
-            { id: 'drive2', name: 'USB Drive 2', capacity: '64GB', device: '/dev/sdc', available: true, hasVault: true },
+            {
+              id: 'drive1',
+              name: 'USB Drive 1',
+              capacity: '32GB',
+              device: '/dev/sdb',
+              available: true,
+              hasVault: false,
+            },
+            {
+              id: 'drive2',
+              name: 'USB Drive 2',
+              capacity: '64GB',
+              device: '/dev/sdc',
+              available: true,
+              hasVault: true,
+            },
           ],
         },
       });
@@ -129,11 +143,14 @@ describe('UsbService', () => {
 
       expect(result.vaultId).toBe('vault-123');
       expect(result.recoveryPhrase).toHaveLength(3);
-      expect(mockPost).toHaveBeenCalledWith('/usb/provision', expect.objectContaining({
-        drive_id: 'drive1',
-        format_type: 'quick',
-        file_system: 'exfat',
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/provision',
+        expect.objectContaining({
+          drive_id: 'drive1',
+          format_type: 'quick',
+          file_system: 'exfat',
+        })
+      );
     });
 
     it('should log successful provision to audit service', async () => {
@@ -185,11 +202,14 @@ describe('UsbService', () => {
         wipeMethod: 'quick',
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/usb/reset', expect.objectContaining({
-        drive_id: 'drive1',
-        wipe_method: 'quick',
-        passes: 1,
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/reset',
+        expect.objectContaining({
+          drive_id: 'drive1',
+          wipe_method: 'quick',
+          passes: 1,
+        })
+      );
     });
 
     it('should support secure wipe with multiple passes', async () => {
@@ -201,10 +221,13 @@ describe('UsbService', () => {
         passes: 3,
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/usb/reset', expect.objectContaining({
-        wipe_method: 'secure',
-        passes: 3,
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/reset',
+        expect.objectContaining({
+          wipe_method: 'secure',
+          passes: 3,
+        })
+      );
     });
 
     it('should throw on reset failure', async () => {

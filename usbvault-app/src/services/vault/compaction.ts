@@ -119,8 +119,8 @@ class VaultCompactionService {
   /**
    * Get all vault entries from localStorage.
    */
-  private getVaultEntries(): Array<{ key: string; size: number }> {
-    const entries: Array<{ key: string; size: number }> = [];
+  private getVaultEntries(): { key: string; size: number }[] {
+    const entries: { key: string; size: number }[] = [];
 
     if (Platform.OS === 'web') {
       try {

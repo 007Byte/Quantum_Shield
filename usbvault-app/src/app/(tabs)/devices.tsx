@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { deviceManagementService, DeviceSession } from '@/services/deviceManagementService';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -150,10 +143,7 @@ function DevicesScreen() {
     return (
       <View style={styles.loadingContainer}>
         <View style={{ width: '100%', paddingHorizontal: 16 }}>
-          <ErrorRetry
-            error={loadError}
-            onRetry={() => setRefreshKey(prev => prev + 1)}
-          />
+          <ErrorRetry error={loadError} onRetry={() => setRefreshKey(prev => prev + 1)} />
         </View>
       </View>
     );
@@ -334,7 +324,9 @@ function DevicesScreen() {
                 <View style={styles.historyDot} />
                 <View style={styles.historyContent}>
                   <Text style={styles.historyDeviceName}>{session.deviceName}</Text>
-                  <Text style={styles.historyDate}>{t('devices.createdTime', { time: formatTimeAgo(session.createdAt) })}</Text>
+                  <Text style={styles.historyDate}>
+                    {t('devices.createdTime', { time: formatTimeAgo(session.createdAt) })}
+                  </Text>
                 </View>
               </View>
             ))

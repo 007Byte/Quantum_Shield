@@ -18,9 +18,23 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { vaultOrchestrator } from '@/services/vaultOrchestrator';
 import { useVaultListStore } from '@/stores/vaultListStore';
 import { useActiveVaultStore } from '@/stores/activeVaultStore';
-import { useInAppModal } from '@/components/common';
 import { logger } from '@/utils/logger';
 import type { FileInfo } from '@/types/domain';
+
+/**
+ * Notification callbacks injected by the consumer (a screen/feature at L3+
+ * that owns the modal UI). The hook layer (L2) must not import the modal
+ * component directly — see import/no-restricted-paths layering rules.
+ */
+export interface VaultUnlockNotifier {
+  showError: (title: string, message?: string) => void;
+  showSuccess: (title: string, message?: string) => void;
+}
+
+const NOOP_NOTIFIER: VaultUnlockNotifier = {
+  showError: () => {},
+  showSuccess: () => {},
+};
 
 // ── Cached USB file metadata (survives page reload) ────────────────────────
 const USB_FILE_CACHE_KEY = 'usbvault:usb_file_cache';
@@ -59,8 +73,8 @@ function setCachedFiles(vaultId: string, files: FileInfo[]): void {
 
 // ── Hook ────────────────────────────────────────────────────────────────────
 
-export function useVaultUnlock() {
-  const { showError, showSuccess } = useInAppModal();
+export function useVaultUnlock(notifier: VaultUnlockNotifier = NOOP_NOTIFIER) {
+  const { showError, showSuccess } = notifier;
 
   // Store selectors
   const vaultsById = useVaultListStore(s => s.vaultsById);
@@ -100,12 +114,7 @@ export function useVaultUnlock() {
       hasPromptedRef.current = true;
       return;
     }
-    if (
-      isUsbVault &&
-      !orchestratorUnlocked &&
-      !vaultUnlocked &&
-      !hasPromptedRef.current
-    ) {
+    if (isUsbVault && !orchestratorUnlocked && !vaultUnlocked && !hasPromptedRef.current) {
       hasPromptedRef.current = true;
 
       // Before prompting, try to restore cached file list so dashboard isn't empty

@@ -7,6 +7,9 @@
 
 import { Platform } from 'react-native';
 
+import { isPQCAvailable, generateHybridKeypair, hybridSeal, hybridOpen } from '../pqc';
+import { settingsService } from '@/services/settingsService';
+
 // Mock react-native Platform
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
@@ -25,9 +28,6 @@ jest.mock('@/crypto/bridge', () => ({
   hybridSealToPublicKey: jest.fn(),
   hybridOpenSealed: jest.fn(),
 }));
-
-import { isPQCAvailable, generateHybridKeypair, hybridSeal, hybridOpen } from '../pqc';
-import { settingsService } from '@/services/settingsService';
 
 describe('PQC Service', () => {
   describe('isPqcAvailable', () => {

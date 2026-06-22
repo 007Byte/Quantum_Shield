@@ -6,6 +6,8 @@
  */
 
 // Mock React Native Platform
+import * as indexCrypto from '../crypto/index';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
@@ -31,8 +33,6 @@ jest.mock('@/utils/logger', () => ({
 
 // Mock domain types (StoredFileInfo)
 jest.mock('@/types/domain', () => ({}), { virtual: true });
-
-import * as indexCrypto from '../crypto/index';
 
 describe('indexCrypto', () => {
   beforeEach(() => {

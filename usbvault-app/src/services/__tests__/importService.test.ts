@@ -6,12 +6,7 @@
  * duplicate detection, and validation.
  */
 
-import {
-  importPasswords,
-  detectFormat,
-  validateImportFile,
-  formatLabel,
-} from '../vault/import';
+import { importPasswords, detectFormat, validateImportFile, formatLabel } from '../vault/import';
 
 // Mock logger
 jest.mock('@/utils/logger', () => ({
@@ -30,7 +25,8 @@ describe('ImportService', () => {
   // ============================================================================
   describe('detectFormat', () => {
     it('should detect Bitwarden CSV format', () => {
-      const header = 'folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp';
+      const header =
+        'folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp';
       expect(detectFormat(header)).toBe('bitwarden');
     });
 

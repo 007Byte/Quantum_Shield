@@ -118,9 +118,7 @@ describe('Fido2Service', () => {
         expect.objectContaining({
           publicKey: expect.objectContaining({
             rp: expect.objectContaining({ name: 'USBVault' }),
-            pubKeyCredParams: expect.arrayContaining([
-              expect.objectContaining({ alg: -7 }),
-            ]),
+            pubKeyCredParams: expect.arrayContaining([expect.objectContaining({ alg: -7 })]),
           }),
         })
       );
@@ -191,9 +189,7 @@ describe('Fido2Service', () => {
       (window as any).PublicKeyCredential = jest.fn();
       (navigator as any).credentials = { create: jest.fn(), get: jest.fn() };
 
-      await expect(fido2Service.authenticate()).rejects.toThrow(
-        'No FIDO2 devices registered'
-      );
+      await expect(fido2Service.authenticate()).rejects.toThrow('No FIDO2 devices registered');
 
       delete (window as any).PublicKeyCredential;
     });
@@ -302,9 +298,7 @@ describe('Fido2Service', () => {
     });
 
     it('should throw for null PRF output', async () => {
-      await expect(fido2Service.derivePrfKey(null as any)).rejects.toThrow(
-        'Invalid PRF output'
-      );
+      await expect(fido2Service.derivePrfKey(null as any)).rejects.toThrow('Invalid PRF output');
     });
 
     it('should derive a hex key from valid PRF output', async () => {

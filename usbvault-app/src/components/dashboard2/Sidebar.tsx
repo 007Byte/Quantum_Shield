@@ -170,8 +170,17 @@ export function Sidebar() {
       <InAppModal config={modal} />
       <InAppModal config={exitModal} />
       <View
-        style={[styles.container, glassPanelBase, webOnlyGlass, webOnlyGlassLuxury, webOnlyEdgeLit,
-          isLight && styles.containerLight, isLight && webOnlyGlassLight, isLight && webOnlyGlassLuxuryLight, isLight && webOnlyEdgeLitLight]}
+        style={[
+          styles.container,
+          glassPanelBase,
+          webOnlyGlass,
+          webOnlyGlassLuxury,
+          webOnlyEdgeLit,
+          isLight && styles.containerLight,
+          isLight && webOnlyGlassLight,
+          isLight && webOnlyGlassLuxuryLight,
+          isLight && webOnlyEdgeLitLight,
+        ]}
       >
         <View style={[styles.sidebarSheen, isLight && styles.sidebarSheenLight]} />
 
@@ -206,7 +215,9 @@ export function Sidebar() {
                   active && [styles.navItemActive, isLight && styles.navItemActiveLight],
                 ]}
               >
-                {active ? <View style={[styles.activeBeam, isLight && styles.activeBeamLight]} /> : null}
+                {active ? (
+                  <View style={[styles.activeBeam, isLight && styles.activeBeamLight]} />
+                ) : null}
                 <NavIcon item={item} color={active ? '#F8FAFF' : dashboardColors.textPrimary} />
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                   {t(NAV_LABEL_KEY[item.id]) || item.label}
@@ -235,11 +246,23 @@ export function Sidebar() {
                       state.hovered && styles.sectionHeaderHover,
                     ]}
                   >
-                    <Text style={[styles.sectionHeader, isLight && { color: 'rgba(80,70,120,0.75)' }]}>{t(GROUP_LABEL_KEY[section.group]) || section.group}</Text>
+                    <Text
+                      style={[styles.sectionHeader, isLight && { color: 'rgba(80,70,120,0.75)' }]}
+                    >
+                      {t(GROUP_LABEL_KEY[section.group]) || section.group}
+                    </Text>
                     <Feather
                       name={isCollapsed ? 'chevron-right' : 'chevron-down'}
                       size={16}
-                      color={isCollapsed ? (isLight ? 'rgba(80,70,120,0.65)' : 'rgba(184,179,209,0.85)') : (isLight ? 'rgba(80,70,120,0.50)' : 'rgba(184,179,209,0.65)')}
+                      color={
+                        isCollapsed
+                          ? isLight
+                            ? 'rgba(80,70,120,0.65)'
+                            : 'rgba(184,179,209,0.85)'
+                          : isLight
+                            ? 'rgba(80,70,120,0.50)'
+                            : 'rgba(184,179,209,0.65)'
+                      }
                     />
                   </Pressable>
                   {!isCollapsed &&
@@ -254,16 +277,27 @@ export function Sidebar() {
                           }}
                           style={(state: any) => [
                             styles.navItem,
-                            state.hovered && [styles.navItemHover, isLight && styles.navItemHoverLight],
+                            state.hovered && [
+                              styles.navItemHover,
+                              isLight && styles.navItemHoverLight,
+                            ],
                             active && [styles.navItemActive, isLight && styles.navItemActiveLight],
                           ]}
                         >
-                          {active ? <View style={[styles.activeBeam, isLight && styles.activeBeamLight]} /> : null}
+                          {active ? (
+                            <View style={[styles.activeBeam, isLight && styles.activeBeamLight]} />
+                          ) : null}
                           <NavIcon
                             item={item}
                             color={active ? '#F8FAFF' : dashboardColors.textPrimary}
                           />
-                          <Text style={[styles.navLabel, active && styles.navLabelActive, active && isLight && { color: theme.L2.base.text.primary }]}>
+                          <Text
+                            style={[
+                              styles.navLabel,
+                              active && styles.navLabelActive,
+                              active && isLight && { color: theme.L2.base.text.primary },
+                            ]}
+                          >
                             {t(NAV_LABEL_KEY[item.id]) || item.label}
                           </Text>
                         </Pressable>
@@ -292,15 +326,11 @@ export function Sidebar() {
                     return;
                   }
                   if (isExit) {
-                    showConfirm(
-                      t('sidebar.exitTitle'),
-                      t('sidebar.exitMessage'),
-                      () => {
-                        const { logout } = useAuthStore.getState();
-                        logout();
-                        router.replace('/(auth)/login' as any);
-                      }
-                    );
+                    showConfirm(t('sidebar.exitTitle'), t('sidebar.exitMessage'), () => {
+                      const { logout } = useAuthStore.getState();
+                      logout();
+                      router.replace('/(auth)/login' as any);
+                    });
                     return;
                   }
                   const route = ROUTE_MAP[item.id];
@@ -312,7 +342,10 @@ export function Sidebar() {
                   isDanger && styles.lockVaultItem,
                 ]}
               >
-                <NavIcon item={item} color={isDanger ? (isLight ? '#DC2626' : '#EF4444') : dashboardColors.textPrimary} />
+                <NavIcon
+                  item={item}
+                  color={isDanger ? (isLight ? '#DC2626' : '#EF4444') : dashboardColors.textPrimary}
+                />
                 <Text style={[styles.navLabel, isDanger && styles.lockVaultLabel]}>
                   {t(NAV_LABEL_KEY[item.id]) || item.label}
                 </Text>
@@ -396,7 +429,8 @@ const styles = StyleSheet.create({
   containerLight: {
     borderRightColor: 'rgba(200,190,230,0.30)',
     ...webOnly({
-      background: 'linear-gradient(170deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.50) 100%)',
+      background:
+        'linear-gradient(170deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.50) 100%)',
       boxShadow: 'inset -1px 0 0 rgba(200,190,230,0.20), inset 0 0 30px rgba(255,255,255,0.15)',
       backdropFilter: 'blur(20px) saturate(120%)',
     }),
@@ -455,7 +489,8 @@ const styles = StyleSheet.create({
   },
   logoWrapLight: {
     ...webOnly({
-      filter: 'drop-shadow(0 0 12px rgba(124,58,237,0.25)) drop-shadow(0 0 24px rgba(8,145,178,0.15))',
+      filter:
+        'drop-shadow(0 0 12px rgba(124,58,237,0.25)) drop-shadow(0 0 24px rgba(8,145,178,0.15))',
     }),
   },
   logoImg: {

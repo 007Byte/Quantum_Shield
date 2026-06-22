@@ -16,12 +16,28 @@ import { formatFileSize } from '@/utils/formatters';
 import type { PressableState } from '@/types/utilities';
 
 // ── Category configuration ─────────────────────────────────────────────
-const FILE_CATEGORIES: Record<string, { label: string; icon: string; color: string; extensions: string[] }> = {
+const FILE_CATEGORIES: Record<
+  string,
+  { label: string; icon: string; color: string; extensions: string[] }
+> = {
   documents: {
     label: 'Documents',
     icon: 'file-text',
     color: '#8B5CF6',
-    extensions: ['pdf', 'doc', 'docx', 'txt', 'md', 'rtf', 'odt', 'csv', 'xls', 'xlsx', 'pptx', 'ppt'],
+    extensions: [
+      'pdf',
+      'doc',
+      'docx',
+      'txt',
+      'md',
+      'rtf',
+      'odt',
+      'csv',
+      'xls',
+      'xlsx',
+      'pptx',
+      'ppt',
+    ],
   },
   images: {
     label: 'Images',
@@ -61,11 +77,11 @@ function categorizeFile(fileName: string): string {
 // ── Types ──────────────────────────────────────────────────────────────
 
 interface StorageData {
-  used: number;          // vault container size on disk (bytes)
-  total: number;         // partition total capacity (bytes)
-  maxAllowed: number;    // 50% rule max vault size (bytes)
-  remaining: number;     // remaining space for vault growth (bytes)
-  percentage: number;    // vault size as % of partition total
+  used: number; // vault container size on disk (bytes)
+  total: number; // partition total capacity (bytes)
+  maxAllowed: number; // 50% rule max vault size (bytes)
+  remaining: number; // remaining space for vault growth (bytes)
+  percentage: number; // vault size as % of partition total
   fileCount: number;
   totalFileBytes: number; // sum of encrypted file record lengths
 }
@@ -91,7 +107,7 @@ const StorageScreen = () => {
   const { modal } = useInAppModal();
 
   const activeVaultId = useActiveVaultStore(s => s.activeVaultId);
-  const currentVault = useVaultListStore(s => activeVaultId ? s.vaultsById[activeVaultId] : null);
+  const currentVault = useVaultListStore(s => (activeVaultId ? s.vaultsById[activeVaultId] : null));
 
   // State
   const [storageData, setStorageData] = useState<StorageData | null>(null);
@@ -149,7 +165,8 @@ const StorageScreen = () => {
       const breakdown: UsageBreakdownItem[] = Object.entries(FILE_CATEGORIES)
         .map(([key, config]) => {
           const translated = t(`storage.${key}`);
-          const label = translated && !translated.startsWith('storage.') ? translated : config.label;
+          const label =
+            translated && !translated.startsWith('storage.') ? translated : config.label;
           return {
             label,
             size: categoryMap[key]?.size || 0,
@@ -229,15 +246,17 @@ const StorageScreen = () => {
 
   const capacityPercent = storageData ? Math.min(storageData.percentage, 100) : 0;
   const capacityBarWidth = capacityPercent > 0 && capacityPercent < 1 ? 1 : capacityPercent;
-  const capacityColor = capacityPercent > 90 ? '#EF4444' : capacityPercent > 75 ? '#F59E0B' : '#8B5CF6';
+  const capacityColor =
+    capacityPercent > 90 ? '#EF4444' : capacityPercent > 75 ? '#F59E0B' : '#8B5CF6';
 
-  const formattedPercent = capacityPercent === 0
-    ? '0%'
-    : capacityPercent < 0.1
-      ? '< 0.1%'
-      : capacityPercent < 1
-        ? `${capacityPercent.toFixed(2)}%`
-        : `${capacityPercent.toFixed(1)}%`;
+  const formattedPercent =
+    capacityPercent === 0
+      ? '0%'
+      : capacityPercent < 0.1
+        ? '< 0.1%'
+        : capacityPercent < 1
+          ? `${capacityPercent.toFixed(2)}%`
+          : `${capacityPercent.toFixed(1)}%`;
 
   // Vault overhead = vault container size minus actual file data
   const overhead = storageData ? Math.max(0, storageData.used - storageData.totalFileBytes) : 0;
@@ -261,24 +280,18 @@ const StorageScreen = () => {
                   <Text style={styles.pageTitle} accessibilityRole="header">
                     {t('storage.pageTitle')}
                   </Text>
-                  <Text style={styles.pageSubtitle}>
-                    {t('storage.pageSubtitle')}
-                  </Text>
+                  <Text style={styles.pageSubtitle}>{t('storage.pageSubtitle')}</Text>
                 </View>
                 <View style={[styles.card, styles.emptyStateCard]}>
                   {isLoading ? (
                     <>
                       <ActivityIndicator size="large" color="#8B5CF6" />
-                      <Text style={styles.emptyStateText}>
-                        {t('storage.loading')}
-                      </Text>
+                      <Text style={styles.emptyStateText}>{t('storage.loading')}</Text>
                     </>
                   ) : (
                     <>
                       <Feather name="hard-drive" size={40} color="rgba(255,255,255,0.4)" />
-                      <Text style={styles.emptyStateText}>
-                        {t('storage.unlockToView')}
-                      </Text>
+                      <Text style={styles.emptyStateText}>{t('storage.unlockToView')}</Text>
                     </>
                   )}
                 </View>
@@ -320,11 +333,11 @@ const StorageScreen = () => {
               <View style={[styles.card, styles.storageOverviewCard]}>
                 <View style={styles.overviewHeader}>
                   <View>
-                    <Text style={styles.overviewTitle}>
-                      {t('storage.vaultCapacity')}
-                    </Text>
+                    <Text style={styles.overviewTitle}>{t('storage.vaultCapacity')}</Text>
                     <Text style={styles.overviewSubtitle}>
-                      {storageData.fileCount} {storageData.fileCount === 1 ? t('storage.file') : t('storage.files')} encrypted
+                      {storageData.fileCount}{' '}
+                      {storageData.fileCount === 1 ? t('storage.file') : t('storage.files')}{' '}
+                      encrypted
                     </Text>
                   </View>
                   <Text style={styles.capacityText}>
@@ -340,18 +353,21 @@ const StorageScreen = () => {
                         styles.capacityBarFill,
                         { width: `${capacityBarWidth}%` },
                         webOnly({
-                          background: capacityPercent > 90
-                            ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
-                            : capacityPercent > 75
-                              ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
-                              : 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
+                          background:
+                            capacityPercent > 90
+                              ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                              : capacityPercent > 75
+                                ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
+                                : 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
                         }),
                         { backgroundColor: capacityColor },
                       ]}
                     />
                   </View>
                   <View style={styles.capacityBarLabels}>
-                    <Text style={styles.percentageText}>{formattedPercent} {t('storage.used')}</Text>
+                    <Text style={styles.percentageText}>
+                      {formattedPercent} {t('storage.used')}
+                    </Text>
                     <Text style={styles.capacitySubtext}>
                       {formatFileSize(storageData.remaining)} {t('storage.remaining')}
                     </Text>
@@ -372,7 +388,9 @@ const StorageScreen = () => {
                   <View style={styles.quotaDivider} />
                   <View style={styles.quotaStat}>
                     <Text style={styles.quotaLabel}>{t('storage.fileData')}</Text>
-                    <Text style={styles.quotaValue}>{formatFileSize(storageData.totalFileBytes)}</Text>
+                    <Text style={styles.quotaValue}>
+                      {formatFileSize(storageData.totalFileBytes)}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -397,7 +415,10 @@ const StorageScreen = () => {
                               backgroundColor: item.color,
                             },
                             index === 0 && { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
-                            index === usageBreakdown.length - 1 && { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+                            index === usageBreakdown.length - 1 && {
+                              borderTopRightRadius: 10,
+                              borderBottomRightRadius: 10,
+                            },
                           ]}
                         />
                       ))}
@@ -408,11 +429,14 @@ const StorageScreen = () => {
                       {usageBreakdown.map(item => (
                         <View key={item.label} style={styles.breakdownItem}>
                           <View style={styles.breakdownItemLeft}>
-                            <View style={[styles.colorIndicator, { backgroundColor: item.color }]} />
+                            <View
+                              style={[styles.colorIndicator, { backgroundColor: item.color }]}
+                            />
                             <View style={styles.breakdownItemTextWrap}>
                               <Text style={styles.breakdownLabel}>{item.label}</Text>
                               <Text style={styles.breakdownSize}>
-                                {formatFileSize(item.size)} · {item.count} {item.count === 1 ? t('storage.file') : t('storage.files')}
+                                {formatFileSize(item.size)} · {item.count}{' '}
+                                {item.count === 1 ? t('storage.file') : t('storage.files')}
                               </Text>
                             </View>
                           </View>
@@ -448,7 +472,9 @@ const StorageScreen = () => {
                           />
                         </View>
                         <View style={styles.fileInfo}>
-                          <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
+                          <Text style={styles.fileName} numberOfLines={1}>
+                            {file.name}
+                          </Text>
                           <Text style={styles.fileMeta}>{formatFileSize(file.size)}</Text>
                         </View>
                         {largestFile && file.name === largestFile.name && (
@@ -470,11 +496,10 @@ const StorageScreen = () => {
                       <Feather name="layers" size={20} color="#F59E0B" />
                     </View>
                     <View style={styles.overheadContent}>
-                      <Text style={styles.overheadTitle}>
-                        {t('storage.vaultOverhead')}
-                      </Text>
+                      <Text style={styles.overheadTitle}>{t('storage.vaultOverhead')}</Text>
                       <Text style={styles.overheadDescription}>
-                        {formatFileSize(overhead)} used by vault container structure (headers, index, encryption padding)
+                        {formatFileSize(overhead)} used by vault container structure (headers,
+                        index, encryption padding)
                       </Text>
                     </View>
                   </View>
@@ -486,10 +511,9 @@ const StorageScreen = () => {
                 <Pressable
                   onPress={loadStorageData}
                   disabled={isLoading}
-                  style={(state: PressableState) => [
-                    styles.refreshButton,
-                    state.hovered && styles.refreshButtonHover,
-                  ] as any}
+                  style={(state: PressableState) =>
+                    [styles.refreshButton, state.hovered && styles.refreshButtonHover] as any
+                  }
                   accessibilityRole="button"
                   accessibilityLabel={t('storage.refresh')}
                 >

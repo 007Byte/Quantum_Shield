@@ -1,12 +1,5 @@
 import React, { ReactNode } from 'react';
-import {
-  Pressable,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  ActivityIndicator,
-} from 'react-native';
+import { Pressable, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -198,11 +191,9 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <Pressable
-      style={(state: any) => [
-        ...getButtonStyle(),
-        state.focused && styles.focusVisible,
-        style,
-      ] as ViewStyle[]}
+      style={(state: any) =>
+        [...getButtonStyle(), state.focused && styles.focusVisible, style] as ViewStyle[]
+      }
       onPress={onPress}
       disabled={isDisabled}
       testID={testID}

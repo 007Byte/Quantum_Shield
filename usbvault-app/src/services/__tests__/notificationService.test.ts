@@ -159,15 +159,16 @@ describe('NotificationService', () => {
       (Notification.requestPermission as jest.Mock).mockResolvedValue('granted');
       await notificationService.init();
 
-      await notificationService.scheduleLocalNotification(
-        'Test Title',
-        'Test Body',
-        { type: 'general' }
-      );
+      await notificationService.scheduleLocalNotification('Test Title', 'Test Body', {
+        type: 'general',
+      });
 
-      expect(mockNotification).toHaveBeenCalledWith('Test Title', expect.objectContaining({
-        body: 'Test Body',
-      }));
+      expect(mockNotification).toHaveBeenCalledWith(
+        'Test Title',
+        expect.objectContaining({
+          body: 'Test Body',
+        })
+      );
     });
 
     it('should handle notification with security alert type', async () => {

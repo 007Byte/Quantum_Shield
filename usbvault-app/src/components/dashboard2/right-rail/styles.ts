@@ -314,7 +314,8 @@ export const rightRailStyles = StyleSheet.create({
     ...webOnly({
       background: 'linear-gradient(160deg, rgba(255,255,255,0.50), rgba(255,255,255,0.38))',
       backdropFilter: 'blur(20px) saturate(120%)',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.50), inset 0 1px 0 rgba(255,255,255,0.60)',
+      boxShadow:
+        '0 4px 20px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.50), inset 0 1px 0 rgba(255,255,255,0.60)',
     }),
   },
   cardSheenLight: {

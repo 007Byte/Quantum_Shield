@@ -204,10 +204,7 @@ describe('WebStorageService', () => {
     });
 
     it('should return true when vaults exist', async () => {
-      localStorage.setItem(
-        'usbvault:vaults',
-        JSON.stringify([{ id: 'vault-1', name: 'Test' }])
-      );
+      localStorage.setItem('usbvault:vaults', JSON.stringify([{ id: 'vault-1', name: 'Test' }]));
 
       const hasData = await webStorage.hasStoredData();
       expect(hasData).toBe(true);
@@ -263,9 +260,7 @@ describe('WebStorageService', () => {
     });
 
     it('deleteEncryptedIndex should not throw', async () => {
-      await expect(
-        webStorage.deleteEncryptedIndex('vault-1')
-      ).resolves.not.toThrow();
+      await expect(webStorage.deleteEncryptedIndex('vault-1')).resolves.not.toThrow();
     });
 
     it('hasEncryptedIndex should return false for nonexistent vault', async () => {

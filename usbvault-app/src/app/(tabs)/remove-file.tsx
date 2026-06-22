@@ -70,7 +70,9 @@ function RemoveFileScreen() {
               onSelectAll={selectAllFiles}
               panelStyle={panelStyle}
               labels={{
-                selectFiles: t('removeFile.selectFiles', { defaultValue: 'Select Files to Delete' }),
+                selectFiles: t('removeFile.selectFiles', {
+                  defaultValue: 'Select Files to Delete',
+                }),
                 selectAll: t('removeFile.selectAll', { defaultValue: 'Select All' }),
                 deselectAll: t('removeFile.deselectAll', { defaultValue: 'Deselect All' }),
               }}
@@ -83,12 +85,20 @@ function RemoveFileScreen() {
                 onToggleSecureWipe={setSecureWipeEnabled}
                 panelStyle={panelStyle}
                 labels={{
-                  deletionOptions: t('removeFile.deletionOptions', { defaultValue: 'Deletion Options' }),
+                  deletionOptions: t('removeFile.deletionOptions', {
+                    defaultValue: 'Deletion Options',
+                  }),
                   quickDelete: t('removeFile.quickDelete', { defaultValue: 'Quick Delete' }),
-                  quickDeleteDesc: t('removeFile.quickDeleteDesc', { defaultValue: 'Remove from vault immediately' }),
+                  quickDeleteDesc: t('removeFile.quickDeleteDesc', {
+                    defaultValue: 'Remove from vault immediately',
+                  }),
                   secureWipe: t('removeFile.secureWipe', { defaultValue: 'Secure Wipe' }),
-                  secureWipeLabel: t('removeFile.secureWipeLabel', { defaultValue: 'Overwrite data with 3-pass DOD standard' }),
-                  irreversible: t('removeFile.irreversible', { defaultValue: 'This action is irreversible. Deleted files cannot be recovered.' }),
+                  secureWipeLabel: t('removeFile.secureWipeLabel', {
+                    defaultValue: 'Overwrite data with 3-pass DOD standard',
+                  }),
+                  irreversible: t('removeFile.irreversible', {
+                    defaultValue: 'This action is irreversible. Deleted files cannot be recovered.',
+                  }),
                 }}
               />
             )}
@@ -96,16 +106,14 @@ function RemoveFileScreen() {
             {/* Delete Button */}
             <Pressable
               accessibilityRole="button"
-              style={[
-                styles.deleteButton,
-                selectedFiles.size === 0 && styles.deleteButtonDisabled,
-              ]}
+              style={[styles.deleteButton, selectedFiles.size === 0 && styles.deleteButtonDisabled]}
               onPress={handleDeleteClick}
               disabled={selectedFiles.size === 0}
             >
               <Feather name="trash-2" size={20} color="#fff" />
               <Text style={styles.deleteButtonText}>
-                {t('removeFile.deleteSelected', { defaultValue: 'Delete Selected' })} ({selectedFiles.size})
+                {t('removeFile.deleteSelected', { defaultValue: 'Delete Selected' })} (
+                {selectedFiles.size})
               </Text>
             </Pressable>
           </>
@@ -117,7 +125,9 @@ function RemoveFileScreen() {
           panelStyle={panelStyle}
           labels={{
             deletionHistory: t('removeFile.deletionHistory', { defaultValue: 'Deletion History' }),
-            secureWipeLabel: t('removeFile.secureWipe3Pass', { defaultValue: 'Secure Wipe (3-pass)' }),
+            secureWipeLabel: t('removeFile.secureWipe3Pass', {
+              defaultValue: 'Secure Wipe (3-pass)',
+            }),
             quickDelete: t('removeFile.quickDeleteMethod', { defaultValue: 'Quick Delete' }),
             noHistory: t('removeFile.noHistory', { defaultValue: 'No deletion history yet' }),
           }}

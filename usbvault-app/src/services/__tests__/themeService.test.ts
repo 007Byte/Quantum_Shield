@@ -6,6 +6,8 @@
  */
 
 // Must be defined before importing themeService (constructor calls matchMedia)
+import { themeService } from '../themeService';
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation(query => ({
@@ -19,8 +21,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
-
-import { themeService } from '../themeService';
 
 // Mock localStorage
 const localStorageMock = (() => {

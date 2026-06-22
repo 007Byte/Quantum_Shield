@@ -1,9 +1,5 @@
 import { test, expect } from '@playwright/test';
-import {
-  waitForApp,
-  registerAccount,
-  expectAuthenticated,
-} from './helpers';
+import { waitForApp, registerAccount, expectAuthenticated } from './helpers';
 
 test.describe('File Decryption Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,9 +10,9 @@ test.describe('File Decryption Flow', () => {
   });
 
   test('navigate to decrypt screen', async ({ page }) => {
-    const decryptNav = page.locator(
-      '[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]'
-    ).first();
+    const decryptNav = page
+      .locator('[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]')
+      .first();
 
     if (await decryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await decryptNav.click();
@@ -24,16 +20,16 @@ test.describe('File Decryption Flow', () => {
     }
 
     // Decrypt screen should show file list or empty state
-    const decryptContent = page.locator(
-      'text=/decrypt|Decrypt|no files|select files|unlock/i'
-    ).first();
+    const decryptContent = page
+      .locator('text=/decrypt|Decrypt|no files|select files|unlock/i')
+      .first();
     await expect(decryptContent).toBeVisible({ timeout: 10000 });
   });
 
   test('decrypt screen shows empty state for new user', async ({ page }) => {
-    const decryptNav = page.locator(
-      '[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]'
-    ).first();
+    const decryptNav = page
+      .locator('[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]')
+      .first();
 
     if (await decryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await decryptNav.click();
@@ -41,9 +37,7 @@ test.describe('File Decryption Flow', () => {
     }
 
     // New user with no encrypted files should see empty state
-    const emptyState = page.locator(
-      'text=/no files|empty|get started|add files|unlock/i'
-    ).first();
+    const emptyState = page.locator('text=/no files|empty|get started|add files|unlock/i').first();
 
     if (await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) {
       await expect(emptyState).toBeVisible();
@@ -51,9 +45,9 @@ test.describe('File Decryption Flow', () => {
   });
 
   test('decrypt screen has search/filter capability', async ({ page }) => {
-    const decryptNav = page.locator(
-      '[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]'
-    ).first();
+    const decryptNav = page
+      .locator('[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]')
+      .first();
 
     if (await decryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await decryptNav.click();
@@ -61,9 +55,11 @@ test.describe('File Decryption Flow', () => {
     }
 
     // Look for search input or filter controls
-    const searchInput = page.locator(
-      '[data-testid*="search"], input[placeholder*="search" i], input[placeholder*="filter" i]'
-    ).first();
+    const searchInput = page
+      .locator(
+        '[data-testid*="search"], input[placeholder*="search" i], input[placeholder*="filter" i]'
+      )
+      .first();
 
     if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(searchInput).toBeVisible();
@@ -76,9 +72,9 @@ test.describe('File Decryption Flow', () => {
   });
 
   test('decrypt controls show mode selection', async ({ page }) => {
-    const decryptNav = page.locator(
-      '[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]'
-    ).first();
+    const decryptNav = page
+      .locator('[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]')
+      .first();
 
     if (await decryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await decryptNav.click();
@@ -86,9 +82,9 @@ test.describe('File Decryption Flow', () => {
     }
 
     // Decrypt screen should offer View or Save modes
-    const modeControls = page.locator(
-      'text=/view|save|download|decrypt all|decrypt selected/i'
-    ).first();
+    const modeControls = page
+      .locator('text=/view|save|download|decrypt all|decrypt selected/i')
+      .first();
 
     if (await modeControls.isVisible({ timeout: 5000 }).catch(() => false)) {
       await expect(modeControls).toBeVisible();

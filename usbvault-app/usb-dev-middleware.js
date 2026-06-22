@@ -42,7 +42,7 @@ function proxyToCompanion(req, res) {
     timeout: req.url.includes('/provision') ? 600000 : 120000,
   };
 
-  const proxyReq = http.request(proxyOpts, (proxyRes) => {
+  const proxyReq = http.request(proxyOpts, proxyRes => {
     // Remove security headers from companion that could interfere
     // (CSP, CORP, etc. are companion-level and not relevant for same-origin dev)
     const headers = { ...proxyRes.headers };
@@ -54,28 +54,33 @@ function proxyToCompanion(req, res) {
     // Keep CORS permissive for dev
     headers['access-control-allow-origin'] = '*';
     headers['access-control-allow-methods'] = 'GET, POST, DELETE, OPTIONS';
-    headers['access-control-allow-headers'] = 'Content-Type, Authorization, X-Request-ID, X-File-Name';
+    headers['access-control-allow-headers'] =
+      'Content-Type, Authorization, X-Request-ID, X-File-Name';
 
     res.writeHead(proxyRes.statusCode, headers);
     proxyRes.pipe(res, { end: true });
   });
 
-  proxyReq.on('error', (err) => {
+  proxyReq.on('error', err => {
     console.error('[USB Proxy] Companion service unreachable:', err.message);
     res.writeHead(503, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: 'USB Companion Service unavailable',
-      message: `Cannot reach companion at ${COMPANION_HOST}:${COMPANION_PORT}. Is it running? Start with: cd usb-companion && node src/server.js`,
-    }));
+    res.end(
+      JSON.stringify({
+        error: 'USB Companion Service unavailable',
+        message: `Cannot reach companion at ${COMPANION_HOST}:${COMPANION_PORT}. Is it running? Start with: cd usb-companion && node src/server.js`,
+      })
+    );
   });
 
   proxyReq.on('timeout', () => {
     proxyReq.destroy();
     res.writeHead(504, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: 'USB Companion Service timeout',
-      message: 'The companion service did not respond in time.',
-    }));
+    res.end(
+      JSON.stringify({
+        error: 'USB Companion Service timeout',
+        message: 'The companion service did not respond in time.',
+      })
+    );
   });
 
   // Stream request body to companion (important for file uploads)
@@ -85,7 +90,9 @@ function proxyToCompanion(req, res) {
 // ── Middleware Factory ─────────────────────────────────────────────────
 
 function createUsbMiddleware(metroMiddleware) {
-  console.log(`[USB Proxy] Proxying /usb/* and /health to companion at ${COMPANION_HOST}:${COMPANION_PORT}`);
+  console.log(
+    `[USB Proxy] Proxying /usb/* and /health to companion at ${COMPANION_HOST}:${COMPANION_PORT}`
+  );
 
   return function usbMiddleware(req, res, next) {
     // Handle CORS preflight for USB endpoints

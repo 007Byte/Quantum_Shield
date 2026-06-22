@@ -76,17 +76,13 @@ function KeysScreen() {
   ];
 
   const handleRotateKey = () => {
-    Alert.alert(
-      t('keys.rotateKeys'),
-      t('keys.rotateConfirm'),
-      [
-        { text: t('keys.cancel'), style: 'cancel' },
-        {
-          text: t('keys.rotateNow'),
-          onPress: () => Alert.alert(t('keys.success'), t('keys.rotationInitiated')),
-        },
-      ]
-    );
+    Alert.alert(t('keys.rotateKeys'), t('keys.rotateConfirm'), [
+      { text: t('keys.cancel'), style: 'cancel' },
+      {
+        text: t('keys.rotateNow'),
+        onPress: () => Alert.alert(t('keys.success'), t('keys.rotationInitiated')),
+      },
+    ]);
   };
 
   const handleExportPublicKey = () => {
@@ -142,29 +138,29 @@ function KeysScreen() {
                     description={t('empty.keysDescription')}
                   />
                 ) : (
-                <View style={styles.keysGrid}>
-                  {keys.map(key => (
-                    <View key={key.id} style={[styles.keyCard, glassPanelBase, webOnlyGlass]}>
-                      <View style={styles.keyCardHeader}>
-                        <View>
-                          <Text style={styles.keyName}>{key.name}</Text>
-                          <Text style={styles.keyType}>{key.algorithm}</Text>
+                  <View style={styles.keysGrid}>
+                    {keys.map(key => (
+                      <View key={key.id} style={[styles.keyCard, glassPanelBase, webOnlyGlass]}>
+                        <View style={styles.keyCardHeader}>
+                          <View>
+                            <Text style={styles.keyName}>{key.name}</Text>
+                            <Text style={styles.keyType}>{key.algorithm}</Text>
+                          </View>
+                          <View style={[styles.statusBadge, styles.statusActive]}>
+                            <View style={styles.statusDot} />
+                            <Text style={styles.statusText}>{t('keys.active')}</Text>
+                          </View>
                         </View>
-                        <View style={[styles.statusBadge, styles.statusActive]}>
-                          <View style={styles.statusDot} />
-                          <Text style={styles.statusText}>{t('keys.active')}</Text>
-                        </View>
-                      </View>
 
-                      <View style={styles.keyCardContent}>
-                        <View style={styles.keyDetail}>
-                          <Text style={styles.keyLabel}>{t('keys.created')}</Text>
-                          <Text style={styles.keyValue}>{key.created}</Text>
+                        <View style={styles.keyCardContent}>
+                          <View style={styles.keyDetail}>
+                            <Text style={styles.keyLabel}>{t('keys.created')}</Text>
+                            <Text style={styles.keyValue}>{key.created}</Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  ))}
-                </View>
+                    ))}
+                  </View>
                 )}
               </View>
 
@@ -231,9 +227,7 @@ function KeysScreen() {
                     <Ionicons name="information-circle" size={20} color={dashboardColors.cyan} />
                     <View style={styles.exportInfoText}>
                       <Text style={styles.exportTitle}>{t('keys.exportPublicKeys')}</Text>
-                      <Text style={styles.exportDesc}>
-                        {t('keys.exportDescription')}
-                      </Text>
+                      <Text style={styles.exportDesc}>{t('keys.exportDescription')}</Text>
                     </View>
                   </View>
 

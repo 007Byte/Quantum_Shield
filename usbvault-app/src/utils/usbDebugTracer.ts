@@ -90,7 +90,8 @@ class USBDebugTracer {
    */
   private sanitizeResult(result: any): any {
     if (result instanceof Uint8Array || result instanceof ArrayBuffer) {
-      const size = result instanceof Uint8Array ? result.length : (result as ArrayBuffer).byteLength;
+      const size =
+        result instanceof Uint8Array ? result.length : (result as ArrayBuffer).byteLength;
       return `[Binary result: ${size} bytes]`;
     }
 
@@ -250,9 +251,7 @@ class USBDebugTracer {
     const total = this.traces.length;
     const successful = this.traces.filter(e => e.success).length;
     const failed = this.traces.filter(e => !e.success).length;
-    const avgDuration = total > 0
-      ? this.traces.reduce((sum, e) => sum + e.duration, 0) / total
-      : 0;
+    const avgDuration = total > 0 ? this.traces.reduce((sum, e) => sum + e.duration, 0) / total : 0;
 
     return {
       totalOperations: total,

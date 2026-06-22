@@ -355,7 +355,9 @@ function MessagesScreen() {
                         {isLoadingMessages ? (
                           <View style={styles.noMessagesYet}>
                             <ActivityIndicator size="small" color="rgba(139,92,246,0.6)" />
-                            <Text style={styles.noMessagesYetText}>{t('messages.decryptingMessages')}</Text>
+                            <Text style={styles.noMessagesYetText}>
+                              {t('messages.decryptingMessages')}
+                            </Text>
                           </View>
                         ) : conversationMessages.length === 0 ? (
                           <View style={styles.noMessagesYet}>

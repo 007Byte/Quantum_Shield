@@ -16,7 +16,7 @@ import { securitySettings } from '@/services/settingsStorage';
 
 // PH4-FIX: Type definitions for RTCPeerConnection web API
 interface RTCPeerConnectionOptions {
-  iceServers?: Array<{ urls: string[] }>;
+  iceServers?: { urls: string[] }[];
 }
 
 interface RTCPeerConnection {

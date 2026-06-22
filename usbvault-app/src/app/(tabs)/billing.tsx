@@ -74,10 +74,7 @@ function BillingScreen() {
     }
     // On web or when no subscription exists, guide user to appropriate store
     if (Platform.OS === 'web') {
-      Alert.alert(
-        t('billing.paymentMethod'),
-        t('billing.webPaymentMsg')
-      );
+      Alert.alert(t('billing.paymentMethod'), t('billing.webPaymentMsg'));
     } else {
       // No active subscription — open the platform's subscription settings
       const storeUrl =
@@ -93,22 +90,15 @@ function BillingScreen() {
     // Cancellation is handled through the App Store / Play Store
     const managementUrl = await purchaseService.getManagementURL();
     if (managementUrl) {
-      Alert.alert(
-        t('billing.cancelSubscription'),
-        t('billing.cancelRedirectMsg'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('billing.continue'),
-            onPress: () => Linking.openURL(managementUrl),
-          },
-        ]
-      );
+      Alert.alert(t('billing.cancelSubscription'), t('billing.cancelRedirectMsg'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('billing.continue'),
+          onPress: () => Linking.openURL(managementUrl),
+        },
+      ]);
     } else if (currentTier === 'free') {
-      Alert.alert(
-        t('billing.cancelSubscription'),
-        t('billing.alreadyFree')
-      );
+      Alert.alert(t('billing.cancelSubscription'), t('billing.alreadyFree'));
     } else {
       // Fallback: open platform store directly
       const storeUrl =
@@ -120,10 +110,7 @@ function BillingScreen() {
       if (storeUrl) {
         Linking.openURL(storeUrl);
       } else {
-        Alert.alert(
-          t('billing.cancelSubscription'),
-          t('billing.cancelMobileOnly')
-        );
+        Alert.alert(t('billing.cancelSubscription'), t('billing.cancelMobileOnly'));
       }
     }
   }, [currentTier, t]);
@@ -195,9 +182,7 @@ function BillingScreen() {
                 <View style={styles.planDetail}>
                   <Text style={styles.planDetailLabel}>{t('billing.renewalDate')}</Text>
                   <Text style={styles.planDetailValue}>
-                    {currentTier === 'free'
-                      ? '—'
-                      : t('billing.managedByStore')}
+                    {currentTier === 'free' ? '—' : t('billing.managedByStore')}
                   </Text>
                 </View>
               </View>

@@ -48,7 +48,9 @@ export const VaultStatusBadge = React.memo(function VaultStatusBadge({
   const { t } = useLanguage();
 
   // FIX: Derive vaultLocked from orchestrator state, not app auth
-  const [orchestratorUnlocked, setOrchestratorUnlocked] = useState(() => vaultOrchestrator.isUnlocked());
+  const [orchestratorUnlocked, setOrchestratorUnlocked] = useState(() =>
+    vaultOrchestrator.isUnlocked()
+  );
   useEffect(() => {
     setOrchestratorUnlocked(vaultOrchestrator.isUnlocked());
     const unsub = vaultOrchestrator.onLockStateChange((unlocked: boolean) => {

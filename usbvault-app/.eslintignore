@@ -1,1 +1,18 @@
+# Large generated bloom-filter data
 src/utils/weakPasswordBloom.ts
+
+# Build / generated output — never lint these. The Expo web bundle in dist/
+# is a single ~6 MB minified file that makes eslint-plugin-import (no-unresolved/
+# namespace/export) run for 30+ minutes and times out the CI job.
+dist/
+build/
+web-build/
+coverage/
+.expo/
+.expo-shared/
+node_modules/
+android/
+ios/
+playwright-report/
+test-results/
+*.min.js

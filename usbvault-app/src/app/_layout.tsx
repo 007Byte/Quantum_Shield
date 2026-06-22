@@ -74,9 +74,7 @@ function useWebBackground() {
 
     // Overlay tint: dark mode gets a subtle dark veil, light mode gets a subtle white veil
     const overlayColor =
-      colorScheme === 'light'
-        ? 'rgba(237, 232, 245, 0.08)'
-        : 'rgba(5, 2, 15, 0.08)';
+      colorScheme === 'light' ? 'rgba(237, 232, 245, 0.08)' : 'rgba(5, 2, 15, 0.08)';
 
     const styleId = 'usbvault-global-bg';
     let el = document.getElementById(styleId) as HTMLStyleElement | null;
@@ -182,10 +180,7 @@ export default function RootLayout() {
             />
             <View
               pointerEvents="none"
-              style={[
-                styles.nativeOverlay,
-                colorScheme === 'light' && styles.nativeOverlayLight,
-              ]}
+              style={[styles.nativeOverlay, colorScheme === 'light' && styles.nativeOverlayLight]}
             />
           </>
         )}

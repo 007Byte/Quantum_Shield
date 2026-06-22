@@ -101,7 +101,7 @@ export function AdvancedSecuritySection() {
   };
 
   const handleKeyProviderChange = () => {
-    const options: Array<{ label: string; value: 'software' | 'hardware' | 'hybrid' }> = [
+    const options: { label: string; value: 'software' | 'hardware' | 'hybrid' }[] = [
       { label: t('advancedSecurity.keySoftware'), value: 'software' },
       { label: t('advancedSecurity.keyHardware'), value: 'hardware' },
       { label: t('advancedSecurity.keyHybrid'), value: 'hybrid' },
@@ -128,7 +128,7 @@ export function AdvancedSecuritySection() {
   };
 
   const handleBackupFrequencyChange = () => {
-    const options: Array<{ label: string; value: 'daily' | 'weekly' | 'monthly' }> = [
+    const options: { label: string; value: 'daily' | 'weekly' | 'monthly' }[] = [
       { label: t('advancedSecurity.daily'), value: 'daily' },
       { label: t('advancedSecurity.weekly'), value: 'weekly' },
       { label: t('advancedSecurity.monthly'), value: 'monthly' },

@@ -139,9 +139,7 @@ function ResetUSBScreen() {
                   color={danger}
                   style={styles.warningIcon}
                 />
-                <Text style={styles.warningText}>
-                  {t('resetUsb.warningText')}
-                </Text>
+                <Text style={styles.warningText}>{t('resetUsb.warningText')}</Text>
               </View>
 
               {/* Select USB Drive Section */}
@@ -252,9 +250,7 @@ function ResetUSBScreen() {
                     <View style={styles.methodHeader}>
                       <Text style={styles.methodTitle}>{t('resetUsb.quickErase')}</Text>
                     </View>
-                    <Text style={styles.methodDescription}>
-                      {t('resetUsb.quickEraseDesc')}
-                    </Text>
+                    <Text style={styles.methodDescription}>{t('resetUsb.quickEraseDesc')}</Text>
                   </Pressable>
 
                   {/* Secure Wipe Card */}
@@ -269,9 +265,7 @@ function ResetUSBScreen() {
                     <View style={styles.methodHeader}>
                       <Text style={styles.methodTitle}>{t('resetUsb.secureWipe')}</Text>
                     </View>
-                    <Text style={styles.methodDescription}>
-                      {t('resetUsb.secureWipeDesc')}
-                    </Text>
+                    <Text style={styles.methodDescription}>{t('resetUsb.secureWipeDesc')}</Text>
 
                     {wipeMethod === 'secure' && (
                       <View style={styles.passPillsContainer}>

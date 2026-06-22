@@ -6,6 +6,8 @@
  */
 
 // Mock localStorage
+import { sessionService, Session } from '../sessionService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -53,8 +55,6 @@ jest.mock('@/services/auditService', () => ({
     log: jest.fn().mockResolvedValue(undefined),
   },
 }));
-
-import { sessionService, Session } from '../sessionService';
 
 const SESSIONS_KEY = 'usbvault:sessions';
 const DEVICES_KEY = 'usbvault:remembered_devices';

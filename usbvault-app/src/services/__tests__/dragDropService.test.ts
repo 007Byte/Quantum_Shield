@@ -149,7 +149,9 @@ describe('DragDropService', () => {
 
       const processed = await dragDropService.processFiles(files);
 
-      expect(processed[0].type).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(processed[0].type).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      );
       expect(processed[0].lastModified).toBe(lastMod);
     });
   });

@@ -54,22 +54,16 @@ const ZeroTraceScreen = () => {
   };
 
   const handleCleanAll = () => {
-    showConfirm(
-      t('zeroTrace.cleanAllPrompt'),
-      t('zeroTrace.permanentDelete'),
-      () => {
-        setLastScanResults(null);
-        showSuccess(t('zeroTrace.tracesCleanedTitle'), t('zeroTrace.tracesCleanedMsg'));
-      }
-    );
+    showConfirm(t('zeroTrace.cleanAllPrompt'), t('zeroTrace.permanentDelete'), () => {
+      setLastScanResults(null);
+      showSuccess(t('zeroTrace.tracesCleanedTitle'), t('zeroTrace.tracesCleanedMsg'));
+    });
   };
 
   const handleGhostModeToggle = () => {
     if (!ghostModeEnabled) {
-      showConfirm(
-        t('zeroTrace.enableGhost'),
-        t('zeroTrace.ghostModeDesc'),
-        () => setGhostModeEnabled(true)
+      showConfirm(t('zeroTrace.enableGhost'), t('zeroTrace.ghostModeDesc'), () =>
+        setGhostModeEnabled(true)
       );
     } else {
       setGhostModeEnabled(false);
@@ -77,13 +71,9 @@ const ZeroTraceScreen = () => {
   };
 
   const handleEditDuressPassword = () => {
-    showConfirm(
-      t('zeroTrace.editDuressTitle'),
-      t('zeroTrace.editDuressDesc'),
-      () => {
-        showSuccess(t('zeroTrace.duressTitle'), t('zeroTrace.duressUpdated'));
-      }
-    );
+    showConfirm(t('zeroTrace.editDuressTitle'), t('zeroTrace.editDuressDesc'), () => {
+      showSuccess(t('zeroTrace.duressTitle'), t('zeroTrace.duressUpdated'));
+    });
   };
 
   return (
@@ -103,9 +93,7 @@ const ZeroTraceScreen = () => {
                 <Text style={styles.pageTitle} accessibilityRole="header">
                   {t('zeroTrace.pageTitle')}
                 </Text>
-                <Text style={styles.pageSubtitle}>
-                  {t('zeroTrace.pageSubtitle')}
-                </Text>
+                <Text style={styles.pageSubtitle}>{t('zeroTrace.pageSubtitle')}</Text>
               </View>
 
               {/* Ghost Mode Card */}
@@ -132,9 +120,7 @@ const ZeroTraceScreen = () => {
                   </View>
                 </View>
 
-                <Text style={styles.cardDescription}>
-                  {t('zeroTrace.ghostModeCardDesc')}
-                </Text>
+                <Text style={styles.cardDescription}>{t('zeroTrace.ghostModeCardDesc')}</Text>
 
                 <Pressable
                   accessibilityRole="button"
@@ -260,15 +246,11 @@ const ZeroTraceScreen = () => {
                   </View>
                 </View>
 
-                <Text style={styles.cardDescription}>
-                  {t('zeroTrace.autoDestroyDesc')}
-                </Text>
+                <Text style={styles.cardDescription}>{t('zeroTrace.autoDestroyDesc')}</Text>
 
                 <View style={styles.warningBox}>
                   <Feather name="alert-triangle" size={16} color={colors.warning} />
-                  <Text style={styles.warningText}>
-                    {t('zeroTrace.triggerWarning')}
-                  </Text>
+                  <Text style={styles.warningText}>{t('zeroTrace.triggerWarning')}</Text>
                 </View>
 
                 <Pressable
@@ -369,9 +351,7 @@ const ZeroTraceScreen = () => {
                   </View>
                 </View>
 
-                <Text style={styles.cardDescription}>
-                  {t('zeroTrace.forensicDesc')}
-                </Text>
+                <Text style={styles.cardDescription}>{t('zeroTrace.forensicDesc')}</Text>
 
                 {lastScanResults ? (
                   <View style={styles.scanResultsContainer}>

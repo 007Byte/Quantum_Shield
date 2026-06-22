@@ -46,7 +46,11 @@ export async function registerAccount(page: Page, email?: string): Promise<strin
 }
 
 /** Log in with an existing account. */
-export async function loginAccount(page: Page, email: string, password = TEST_PASSWORD): Promise<void> {
+export async function loginAccount(
+  page: Page,
+  email: string,
+  password = TEST_PASSWORD
+): Promise<void> {
   await page.getByTestId('login-email-input').fill(email);
   await page.getByTestId('login-password-input').fill(password);
   await page.getByTestId('login-button').click();
@@ -59,8 +63,9 @@ export async function loginAccount(page: Page, email: string, password = TEST_PA
 export async function expectAuthenticated(page: Page): Promise<void> {
   // The tabs layout renders after authentication — look for dashboard content
   // The sidebar or tab navigation should be visible
-  await expect(page.locator('[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"]').first())
-    .toBeVisible({ timeout: 10000 });
+  await expect(
+    page.locator('[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"]').first()
+  ).toBeVisible({ timeout: 10000 });
 }
 
 /** Assert we're on the login screen (unauthenticated). */
@@ -79,35 +84,41 @@ export async function registerAndLogin(page: Page): Promise<string> {
 
 /** Navigate to vault management and create a vault with the given name. */
 export async function createVault(page: Page, name: string): Promise<void> {
-  const vaultsNav = page.locator(
-    '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-  ).first();
+  const vaultsNav = page
+    .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+    .first();
 
   if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
     await vaultsNav.click();
     await page.waitForTimeout(1000);
   }
 
-  const createButton = page.locator(
-    '[data-testid*="create-vault"], [data-testid*="add-vault"], [data-testid*="new-vault"]'
-  ).first();
+  const createButton = page
+    .locator(
+      '[data-testid*="create-vault"], [data-testid*="add-vault"], [data-testid*="new-vault"]'
+    )
+    .first();
 
   if (await createButton.isVisible({ timeout: 5000 }).catch(() => false)) {
     await createButton.click();
     await page.waitForTimeout(500);
 
-    const nameInput = page.locator(
-      '[data-testid*="vault-name"], input[placeholder*="name" i], input[placeholder*="vault" i]'
-    ).first();
+    const nameInput = page
+      .locator(
+        '[data-testid*="vault-name"], input[placeholder*="name" i], input[placeholder*="vault" i]'
+      )
+      .first();
 
     if (await nameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await nameInput.fill(name);
       await page.waitForTimeout(300);
     }
 
-    const submitButton = page.locator(
-      '[data-testid*="submit-vault"], [data-testid*="save-vault"], [data-testid*="confirm"]'
-    ).first();
+    const submitButton = page
+      .locator(
+        '[data-testid*="submit-vault"], [data-testid*="save-vault"], [data-testid*="confirm"]'
+      )
+      .first();
 
     if (await submitButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await submitButton.click();
@@ -118,26 +129,24 @@ export async function createVault(page: Page, name: string): Promise<void> {
 
 /** Navigate to settings and switch the application language. */
 export async function switchLanguage(page: Page, locale: string): Promise<void> {
-  const settingsNav = page.locator(
-    '[data-testid*="settings"], [data-testid*="Settings"], [href*="settings"]'
-  ).first();
+  const settingsNav = page
+    .locator('[data-testid*="settings"], [data-testid*="Settings"], [href*="settings"]')
+    .first();
 
   if (await settingsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
     await settingsNav.click();
     await page.waitForTimeout(1000);
   }
 
-  const langPicker = page.locator(
-    '[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang-select"]'
-  ).first();
+  const langPicker = page
+    .locator('[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang-select"]')
+    .first();
 
   if (await langPicker.isVisible({ timeout: 5000 }).catch(() => false)) {
     await langPicker.click();
     await page.waitForTimeout(500);
 
-    const localeOption = page.locator(
-      `[data-testid*="${locale}"], text=/${locale}/i`
-    ).first();
+    const localeOption = page.locator(`[data-testid*="${locale}"], text=/${locale}/i`).first();
 
     if (await localeOption.isVisible({ timeout: 3000 }).catch(() => false)) {
       await localeOption.click();
@@ -148,9 +157,12 @@ export async function switchLanguage(page: Page, locale: string): Promise<void> 
 
 /** Wait for a toast/notification with matching text to appear. */
 export async function waitForToast(page: Page, text: string): Promise<void> {
-  const toast = page.locator(
-    `[data-testid*="toast"], [role="alert"], [data-testid*="notification"], [data-testid*="snackbar"]`
-  ).filter({ hasText: new RegExp(text, 'i') }).first();
+  const toast = page
+    .locator(
+      `[data-testid*="toast"], [role="alert"], [data-testid*="notification"], [data-testid*="snackbar"]`
+    )
+    .filter({ hasText: new RegExp(text, 'i') })
+    .first();
 
   await expect(toast).toBeVisible({ timeout: 10000 });
 }
@@ -162,9 +174,9 @@ export async function waitForToast(page: Page, text: string): Promise<void> {
 export async function interceptNetwork(
   page: Page,
   pattern: string,
-  response: { status: number; body?: string; contentType?: string },
+  response: { status: number; body?: string; contentType?: string }
 ): Promise<void> {
-  await page.route(pattern, (route) =>
+  await page.route(pattern, route =>
     route.fulfill({
       status: response.status,
       contentType: response.contentType || 'application/json',

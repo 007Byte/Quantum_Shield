@@ -163,15 +163,18 @@ export function TopBar() {
   }, []);
 
   // PL-018: Memoize utility function
-  const formatNotifTime = useCallback((ts: string) => {
-    const diff = Date.now() - new Date(ts).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return t('topBar.justNow');
-    if (mins < 60) return t('topBar.minsAgo', { mins });
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return t('topBar.hoursAgo', { hours });
-    return t('topBar.daysAgo', { days: Math.floor(hours / 24) });
-  }, [t]);
+  const formatNotifTime = useCallback(
+    (ts: string) => {
+      const diff = Date.now() - new Date(ts).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return t('topBar.justNow');
+      if (mins < 60) return t('topBar.minsAgo', { mins });
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return t('topBar.hoursAgo', { hours });
+      return t('topBar.daysAgo', { days: Math.floor(hours / 24) });
+    },
+    [t]
+  );
 
   const notifications = useMemo(() => {
     return recentActivity.map((entry, i) => ({
@@ -215,11 +218,14 @@ export function TopBar() {
     setOpenMenu(null);
   }, []);
 
-  const handleSelectLanguage = useCallback((lang: string) => {
-    const code = LANG_NAME_TO_CODE[lang] || 'en';
-    setLanguage(code);
-    setOpenMenu(null);
-  }, [setLanguage]);
+  const handleSelectLanguage = useCallback(
+    (lang: string) => {
+      const code = LANG_NAME_TO_CODE[lang] || 'en';
+      setLanguage(code);
+      setOpenMenu(null);
+    },
+    [setLanguage]
+  );
 
   const handleProfileAction = useCallback(
     async (action: string) => {
@@ -262,11 +268,21 @@ export function TopBar() {
       <Pressable
         onPress={() => toggleTheme()}
         style={(state: PressableState) =>
-          [styles.themeToggleBtn, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+          [
+            styles.themeToggleBtn,
+            isLight && styles.controlLight,
+            state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover),
+          ] as any
         }
       >
-        <Feather name={darkMode ? 'moon' : 'sun'} size={15} color={isLight ? '#504678' : dashboardColors.textPrimary} />
-        <Text style={[styles.controlText, isLight && styles.controlTextLight]}>{darkMode ? t('topBar.dark') : t('topBar.light')}</Text>
+        <Feather
+          name={darkMode ? 'moon' : 'sun'}
+          size={15}
+          color={isLight ? '#504678' : dashboardColors.textPrimary}
+        />
+        <Text style={[styles.controlText, isLight && styles.controlTextLight]}>
+          {darkMode ? t('topBar.dark') : t('topBar.light')}
+        </Text>
       </Pressable>
 
       {/* Language selector */}
@@ -276,19 +292,37 @@ export function TopBar() {
         <Pressable
           onPress={() => toggleMenu('language')}
           style={(state: PressableState) =>
-            [styles.controlPill, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+            [
+              styles.controlPill,
+              isLight && styles.controlLight,
+              state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover),
+            ] as any
           }
         >
-          <Feather name="globe" size={15} color={isLight ? '#504678' : dashboardColors.textPrimary} />
-          <Text style={[styles.controlText, isLight && styles.controlTextLight]}>{languageCode}</Text>
-          <Feather name="chevron-down" size={15} color={isLight ? '#8B7EB0' : dashboardColors.textSecondary} />
+          <Feather
+            name="globe"
+            size={15}
+            color={isLight ? '#504678' : dashboardColors.textPrimary}
+          />
+          <Text style={[styles.controlText, isLight && styles.controlTextLight]}>
+            {languageCode}
+          </Text>
+          <Feather
+            name="chevron-down"
+            size={15}
+            color={isLight ? '#8B7EB0' : dashboardColors.textSecondary}
+          />
         </Pressable>
 
         {openMenu === 'language' && (
-          <View nativeID="dropdown-language" style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownLanguage]}>
+          <View
+            nativeID="dropdown-language"
+            style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownLanguage]}
+          >
             <Text style={styles.dropdownTitle}>{t('topBar.language')}</Text>
             {languages.map(lang => (
-              <DropdownItem isLight={isLight}
+              <DropdownItem
+                isLight={isLight}
                 key={lang}
                 onPress={() => handleSelectLanguage(lang)}
                 active={selectedLanguage === lang}
@@ -320,10 +354,18 @@ export function TopBar() {
         <Pressable
           onPress={() => toggleMenu('notifications')}
           style={(state: PressableState) =>
-            [styles.notificationBtn, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+            [
+              styles.notificationBtn,
+              isLight && styles.controlLight,
+              state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover),
+            ] as any
           }
         >
-          <Feather name="bell" size={16} color={isLight ? '#504678' : dashboardColors.textPrimary} />
+          <Feather
+            name="bell"
+            size={16}
+            color={isLight ? '#504678' : dashboardColors.textPrimary}
+          />
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{notifications.length}</Text>
           </View>
@@ -332,7 +374,11 @@ export function TopBar() {
         {openMenu === 'notifications' && (
           <View
             nativeID="dropdown-notifications"
-            style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownNotifications]}
+            style={[
+              styles.dropdown,
+              isLight && styles.dropdownLightMode,
+              styles.dropdownNotifications,
+            ]}
           >
             <Text style={styles.dropdownTitle}>{t('topBar.notifications')}</Text>
             {notifications.map(notif => (
@@ -347,7 +393,8 @@ export function TopBar() {
               </DropdownItem>
             ))}
             <View style={styles.dropdownDivider} />
-            <DropdownItem isLight={isLight}
+            <DropdownItem
+              isLight={isLight}
               onPress={() => {
                 closeMenu();
                 router.navigate('/(tabs)/activity');
@@ -368,18 +415,31 @@ export function TopBar() {
         <Pressable
           onPress={() => toggleMenu('profile')}
           style={(state: PressableState) =>
-            [styles.profilePill, isLight && styles.controlLight, state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover)] as any
+            [
+              styles.profilePill,
+              isLight && styles.controlLight,
+              state.hovered && (isLight ? styles.controlHoverLight : styles.controlPillHover),
+            ] as any
           }
         >
           <View style={[styles.avatar, isLight && styles.avatarLight]}>
             <Text style={[styles.avatarText, isLight && styles.controlTextLight]}>{initials}</Text>
           </View>
-          <Text style={[styles.profileName, isLight && styles.controlTextLight]}>{displayName}</Text>
-          <Ionicons name="chevron-down" size={14} color={isLight ? '#8B7EB0' : dashboardColors.textSecondary} />
+          <Text style={[styles.profileName, isLight && styles.controlTextLight]}>
+            {displayName}
+          </Text>
+          <Ionicons
+            name="chevron-down"
+            size={14}
+            color={isLight ? '#8B7EB0' : dashboardColors.textSecondary}
+          />
         </Pressable>
 
         {openMenu === 'profile' && (
-          <View nativeID="dropdown-profile" style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownProfile]}>
+          <View
+            nativeID="dropdown-profile"
+            style={[styles.dropdown, isLight && styles.dropdownLightMode, styles.dropdownProfile]}
+          >
             {/* Profile header */}
             <View style={styles.profileHeader}>
               <View style={styles.profileHeaderAvatar}>
@@ -407,7 +467,9 @@ export function TopBar() {
 
             <DropdownItem isLight={isLight} onPress={() => handleProfileAction('signout')}>
               <Feather name="log-out" size={15} color="#EF4444" />
-              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>{t('topBar.signOut')}</Text>
+              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>
+                {t('topBar.signOut')}
+              </Text>
             </DropdownItem>
           </View>
         )}

@@ -166,7 +166,8 @@ export const lightTheme: ThemeDefinition = {
     base: L1Base,
     hover: withOverrides(L1Base, {
       web: {
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.42) 100%)',
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.42) 100%)',
         boxShadow:
           '0 0 0 1px rgba(255,255,255,0.55), 0 4px 24px rgba(139,92,246,0.10), inset 0 1px 0 rgba(255,255,255,0.75)',
       },
@@ -234,8 +235,7 @@ export const lightTheme: ThemeDefinition = {
         cursor: 'pointer',
         transition: timing.normal,
         background: 'linear-gradient(145deg, rgba(255,255,255,0.65), rgba(255,255,255,0.50))',
-        boxShadow:
-          '0 4px 16px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.55)',
+        boxShadow: '0 4px 16px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.55)',
         backdropFilter: 'blur(16px) saturate(120%)',
       },
     },
@@ -304,8 +304,7 @@ export const lightTheme: ThemeDefinition = {
       },
       text: lightText,
       web: {
-        boxShadow:
-          '0 4px 16px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.65)',
+        boxShadow: '0 4px 16px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.65)',
       },
     },
     active: withOverrides(L4Base, {

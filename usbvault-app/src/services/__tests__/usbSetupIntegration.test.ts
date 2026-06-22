@@ -10,6 +10,9 @@
 // jest.mock is hoisted above all imports and variable declarations.
 // We create the mock fns inside the factory and stash them on `global`
 // so tests can access them after the module has loaded.
+import { usbService } from '../usbService';
+import type { USBDrive, ProvisionResult } from '../usbService';
+
 jest.mock('axios', () => {
   const get = jest.fn();
   const post = jest.fn();
@@ -39,9 +42,6 @@ jest.mock('@/utils/logger', () => ({
   },
   fireAndForget: jest.fn(),
 }));
-
-import { usbService } from '../usbService';
-import type { USBDrive, ProvisionResult } from '../usbService';
 
 // Retrieve the mock fns stashed during jest.mock('axios')
 const { get: mockGet, post: mockPost } = (global as any).__axiosMock as {
@@ -84,10 +84,30 @@ const MOCK_DRIVES: USBDrive[] = [
 const MOCK_PROVISION_RESULT: ProvisionResult = {
   vaultId: 'vault-abc123',
   recoveryPhrase: [
-    'abandon', 'ability', 'able', 'about', 'above', 'absent',
-    'absorb', 'abstract', 'absurd', 'abuse', 'access', 'accident',
-    'account', 'accuse', 'achieve', 'acid', 'acoustic', 'acquire',
-    'across', 'act', 'action', 'actor', 'actress', 'actual',
+    'abandon',
+    'ability',
+    'able',
+    'about',
+    'above',
+    'absent',
+    'absorb',
+    'abstract',
+    'absurd',
+    'abuse',
+    'access',
+    'accident',
+    'account',
+    'accuse',
+    'achieve',
+    'acid',
+    'acoustic',
+    'acquire',
+    'across',
+    'act',
+    'action',
+    'actor',
+    'actress',
+    'actual',
   ],
   secureMountPoint: '/media/user/.usbvault/vault-abc123',
 };
@@ -163,13 +183,16 @@ describe('USB Setup Wizard Integration', () => {
       expect(result.vaultId).toBe('vault-abc123');
       expect(result.recoveryPhrase).toHaveLength(24);
       expect(result.secureMountPoint).toBeDefined();
-      expect(mockPost).toHaveBeenCalledWith('/usb/provision', expect.objectContaining({
-        drive_id: 'drive-001',
-        format_type: 'quick',
-        file_system: 'exfat',
-        master_password: 'SecureP@ss123',
-        confirm: true,
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/provision',
+        expect.objectContaining({
+          drive_id: 'drive-001',
+          format_type: 'quick',
+          file_system: 'exfat',
+          master_password: 'SecureP@ss123',
+          confirm: true,
+        })
+      );
     });
 
     it('full setup flow: health -> list -> select -> provision', async () => {

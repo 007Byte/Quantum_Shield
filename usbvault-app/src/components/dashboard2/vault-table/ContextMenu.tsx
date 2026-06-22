@@ -35,12 +35,12 @@ export function ContextMenu({ direction, onAction, onClose }: ContextMenuProps) 
   // Map action IDs to translation keys
   const getActionLabel = (actionId: string) => {
     const keyMap: Record<string, string> = {
-      'open': 'vault.contextMenu.open',
-      'decrypt': 'vault.contextMenu.decrypt',
-      'share': 'vault.contextMenu.shareSecurely',
+      open: 'vault.contextMenu.open',
+      decrypt: 'vault.contextMenu.decrypt',
+      share: 'vault.contextMenu.shareSecurely',
       'show-folder': 'vault.contextMenu.showInFolder',
-      'rename': 'vault.contextMenu.rename',
-      'remove': 'vault.contextMenu.removeFromRecent',
+      rename: 'vault.contextMenu.rename',
+      remove: 'vault.contextMenu.removeFromRecent',
     };
     return t(keyMap[actionId] || '');
   };

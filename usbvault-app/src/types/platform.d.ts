@@ -47,9 +47,15 @@ declare global {
       getAppVersion: () => Promise<string>;
       listDrives: () => Promise<any[]>;
       readHeader: (mountPoint: string) => Promise<Buffer>;
-      writeHeader: (mountPoint: string, headerBytes: Buffer | Uint8Array) => Promise<{ success: boolean }>;
+      writeHeader: (
+        mountPoint: string,
+        headerBytes: Buffer | Uint8Array
+      ) => Promise<{ success: boolean }>;
       readBytes: (mountPoint: string, offset: number, length: number) => Promise<Buffer>;
-      appendBytes: (mountPoint: string, data: Buffer | Uint8Array) => Promise<{ offset: number; length: number }>;
+      appendBytes: (
+        mountPoint: string,
+        data: Buffer | Uint8Array
+      ) => Promise<{ offset: number; length: number }>;
       getSize: (mountPoint: string) => Promise<number>;
       getCapacity: (
         mountPoint: string,
@@ -65,7 +71,11 @@ declare global {
       readVaultIdentity: (mountPoint: string) => Promise<any>;
       discoverVaults: () => Promise<any[]>;
       listVaultFiles: (vaultId: string) => Promise<any[]>;
-      addVaultFile: (vaultId: string, fileName: string, fileData: Buffer | Uint8Array) => Promise<any>;
+      addVaultFile: (
+        vaultId: string,
+        fileName: string,
+        fileData: Buffer | Uint8Array
+      ) => Promise<any>;
       removeVaultFile: (vaultId: string, fileId: string) => Promise<{ success: boolean }>;
       eject: (driveId: string) => Promise<{ success: boolean }>;
       /** Provision a new encrypted vault on a USB drive. */

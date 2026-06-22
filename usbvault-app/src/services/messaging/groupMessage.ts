@@ -49,14 +49,14 @@ class GroupMessageServiceImpl {
 
       const messagesData = localStorage.getItem('usbvault:group_messages');
       if (messagesData)
-        (JSON.parse(messagesData) as Array<{ groupId: string; messages: GroupMessage[] }>).forEach(
+        (JSON.parse(messagesData) as { groupId: string; messages: GroupMessage[] }[]).forEach(
           item => this.messages.set(item.groupId, item.messages)
         );
 
       const historyData = localStorage.getItem('usbvault:group_key_history');
       if (historyData)
         (
-          JSON.parse(historyData) as Array<{ groupId: string; history: GroupKeyRotationHistory[] }>
+          JSON.parse(historyData) as { groupId: string; history: GroupKeyRotationHistory[] }[]
         ).forEach(item => this.keyHistory.set(item.groupId, item.history));
     } catch (error) {
       logger.error('Failed to load groups from storage:', error);
@@ -85,7 +85,7 @@ class GroupMessageServiceImpl {
   }
 
   private async generateAndSealGroupKey(
-    members: Array<{ email: string; publicKeyHex: string }>
+    members: { email: string; publicKeyHex: string }[]
   ): Promise<{ keyHex: string; sealedKeys: { email: string; encryptedKeyHex: string }[] }> {
     const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
       'encrypt',

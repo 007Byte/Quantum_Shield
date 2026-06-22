@@ -143,7 +143,10 @@ function ShareScreen() {
           }
           await shareService.shareFile(fileId, fileName, userEmail, recipientEmail, fileKey);
           refreshShares();
-          showSuccess(t('share.shared'), `"${fileName}" ${t('share.sharedWith')} ${recipientEmail}`);
+          showSuccess(
+            t('share.shared'),
+            `"${fileName}" ${t('share.sharedWith')} ${recipientEmail}`
+          );
         } catch (err) {
           const msg = err instanceof Error ? err.message : t('share.shareFailed');
           showError(t('share.shareFailed'), msg);
@@ -246,9 +249,7 @@ function ShareScreen() {
                 <Text style={styles.pageTitle} accessibilityRole="header">
                   {t('share.pageTitle')}
                 </Text>
-                <Text style={styles.pageSubtitle}>
-                  {t('share.pageSubtitle')}
-                </Text>
+                <Text style={styles.pageSubtitle}>{t('share.pageSubtitle')}</Text>
               </View>
 
               {/* Loading State */}
@@ -267,130 +268,131 @@ function ShareScreen() {
                   onAction={handleShareNewFile}
                 />
               ) : (
-              <>
-              {/* Active Shares Section */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle} accessibilityRole="header">
-                    {t('share.activeShares')}
-                  </Text>
-                  <Text style={styles.sectionCount}>{activeContacts.length}</Text>
-                </View>
-                <View style={styles.sectionContent}>
-                  {activeContacts.length > 0 ? (
-                    <View style={styles.contactsList}>
-                      {activeContacts.map(contact => (
-                        <View key={contact.id} style={styles.contactItem}>
-                          <View style={styles.contactLeftContent}>
-                            <View
-                              style={[
-                                styles.contactAvatar,
-                                { backgroundColor: contact.avatarColor },
-                              ]}
-                            >
-                              <Text style={styles.contactInitials}>{contact.initials}</Text>
+                <>
+                  {/* Active Shares Section */}
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle} accessibilityRole="header">
+                        {t('share.activeShares')}
+                      </Text>
+                      <Text style={styles.sectionCount}>{activeContacts.length}</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                      {activeContacts.length > 0 ? (
+                        <View style={styles.contactsList}>
+                          {activeContacts.map(contact => (
+                            <View key={contact.id} style={styles.contactItem}>
+                              <View style={styles.contactLeftContent}>
+                                <View
+                                  style={[
+                                    styles.contactAvatar,
+                                    { backgroundColor: contact.avatarColor },
+                                  ]}
+                                >
+                                  <Text style={styles.contactInitials}>{contact.initials}</Text>
+                                </View>
+                                <View style={styles.contactInfo}>
+                                  <Text style={styles.contactName}>{contact.name}</Text>
+                                  <Text style={styles.contactEmail}>{contact.email}</Text>
+                                </View>
+                              </View>
+                              <View style={styles.contactActions}>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={(state: any) => [
+                                    styles.actionButton,
+                                    state.hovered && styles.actionButtonHover,
+                                  ]}
+                                  onPress={() => handleViewFiles(contact)}
+                                >
+                                  <Text style={styles.actionButtonText}>
+                                    {t('share.filesCount', { count: contact.sharedFiles })}
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={(state: any) => [
+                                    styles.revokeButton,
+                                    state.hovered && styles.revokeButtonHover,
+                                  ]}
+                                  onPress={() => handleRevokeAccess(contact)}
+                                >
+                                  <Text style={styles.revokeButtonText}>
+                                    {t('share.revokeBtn')}
+                                  </Text>
+                                </Pressable>
+                              </View>
                             </View>
-                            <View style={styles.contactInfo}>
-                              <Text style={styles.contactName}>{contact.name}</Text>
-                              <Text style={styles.contactEmail}>{contact.email}</Text>
-                            </View>
-                          </View>
-                          <View style={styles.contactActions}>
-                            <Pressable
-                              accessibilityRole="button"
-                              style={(state: any) => [
-                                styles.actionButton,
-                                state.hovered && styles.actionButtonHover,
-                              ]}
-                              onPress={() => handleViewFiles(contact)}
-                            >
-                              <Text style={styles.actionButtonText}>
-                                {t('share.filesCount', { count: contact.sharedFiles })}
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              accessibilityRole="button"
-                              style={(state: any) => [
-                                styles.revokeButton,
-                                state.hovered && styles.revokeButtonHover,
-                              ]}
-                              onPress={() => handleRevokeAccess(contact)}
-                            >
-                              <Text style={styles.revokeButtonText}>{t('share.revokeBtn')}</Text>
-                            </Pressable>
-                          </View>
+                          ))}
                         </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyStateText}>{t('share.noActiveShares')}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Pending Requests Section */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle} accessibilityRole="header">
-                    {t('share.pendingRequests')}
-                  </Text>
-                  <Text style={styles.sectionCount}>{pendingContacts.length}</Text>
-                </View>
-                <View style={styles.sectionContent}>
-                  {pendingContacts.length > 0 ? (
-                    <View style={styles.contactsList}>
-                      {pendingContacts.map(contact => (
-                        <View key={contact.id} style={styles.contactItem}>
-                          <View style={styles.contactLeftContent}>
-                            <View
-                              style={[
-                                styles.contactAvatar,
-                                { backgroundColor: contact.avatarColor },
-                              ]}
-                            >
-                              <Text style={styles.contactInitials}>{contact.initials}</Text>
-                            </View>
-                            <View style={styles.contactInfo}>
-                              <Text style={styles.contactName}>{contact.name}</Text>
-                              <Text style={styles.contactEmail}>{contact.email}</Text>
-                            </View>
-                          </View>
-                          <View style={styles.contactActions}>
-                            <Pressable
-                              accessibilityRole="button"
-                              style={(state: any) => [
-                                styles.acceptButton,
-                                state.hovered && styles.acceptButtonHover,
-                              ]}
-                              onPress={() => handleAcceptShare(contact)}
-                            >
-                              <Text style={styles.acceptButtonText}>{t('share.accept')}</Text>
-                            </Pressable>
-                            <Pressable
-                              accessibilityRole="button"
-                              style={(state: any) => [
-                                styles.rejectButton,
-                                state.hovered && styles.rejectButtonHover,
-                              ]}
-                              onPress={() => handleRejectShare(contact)}
-                            >
-                              <Text style={styles.rejectButtonText}>{t('share.reject')}</Text>
-                            </Pressable>
-                          </View>
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <Text style={styles.emptyStateText}>{t('share.noActiveShares')}</Text>
                         </View>
-                      ))}
+                      )}
                     </View>
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyStateText}>{t('share.noPendingRequests')}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
+                  </View>
 
-              </>
+                  {/* Pending Requests Section */}
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle} accessibilityRole="header">
+                        {t('share.pendingRequests')}
+                      </Text>
+                      <Text style={styles.sectionCount}>{pendingContacts.length}</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                      {pendingContacts.length > 0 ? (
+                        <View style={styles.contactsList}>
+                          {pendingContacts.map(contact => (
+                            <View key={contact.id} style={styles.contactItem}>
+                              <View style={styles.contactLeftContent}>
+                                <View
+                                  style={[
+                                    styles.contactAvatar,
+                                    { backgroundColor: contact.avatarColor },
+                                  ]}
+                                >
+                                  <Text style={styles.contactInitials}>{contact.initials}</Text>
+                                </View>
+                                <View style={styles.contactInfo}>
+                                  <Text style={styles.contactName}>{contact.name}</Text>
+                                  <Text style={styles.contactEmail}>{contact.email}</Text>
+                                </View>
+                              </View>
+                              <View style={styles.contactActions}>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={(state: any) => [
+                                    styles.acceptButton,
+                                    state.hovered && styles.acceptButtonHover,
+                                  ]}
+                                  onPress={() => handleAcceptShare(contact)}
+                                >
+                                  <Text style={styles.acceptButtonText}>{t('share.accept')}</Text>
+                                </Pressable>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={(state: any) => [
+                                    styles.rejectButton,
+                                    state.hovered && styles.rejectButtonHover,
+                                  ]}
+                                  onPress={() => handleRejectShare(contact)}
+                                >
+                                  <Text style={styles.rejectButtonText}>{t('share.reject')}</Text>
+                                </Pressable>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <Text style={styles.emptyStateText}>{t('share.noPendingRequests')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </>
               )}
 
               {/* Share New File Button */}

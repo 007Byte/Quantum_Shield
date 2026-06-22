@@ -184,7 +184,10 @@ const lightGlassMap: Record<string, () => ViewStyle> = {
 
   // Tooltip (L4 variant)
   tooltip: () =>
-    ({ backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(200,190,230,0.30)' }) as ViewStyle,
+    ({
+      backgroundColor: 'rgba(255,255,255,0.90)',
+      borderColor: 'rgba(200,190,230,0.30)',
+    }) as ViewStyle,
   tooltipWeb: () =>
     ({
       ...webOnly({

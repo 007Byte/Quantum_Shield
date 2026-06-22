@@ -49,9 +49,7 @@ export function PasswordList({
       <View style={styles.emptyState}>
         <Feather name="shield" size={48} color="rgba(139,92,246,0.4)" />
         <Text style={styles.emptyTitle}>{t('passwords.emptyTitle')}</Text>
-        <Text style={styles.emptyText}>
-          {t('passwords.emptyDescription')}
-        </Text>
+        <Text style={styles.emptyText}>{t('passwords.emptyDescription')}</Text>
         <Pressable
           accessibilityRole="button"
           style={(state: any) => [

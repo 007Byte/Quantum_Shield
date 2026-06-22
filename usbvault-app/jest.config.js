@@ -32,14 +32,8 @@ module.exports = {
     '^@theme/(.*)$': '<rootDir>/src/theme/$1',
     '^@crypto/(.*)$': '<rootDir>/src/crypto/$1',
   },
-  testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.test.ts',
-    '<rootDir>/src/**/?(*.)+(spec|test).ts',
-  ],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '\\.test\\.tsx$',
-  ],
+  testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts', '<rootDir>/src/**/?(*.)+(spec|test).ts'],
+  testPathIgnorePatterns: ['/node_modules/', '\\.test\\.tsx$'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

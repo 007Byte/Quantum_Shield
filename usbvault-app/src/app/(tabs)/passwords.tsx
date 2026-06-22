@@ -20,6 +20,9 @@ import { withErrorBoundary } from '@/components/common/withErrorBoundary';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonCard } from '@/components/common/SkeletonLoader';
 
+// Import React for useState
+import React from 'react';
+
 function PasswordsScreen() {
   const { t } = useLanguage();
   const { modal, showAlert, showSuccess, showError, showConfirm } = useInAppModal();
@@ -68,7 +71,10 @@ function PasswordsScreen() {
   const handleSavePassword = useCallback(async () => {
     const result = await savePassword();
     if (result.success) {
-      showSuccess(t('passwords.success'), editingId ? t('passwords.passwordUpdated') : t('passwords.passwordAdded'));
+      showSuccess(
+        t('passwords.success'),
+        editingId ? t('passwords.passwordUpdated') : t('passwords.passwordAdded')
+      );
       handleCloseAddModal();
     } else {
       showError(t('passwords.error'), result.error || t('passwords.failedToSave'));
@@ -128,9 +134,10 @@ function PasswordsScreen() {
             if (result.result?.errors && result.result.errors.length > 0) {
               showError(t('passwords.importErrors'), result.result.errors.join('\n'));
             } else {
-              const duplicateMsg = result.result?.duplicates && result.result.duplicates > 0
-                ? `, ${t('passwords.duplicatesSkipped', { count: result.result.duplicates })}`
-                : '';
+              const duplicateMsg =
+                result.result?.duplicates && result.result.duplicates > 0
+                  ? `, ${t('passwords.duplicatesSkipped', { count: result.result.duplicates })}`
+                  : '';
               showSuccess(
                 t('passwords.importComplete'),
                 `${result.result?.imported} ${t('passwords.imported')}${duplicateMsg}.`
@@ -255,9 +262,6 @@ function PasswordsScreen() {
     </ShellLayout>
   );
 }
-
-// Import React for useState
-import React from 'react';
 
 const styles = StyleSheet.create({
   contentWrapper: {

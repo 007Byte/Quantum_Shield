@@ -14,25 +14,6 @@
 
 // ── Mocks (must be before imports) ────────────────────────────────────
 
-jest.mock('@/crypto/bridge');
-jest.mock('@/services/usbService', () => ({
-  usbService: {
-    initVaultContainer: jest.fn().mockResolvedValue(undefined),
-    appendVaultBytes: jest.fn(),
-    writeVaultHeader: jest.fn().mockResolvedValue(undefined),
-    readVaultHeader: jest.fn(),
-    readVaultBytes: jest.fn(),
-    checkCapacity: jest.fn().mockResolvedValue({ allowed: true, remaining: 1e9, maxAllowed: 2e9 }),
-    compactVaultContainer: jest.fn(),
-  },
-}));
-jest.mock('@/services/auditService', () => ({
-  auditService: {
-    log: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-jest.mock('@/services/api');
-
 // ── Imports ───────────────────────────────────────────────────────────
 
 import {
@@ -52,6 +33,25 @@ import {
 } from '@/crypto/bridge';
 
 import { usbService } from '@/services/usbService';
+
+jest.mock('@/crypto/bridge');
+jest.mock('@/services/usbService', () => ({
+  usbService: {
+    initVaultContainer: jest.fn().mockResolvedValue(undefined),
+    appendVaultBytes: jest.fn(),
+    writeVaultHeader: jest.fn().mockResolvedValue(undefined),
+    readVaultHeader: jest.fn(),
+    readVaultBytes: jest.fn(),
+    checkCapacity: jest.fn().mockResolvedValue({ allowed: true, remaining: 1e9, maxAllowed: 2e9 }),
+    compactVaultContainer: jest.fn(),
+  },
+}));
+jest.mock('@/services/auditService', () => ({
+  auditService: {
+    log: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+jest.mock('@/services/api');
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -100,7 +100,6 @@ let recordStore: Map<number, Uint8Array> = new Map();
 // ── Setup helpers ─────────────────────────────────────────────────────
 
 function setupCryptoMocks(): void {
-
   // Provision flow
   (createVaultHeader as jest.Mock).mockResolvedValue({
     headerBytes: makeMagicHeader(),
@@ -126,8 +125,8 @@ function setupCryptoMocks(): void {
       return new Uint8Array(256);
     }
   );
-  (decryptVaultContainerIndex as jest.Mock).mockImplementation(
-    async () => JSON.parse(JSON.stringify(latestIndex))
+  (decryptVaultContainerIndex as jest.Mock).mockImplementation(async () =>
+    JSON.parse(JSON.stringify(latestIndex))
   );
 
   // File record encrypt/decrypt — "real-ish" XOR transform
@@ -169,17 +168,15 @@ function setupCryptoMocks(): void {
     return { offset: 512 + appendCallCount * 256, length: 256 };
   });
   (usbService.readVaultHeader as jest.Mock).mockResolvedValue(makeMagicHeader());
-  (usbService.readVaultBytes as jest.Mock).mockImplementation(
-    async () => {
-      // Return the last encrypted file record (for readFile flow)
-      // We need to return something that decryptFileRecord can handle
-      return (encryptFileRecord as jest.Mock).mock.results.length > 0
-        ? (encryptFileRecord as jest.Mock).mock.results[
-            (encryptFileRecord as jest.Mock).mock.results.length - 1
-          ].value
-        : new Uint8Array(128);
-    }
-  );
+  (usbService.readVaultBytes as jest.Mock).mockImplementation(async () => {
+    // Return the last encrypted file record (for readFile flow)
+    // We need to return something that decryptFileRecord can handle
+    return (encryptFileRecord as jest.Mock).mock.results.length > 0
+      ? (encryptFileRecord as jest.Mock).mock.results[
+          (encryptFileRecord as jest.Mock).mock.results.length - 1
+        ].value
+      : new Uint8Array(128);
+  });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────
@@ -206,7 +203,9 @@ describe('Vault Lifecycle E2E', () => {
         writeVaultHeader: jest.fn().mockResolvedValue(undefined),
         readVaultHeader: jest.fn(),
         readVaultBytes: jest.fn(),
-        checkCapacity: jest.fn().mockResolvedValue({ allowed: true, remaining: 1e9, maxAllowed: 2e9 }),
+        checkCapacity: jest
+          .fn()
+          .mockResolvedValue({ allowed: true, remaining: 1e9, maxAllowed: 2e9 }),
         compactVaultContainer: jest.fn(),
       },
     }));
@@ -256,32 +255,28 @@ describe('Vault Lifecycle E2E', () => {
         return new Uint8Array(256);
       }
     );
-    bridge.decryptVaultContainerIndex.mockImplementation(
-      async () => JSON.parse(JSON.stringify(latestIndex))
+    bridge.decryptVaultContainerIndex.mockImplementation(async () =>
+      JSON.parse(JSON.stringify(latestIndex))
     );
 
-    bridge.encryptFileRecord.mockImplementation(
-      async (_key: Uint8Array, data: Uint8Array) => {
-        const result = new Uint8Array(data.length + 4);
-        const view = new DataView(result.buffer);
-        view.setUint32(0, data.length, true);
-        for (let i = 0; i < data.length; i++) {
-          result[i + 4] = data[i] ^ 0xaa;
-        }
-        return result;
+    bridge.encryptFileRecord.mockImplementation(async (_key: Uint8Array, data: Uint8Array) => {
+      const result = new Uint8Array(data.length + 4);
+      const view = new DataView(result.buffer);
+      view.setUint32(0, data.length, true);
+      for (let i = 0; i < data.length; i++) {
+        result[i + 4] = data[i] ^ 0xaa;
       }
-    );
-    bridge.decryptFileRecord.mockImplementation(
-      async (_key: Uint8Array, encrypted: Uint8Array) => {
-        const view = new DataView(encrypted.buffer, encrypted.byteOffset, encrypted.byteLength);
-        const plainLen = view.getUint32(0, true);
-        const data = new Uint8Array(plainLen);
-        for (let i = 0; i < plainLen; i++) {
-          data[i] = encrypted[i + 4] ^ 0xaa;
-        }
-        return { name: 'decrypted-file', data };
+      return result;
+    });
+    bridge.decryptFileRecord.mockImplementation(async (_key: Uint8Array, encrypted: Uint8Array) => {
+      const view = new DataView(encrypted.buffer, encrypted.byteOffset, encrypted.byteLength);
+      const plainLen = view.getUint32(0, true);
+      const data = new Uint8Array(plainLen);
+      for (let i = 0; i < plainLen; i++) {
+        data[i] = encrypted[i + 4] ^ 0xaa;
       }
-    );
+      return { name: 'decrypted-file', data };
+    });
 
     bridge.readFailCounter.mockResolvedValue(0);
     bridge.resetFailCounter.mockResolvedValue(makeMagicHeader());
@@ -389,8 +384,8 @@ describe('Vault Lifecycle E2E', () => {
       vaultOrchestrator.lock();
 
       // Keys should be zeroed
-      expect(encKey.every((b) => b === 0)).toBe(true);
-      expect(hmacKey.every((b) => b === 0)).toBe(true);
+      expect(encKey.every(b => b === 0)).toBe(true);
+      expect(hmacKey.every(b => b === 0)).toBe(true);
 
       // Vault should be null
       expect(vaultOrchestrator.getActiveVault()).toBeNull();
@@ -427,9 +422,9 @@ describe('Vault Lifecycle E2E', () => {
         new Error('AEAD decryption failed: authentication tag mismatch')
       );
 
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow('AEAD decryption failed');
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow(
+        'AEAD decryption failed'
+      );
 
       expect(vaultOrchestrator.isUnlocked()).toBe(false);
     });
@@ -510,9 +505,9 @@ describe('Vault Lifecycle E2E', () => {
         new Error('USB_COMPANION_UNAVAILABLE: Connection refused')
       );
 
-      await expect(
-        vaultOrchestrator.provision(MOUNT_POINT, TEST_PASSWORD)
-      ).rejects.toThrow('USB_COMPANION_UNAVAILABLE');
+      await expect(vaultOrchestrator.provision(MOUNT_POINT, TEST_PASSWORD)).rejects.toThrow(
+        'USB_COMPANION_UNAVAILABLE'
+      );
     });
 
     test('USB disconnect during addFile -> error, vault index unchanged', async () => {
@@ -525,9 +520,7 @@ describe('Vault Lifecycle E2E', () => {
 
       // USB disconnect during second file append
       const usb = require('@/services/usbService').usbService;
-      usb.appendVaultBytes.mockRejectedValueOnce(
-        new Error('USB device disconnected')
-      );
+      usb.appendVaultBytes.mockRejectedValueOnce(new Error('USB device disconnected'));
 
       await expect(
         vaultOrchestrator.addFile('crash-file', 'crash.txt', new Uint8Array(10))
@@ -548,9 +541,9 @@ describe('Vault Lifecycle E2E', () => {
       // Return a header without USBVLT magic bytes
       usb.readVaultHeader.mockResolvedValueOnce(new Uint8Array(512).fill(0x00));
 
-      await expect(
-        vaultOrchestrator.provision(MOUNT_POINT, TEST_PASSWORD)
-      ).rejects.toThrow(/[Vv]ault header.*verification|invalid magic/i);
+      await expect(vaultOrchestrator.provision(MOUNT_POINT, TEST_PASSWORD)).rejects.toThrow(
+        /[Vv]ault header.*verification|invalid magic/i
+      );
     });
 
     test('vault identity mismatch on unlock -> descriptive error', async () => {
@@ -567,9 +560,9 @@ describe('Vault Lifecycle E2E', () => {
         salt: differentSalt,
       });
 
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, TEST_PASSWORD)
-      ).rejects.toThrow(/different vault|identity mismatch/i);
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, TEST_PASSWORD)).rejects.toThrow(
+        /different vault|identity mismatch/i
+      );
     });
   });
 
@@ -652,9 +645,9 @@ describe('Vault Lifecycle E2E', () => {
       vaultOrchestrator.lock();
 
       // Vault is locked — orchestrator should reject
-      await expect(
-        vaultOrchestrator.readFile('any-file')
-      ).rejects.toThrow('No vault is currently unlocked');
+      await expect(vaultOrchestrator.readFile('any-file')).rejects.toThrow(
+        'No vault is currently unlocked'
+      );
     });
 
     test('file not in USB index -> graceful error', async () => {
@@ -662,9 +655,9 @@ describe('Vault Lifecycle E2E', () => {
       vaultOrchestrator.lock();
       await vaultOrchestrator.unlock(MOUNT_POINT, TEST_PASSWORD);
 
-      await expect(
-        vaultOrchestrator.readFile('nonexistent-file')
-      ).rejects.toThrow("File 'nonexistent-file' not found in vault index");
+      await expect(vaultOrchestrator.readFile('nonexistent-file')).rejects.toThrow(
+        "File 'nonexistent-file' not found in vault index"
+      );
     });
   });
 
@@ -689,23 +682,19 @@ describe('Vault Lifecycle E2E', () => {
       const bridge = require('@/crypto/bridge');
 
       // Every unlock attempt will fail
-      bridge.unlockVault.mockRejectedValue(
-        new Error('AEAD decryption failed')
-      );
+      bridge.unlockVault.mockRejectedValue(new Error('AEAD decryption failed'));
 
       // First attempt
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow('AEAD decryption failed');
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow(
+        'AEAD decryption failed'
+      );
       expect(vaultOrchestrator.getSessionFailCount()).toBe(1);
 
       // Advance time past the backoff window (2^1 = 2 seconds)
       mockNow += 3000;
 
       // Second attempt — should also increment
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow();
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow();
       expect(vaultOrchestrator.getSessionFailCount()).toBe(2);
     });
 
@@ -714,9 +703,7 @@ describe('Vault Lifecycle E2E', () => {
 
       // First: fail once
       bridge.unlockVault.mockRejectedValueOnce(new Error('AEAD decryption failed'));
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow();
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow();
       expect(vaultOrchestrator.getSessionFailCount()).toBe(1);
 
       // Advance time past the backoff window (2^1 = 2 seconds)
@@ -735,9 +722,7 @@ describe('Vault Lifecycle E2E', () => {
       const bridge = require('@/crypto/bridge');
 
       bridge.unlockVault.mockRejectedValueOnce(new Error('AEAD decryption failed'));
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow();
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow();
 
       vaultOrchestrator.lock();
       expect(vaultOrchestrator.getSessionFailCount()).toBe(0);
@@ -749,14 +734,14 @@ describe('Vault Lifecycle E2E', () => {
       bridge.unlockVault.mockRejectedValue(new Error('AEAD decryption failed'));
 
       // First attempt fails
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow('AEAD decryption failed');
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow(
+        'AEAD decryption failed'
+      );
 
       // Immediate second attempt should hit rate limit (no time advance)
-      await expect(
-        vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)
-      ).rejects.toThrow(/[Tt]oo many failed attempts/);
+      await expect(vaultOrchestrator.unlock(MOUNT_POINT, WRONG_PASSWORD)).rejects.toThrow(
+        /[Tt]oo many failed attempts/
+      );
     });
   });
 
@@ -807,9 +792,9 @@ describe('Vault Lifecycle E2E', () => {
       vaultOrchestrator.lock();
       await vaultOrchestrator.unlock(MOUNT_POINT, TEST_PASSWORD);
 
-      await expect(
-        vaultOrchestrator.removeFile('ghost')
-      ).rejects.toThrow("File 'ghost' not found in vault index");
+      await expect(vaultOrchestrator.removeFile('ghost')).rejects.toThrow(
+        "File 'ghost' not found in vault index"
+      );
     });
   });
 });

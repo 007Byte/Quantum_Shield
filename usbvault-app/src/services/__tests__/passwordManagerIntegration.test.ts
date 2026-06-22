@@ -160,8 +160,8 @@ describe('Password Manager Integration', () => {
 
     it('filters entries by title substring match', () => {
       const query = 'git';
-      const results = storedEntries.filter(
-        e => e.title.toLowerCase().includes(query.toLowerCase())
+      const results = storedEntries.filter(e =>
+        e.title.toLowerCase().includes(query.toLowerCase())
       );
 
       expect(results).toHaveLength(1);

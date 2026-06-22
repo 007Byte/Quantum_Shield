@@ -33,37 +33,29 @@ export default function PremiumScreen() {
     if (tier === 'free') return;
 
     if (tier === 'pro') {
-      Alert.alert(
-        t('premium.upgradeTitle'),
-        t('premium.upgradeDesc'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('premium.upgradeBtn'),
-            style: 'default',
-            onPress: () => {
-              tierService.setCurrentTier('pro');
-              Alert.alert(t('premium.successTitle'), t('premium.upgradedToPro'));
-            },
+      Alert.alert(t('premium.upgradeTitle'), t('premium.upgradeDesc'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('premium.upgradeBtn'),
+          style: 'default',
+          onPress: () => {
+            tierService.setCurrentTier('pro');
+            Alert.alert(t('premium.successTitle'), t('premium.upgradedToPro'));
           },
-        ]
-      );
+        },
+      ]);
     } else if (tier === 'enterprise') {
-      Alert.alert(
-        t('premium.enterpriseTitle'),
-        t('premium.contactEnterprise'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('premium.contactSales'),
-            style: 'default',
-            onPress: () => {
-              // In a real app, this would open an email client or contact form
-              Alert.alert(t('premium.contactTitle'), t('premium.contactEmail'));
-            },
+      Alert.alert(t('premium.enterpriseTitle'), t('premium.contactEnterprise'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('premium.contactSales'),
+          style: 'default',
+          onPress: () => {
+            // In a real app, this would open an email client or contact form
+            Alert.alert(t('premium.contactTitle'), t('premium.contactEmail'));
           },
-        ]
-      );
+        },
+      ]);
     }
   };
 
@@ -275,9 +267,7 @@ export default function PremiumScreen() {
                   <Feather name="mail" size={24} color={dashboardColors.cyan} />
                   <View style={styles.supportContent}>
                     <Text style={styles.supportTitle}>{t('premium.questionsTitle')}</Text>
-                    <Text style={styles.supportText}>
-                      {t('premium.questionsDesc')}
-                    </Text>
+                    <Text style={styles.supportText}>{t('premium.questionsDesc')}</Text>
                   </View>
                 </View>
               </View>

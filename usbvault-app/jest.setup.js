@@ -8,6 +8,23 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextDecoder = TextDecoder;
 }
 
+// Polyfill window.matchMedia for jsdom (not implemented). Modules like
+// themeService call it at import time via a singleton constructor, so it must
+// exist before any test module is imported (this file is setupFilesAfterEnv,
+// which runs before each test file). Tests may still override it to assert.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  window.matchMedia = (query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
 // Polyfill URL.createObjectURL/revokeObjectURL for jsdom
 if (typeof URL.createObjectURL === 'undefined') {
   URL.createObjectURL = jest.fn(() => 'blob:mock-url');
@@ -33,7 +50,7 @@ jest.mock('react-native', () => ({
   },
   Platform: {
     OS: 'ios',
-    select: jest.fn((obj) => obj.ios || obj.default),
+    select: jest.fn(obj => obj.ios || obj.default),
   },
   AppState: {
     addEventListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -72,7 +89,9 @@ jest.mock('@sentry/react-native', () => ({
   setUser: jest.fn(),
   setTag: jest.fn(),
   setContext: jest.fn(),
-  withScope: jest.fn((cb) => cb({ setLevel: jest.fn(), setTag: jest.fn(), setContext: jest.fn(), setExtras: jest.fn() })),
+  withScope: jest.fn(cb =>
+    cb({ setLevel: jest.fn(), setTag: jest.fn(), setContext: jest.fn(), setExtras: jest.fn() })
+  ),
   Severity: { Error: 'error', Warning: 'warning', Info: 'info' },
   reactNativeTracingIntegration: jest.fn(() => ({})),
   reactNavigationIntegration: jest.fn(() => ({})),
@@ -168,7 +187,7 @@ jest.mock('expo-haptics', () => ({
 
 // Mock expo-linking
 jest.mock('expo-linking', () => ({
-  createURL: jest.fn((path) => `usbvault://${path}`),
+  createURL: jest.fn(path => `usbvault://${path}`),
   openURL: jest.fn(),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
@@ -217,10 +236,7 @@ jest.mock('react-native-purchases', () => ({
 const originalError = console.error;
 beforeAll(() => {
   console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render')
-    ) {
+    if (typeof args[0] === 'string' && args[0].includes('Warning: ReactDOM.render')) {
       return;
     }
     originalError.call(console, ...args);

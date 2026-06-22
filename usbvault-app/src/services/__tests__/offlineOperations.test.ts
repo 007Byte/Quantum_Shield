@@ -243,9 +243,7 @@ describe('Offline-First Vault Operations', () => {
       setOnline(false);
       mockLoadVaults.mockResolvedValue([]);
 
-      await expect(
-        useVaultListStore.getState().loadVaults()
-      ).resolves.not.toThrow();
+      await expect(useVaultListStore.getState().loadVaults()).resolves.not.toThrow();
     });
   });
 
@@ -291,9 +289,7 @@ describe('Offline-First Vault Operations', () => {
       setOnline(false);
 
       // Delete should not throw
-      await expect(
-        useVaultListStore.getState().deleteVault(vaultId)
-      ).resolves.not.toThrow();
+      await expect(useVaultListStore.getState().deleteVault(vaultId)).resolves.not.toThrow();
     });
 
     it('removes the vault from store after deletion', async () => {

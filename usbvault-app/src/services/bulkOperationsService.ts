@@ -30,10 +30,10 @@ export interface BulkOperation {
   progress: number; // 0-100
   startedAt: string; // ISO 8601
   completedAt?: string; // ISO 8601
-  errors: Array<{
+  errors: {
     fileId: string;
     message: string;
-  }>;
+  }[];
 }
 
 /**

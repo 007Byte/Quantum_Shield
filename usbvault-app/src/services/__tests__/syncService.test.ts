@@ -6,6 +6,8 @@
  */
 
 // Mock localStorage
+import { syncService, SyncState, SyncQueueItem } from '../syncService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -84,8 +86,6 @@ jest.mock('@/utils/logger', () => ({
     this.protocols = protocols || '';
   }
 };
-
-import { syncService, SyncState, SyncQueueItem } from '../syncService';
 
 const QUEUE_KEY = 'usbvault:sync_queue';
 const STATE_KEY = 'usbvault:sync_state';

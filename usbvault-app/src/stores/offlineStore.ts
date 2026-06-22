@@ -15,7 +15,7 @@ import {
 
 interface OfflineStoreState extends OfflineQueueState {
   /** All queued operations (for admin/debug UI) */
-  operations: ReadonlyArray<QueuedOperation>;
+  operations: readonly QueuedOperation[];
   /** Trigger queue processing manually */
   processQueue: () => Promise<void>;
   /** Retry all failed operations */

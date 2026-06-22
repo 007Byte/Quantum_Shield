@@ -6,6 +6,15 @@
  */
 
 // Mock localStorage
+import {
+  auditService,
+  getActionLabel,
+  getActionIcon,
+  getActionColor,
+  _invalidateCacheForTesting,
+} from '../auditService';
+import type { AuditFilterOptions as _AuditFilterOptions } from '../auditService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -71,15 +80,6 @@ jest.mock('@/utils/storageHelpers', () => ({
     localStorage.removeItem(key);
   }),
 }));
-
-import {
-  auditService,
-  getActionLabel,
-  getActionIcon,
-  getActionColor,
-  _invalidateCacheForTesting,
-} from '../auditService';
-import type { AuditFilterOptions as _AuditFilterOptions } from '../auditService';
 
 describe('AuditService', () => {
   beforeEach(async () => {

@@ -59,7 +59,7 @@ export function useEncryptFlow() {
   // FIX: Vault unlock logic was duplicated here AND only available on
   // the encrypt-store tab. Now delegated to useVaultUnlock which is
   // also used at the Tabs layout level for global unlock support.
-  const vaultUnlockHook = useVaultUnlock();
+  const vaultUnlockHook = useVaultUnlock({ showSuccess, showError });
   const {
     vaultUnlocked,
     showUnlockModal,
@@ -418,7 +418,7 @@ export function useEncryptFlow() {
     handleEncryptAndStore,
     // Vault unlock (delegated to shared useVaultUnlock hook)
     showUnlockModal,
-    setShowUnlockModal: (v: boolean) => v ? requestUnlock() : dismissUnlockModal(),
+    setShowUnlockModal: (v: boolean) => (v ? requestUnlock() : dismissUnlockModal()),
     unlockPassword,
     setUnlockPassword,
     isUnlocking,

@@ -5,6 +5,11 @@
  */
 
 // Mock localStorage
+import { shareService } from '../sharing';
+import { _resetCachesForTesting } from '@/services/sharing/sharing';
+import { auditService } from '@/services/auditService';
+import { syncService } from '@/services/syncService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -97,11 +102,6 @@ jest.mock('@/utils/logger', () => ({
     debug: jest.fn(),
   },
 }));
-
-import { shareService } from '../sharing';
-import { _resetCachesForTesting } from '@/services/sharing/sharing';
-import { auditService } from '@/services/auditService';
-import { syncService } from '@/services/syncService';
 
 describe('ShareService', () => {
   beforeEach(() => {

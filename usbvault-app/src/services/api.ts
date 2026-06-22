@@ -263,7 +263,7 @@ export function createAbortableRequest(): { signal: AbortSignal; abort: () => vo
  */
 export function validateResponse<T>(
   data: unknown,
-  requiredFields: Array<{ key: string; type: 'string' | 'number' | 'boolean' | 'object' }>,
+  requiredFields: { key: string; type: 'string' | 'number' | 'boolean' | 'object' }[],
   context: string
 ): T {
   if (!data || typeof data !== 'object') {

@@ -11,32 +11,6 @@
  * interact through their real interfaces where possible.
  */
 
-jest.mock('@/crypto/bridge');
-jest.mock('@/services/usbService', () => {
-  // readVaultHeader must carry the "USBVLT" magic bytes — provision()/unlock()
-  // verify them before continuing.
-  const makeValidHeaderBytes = () => {
-    const bytes = new Uint8Array(512);
-    bytes.set(new TextEncoder().encode('USBVLT'), 0);
-    return bytes;
-  };
-  return {
-    usbService: {
-      initVaultContainer: jest.fn().mockResolvedValue(undefined),
-      appendVaultBytes: jest.fn().mockResolvedValue({ offset: 512, length: 256 }),
-      writeVaultHeader: jest.fn().mockResolvedValue(undefined),
-      readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
-      readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(256)),
-    },
-  };
-});
-jest.mock('@/services/auditService', () => ({
-  auditService: {
-    log: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-jest.mock('@/services/api');
-
 import {
   generateMEK,
   deriveKEK,
@@ -66,6 +40,32 @@ import {
   rotatePassword,
   getFileEncryptionKey,
 } from '@/services/crypto/keyHierarchy';
+
+jest.mock('@/crypto/bridge');
+jest.mock('@/services/usbService', () => {
+  // readVaultHeader must carry the "USBVLT" magic bytes — provision()/unlock()
+  // verify them before continuing.
+  const makeValidHeaderBytes = () => {
+    const bytes = new Uint8Array(512);
+    bytes.set(new TextEncoder().encode('USBVLT'), 0);
+    return bytes;
+  };
+  return {
+    usbService: {
+      initVaultContainer: jest.fn().mockResolvedValue(undefined),
+      appendVaultBytes: jest.fn().mockResolvedValue({ offset: 512, length: 256 }),
+      writeVaultHeader: jest.fn().mockResolvedValue(undefined),
+      readVaultHeader: jest.fn().mockResolvedValue(makeValidHeaderBytes()),
+      readVaultBytes: jest.fn().mockResolvedValue(new Uint8Array(256)),
+    },
+  };
+});
+jest.mock('@/services/auditService', () => ({
+  auditService: {
+    log: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+jest.mock('@/services/api');
 
 // ── Test data ──────────────────────────────────────────────────────
 
@@ -181,9 +181,7 @@ describe('Vault Operations Integration Tests', () => {
       const fileKeyA = new Uint8Array(32).fill(0xaa);
       const fileKeyB = new Uint8Array(32).fill(0xbb);
 
-      (deriveFileKey as jest.Mock)
-        .mockResolvedValueOnce(fileKeyA)
-        .mockResolvedValueOnce(fileKeyB);
+      (deriveFileKey as jest.Mock).mockResolvedValueOnce(fileKeyA).mockResolvedValueOnce(fileKeyB);
 
       const result = await createKeyHierarchy(TEST_PASSWORD);
 
@@ -195,9 +193,7 @@ describe('Vault Operations Integration Tests', () => {
     });
 
     it('should propagate crypto errors during key hierarchy creation', async () => {
-      (generateMEK as jest.Mock).mockRejectedValue(
-        new Error('Native crypto module not loaded')
-      );
+      (generateMEK as jest.Mock).mockRejectedValue(new Error('Native crypto module not loaded'));
 
       await expect(createKeyHierarchy(TEST_PASSWORD)).rejects.toThrow(
         'Key hierarchy creation failed'
@@ -241,9 +237,7 @@ describe('Vault Operations Integration Tests', () => {
     });
 
     it('should handle corrupted wrappedMek blob', async () => {
-      (unwrapMEK as jest.Mock).mockRejectedValue(
-        new Error('Ciphertext too short')
-      );
+      (unwrapMEK as jest.Mock).mockRejectedValue(new Error('Ciphertext too short'));
 
       await expect(
         unlockKeyHierarchy(TEST_PASSWORD, MOCK_SALT, new Uint8Array(10))
@@ -262,12 +256,7 @@ describe('Vault Operations Integration Tests', () => {
       (randomBytes as jest.Mock).mockResolvedValueOnce(newSalt);
       (wrapMEK as jest.Mock).mockResolvedValueOnce(newWrappedMek);
 
-      const result = await rotatePassword(
-        TEST_PASSWORD,
-        NEW_PASSWORD,
-        MOCK_SALT,
-        MOCK_WRAPPED_MEK
-      );
+      const result = await rotatePassword(TEST_PASSWORD, NEW_PASSWORD, MOCK_SALT, MOCK_WRAPPED_MEK);
 
       // Step 1: Unwrap MEK with old password
       expect(deriveKEK).toHaveBeenCalledWith(TEST_PASSWORD, MOCK_SALT);
@@ -312,9 +301,7 @@ describe('Vault Operations Integration Tests', () => {
     });
 
     it('should fail rotation if old password is wrong', async () => {
-      (unwrapMEK as jest.Mock).mockRejectedValue(
-        new Error('AEAD decryption failed')
-      );
+      (unwrapMEK as jest.Mock).mockRejectedValue(new Error('AEAD decryption failed'));
 
       await expect(
         rotatePassword('wrong-old-password', NEW_PASSWORD, MOCK_SALT, MOCK_WRAPPED_MEK)
@@ -357,10 +344,9 @@ describe('Vault Operations Integration Tests', () => {
       expect(createVaultHeader).toHaveBeenCalledWith(TEST_PASSWORD, expect.any(Number));
 
       // Verify: empty index encrypted
-      expect(encryptVaultContainerIndex).toHaveBeenCalledWith(
-        MOCK_SESSION.encryptionKey,
-        { files: {} }
-      );
+      expect(encryptVaultContainerIndex).toHaveBeenCalledWith(MOCK_SESSION.encryptionKey, {
+        files: {},
+      });
 
       // Verify: index committed
       expect(commitVaultIndex).toHaveBeenCalled();
@@ -377,9 +363,7 @@ describe('Vault Operations Integration Tests', () => {
   // ============================================================================
   describe('Error Handling', () => {
     it('should propagate KEK derivation failure', async () => {
-      (deriveKEK as jest.Mock).mockRejectedValue(
-        new Error('Argon2id: insufficient memory')
-      );
+      (deriveKEK as jest.Mock).mockRejectedValue(new Error('Argon2id: insufficient memory'));
 
       await expect(createKeyHierarchy(TEST_PASSWORD)).rejects.toThrow(
         'Key hierarchy creation failed'
@@ -387,9 +371,7 @@ describe('Vault Operations Integration Tests', () => {
     });
 
     it('should propagate MEK wrapping failure', async () => {
-      (wrapMEK as jest.Mock).mockRejectedValue(
-        new Error('Encryption failed: invalid key length')
-      );
+      (wrapMEK as jest.Mock).mockRejectedValue(new Error('Encryption failed: invalid key length'));
 
       await expect(createKeyHierarchy(TEST_PASSWORD)).rejects.toThrow(
         'Key hierarchy creation failed'
@@ -397,9 +379,7 @@ describe('Vault Operations Integration Tests', () => {
     });
 
     it('should propagate file key derivation failure', async () => {
-      (deriveFileKey as jest.Mock).mockRejectedValue(
-        new Error('HKDF: invalid input key material')
-      );
+      (deriveFileKey as jest.Mock).mockRejectedValue(new Error('HKDF: invalid input key material'));
 
       await expect(getFileEncryptionKey(MOCK_MEK, 'bad-file')).rejects.toThrow(
         'HKDF: invalid input key material'

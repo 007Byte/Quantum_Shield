@@ -14,6 +14,9 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import type { ImportProgress, ImportResult } from '@/services/importService';
 
+// Re-export React for the component
+import React from 'react';
+
 const SUPPORTED_IMPORT_FORMATS = [
   'Bitwarden (CSV)',
   '1Password (CSV)',
@@ -126,9 +129,7 @@ export function PasswordImport({
               <Text style={styles.importDropText}>
                 {importDragOver ? t('passwords.dropFileHere') : t('passwords.clickToSelect')}
               </Text>
-              <Text style={styles.importDropHint}>
-                {t('passwords.csvOrJson')}
-              </Text>
+              <Text style={styles.importDropHint}>{t('passwords.csvOrJson')}</Text>
             </Pressable>
 
             {/* Hidden file input (web only) */}
@@ -166,7 +167,9 @@ export function PasswordImport({
               <View style={styles.importResultCard}>
                 <View style={styles.importResultRow}>
                   <Feather name="check-circle" size={16} color="#34D399" />
-                  <Text style={styles.importResultText}>{t('passwords.imported', { count: importResult.imported })}</Text>
+                  <Text style={styles.importResultText}>
+                    {t('passwords.imported', { count: importResult.imported })}
+                  </Text>
                 </View>
                 {importResult.duplicates > 0 && (
                   <View style={styles.importResultRow}>
@@ -180,7 +183,9 @@ export function PasswordImport({
                   <View style={styles.importResultRow}>
                     <Feather name="skip-forward" size={16} color={dashboardColors.textSecondary} />
                     <Text style={styles.importResultText}>
-                      {t('passwords.emptySkipped', { count: importResult.skipped - importResult.duplicates })}
+                      {t('passwords.emptySkipped', {
+                        count: importResult.skipped - importResult.duplicates,
+                      })}
                     </Text>
                   </View>
                 )}
@@ -206,9 +211,6 @@ export function PasswordImport({
     </Modal>
   );
 }
-
-// Re-export React for the component
-import React from 'react';
 
 const styles = StyleSheet.create({
   modalOverlay: {

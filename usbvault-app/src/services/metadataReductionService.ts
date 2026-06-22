@@ -5,7 +5,7 @@
  * to reduce metadata leakage in communications.
  */
 
-import { registerCleanup } from '@/stores/storeCleanup';
+import { registerCleanup } from '@/utils/cleanupRegistry';
 
 // ── Types ──
 

@@ -14,12 +14,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { fido2Service } from '@/services/fido2Service';
 import { auditService } from '@/services/auditService';
 import { settingsService } from '@/services/settingsService';
-import {
-  dashboardColors,
-  glassPanelStrong,
-  webOnlyGlass,
-  webOnlyGlowTier3,
-} from './styles';
+import { dashboardColors, glassPanelStrong, webOnlyGlass, webOnlyGlowTier3 } from './styles';
 
 import { RadarChart, ScoreGauge, getRadarTooltip, rightRailStyles as styles } from './right-rail';
 
@@ -138,7 +133,11 @@ export function RightRail() {
       const settings = settingsService.load();
       setDynamicChecklist([
         { id: 'post-quantum', label: 'rightRail.postQuantum', complete: true },
-        { id: 'biometric', label: 'rightRail.biometricLock', complete: settings.biometricLockEnabled },
+        {
+          id: 'biometric',
+          label: 'rightRail.biometricLock',
+          complete: settings.biometricLockEnabled,
+        },
         { id: 'fido2', label: 'rightRail.hardwareKey', complete: fido2Count > 0 },
         { id: 'files', label: 'rightRail.filesEncrypted', complete: fileCount > 0 },
       ]);
@@ -295,7 +294,14 @@ export function RightRail() {
 
         {/* Security Score — Gauge Ring */}
         <View
-          style={[styles.card, styles.scoreCard, glassPanelStrong, webOnlyGlass, webOnlyGlowTier3, isLight && styles.cardLight]}
+          style={[
+            styles.card,
+            styles.scoreCard,
+            glassPanelStrong,
+            webOnlyGlass,
+            webOnlyGlowTier3,
+            isLight && styles.cardLight,
+          ]}
         >
           <View style={[styles.cardSheen, isLight && styles.cardSheenLight]} />
           <View style={styles.cardInnerBorder} />
@@ -306,7 +312,11 @@ export function RightRail() {
               <View style={styles.scoreLabelWrap}>
                 <Text style={styles.scoreValue}>{dynamicScore}%</Text>
                 <Text style={styles.scoreStatus}>
-                  {dynamicScore >= 90 ? t('rightRail.excellent') : dynamicScore >= 75 ? t('rightRail.good') : t('rightRail.needsWork')}
+                  {dynamicScore >= 90
+                    ? t('rightRail.excellent')
+                    : dynamicScore >= 75
+                      ? t('rightRail.good')
+                      : t('rightRail.needsWork')}
                 </Text>
               </View>
             </View>
@@ -328,7 +338,14 @@ export function RightRail() {
 
         {/* Secure Share */}
         <View
-          style={[styles.card, styles.shareCard, glassPanelStrong, webOnlyGlass, webOnlyGlowTier3, isLight && styles.cardLight]}
+          style={[
+            styles.card,
+            styles.shareCard,
+            glassPanelStrong,
+            webOnlyGlass,
+            webOnlyGlowTier3,
+            isLight && styles.cardLight,
+          ]}
         >
           <View style={[styles.cardSheen, isLight && styles.cardSheenLight]} />
           <View style={styles.cardInnerBorder} />

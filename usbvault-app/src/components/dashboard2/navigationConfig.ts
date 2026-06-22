@@ -189,7 +189,13 @@ export const navItems: DashboardNavItem[] = [
     iconName: 'lock',
     section: NavSection.Bottom,
   },
-  { id: 'tools', label: 'sidebar.tools', iconSet: 'Feather', iconName: 'tool', section: NavSection.Bottom },
+  {
+    id: 'tools',
+    label: 'sidebar.tools',
+    iconSet: 'Feather',
+    iconName: 'tool',
+    section: NavSection.Bottom,
+  },
   {
     id: 'classroom',
     label: 'sidebar.classroom',
@@ -236,5 +242,10 @@ export const vaultContextActions: VaultContextAction[] = [
   { id: 'share', label: 'vaultContext.shareSecurely', iconSet: 'Feather', iconName: 'share-2' },
   { id: 'show-folder', label: 'vaultContext.showInFolder', iconSet: 'Feather', iconName: 'inbox' },
   { id: 'rename', label: 'vaultContext.rename', iconSet: 'Feather', iconName: 'edit-2' },
-  { id: 'remove', label: 'vaultContext.removeFromRecent', iconSet: 'Feather', iconName: 'x-square' },
+  {
+    id: 'remove',
+    label: 'vaultContext.removeFromRecent',
+    iconSet: 'Feather',
+    iconName: 'x-square',
+  },
 ];

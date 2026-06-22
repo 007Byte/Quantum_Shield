@@ -200,7 +200,9 @@ export function useSetupWizard() {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [companionStatus]);
 
   // ── Reset state on tab navigation ────────────────────────────────────
