@@ -88,6 +88,7 @@
     "typescript": "^5.3.0"
   },
   "overrides": {
-    "shell-quote": "^1.8.4"
+    "shell-quote": "^1.8.4",
+    "handlebars": "^4.7.9"
   }
 }

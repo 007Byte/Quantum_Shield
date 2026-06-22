@@ -16,6 +16,7 @@ import (
 	"github.com/pashagolub/pgxmock/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // ============================================================================
@@ -485,7 +486,7 @@ func TestHandleListAuditLog(t *testing.T) {
 		handler := HandleListAuditLog(svc)
 
 		req := httptest.NewRequest("GET", "/audit?limit=50&offset=0", nil)
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
@@ -535,7 +536,7 @@ func TestHandleVerifyChain(t *testing.T) {
 		handler := HandleVerifyChain(svc)
 
 		req := httptest.NewRequest("GET", "/audit/verify", nil)
-		ctx := context.WithValue(req.Context(), "user_id", "user-123")
+		ctx := context.WithValue(req.Context(), ctxkeys.UserID, "user-123")
 		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
