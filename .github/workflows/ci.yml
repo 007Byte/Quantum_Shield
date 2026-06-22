@@ -190,7 +190,9 @@ jobs:
   usbvault-app:
     name: React Native Checks (usbvault-app)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # npm ci + tsc + eslint (eslint-plugin-import builds a cross-file graph over
+    # ~480 files and is slow) + jest with coverage can exceed 15 min combined.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: usbvault-app
