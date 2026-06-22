@@ -32,7 +32,10 @@ jobs:
   usbvault-crypto:
     name: Rust Checks (usbvault-crypto)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # check + full test suite (proptest-based property_tests alone takes ~10 min
+    # in debug) + clippy + building cargo-audit exceeds 15 min; matches the other
+    # crypto-compiling jobs (integration/security tests) at 30.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: usbvault-crypto

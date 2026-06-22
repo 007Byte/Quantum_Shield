@@ -111,7 +111,6 @@ func TestConcurrentAccess_SimultaneousWrites_SerializedCorrectly(t *testing.T) {
 
 	vaultID := "10000000-0000-0000-0000-000000000001"
 	ownerID := "00000000-0000-0000-0000-000000000001"
-	userID := "00000000-0000-0000-0000-000000000002"
 
 	// Create vault
 	_, err := pool.Exec(ctx, `
