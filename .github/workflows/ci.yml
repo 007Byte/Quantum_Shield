@@ -318,15 +318,13 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      # Scope the PR gate to the functional E2E specs on chromium only. The full
-      # `npx playwright test` ran 415 tests — the functional specs across BOTH
-      # chromium+webkit PLUS the app-store screenshot/visual-audit specs across
-      # three device projects — which exceeded the 60-min timeout. The screenshot
-      # generators (screenshots/visual-audit*.spec.ts) are marketing tooling, not
-      # gates, and the device projects are for capturing store images; run those
-      # manually. ADVISORY (continue-on-error) like the integration suite: these
-      # functional flows have not run in CI before and are not yet maintained, so
-      # they report without blocking until validated.
+      # BLOCKING. Scoped to the 9 functional specs on chromium (51 tests). The
+      # full `npx playwright test` ran 415 — functional specs on chromium+webkit
+      # PLUS app-store screenshot/visual-audit specs across three device projects
+      # — which exceeded the timeout. The screenshot generators are marketing
+      # tooling, not gates; run those manually. These functional flows were
+      # repaired and verified green on CI (register/login are client-side on web,
+      # so only the Expo web server is needed — no backend).
       - name: Run Playwright E2E tests
         run: |
           npx playwright test --project=chromium \
@@ -335,7 +333,6 @@ jobs:
             e2e/i18n.spec.ts e2e/error-scenarios.spec.ts e2e/full-crypto-cycle.spec.ts
         env:
           CI: true
-        continue-on-error: true
 
       - name: Upload Playwright test report
         uses: actions/upload-artifact@v4
