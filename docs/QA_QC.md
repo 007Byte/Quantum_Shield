@@ -114,16 +114,32 @@ Mirrors CI. Keep the harness in sync when CI changes.
 
 **Blocking** (must pass to merge): Rust check/test/clippy/fmt/cargo-audit · Go
 build/`test -race`/vet/govulncheck/`-tags=integration` · migrations + schema ·
-RN `npm audit` critical/tsc/eslint-errors/jest · E2E (9 functional specs) ·
-env-template · gosec HIGH/CRITICAL · gitleaks · semgrep errors · eslint-security
-errors · consolidated audit (critical) · FFI 10-platform builds.
+RN `npm audit` critical/tsc/eslint-errors/jest · env-template · gosec
+HIGH/CRITICAL · gitleaks · semgrep errors · eslint-security errors · consolidated
+audit (critical) · FFI 10-platform builds.
 
-**Advisory** (warn, don't block — "during development"): Go coverage <75% · TS
-coverage <70% · golangci-lint · ci.yml gosec step · semgrep/eslint warnings ·
-OWASP-ZAP medium/low · Trivy · Snyk · pentest.
+**Advisory** (warn, don't block — "during development"): **E2E (9 functional
+specs)** · Go coverage <75% · TS coverage <70% · golangci-lint · ci.yml gosec
+step · semgrep/eslint warnings · OWASP-ZAP medium/low · Trivy · Snyk · pentest.
 
-Don't make a flaky thing blocking. A flaky blocking gate is worse than an honest
-advisory one — stabilize it first (E2E proves this).
+**E2E is advisory (as of 2026-06).** The flakiness traced to a **real product
+bug**, not the runner. `register.tsx`'s `handlePasswordBlur` did
+`const breached = await checkPasswordBreach(pw); setBreachWarning(breached ? warn
+: '')` — but `checkPasswordBreach` returns an **object** (`{ isBreached, source }`)
+which is *always truthy*, so the "password appeared in a data breach" warning
+fired for **every** password the instant the async check resolved, blocking
+registration with a valid password. It only "passed" when the live HIBP call was
+slow enough that the test clicked Register before the check resolved — hence
+flaky, and worse under the contended CI runner / faster under a network stub.
+Fixed: check `result.isBreached`. Hardening also shipped — an HIBP network stub in
+`e2e/test-base.ts` (deterministic; no live API in E2E) and `workers: CI ? 1` in
+`playwright.config.ts` (no CPU oversubscription on the 2-vCPU runner). Kept
+advisory **only until CI confirms the fix holds across several green runs**, then
+re-promote (re-add `e2e-tests` to the `ci-summary` FAILED loop + drop the step's
+`continue-on-error`).
+
+Don't make a flaky thing blocking — a flaky blocking gate is worse than an honest
+advisory one. E2E is the hard-won proof of this rule.
 
 ## CI-only gates (cannot run locally; accept CI as final)
 

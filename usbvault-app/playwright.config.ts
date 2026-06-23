@@ -17,11 +17,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // CI runners are ~6x slower than a dev machine. A single worker forced 51
-  // tests to run serially for ~28 min and starved each step, causing timeouts.
-  // 3 workers cuts wall-clock and relieves the timing pressure; with web-first
-  // waits + generous per-test timeout the suite is machine-speed-independent.
-  workers: process.env.CI ? 3 : undefined,
+  // GitHub's hosted runner has only 2 vCPUs. Running 3 Playwright workers there
+  // OVERSUBSCRIBES the CPU — the parallel browser contexts starve each other and
+  // the auth→dashboard flow blows its timeout (this caused 21 failed/7 flaky on
+  // CI while passing locally, where there are more cores). A single worker avoids
+  // the contention — each test gets the full CPU — and with web-first waits it is
+  // the reliable choice on the constrained runner. Locally (undefined) Playwright
+  // still parallelizes across all available cores.
+  workers: process.env.CI ? 1 : undefined,
   // Per-test timeout (there was none). 90s leaves ample margin for the slow
   // register→onboarding→dashboard path on CI.
   timeout: 90000,

@@ -23,6 +23,15 @@ export const test = base.extend({
       const client = await page.context().newCDPSession(page);
       await client.send('Emulation.setCPUThrottlingRate', { rate });
     }
+    // Deterministic registration: the register screen calls the live Have I Been
+    // Pwned API (api.pwnedpasswords.com) on password blur. On CI that network
+    // call races the form submit and intermittently blocks registration (the app
+    // shows a transient "data breach" warning), which then cascades into
+    // dashboard-never-renders timeouts. Stub it to a clean "not breached" (empty
+    // 200) response so the suite exercises OUR flow, not HIBP/network weather.
+    await page.route('**/api.pwnedpasswords.com/**', route =>
+      route.fulfill({ status: 200, contentType: 'text/plain', body: '' })
+    );
     await provide(page);
   },
 });
