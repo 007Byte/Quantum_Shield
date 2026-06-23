@@ -52,3 +52,15 @@ repos:
         types: [rust]
         pass_filenames: false
         stages: [commit]
+
+      # PRE-PUSH GATE: run the CI-equivalent QA harness for the changed
+      # components before the push leaves the machine. This is what stops
+      # unvalidated code from reaching CI (the push -> CI-finds-error loop).
+      # Bypass only in a genuine emergency with `git push --no-verify`.
+      - id: preflight
+        name: preflight QA/QC (CI-equivalent gates for changed components)
+        entry: bash scripts/preflight.sh --changed
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]

@@ -45,7 +45,7 @@ rules:
     languages: [typescript, javascript]
 
   - id: usbvault-innerhtml-xss
-    pattern: .innerHTML = ...
+    pattern: $EL.innerHTML = ...
     message: "innerHTML assignment is an XSS risk. Use textContent or a sanitizer."
     severity: ERROR
     languages: [typescript, javascript]

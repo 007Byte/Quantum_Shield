@@ -105,6 +105,12 @@ BREAKING CHANGE: Old keys require rotation
 
 ### Before Submitting
 
+> **Run the local QA/QC harness before every push.** `scripts/preflight.sh`
+> mirrors the *exact* CI gates (Rust, Go, migrations, RN, E2E, security) on your
+> machine, so you never discover a failure from a 25-minute CI run. A git
+> **pre-push hook** runs it automatically — install it once with
+> `make setup-hooks`. Full runbook: **[docs/QA_QC.md](../docs/QA_QC.md)**.
+
 1. **Create feature branch**
    ```bash
    git checkout -b feature/your-feature
@@ -123,7 +129,12 @@ BREAKING CHANGE: Old keys require rotation
    git commit -m "feat(component): description"
    ```
 
-4. **Push to origin**
+4. **Run the pre-push QA/QC harness** (mirrors CI locally — see [docs/QA_QC.md](../docs/QA_QC.md))
+   ```bash
+   ../scripts/preflight.sh --changed   # only touched components; use --full before a PR
+   ```
+
+5. **Push to origin** (the pre-push git hook runs `preflight.sh --changed` automatically)
    ```bash
    git push origin feature/your-feature
    ```

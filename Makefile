@@ -271,11 +271,12 @@ setup: setup-hooks install-tools
 	@echo "  3. Run 'make test' to verify setup"
 
 setup-hooks:
-	@echo "$(BLUE)[*] Installing pre-commit hooks...$(NC)"
+	@echo "$(BLUE)[*] Installing pre-commit + pre-push hooks...$(NC)"
 	@if [ -f .pre-commit-config.yaml ]; then \
 		pre-commit install 2>/dev/null && \
-		echo "$(GREEN)[✓] Pre-commit hooks installed$(NC)" || \
-		echo "$(YELLOW)[!] Pre-commit not available, skipping$(NC)"; \
+		pre-commit install --hook-type pre-push 2>/dev/null && \
+		echo "$(GREEN)[✓] Hooks installed (commit: fmt/secrets; PRE-PUSH: scripts/preflight.sh)$(NC)" || \
+		echo "$(YELLOW)[!] Pre-commit not available; install it (pipx install pre-commit) then re-run$(NC)"; \
 	else \
 		echo "$(YELLOW)[!] .pre-commit-config.yaml not found$(NC)"; \
 	fi
