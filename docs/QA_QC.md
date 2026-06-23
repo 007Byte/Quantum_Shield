@@ -87,10 +87,12 @@ behavior is identical. To run byte-identically to CI, free `8081` first.
   errors via lint rules are caught), but a pure type error in an `e2e/*.ts` file
   would not fail CI's `tsc` step. If you add heavy typing to E2E, add an
   `e2e/tsconfig.json` and a `tsc -p e2e` gate.
-- **`govulncheck`** is **advisory** in the harness: local Go (1.26) reports stdlib
-  findings absent on CI's pinned Go (1.25), and CI's own govulncheck gate is a
-  no-op (a `jq` bug makes its called-count always 0). The harness still runs it
-  and surfaces findings — triage any **third-party** advisories it prints.
+- **`govulncheck`** is **advisory** in the harness (local Go 1.26 reports stdlib
+  findings absent on CI's pinned Go 1.25, so a hard local gate would false-fail).
+  On CI it is **blocking for third-party vulns**: the gate was fixed (2026-06)
+  from a `jq` no-op to `jq -s` that slurps the stream and fails only on reachable
+  *non-stdlib* findings; stdlib findings warn. The harness still surfaces all of
+  them — triage any **third-party** advisories it prints with `go get`.
 
 ## Multi-agent QA/QC (for non-trivial changes)
 
@@ -113,33 +115,38 @@ port per DB agent; do not run two npm/Playwright agents on the same
 Mirrors CI. Keep the harness in sync when CI changes.
 
 **Blocking** (must pass to merge): Rust check/test/clippy/fmt/cargo-audit · Go
-build/`test -race`/vet/govulncheck/`-tags=integration` · migrations + schema ·
-RN `npm audit` critical/tsc/eslint-errors/jest · env-template · gosec
-HIGH/CRITICAL · gitleaks · semgrep errors · eslint-security errors · consolidated
-audit (critical) · FFI 10-platform builds.
+build/`test -race`/vet/govulncheck (third-party)/`-tags=integration` · migrations
++ schema · RN `npm audit` critical/tsc/eslint-errors/jest · **E2E (9 functional
+specs, chromium)** · env-template · gosec HIGH/CRITICAL · gitleaks · semgrep
+errors · eslint-security errors · consolidated audit (critical) · FFI 10-platform.
 
-**Advisory** (warn, don't block — "during development"): **E2E (9 functional
-specs)** · Go coverage <75% · TS coverage <70% · golangci-lint · ci.yml gosec
-step · semgrep/eslint warnings · OWASP-ZAP medium/low · Trivy · Snyk · pentest.
+**Advisory** (warn, don't block — "during development"): Go coverage <75% · TS
+coverage <70% · golangci-lint · ci.yml gosec step · **govulncheck *stdlib*
+findings** (go-toolchain-managed) · semgrep/eslint warnings · OWASP-ZAP
+medium/low · Trivy · Snyk · pentest.
 
-**E2E is advisory (as of 2026-06).** The flakiness traced to a **real product
-bug**, not the runner. `register.tsx`'s `handlePasswordBlur` did
-`const breached = await checkPasswordBreach(pw); setBreachWarning(breached ? warn
-: '')` — but `checkPasswordBreach` returns an **object** (`{ isBreached, source }`)
-which is *always truthy*, so the "password appeared in a data breach" warning
-fired for **every** password the instant the async check resolved, blocking
-registration with a valid password. It only "passed" when the live HIBP call was
-slow enough that the test clicked Register before the check resolved — hence
-flaky, and worse under the contended CI runner / faster under a network stub.
-Fixed: check `result.isBreached`. Hardening also shipped — an HIBP network stub in
-`e2e/test-base.ts` (deterministic; no live API in E2E) and `workers: CI ? 1` in
-`playwright.config.ts` (no CPU oversubscription on the 2-vCPU runner). Kept
-advisory **only until CI confirms the fix holds across several green runs**, then
-re-promote (re-add `e2e-tests` to the `ci-summary` FAILED loop + drop the step's
-`continue-on-error`).
+**E2E is blocking (re-promoted 2026-06).** It was briefly advisory after flaking
+on CI, but the flakiness was a **real product bug**, now fixed. `register.tsx`'s
+`handlePasswordBlur` did `const breached = await checkPasswordBreach(pw);
+setBreachWarning(breached ? warn : '')` — but `checkPasswordBreach` returns an
+**object** (`{ isBreached, source }`), always truthy, so the "password appeared in
+a data breach" warning fired for *every* password the instant the async check
+resolved, blocking registration with a valid password. It only "passed" when the
+live HIBP call was slow enough to lose the race vs the Register click. Fixed:
+check `result.isBreached`; plus a deterministic HIBP stub (`e2e/test-base.ts`) and
+`workers: CI ? 1` (no CPU oversubscription on the 2-vCPU runner). Verified 51/51
+on CI (3.5 min) and locally under 8× throttle.
+
+**govulncheck gate (fixed 2026-06).** ci.yml's gate was a no-op — bare `jq` (no
+`-s`) over a streamed object sequence always read 0, so it never fired. Now
+`jq -s` slurps the stream and BLOCKS on reachable *third-party* vulns (actionable
+via `go get`) while *stdlib* findings (go-toolchain-managed) only warn. The 3
+reachable deps it would have caught — go-jose 4.1.3→4.1.4, x/net 0.51→0.53, otel
+otlptracehttp 1.42→1.43 — are bumped (0 reachable third-party vulns remain).
 
 Don't make a flaky thing blocking — a flaky blocking gate is worse than an honest
-advisory one. E2E is the hard-won proof of this rule.
+advisory one. E2E is the hard-won proof: advisory *while genuinely flaky*, blocking
+once the root-cause bug was found, fixed, and verified.
 
 ## CI-only gates (cannot run locally; accept CI as final)
 

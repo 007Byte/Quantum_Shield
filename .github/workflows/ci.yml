@@ -138,12 +138,20 @@ jobs:
 
       - name: Run govulncheck (DEP-1 supply chain hardening)
         run: |
-          govulncheck -json ./... > govulncheck-results.json 2>&1 || true
-          # Check if any vulnerabilities were found that affect the binary
-          CALLED=$(jq '[.[] | select(.finding != null) | select(.finding.trace[0].function != null)] | length' govulncheck-results.json 2>/dev/null || echo 0)
-          echo "govulncheck: $CALLED called vulnerabilities found"
-          if [ "$CALLED" -gt 0 ]; then
-            echo "::error::govulncheck found $CALLED vulnerabilities in called code — failing build"
+          govulncheck -json ./... > govulncheck-results.json 2>/dev/null || true
+          # Slurp the STREAM of JSON objects with `jq -s`. The previous gate used
+          # bare `jq` (no -s) AND mixed stderr in via `2>&1`, so it parsed a single
+          # object, always read 0, and NEVER fired. Count reachable (function-level)
+          # findings, splitting third-party deps (actionable via `go get` — BLOCKING)
+          # from stdlib (managed by the Go toolchain version — advisory warning).
+          THIRD_PARTY=$(jq -rs '[.[] | select(.finding.trace[0].function != null) | select(.finding.trace[0].module != "stdlib") | .finding.osv] | unique | length' govulncheck-results.json 2>/dev/null || echo 0)
+          STDLIB=$(jq -rs '[.[] | select(.finding.trace[0].function != null) | select(.finding.trace[0].module == "stdlib") | .finding.osv] | unique | length' govulncheck-results.json 2>/dev/null || echo 0)
+          echo "govulncheck: $THIRD_PARTY reachable third-party vuln(s); $STDLIB reachable stdlib vuln(s)"
+          if [ "$STDLIB" -gt 0 ]; then
+            echo "::warning::govulncheck: $STDLIB reachable stdlib vulnerabilities — bump the Go toolchain version to clear these"
+          fi
+          if [ "$THIRD_PARTY" -gt 0 ]; then
+            echo "::error::govulncheck: $THIRD_PARTY reachable third-party vulnerabilities in called code — bump the affected modules"
             govulncheck ./...
             exit 1
           fi
@@ -325,15 +333,13 @@ jobs:
       # tooling, not gates; run those manually. These functional flows were
       # repaired and verified green on CI (register/login are client-side on web,
       # so only the Expo web server is needed — no backend).
-      # ADVISORY (non-blocking). The functional E2E suite is flaky on GitHub's
-      # 2-vCPU hosted runner under parallel browser workers — a timing/resource
-      # contention issue, not a product bug (verified via CI traces: registration
-      # races a live HIBP call; the auth→dashboard flow blows its timeout). It is
-      # kept running for signal but does NOT gate the pipeline. Re-promote to
-      # blocking only after it proves consistently green (workers=1 + HIBP mocked,
-      # both shipped). See docs/QA_QC.md "E2E parity".
+      # BLOCKING. The functional E2E suite (51 tests, chromium). It was flaky on
+      # the 2-vCPU runner due to a register.tsx breach-check bug (it tested an
+      # always-truthy result object, falsely flagging every password and blocking
+      # registration) plus CPU oversubscription. Fixed: result.isBreached +
+      # workers=1 + a deterministic HIBP stub (e2e/test-base.ts). Verified green
+      # on CI (51/51, 3.5m). See docs/QA_QC.md "E2E parity".
       - name: Run Playwright E2E tests
-        continue-on-error: true
         run: |
           npx playwright test --project=chromium \
             e2e/auth.spec.ts e2e/vault-creation.spec.ts e2e/encrypt.spec.ts \
@@ -612,19 +618,15 @@ jobs:
           echo "usbvault-crypto:        ${{ needs.usbvault-crypto.result }}"
           echo "usbvault-server:        ${{ needs.usbvault-server.result }}"
           echo "usbvault-app:           ${{ needs.usbvault-app.result }}"
-          echo "e2e-tests:              ${{ needs.e2e-tests.result }}  (ADVISORY — non-blocking)"
+          echo "e2e-tests:              ${{ needs.e2e-tests.result }}"
           echo "migration-validation:   ${{ needs.migration-validation.result }}"
           echo "integration-tests: ${{ needs.integration-tests.result }}"
           echo "security-tests:    ${{ needs.security-tests.result }}"
           echo "validate-env:      ${{ needs.validate-env.result }}"
           echo ""
 
-          # NOTE: e2e-tests is intentionally OMITTED from this loop — it is an
-          # ADVISORY gate (flaky on the 2-vCPU runner) and must not fail the
-          # pipeline. Its result is printed above for visibility. Re-add it here
-          # to re-promote E2E to blocking once it is consistently green.
           FAILED=0
-          for job in usbvault-crypto usbvault-server usbvault-app migration-validation integration-tests security-tests validate-env; do
+          for job in usbvault-crypto usbvault-server usbvault-app e2e-tests migration-validation integration-tests security-tests validate-env; do
             case "$job" in
               usbvault-crypto)        RESULT="${{ needs.usbvault-crypto.result }}" ;;
               usbvault-server)        RESULT="${{ needs.usbvault-server.result }}" ;;
