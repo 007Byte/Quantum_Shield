@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/usbvault/usbvault-server/internal/testutil"
 )
 
 // setupTestDB creates a test database pool and initializes schema
@@ -18,7 +20,7 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	dsn := "postgres://postgres:postgres@localhost:5432/usbvault_test"
+	dsn := testutil.IntegrationDSN()
 	pool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err, "failed to connect to test database")
 

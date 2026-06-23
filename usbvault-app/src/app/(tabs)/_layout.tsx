@@ -25,8 +25,8 @@ export default function TabsLayout() {
   // FIX: Vault unlock was previously only available on the encrypt-store tab.
   // Moving it to the Tabs layout ensures the unlock modal appears on ANY tab
   // (dashboard, decrypt, remove-file, etc.) when a USB vault needs unlocking.
-  const vaultUnlock = useVaultUnlock();
-  const { modal } = useInAppModal();
+  const { modal, showError, showSuccess } = useInAppModal();
+  const vaultUnlock = useVaultUnlock({ showError, showSuccess });
 
   // SEC-001: Inject web-only CSS that hides inactive tab scenes.
   // Without this, React Nav v7 scenes with z-index:-1 bleed through
@@ -65,9 +65,9 @@ export default function TabsLayout() {
       }}
     >
       <Tabs
-        sceneContainerStyle={{ backgroundColor: 'transparent' }}
         screenOptions={{
           headerShown: false,
+          sceneStyle: { backgroundColor: 'transparent' },
           tabBarActiveTintColor: colors.accentPrimary,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle:
@@ -355,7 +355,6 @@ export default function TabsLayout() {
             title: 'Terms of Service',
           }}
         />
-
       </Tabs>
 
       {/* ── Global Vault Unlock Modal ────────────────────────────────── */}
@@ -378,4 +377,3 @@ export default function TabsLayout() {
     </ErrorBoundary>
   );
 }
-

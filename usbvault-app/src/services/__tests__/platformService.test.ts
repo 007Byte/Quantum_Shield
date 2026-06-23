@@ -6,15 +6,15 @@
  */
 
 // Mock React Native
+import { platformService } from '../platformService';
+import { Platform, Dimensions } from 'react-native';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web', Version: '1.0.0' },
   Dimensions: {
     get: jest.fn(() => ({ width: 1440, height: 900, scale: 2 })),
   },
 }));
-
-import { platformService } from '../platformService';
-import { Platform, Dimensions } from 'react-native';
 
 describe('PlatformService', () => {
   beforeEach(() => {

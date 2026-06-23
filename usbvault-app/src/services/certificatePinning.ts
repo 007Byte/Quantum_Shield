@@ -36,10 +36,7 @@ const ENV_PIN_EXPIRATION = process.env.EXPO_PUBLIC_PIN_EXPIRATION || '2027-06-01
 const _pins: CertificatePin[] = [
   {
     hostname: ENV_API_HOSTNAME,
-    sha256Pins:
-      ENV_PRIMARY_PIN && ENV_BACKUP_PIN
-        ? [ENV_PRIMARY_PIN, ENV_BACKUP_PIN]
-        : [],
+    sha256Pins: ENV_PRIMARY_PIN && ENV_BACKUP_PIN ? [ENV_PRIMARY_PIN, ENV_BACKUP_PIN] : [],
     includeSubdomains: true,
     expirationDate: ENV_PIN_EXPIRATION,
   },
@@ -135,11 +132,19 @@ export function arePinsConfigured(): boolean {
 
   for (const pin of allPins) {
     if (!pin.sha256Pins || pin.sha256Pins.length === 0) {
-      logger.warn('Certificate pinning: no pins configured — set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP');
+      logger.warn(
+        'Certificate pinning: no pins configured — set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP'
+      );
       return false;
     }
     for (const sha of pin.sha256Pins) {
-      if (!sha || sha.includes('TODO') || sha.includes('REPLACE') || sha.startsWith('AAAA') || sha.endsWith('_REQUIRED')) {
+      if (
+        !sha ||
+        sha.includes('TODO') ||
+        sha.includes('REPLACE') ||
+        sha.startsWith('AAAA') ||
+        sha.endsWith('_REQUIRED')
+      ) {
         logger.warn('Certificate pinning: placeholder pin detected');
         return false;
       }
@@ -190,10 +195,18 @@ export function validatePinConfiguration(): { valid: boolean; errors: string[] }
       errors.push('Pin missing hostname');
     }
     if (!pin.sha256Pins || pin.sha256Pins.length === 0) {
-      errors.push(`No pins configured for ${pin.hostname} — set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP`);
+      errors.push(
+        `No pins configured for ${pin.hostname} — set EXPO_PUBLIC_PIN_PRIMARY and EXPO_PUBLIC_PIN_BACKUP`
+      );
     }
     for (const sha of pin.sha256Pins) {
-      if (!sha || sha.includes('TODO') || sha.includes('REPLACE') || sha.startsWith('AAAA') || sha.endsWith('_REQUIRED')) {
+      if (
+        !sha ||
+        sha.includes('TODO') ||
+        sha.includes('REPLACE') ||
+        sha.startsWith('AAAA') ||
+        sha.endsWith('_REQUIRED')
+      ) {
         errors.push(`Hostname ${pin.hostname} has placeholder pin: ${sha}`);
       }
     }

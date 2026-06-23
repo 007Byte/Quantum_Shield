@@ -5,7 +5,7 @@
  * tracking, cancellation, and history management.
  */
 
-import { bulkOperationsService, BulkOperation } from '../bulkOperationsService';
+import { bulkOperationsService } from '../bulkOperationsService';
 
 // Mock localStorage
 const localStorageMock = (() => {

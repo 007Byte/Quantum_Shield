@@ -153,7 +153,9 @@ function FindVaultScreen() {
                 <View style={styles.scanningContainer}>
                   <View style={styles.scanningContent}>
                     <ActivityIndicator size="large" color="#06b6d4" style={styles.spinner} />
-                    <Text style={styles.scanningText}>{t('findVault.scanningDrive', { drive: currentScanPath })}</Text>
+                    <Text style={styles.scanningText}>
+                      {t('findVault.scanningDrive', { drive: currentScanPath })}
+                    </Text>
                     <Text style={styles.scanningSubtext}>{t('findVault.pleaseWait')}</Text>
                   </View>
                 </View>
@@ -218,7 +220,9 @@ function FindVaultScreen() {
                             color="#ffffff"
                           />
                           <Text style={styles.actionButtonText}>
-                            {vault.status === 'healthy' ? t('findVault.open') : t('findVault.repair')}
+                            {vault.status === 'healthy'
+                              ? t('findVault.open')
+                              : t('findVault.repair')}
                           </Text>
                         </Pressable>
                       </View>

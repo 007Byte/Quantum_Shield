@@ -38,7 +38,7 @@ export interface ScanPanelProps {
   cleanupSummary: CleanupSummary | null;
   onFullCleanup: () => void;
   onDismissSummary: () => void;
-  t: (key: string) => string | undefined;
+  t: (key: string, options?: Record<string, unknown>) => string | undefined;
 }
 
 export interface ArtifactListProps {

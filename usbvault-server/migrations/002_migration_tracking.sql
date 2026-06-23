@@ -1,15 +1,18 @@
--- DE-017 FIX: Migration version tracking
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version INTEGER PRIMARY KEY,
-    description TEXT NOT NULL,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    checksum TEXT
-);
-
--- Record existing migrations
-INSERT INTO schema_migrations (version, description) VALUES
-    (1, 'initial schema'),
-    (2, 'security events table'),
-    (3, 'composite indexes'),
-    (4, 'audit log archive')
-ON CONFLICT (version) DO NOTHING;
+-- DE-017: Migration version tracking
+--
+-- Intentionally a no-op.
+--
+-- The migration framework (migrations/migrate.go) already owns the
+-- `schema_migrations` table and records every applied migration as
+-- (version, name, applied_at) inside the same transaction that runs the
+-- migration. The previous version of this file tried to re-CREATE that table
+-- with a different schema (a `description` column instead of `name`, plus
+-- `checksum`) and then INSERT tracking rows. Because the table already exists
+-- from migration 000, the `CREATE TABLE IF NOT EXISTS` was a no-op, so the
+-- `description` column was never added and the subsequent INSERT failed with
+-- `column "description" of relation "schema_migrations" does not exist`
+-- (SQLSTATE 42703), breaking every migration run.
+--
+-- Migration tracking is handled by the framework; no schema change is needed
+-- here. This file is retained (rather than deleted) so the version sequence
+-- stays stable for environments that may have already recorded version 2.

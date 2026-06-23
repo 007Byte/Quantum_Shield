@@ -9,8 +9,12 @@
 //! - Post-quantum cryptography FFI (if feature enabled)
 
 #![cfg(feature = "ffi")]
+// Test-only lint relaxations: the FFI exports are safe `extern "C"` fns (not
+// `unsafe fn`), so `unsafe {}` wrappers around them are redundant; error-code
+// sanity assertions check compile-time constants on purpose; and some harness
+// helpers are only exercised under certain feature combinations.
+#![allow(unused_unsafe, clippy::assertions_on_constants, dead_code)]
 
-use std::sync::Arc;
 use std::thread;
 
 // Import FFI functions directly from the crate (they are pub extern "C" #[no_mangle])
@@ -730,7 +734,7 @@ fn test_ffi_double_free_safety() {
     // This test verifies that calling free multiple times is safe
     // In the current implementation, free is a no-op, so this should be safe
     unsafe {
-        let buffer = vec![1u8, 2, 3, 4, 5];
+        let buffer = [1u8, 2, 3, 4, 5];
         let ptr = buffer.as_ptr() as *mut u8;
         let len = buffer.len();
 

@@ -37,11 +37,11 @@ async function tryRemoteSync<T>(operation: string, fn: () => Promise<T>): Promis
     return await fn();
   } catch (err) {
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    const isNetworkError = err instanceof Error && (
-      err.message.includes('Network Error') ||
-      err.message.includes('ECONNREFUSED') ||
-      err.message.includes('timeout')
-    );
+    const isNetworkError =
+      err instanceof Error &&
+      (err.message.includes('Network Error') ||
+        err.message.includes('ECONNREFUSED') ||
+        err.message.includes('timeout'));
     if (isOffline || isNetworkError) {
       logger.info(`[vaultListStore] Offline — ${operation} queued for sync`);
       return null;
@@ -205,7 +205,9 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
 
         try {
           const discoveredDrives = await usbService.discoverVaults();
-          logger.info(`[vaultListStore] discoverVaults found ${discoveredDrives.length} vault drive(s)`);
+          logger.info(
+            `[vaultListStore] discoverVaults found ${discoveredDrives.length} vault drive(s)`
+          );
 
           for (const d of discoveredDrives) {
             // Each discovered drive may have vault partitions
@@ -323,18 +325,15 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
           const index = vaultOrchestrator.getIndex();
           const activeV = vaultOrchestrator.getActiveVault();
           if (index && activeV) {
-            const vaultId = realVaults.find(
-              rv => rv.mountPoint === activeV.mountPoint
-            )?.id;
+            const vaultId = realVaults.find(rv => rv.mountPoint === activeV.mountPoint)?.id;
             if (vaultId) {
               const currentFiles = get().files;
               for (const [fileId, entry] of Object.entries(index.files)) {
                 // Prefer existing store entry if it has a real name (not the fileId)
                 const existing = currentFiles.find(f => f.id === fileId);
                 const indexName = (entry as any).name || '';
-                const resolvedName = existing?.name && existing.name !== fileId
-                  ? existing.name
-                  : indexName || fileId;
+                const resolvedName =
+                  existing?.name && existing.name !== fileId ? existing.name : indexName || fileId;
                 const resolvedType = resolvedName.includes('.')
                   ? resolvedName.split('.').pop() || 'unknown'
                   : existing?.type || 'unknown';
@@ -361,10 +360,10 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
           try {
             const cacheRaw = localStorage.getItem('usbvault:usb_file_cache');
             if (cacheRaw) {
-              const cache = JSON.parse(cacheRaw) as Array<{
+              const cache = JSON.parse(cacheRaw) as {
                 vaultId: string;
                 files: FileInfo[];
-              }>;
+              }[];
               for (const rv of realVaults) {
                 const cached = cache.find(c => c.vaultId === rv.id);
                 if (cached && cached.files.length > 0) {
@@ -422,26 +421,31 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
       }
 
       // 2. Background sync from remote API (fire-and-forget)
-      fireAndForget((async () => {
-        const remoteVaults = await tryRemoteSync('loadVaults', () => api.listVaults());
-        if (remoteVaults === null) return; // offline, keep local cache
+      fireAndForget(
+        (async () => {
+          const remoteVaults = await tryRemoteSync('loadVaults', () => api.listVaults());
+          if (remoteVaults === null) return; // offline, keep local cache
 
-        let vaults = remoteVaults;
-        if (vaults.length > MAX_VAULTS_IN_MEMORY) {
-          logger.warn(`[vaultListStore] Truncating ${vaults.length} vaults to ${MAX_VAULTS_IN_MEMORY}`);
-          vaults = vaults.slice(0, MAX_VAULTS_IN_MEMORY);
-        }
-        const { ids, byId } = normalize(vaults);
-        set({
-          vaultIds: ids,
-          vaultsById: byId,
-          vaults: ids.map(id => byId[id]).filter(Boolean),
-          isLoading: false,
-        });
-        // Update local cache with remote data
-        persistVaults({ vaultIds: ids, vaultsById: byId });
-        logger.info(`[vaultListStore] Synced ${vaults.length} vault(s) from remote`);
-      })(), { context: 'vaultList.loadVaults.remoteSync', severity: 'warn' });
+          let vaults = remoteVaults;
+          if (vaults.length > MAX_VAULTS_IN_MEMORY) {
+            logger.warn(
+              `[vaultListStore] Truncating ${vaults.length} vaults to ${MAX_VAULTS_IN_MEMORY}`
+            );
+            vaults = vaults.slice(0, MAX_VAULTS_IN_MEMORY);
+          }
+          const { ids, byId } = normalize(vaults);
+          set({
+            vaultIds: ids,
+            vaultsById: byId,
+            vaults: ids.map(id => byId[id]).filter(Boolean),
+            isLoading: false,
+          });
+          // Update local cache with remote data
+          persistVaults({ vaultIds: ids, vaultsById: byId });
+          logger.info(`[vaultListStore] Synced ${vaults.length} vault(s) from remote`);
+        })(),
+        { context: 'vaultList.loadVaults.remoteSync', severity: 'warn' }
+      );
 
       // If no local vaults were found, keep loading state until remote resolves
       if (localOnly.length === 0) {
@@ -538,14 +542,19 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
         severity: 'error',
       });
       // Background sync to remote
-      fireAndForget((async () => {
-        const remoteId = await tryRemoteSync('createVault', () =>
-          api.createVault({ name, encryptedMetadata: metadataBase64 })
-        );
-        if (remoteId !== null) {
-          logger.info(`[vaultListStore] Synced vault ${newVaultId} to remote (remoteId: ${remoteId})`);
-        }
-      })(), { context: 'vaultList.createVault.remoteSync', severity: 'warn' });
+      fireAndForget(
+        (async () => {
+          const remoteId = await tryRemoteSync('createVault', () =>
+            api.createVault({ name, encryptedMetadata: metadataBase64 })
+          );
+          if (remoteId !== null) {
+            logger.info(
+              `[vaultListStore] Synced vault ${newVaultId} to remote (remoteId: ${remoteId})`
+            );
+          }
+        })(),
+        { context: 'vaultList.createVault.remoteSync', severity: 'warn' }
+      );
       return newVaultId;
     } catch (error) {
       const message =
@@ -641,14 +650,24 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
       );
       logger.info(`[vaultListStore] Created vault ${newVaultId} with SG-004 key hierarchy`);
       // Background sync to remote
-      fireAndForget((async () => {
-        const remoteId = await tryRemoteSync('createVaultWithKeyHierarchy', () =>
-          api.createVault({ name, encryptedMetadata: metadataBase64, wrappedMek: wrappedMekB64, kekSaltHex })
-        );
-        if (remoteId !== null) {
-          logger.info(`[vaultListStore] Synced vault ${newVaultId} to remote (remoteId: ${remoteId})`);
-        }
-      })(), { context: 'vaultList.createVaultV2.remoteSync', severity: 'warn' });
+      fireAndForget(
+        (async () => {
+          const remoteId = await tryRemoteSync('createVaultWithKeyHierarchy', () =>
+            api.createVault({
+              name,
+              encryptedMetadata: metadataBase64,
+              wrappedMek: wrappedMekB64,
+              kekSaltHex,
+            })
+          );
+          if (remoteId !== null) {
+            logger.info(
+              `[vaultListStore] Synced vault ${newVaultId} to remote (remoteId: ${remoteId})`
+            );
+          }
+        })(),
+        { context: 'vaultList.createVaultV2.remoteSync', severity: 'warn' }
+      );
       return { vaultId: newVaultId, mek: hierarchy.mek };
     } catch (error) {
       const message =
@@ -722,12 +741,15 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
       const active = useActiveVaultStore.getState();
       if (active.activeVaultId === vaultId) active.selectVault(null);
       // 2. Background sync to remote
-      fireAndForget((async () => {
-        const result = await tryRemoteSync('deleteVault', () => api.deleteVault(vaultId));
-        if (result !== null) {
-          logger.info(`[vaultListStore] Synced vault deletion ${vaultId} to remote`);
-        }
-      })(), { context: 'vaultList.deleteVault.remoteSync', severity: 'warn' });
+      fireAndForget(
+        (async () => {
+          const result = await tryRemoteSync('deleteVault', () => api.deleteVault(vaultId));
+          if (result !== null) {
+            logger.info(`[vaultListStore] Synced vault deletion ${vaultId} to remote`);
+          }
+        })(),
+        { context: 'vaultList.deleteVault.remoteSync', severity: 'warn' }
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : i18n.t('vaultErrors.failedToDeleteVault');
@@ -1004,8 +1026,9 @@ export const useVaultListStore = create<VaultListState>((set, get) => ({
           const vaultFiles = updatedFiles.filter(f => f.vaultId === file.vaultId);
           const cacheKey = 'usbvault:usb_file_cache';
           const raw = localStorage.getItem(cacheKey);
-          const entries: Array<{ vaultId: string; files: FileInfo[]; cachedAt: string }> =
-            raw ? JSON.parse(raw) : [];
+          const entries: { vaultId: string; files: FileInfo[]; cachedAt: string }[] = raw
+            ? JSON.parse(raw)
+            : [];
           const filtered = entries.filter(e => e.vaultId !== file.vaultId);
           filtered.push({
             vaultId: file.vaultId,

@@ -61,6 +61,14 @@ default = ["pqc"]
 pqc = ["ml-kem"]  # Post-quantum crypto: hybrid X25519 + ML-KEM-1024
 ffi = []  # FFI exports for mobile/desktop
 
+# `guard_page_tests` is an opt-in cfg (NOT a Cargo feature) so that
+# `cargo test --all-features` in CI does not run the guard-page tests, which
+# use mmap/mprotect and can fail under emulation/sandboxed runners. Enable with:
+#   RUSTFLAGS="--cfg guard_page_tests" cargo test memory::tests::test_guarded
+# Registered here so `unexpected_cfgs` does not warn under `clippy -D warnings`.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(guard_page_tests)'] }
+
 [profile.release]
 opt-level = 3
 lto = true

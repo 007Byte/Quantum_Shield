@@ -31,7 +31,7 @@ export default function AppLock() {
   const [lockOnUsbRemoval, setLockOnUsbRemoval] = useState(true);
   const [requireBiometric, setRequireBiometric] = useState(false);
 
-  const timerOptions: Array<{ id: LockOption; label: string; description: string }> = [
+  const timerOptions: { id: LockOption; label: string; description: string }[] = [
     { id: 'immediate', label: t('appLock.immediately'), description: t('appLock.lockInstantly') },
     { id: '1min', label: t('appLock.after1min'), description: t('appLock.lockAfter1Min') },
     { id: '5min', label: t('appLock.after5min'), description: t('appLock.lockAfter5Min') },
@@ -123,7 +123,9 @@ export default function AppLock() {
                     <Feather name="minimize-2" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
                       <Text style={styles.toggleLabel}>{t('appLock.lockOnBackground')}</Text>
-                      <Text style={styles.toggleDescription}>{t('appLock.lockOnBackgroundDesc')}</Text>
+                      <Text style={styles.toggleDescription}>
+                        {t('appLock.lockOnBackgroundDesc')}
+                      </Text>
                     </View>
                     <ToggleSwitch
                       value={lockOnMinimize}
@@ -166,9 +168,7 @@ export default function AppLock() {
                     <Feather name="lock" size={20} color={cyan} />
                     <View style={styles.toggleContent}>
                       <Text style={styles.toggleLabel}>{t('appLock.biometric')}</Text>
-                      <Text style={styles.toggleDescription}>
-                        {t('appLock.biometricDesc')}
-                      </Text>
+                      <Text style={styles.toggleDescription}>{t('appLock.biometricDesc')}</Text>
                     </View>
                     <ToggleSwitch
                       value={requireBiometric}

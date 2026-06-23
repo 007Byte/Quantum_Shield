@@ -6,6 +6,20 @@
  */
 
 // Mock React Native Platform
+import {
+  validatePassword,
+  analyzeCharacterClasses,
+  checkPasswordBreach,
+  validateType,
+  validateLength,
+  validateNamePattern,
+  validateInputField,
+  levelToColor,
+  levelToLabel,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from '../passwordPolicy';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
@@ -27,20 +41,6 @@ Object.defineProperty(global, 'crypto', {
   writable: true,
   configurable: true,
 });
-
-import {
-  validatePassword,
-  analyzeCharacterClasses,
-  checkPasswordBreach,
-  validateType,
-  validateLength,
-  validateNamePattern,
-  validateInputField,
-  levelToColor,
-  levelToLabel,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_MAX_LENGTH,
-} from '../passwordPolicy';
 
 describe('passwordPolicy', () => {
   describe('validatePassword() — length checks', () => {

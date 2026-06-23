@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,26 +16,10 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
-// mockAuditService implements the audit interface used by HandleSRPVerify
-type mockAuditService struct {
-	loggedActions []struct {
-		userID string
-		action string
-	}
-}
-
-func (m *mockAuditService) LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error {
-	m.loggedActions = append(m.loggedActions, struct {
-		userID string
-		action string
-	}{userID: userID, action: actionType})
-	return nil
-}
+// mockAuditService is defined once in integration_test.go and shared here.
 
 // TestSRPInit_ValidUser tests that a valid user receives B and salt
 func TestSRPInit_ValidUser(t *testing.T) {
@@ -49,12 +32,7 @@ func TestSRPInit_ValidUser(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	defer redisClient.Close()
 
-	lockoutSvc := NewAccountLockoutService(redisClient)
-
-	// Create a mock pool with test data
 	ctx := context.Background()
-	conn, _ := pgxpool.New(ctx)
-	defer conn.Close()
 
 	// Test user credentials
 	email := "test@example.com"
@@ -75,7 +53,7 @@ func TestSRPInit_ValidUser(t *testing.T) {
 		v := new(big.Int)
 		v.SetBytes(testVerifier)
 
-		b := randomBigInt(256)
+		b, _ := randomBigInt(256)
 		gb := new(big.Int).Exp(g, b, N)
 		kv := new(big.Int).Mul(k, v)
 		kv.Mod(kv, N)
@@ -90,7 +68,7 @@ func TestSRPInit_ValidUser(t *testing.T) {
 		sessionID := "test-session-id"
 		state := srpServerState{
 			B:           B.String(),
-			b:           b,
+			BPrivate:    b.String(),
 			Salt:        testSalt,
 			SRPVerifier: testVerifier,
 			EmailHash:   emailHash,
@@ -236,11 +214,11 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 	v.SetBytes(testVerifier)
 
 	// Generate client ephemeral key a and A
-	a := randomBigInt(256)
+	a, _ := randomBigInt(256)
 	A := new(big.Int).Exp(g, a, N)
 
 	// Server side (in init)
-	b := randomBigInt(256)
+	b, _ := randomBigInt(256)
 	gb := new(big.Int).Exp(g, b, N)
 	kv := new(big.Int).Mul(k, v)
 	kv.Mod(kv, N)
@@ -282,7 +260,7 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 	// Store state in Redis
 	state := srpServerState{
 		B:           B.String(),
-		b:           b,
+		BPrivate:    b.String(),
 		A:           A,
 		Salt:        []byte("test-salt"),
 		SRPVerifier: testVerifier,
@@ -328,7 +306,9 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 		vu := new(big.Int).Exp(v, u, N)
 		Avu := new(big.Int).Mul(A, vu)
 		Avu.Mod(Avu, N)
-		S := new(big.Int).Exp(Avu, state.b, N)
+		sb := new(big.Int)
+		sb.SetString(state.BPrivate, 10)
+		S := new(big.Int).Exp(Avu, sb, N)
 		K := sha256.Sum256(S.Bytes())
 
 		M1Computed := computeSRPProofM1(A, state.B, K[:])
@@ -428,7 +408,6 @@ func TestSRPVerify_InvalidA(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	defer redisClient.Close()
 
-	ctx := context.Background()
 	N := new(big.Int)
 	N.SetString(srpN, 16)
 
@@ -478,11 +457,11 @@ func TestSRPVerify_ReplayPrevention(t *testing.T) {
 
 	// Store a session
 	state := srpServerState{
-		B:           "test-b",
-		b:           big.NewInt(123),
-		EmailHash:   "test-hash",
-		UserID:      "user123",
-		CreatedAt:   time.Now(),
+		B:         "test-b",
+		BPrivate:  big.NewInt(123).String(),
+		EmailHash: "test-hash",
+		UserID:    "user123",
+		CreatedAt: time.Now(),
 	}
 	stateJSON, _ := json.Marshal(state)
 	redisClient.Set(ctx, "srp:"+sessionID, stateJSON, 5*time.Minute)
@@ -524,14 +503,14 @@ func TestSRPVerify_WrongProof(t *testing.T) {
 	v := new(big.Int)
 	v.SetBytes(testVerifier)
 
-	b := randomBigInt(256)
+	b, _ := randomBigInt(256)
 	gb := new(big.Int).Exp(g, b, N)
 	kv := new(big.Int).Mul(k, v)
 	kv.Mod(kv, N)
 	B := new(big.Int).Add(kv, gb)
 	B.Mod(B, N)
 
-	a := randomBigInt(256)
+	a, _ := randomBigInt(256)
 	A := new(big.Int).Exp(g, a, N)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -539,7 +518,7 @@ func TestSRPVerify_WrongProof(t *testing.T) {
 
 	state := srpServerState{
 		B:           B.String(),
-		b:           b,
+		BPrivate:    b.String(),
 		A:           A,
 		Salt:        []byte("salt"),
 		SRPVerifier: testVerifier,
@@ -591,7 +570,9 @@ func TestSRPVerify_WrongProof(t *testing.T) {
 		vu := new(big.Int).Exp(v, u, N)
 		Avu := new(big.Int).Mul(A, vu)
 		Avu.Mod(Avu, N)
-		S := new(big.Int).Exp(Avu, state.b, N)
+		sb := new(big.Int)
+		sb.SetString(state.BPrivate, 10)
+		S := new(big.Int).Exp(Avu, sb, N)
 		K := sha256.Sum256(S.Bytes())
 
 		M1Computed := computeSRPProofM1(A, state.B, K[:])

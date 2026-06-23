@@ -20,12 +20,21 @@ export function KDFLab() {
     setDeriving(true);
     setResult('');
     const kdf = KDF_DEMOS.find(k => k.id === selectedKdf);
-    if (!kdf) { setDeriving(false); return; }
+    if (!kdf) {
+      setDeriving(false);
+      return;
+    }
 
     if (selectedKdf === 'pbkdf2') {
       try {
         const enc = new TextEncoder();
-        const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw',
+          enc.encode(password),
+          'PBKDF2',
+          false,
+          ['deriveBits']
+        );
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const start = performance.now();
         const bits = await crypto.subtle.deriveBits(
@@ -34,15 +43,25 @@ export function KDFLab() {
           256
         );
         const elapsed = Math.round(performance.now() - start);
-        const hex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
-        setResult(`${t('classroom.kdf.result', { time: String(elapsed) })}\nKey: ${hex.slice(0, 32)}...`);
+        const hex = Array.from(new Uint8Array(bits))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+        setResult(
+          `${t('classroom.kdf.result', { time: String(elapsed) })}\nKey: ${hex.slice(0, 32)}...`
+        );
       } catch {
         setResult('[PBKDF2 — WebCrypto unavailable]');
       }
     } else if (selectedKdf === 'hkdf') {
       try {
         const enc = new TextEncoder();
-        const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'HKDF', false, ['deriveBits']);
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw',
+          enc.encode(password),
+          'HKDF',
+          false,
+          ['deriveBits']
+        );
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const infos = ['vault-encryption', 'audit-signing', 'backup-key'];
         const lines: string[] = [];
@@ -54,7 +73,9 @@ export function KDFLab() {
             256
           );
           const elapsed = Math.round(performance.now() - start);
-          const hex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+          const hex = Array.from(new Uint8Array(bits))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
           lines.push(`info="${info}" (${elapsed}ms):\n  ${hex.slice(0, 32)}...`);
         }
         setResult(`${t('classroom.kdf.hkdf.subkeyDemo')}\n\n${lines.join('\n\n')}`);
@@ -67,40 +88,40 @@ export function KDFLab() {
       if (selectedKdf === 'bcrypt') {
         setResult(
           `bcrypt cost factor comparison:\n\n` +
-          `  Cost 10: 2^10 = 1,024 rounds     ~100ms\n` +
-          `  Cost 12: 2^12 = 4,096 rounds     ~300ms\n` +
-          `  Cost 14: 2^14 = 16,384 rounds    ~1.2s\n` +
-          `  Cost 16: 2^16 = 65,536 rounds    ~4.5s\n\n` +
-          t('classroom.kdf.bcrypt.explanation')
+            `  Cost 10: 2^10 = 1,024 rounds     ~100ms\n` +
+            `  Cost 12: 2^12 = 4,096 rounds     ~300ms\n` +
+            `  Cost 14: 2^14 = 16,384 rounds    ~1.2s\n` +
+            `  Cost 16: 2^16 = 65,536 rounds    ~4.5s\n\n` +
+            t('classroom.kdf.bcrypt.explanation')
         );
       } else if (selectedKdf === 'scrypt') {
         setResult(
           `scrypt parameters:\n\n` +
-          `  N (CPU/memory cost): 2^14 = 16,384\n` +
-          `  r (block size):      8\n` +
-          `  p (parallelism):     1\n` +
-          `  Memory required:     ~16 MiB\n\n` +
-          `  N=2^20, r=8, p=1 → ~1 GiB RAM\n\n` +
-          t('classroom.kdf.scrypt.explanation')
+            `  N (CPU/memory cost): 2^14 = 16,384\n` +
+            `  r (block size):      8\n` +
+            `  p (parallelism):     1\n` +
+            `  Memory required:     ~16 MiB\n\n` +
+            `  N=2^20, r=8, p=1 → ~1 GiB RAM\n\n` +
+            t('classroom.kdf.scrypt.explanation')
         );
       } else if (selectedKdf === 'argon2i') {
         setResult(
           `Argon2i parameters:\n\n` +
-          `  Memory:      64 MiB\n` +
-          `  Iterations:  3\n` +
-          `  Parallelism: 4 lanes\n` +
-          `  Salt:        16 bytes (random)\n\n` +
-          t('classroom.kdf.argon2i.explanation')
+            `  Memory:      64 MiB\n` +
+            `  Iterations:  3\n` +
+            `  Parallelism: 4 lanes\n` +
+            `  Salt:        16 bytes (random)\n\n` +
+            t('classroom.kdf.argon2i.explanation')
         );
       } else if (selectedKdf === 'argon2id') {
         setResult(
           `Argon2id — USBVault Configuration:\n\n` +
-          `  Memory:      64 MiB\n` +
-          `  Iterations:  3\n` +
-          `  Parallelism: 4 lanes\n` +
-          `  Salt:        16 bytes (random)\n` +
-          `  Output:      32 bytes (256-bit key)\n\n` +
-          t('classroom.kdf.argon2id.explanation')
+            `  Memory:      64 MiB\n` +
+            `  Iterations:  3\n` +
+            `  Parallelism: 4 lanes\n` +
+            `  Salt:        16 bytes (random)\n` +
+            `  Output:      32 bytes (256-bit key)\n\n` +
+            t('classroom.kdf.argon2id.explanation')
         );
       }
     }
@@ -136,8 +157,7 @@ export function KDFLab() {
             style={[
               labStyles.cipherCard,
               {
-                backgroundColor:
-                  selectedKdf === k.id ? `${k.color}66` : `${k.color}14`,
+                backgroundColor: selectedKdf === k.id ? `${k.color}66` : `${k.color}14`,
                 borderColor: selectedKdf === k.id ? k.color : `${k.color}40`,
               },
             ]}
@@ -158,9 +178,8 @@ export function KDFLab() {
               style={[
                 labStyles.cipherType,
                 {
-                  color: selectedKdf === k.id
-                    ? 'rgba(255,255,255,0.7)'
-                    : theme.L2.base.text.secondary,
+                  color:
+                    selectedKdf === k.id ? 'rgba(255,255,255,0.7)' : theme.L2.base.text.secondary,
                 },
               ]}
             >

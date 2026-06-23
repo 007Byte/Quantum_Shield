@@ -250,7 +250,7 @@ impl SrpClientSession {
         // Compute u = H(PAD(A) || PAD(B))
         let mut hasher = Sha256::new();
         hasher.update(self.public_key_a.to_bytes_be());
-        hasher.update(&server_b);
+        hasher.update(server_b);
         let u_hash = hasher.finalize();
         let u = BigUint::from_bytes_be(u_hash.as_ref());
 
@@ -370,7 +370,7 @@ mod tests {
             .expect("Verifier computation failed");
         assert!(!verifier.is_empty());
         // Verifier should be a valid BigUint (3072-bit = 384 bytes)
-        assert!(verifier.len() > 0);
+        assert!(!verifier.is_empty());
     }
 
     #[test]
@@ -443,7 +443,10 @@ mod tests {
         let server_k = hasher.finalize().to_vec();
 
         // Both sides should derive the same session key
-        assert_eq!(session_key, server_k, "Client and server session keys must match");
+        assert_eq!(
+            session_key, server_k,
+            "Client and server session keys must match"
+        );
 
         // Server computes M2 = H(A, M1, K) — matching verify_server expectation
         let mut hasher = Sha256::new();

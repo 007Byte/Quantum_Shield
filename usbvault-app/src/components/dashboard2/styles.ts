@@ -151,15 +151,13 @@ export const webOnlyGlassLuxuryLight: ViewStyle = {
 
 export const webOnlyEdgeLitLight: ViewStyle = {
   ...webOnly({
-    boxShadow:
-      '0 0 0 1px rgba(200,190,230,0.18), 0 2px 8px rgba(124,58,237,0.06)',
+    boxShadow: '0 0 0 1px rgba(200,190,230,0.18), 0 2px 8px rgba(124,58,237,0.06)',
   }),
 } as ViewStyle;
 
 export const webOnlyGlowTier1Light: ViewStyle = {
   ...webOnly({
-    boxShadow:
-      '0 4px 24px rgba(124,58,237,0.08), 0 0 12px rgba(8,145,178,0.06)',
+    boxShadow: '0 4px 24px rgba(124,58,237,0.08), 0 0 12px rgba(8,145,178,0.06)',
   }),
 } as ViewStyle;
 
@@ -183,7 +181,6 @@ export const textGlowStrongLight: TextStyle = {
 
 export const webOnlyNeonRingLight: ViewStyle = {
   ...webOnly({
-    filter:
-      'drop-shadow(0 0 8px rgba(124,58,237,0.12)) drop-shadow(0 0 16px rgba(8,145,178,0.08))',
+    filter: 'drop-shadow(0 0 8px rgba(124,58,237,0.12)) drop-shadow(0 0 16px rgba(8,145,178,0.08))',
   }),
 } as ViewStyle;

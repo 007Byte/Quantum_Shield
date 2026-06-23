@@ -1,6 +1,5 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 import { OfflineIndicator } from '../OfflineIndicator';
 
 // Save original navigator.onLine descriptor
@@ -37,16 +36,12 @@ describe('OfflineIndicator', () => {
       configurable: true,
     });
     const { getByText } = render(<OfflineIndicator />);
-    expect(
-      getByText("You're offline. Changes will sync when reconnected.")
-    ).toBeTruthy();
+    expect(getByText("You're offline. Changes will sync when reconnected.")).toBeTruthy();
   });
 
   it('renders nothing by default (online state)', () => {
     // Default navigator.onLine is true in jsdom
     const { queryByText } = render(<OfflineIndicator />);
-    expect(
-      queryByText("You're offline. Changes will sync when reconnected.")
-    ).toBeNull();
+    expect(queryByText("You're offline. Changes will sync when reconnected.")).toBeNull();
   });
 });

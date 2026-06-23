@@ -38,7 +38,7 @@ export interface CourseModule {
   descKey: string;
   estimatedTime: string;
   color: string;
-  sections: Array<{ headingKey: string; bodyKey: string }>;
+  sections: { headingKey: string; bodyKey: string }[];
   keyTakeawayKey: string;
 }
 
@@ -375,10 +375,53 @@ export function xorEncrypt(text: string, key: string): string {
 // ── KDF Lab ──────────────────────────────────────────────────
 
 export const KDF_DEMOS: KDFDemo[] = [
-  { id: 'pbkdf2', nameKey: 'classroom.kdf.pbkdf2.name', descKey: 'classroom.kdf.pbkdf2.desc', color: '#60A5FA', isLive: true, learnMorePrefix: 'classroom.learn.pbkdf2' },
-  { id: 'bcrypt', nameKey: 'classroom.kdf.bcrypt.name', descKey: 'classroom.kdf.bcrypt.desc', color: '#34D399', isLive: false, learnMorePrefix: 'classroom.learn.bcrypt' },
-  { id: 'scrypt', nameKey: 'classroom.kdf.scrypt.name', descKey: 'classroom.kdf.scrypt.desc', color: '#FBBF24', isLive: false, learnMorePrefix: 'classroom.learn.scrypt' },
-  { id: 'argon2i', nameKey: 'classroom.kdf.argon2i.name', descKey: 'classroom.kdf.argon2i.desc', color: '#F472B6', isLive: false, learnMorePrefix: 'classroom.learn.argon2i' },
-  { id: 'argon2id', nameKey: 'classroom.kdf.argon2id.name', descKey: 'classroom.kdf.argon2id.desc', color: '#A855F7', isLive: false, badge: 'classroom.kdf.argon2id.badge', learnMorePrefix: 'classroom.learn.argon2id' },
-  { id: 'hkdf', nameKey: 'classroom.kdf.hkdf.name', descKey: 'classroom.kdf.hkdf.desc', color: '#22D3EE', isLive: true, learnMorePrefix: 'classroom.learn.hkdf' },
+  {
+    id: 'pbkdf2',
+    nameKey: 'classroom.kdf.pbkdf2.name',
+    descKey: 'classroom.kdf.pbkdf2.desc',
+    color: '#60A5FA',
+    isLive: true,
+    learnMorePrefix: 'classroom.learn.pbkdf2',
+  },
+  {
+    id: 'bcrypt',
+    nameKey: 'classroom.kdf.bcrypt.name',
+    descKey: 'classroom.kdf.bcrypt.desc',
+    color: '#34D399',
+    isLive: false,
+    learnMorePrefix: 'classroom.learn.bcrypt',
+  },
+  {
+    id: 'scrypt',
+    nameKey: 'classroom.kdf.scrypt.name',
+    descKey: 'classroom.kdf.scrypt.desc',
+    color: '#FBBF24',
+    isLive: false,
+    learnMorePrefix: 'classroom.learn.scrypt',
+  },
+  {
+    id: 'argon2i',
+    nameKey: 'classroom.kdf.argon2i.name',
+    descKey: 'classroom.kdf.argon2i.desc',
+    color: '#F472B6',
+    isLive: false,
+    learnMorePrefix: 'classroom.learn.argon2i',
+  },
+  {
+    id: 'argon2id',
+    nameKey: 'classroom.kdf.argon2id.name',
+    descKey: 'classroom.kdf.argon2id.desc',
+    color: '#A855F7',
+    isLive: false,
+    badge: 'classroom.kdf.argon2id.badge',
+    learnMorePrefix: 'classroom.learn.argon2id',
+  },
+  {
+    id: 'hkdf',
+    nameKey: 'classroom.kdf.hkdf.name',
+    descKey: 'classroom.kdf.hkdf.desc',
+    color: '#22D3EE',
+    isLive: true,
+    learnMorePrefix: 'classroom.learn.hkdf',
+  },
 ];

@@ -4,7 +4,6 @@ package integration
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -44,7 +43,6 @@ func TestVaultFullFlow(t *testing.T) {
 
 	// ─── Step 2: Create a vault ────────────────────────────────────────
 
-	vaultName := fmt.Sprintf("test-vault-%d", rand.Int31())
 	vault, err := client.CreateVault(user, "Test Vault")
 	if err != nil {
 		t.Fatalf("failed to create vault: %v", err)
@@ -252,12 +250,12 @@ func TestLoginWithExistingUser(t *testing.T) {
 	}
 
 	// Verify both tokens work
-	vault1, err := client.CreateVault(user1, "Test Vault 1")
+	_, err = client.CreateVault(user1, "Test Vault 1")
 	if err != nil {
 		t.Fatalf("failed to create vault with first token: %v", err)
 	}
 
-	vault2, err := client.CreateVault(user2, "Test Vault 2")
+	_, err = client.CreateVault(user2, "Test Vault 2")
 	if err != nil {
 		t.Fatalf("failed to create vault with second token: %v", err)
 	}

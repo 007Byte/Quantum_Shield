@@ -165,9 +165,7 @@ const _topBarProfile: TopBarProfile = {
   name: 'John Doe',
   initials: 'JD',
 };
-export const topBarProfile: TopBarProfile = __DEV__
-  ? _topBarProfile
-  : { name: '', initials: '' };
+export const topBarProfile: TopBarProfile = __DEV__ ? _topBarProfile : { name: '', initials: '' };
 
 // ─── Password entries (demo) ────────────────────────────────────────
 

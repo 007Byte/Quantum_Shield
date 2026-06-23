@@ -19,11 +19,7 @@ import { Feather } from '@expo/vector-icons';
 import { ShellLayout } from '@/components/dashboard2/ShellLayout';
 import { resolveLayerStyle, useTheme } from '@/theme/engine';
 import { useLanguage } from '@/hooks/useLanguage';
-import {
-  COURSE_MODULES,
-  loadProgress,
-  saveProgress,
-} from '@/components/classroom';
+import { COURSE_MODULES, loadProgress, saveProgress } from '@/components/classroom';
 import { CryptoLab } from '@/components/classroom/CryptoLab';
 import { KDFLab } from '@/components/classroom/KDFLab';
 import { ModuleCard } from '@/components/classroom/ModuleCard';

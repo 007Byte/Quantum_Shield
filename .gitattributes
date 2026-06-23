@@ -1,0 +1,22 @@
+# Normalize line endings to prevent CRLF from breaking shell script shebangs
+# and shell parsing on Linux CI runners (e.g. `/usr/bin/env: 'bash\r'`).
+* text=auto eol=lf
+
+# Shell scripts must always use LF.
+*.sh text eol=lf
+
+# Keep Windows-specific scripts as CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Treat known binaries as binary (no EOL conversion).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

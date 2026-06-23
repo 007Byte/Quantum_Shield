@@ -204,7 +204,7 @@ async function stageGhostMode(): Promise<StageResult> {
 
 // ── Orchestrator ──────────────────────────────────────────
 
-const STAGES: Array<{ name: HardeningStage; fn: () => Promise<StageResult> }> = [
+const STAGES: { name: HardeningStage; fn: () => Promise<StageResult> }[] = [
   { name: 'ANTI_DEBUG', fn: stageAntiDebug },
   { name: 'INTEGRITY', fn: stageIntegrity },
   { name: 'MEMORY_LOCK', fn: stageMemoryLock },

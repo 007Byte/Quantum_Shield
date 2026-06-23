@@ -3,22 +3,35 @@
  *
  * Tests USB drive listing, vault provisioning, drive reset,
  * container I/O, and companion health checks.
+ *
+ * NOTE: usbService talks to the local USB Companion over its own axios
+ * instance created via axios.create() (getCompanionClient), NOT the shared
+ * `../api` client. Tests therefore mock `axios` so axios.create() returns a
+ * stubbed client whose get/post/put/delete we control.
  */
 
+// Mock the companion HTTP client. usbService calls axios.create() once and
+// caches the instance, so axios.create must always return the same stub.
 import { usbService } from '../usbService';
 
-// Mock API client
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPut = jest.fn();
 const mockDelete = jest.fn();
 
-jest.mock('../api', () => ({
-  getApiClient: () => ({
-    get: mockGet,
-    post: mockPost,
-    delete: mockDelete,
-  }),
-}));
+jest.mock('axios', () => {
+  const client = {
+    get: (...args: any[]) => mockGet(...args),
+    post: (...args: any[]) => mockPost(...args),
+    put: (...args: any[]) => mockPut(...args),
+    delete: (...args: any[]) => mockDelete(...args),
+  };
+  return {
+    __esModule: true,
+    default: { create: jest.fn(() => client) },
+    create: jest.fn(() => client),
+  };
+});
 
 // Mock audit service
 jest.mock('../auditService', () => ({
@@ -51,8 +64,22 @@ describe('UsbService', () => {
       mockGet.mockResolvedValue({
         data: {
           drives: [
-            { id: 'drive1', name: 'USB Drive 1', capacity: '32GB', device: '/dev/sdb', available: true, hasVault: false },
-            { id: 'drive2', name: 'USB Drive 2', capacity: '64GB', device: '/dev/sdc', available: true, hasVault: true },
+            {
+              id: 'drive1',
+              name: 'USB Drive 1',
+              capacity: '32GB',
+              device: '/dev/sdb',
+              available: true,
+              hasVault: false,
+            },
+            {
+              id: 'drive2',
+              name: 'USB Drive 2',
+              capacity: '64GB',
+              device: '/dev/sdc',
+              available: true,
+              hasVault: true,
+            },
           ],
         },
       });
@@ -87,9 +114,11 @@ describe('UsbService', () => {
     });
 
     it('should handle generic errors', async () => {
-      mockGet.mockRejectedValue(new Error('Network error'));
+      // Use a message that is NOT detected as a companion-connection error,
+      // otherwise listDrives rethrows it as 'USB_COMPANION_UNAVAILABLE'.
+      mockGet.mockRejectedValue(new Error('Some other failure'));
 
-      await expect(usbService.listDrives()).rejects.toThrow('Network error');
+      await expect(usbService.listDrives()).rejects.toThrow('Some other failure');
     });
   });
 
@@ -114,11 +143,14 @@ describe('UsbService', () => {
 
       expect(result.vaultId).toBe('vault-123');
       expect(result.recoveryPhrase).toHaveLength(3);
-      expect(mockPost).toHaveBeenCalledWith('/usb/provision', expect.objectContaining({
-        drive_id: 'drive1',
-        format_type: 'quick',
-        file_system: 'exfat',
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/provision',
+        expect.objectContaining({
+          drive_id: 'drive1',
+          format_type: 'quick',
+          file_system: 'exfat',
+        })
+      );
     });
 
     it('should log successful provision to audit service', async () => {
@@ -170,11 +202,14 @@ describe('UsbService', () => {
         wipeMethod: 'quick',
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/usb/reset', expect.objectContaining({
-        drive_id: 'drive1',
-        wipe_method: 'quick',
-        passes: 1,
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/reset',
+        expect.objectContaining({
+          drive_id: 'drive1',
+          wipe_method: 'quick',
+          passes: 1,
+        })
+      );
     });
 
     it('should support secure wipe with multiple passes', async () => {
@@ -186,10 +221,13 @@ describe('UsbService', () => {
         passes: 3,
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/usb/reset', expect.objectContaining({
-        wipe_method: 'secure',
-        passes: 3,
-      }));
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/reset',
+        expect.objectContaining({
+          wipe_method: 'secure',
+          passes: 3,
+        })
+      );
     });
 
     it('should throw on reset failure', async () => {
@@ -205,15 +243,17 @@ describe('UsbService', () => {
   // Test: Container I/O
   // ============================================================================
   describe('container operations', () => {
-    it('initVaultContainer should send header hex to API', async () => {
+    it('initVaultContainer should send header bytes to API', async () => {
       mockPost.mockResolvedValue({});
 
       await usbService.initVaultContainer('/mnt/usb', new Uint8Array([0xab, 0xcd]));
 
-      expect(mockPost).toHaveBeenCalledWith('/usb/container/init', expect.objectContaining({
-        mount_point: '/mnt/usb',
-        header_hex: expect.any(String),
-      }));
+      // Current contract: raw octet-stream body, mountPoint as query param.
+      expect(mockPost).toHaveBeenCalledWith(
+        '/usb/vault/init',
+        expect.any(Uint8Array),
+        expect.objectContaining({ params: { mountPoint: '/mnt/usb' } })
+      );
     });
 
     it('appendVaultBytes should return offset and length', async () => {
@@ -228,8 +268,9 @@ describe('UsbService', () => {
     });
 
     it('readVaultHeader should return Uint8Array', async () => {
+      // Current contract: companion returns raw arraybuffer bytes, not hex.
       mockGet.mockResolvedValue({
-        data: { header_hex: 'aabbccdd' },
+        data: new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd]).buffer,
       });
 
       const header = await usbService.readVaultHeader('/mnt/usb');
@@ -240,7 +281,7 @@ describe('UsbService', () => {
 
     it('readVaultBytes should return Uint8Array for range', async () => {
       mockGet.mockResolvedValue({
-        data: { data_hex: '0102030405' },
+        data: new Uint8Array([1, 2, 3, 4, 5]).buffer,
       });
 
       const data = await usbService.readVaultBytes('/mnt/usb', 100, 5);
@@ -252,18 +293,18 @@ describe('UsbService', () => {
     it('checkCapacity should return capacity info', async () => {
       mockGet.mockResolvedValue({
         data: {
-          total: 1073741824,
-          available: 536870912,
           allowed: true,
-          remaining: 536870912,
+          vaultSize: 536870912,
+          partitionTotal: 1073741824,
           maxAllowed: 536870912,
+          remaining: 536870912,
         },
       });
 
       const capacity = await usbService.checkCapacity('/mnt/usb', 1024);
 
       expect(capacity.allowed).toBe(true);
-      expect(capacity.total).toBe(1073741824);
+      expect(capacity.partitionTotal).toBe(1073741824);
     });
   });
 
@@ -272,7 +313,8 @@ describe('UsbService', () => {
   // ============================================================================
   describe('companion checks', () => {
     it('isCompanionAvailable should return true when reachable', async () => {
-      mockGet.mockResolvedValue({});
+      // isCompanionRunning checks data.status === 'ok' on /companion/health.
+      mockGet.mockResolvedValue({ data: { status: 'ok' } });
 
       const available = await usbService.isCompanionAvailable();
       expect(available).toBe(true);
@@ -286,7 +328,8 @@ describe('UsbService', () => {
     });
 
     it('isApiVersionMismatch should return false when compatible', async () => {
-      mockGet.mockResolvedValue({ data: { compatible: true } });
+      // Compatible == apiVersion 1.
+      mockGet.mockResolvedValue({ data: { apiVersion: 1 } });
 
       const mismatch = await usbService.isApiVersionMismatch();
       expect(mismatch).toBe(false);

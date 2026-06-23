@@ -153,7 +153,7 @@ export async function streamEncryptFile(
       const isFinal = position + readSize >= fileBytes.length;
 
       // Encrypt chunk
-      const encryptedChunk = await streamEncryptChunk(chunkBytes, isFinal);
+      const encryptedChunk = await streamEncryptChunk(sessionId, chunkBytes, isFinal);
       encryptedChunks.push(encryptedChunk);
 
       bytesProcessed += readSize;
@@ -292,7 +292,7 @@ export async function streamDecryptFile(
       const isFinal = position + readSize >= fileBytes.length;
 
       // Decrypt chunk
-      const decryptedChunk = await streamDecryptChunk(chunkBytes, isFinal);
+      const decryptedChunk = await streamDecryptChunk(sessionId, chunkBytes, isFinal);
       decryptedChunks.push(decryptedChunk);
 
       bytesProcessed += readSize;
@@ -354,7 +354,7 @@ export async function streamDecryptFile(
 async function streamEncryptFileWeb(
   keyHex: string,
   sourcePath: string,
-  destPath: string,
+  _destPath: string,
   chunkSize: number,
   onProgress?: (bytesProcessed: number, totalBytes: number) => void
 ): Promise<StreamResult> {
@@ -389,7 +389,7 @@ async function streamEncryptFileWeb(
       const isFinal = end >= fileBytes.length;
 
       // Encrypt chunk
-      const encryptedChunk = await streamEncryptChunk(chunkBytes, isFinal);
+      const encryptedChunk = await streamEncryptChunk(sessionId, chunkBytes, isFinal);
       encryptedChunks.push(encryptedChunk);
 
       bytesProcessed += chunkBytes.length;
@@ -439,7 +439,7 @@ async function streamEncryptFileWeb(
 async function streamDecryptFileWeb(
   keyHex: string,
   sourcePath: string,
-  destPath: string,
+  _destPath: string,
   chunkSize: number,
   onProgress?: (bytesProcessed: number, totalBytes: number) => void
 ): Promise<StreamResult> {
@@ -472,7 +472,7 @@ async function streamDecryptFileWeb(
       const isFinal = end >= fileBytes.length;
 
       // Decrypt chunk
-      const decryptedChunk = await streamDecryptChunk(chunkBytes, isFinal);
+      const decryptedChunk = await streamDecryptChunk(sessionId, chunkBytes, isFinal);
       decryptedChunks.push(decryptedChunk);
 
       bytesProcessed += chunkBytes.length;

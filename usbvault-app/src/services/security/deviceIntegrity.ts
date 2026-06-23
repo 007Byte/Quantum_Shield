@@ -432,6 +432,10 @@ async function checkAndroidHookingFramework(): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 500);
+      // Intentional loopback probe to detect a running Frida instrumentation
+      // server (anti-tampering). HTTPS is meaningless for this localhost-only
+      // connectivity check, which transmits no data.
+      // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
       await fetch('http://127.0.0.1:27042', { signal: controller.signal });
       clearTimeout(timeout);
       // If fetch succeeded, Frida server is likely running

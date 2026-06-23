@@ -5,6 +5,9 @@
  */
 
 // Mock localStorage
+import { settingsService } from '../settingsService';
+import type { UserSettings as _UserSettings } from '../settingsService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -42,9 +45,6 @@ jest.mock('@/utils/logger', () => ({
     error: jest.fn(),
   },
 }));
-
-import { settingsService } from '../settingsService';
-import type { UserSettings as _UserSettings } from '../settingsService';
 
 const SETTINGS_KEY = 'usbvault:settings';
 

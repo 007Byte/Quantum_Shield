@@ -144,7 +144,9 @@ export function QRCodeGeneratorTool({ t: externalT }: QRCodeGeneratorToolProps) 
 
       {/* ── Size Selector ──────────────────────────────────────── */}
       <View style={styles.optionSection}>
-        <Text style={[styles.optionLabel, { color: theme.L2.base.text.secondary }]}>{t('tools.qrSize')}</Text>
+        <Text style={[styles.optionLabel, { color: theme.L2.base.text.secondary }]}>
+          {t('tools.qrSize')}
+        </Text>
         <View style={styles.pillRow}>
           {SIZE_OPTIONS.map(sz => {
             const active = qrSize === sz;

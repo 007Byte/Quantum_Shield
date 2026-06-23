@@ -118,9 +118,7 @@ function ActivityScreen() {
     };
 
     // Only set interval if tab is visible
-    const interval = document.visibilityState === 'visible'
-      ? setInterval(loadEntries, 5000)
-      : null;
+    const interval = document.visibilityState === 'visible' ? setInterval(loadEntries, 5000) : null;
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -226,52 +224,52 @@ function ActivityScreen() {
             description={t('empty.activityDescription')}
           />
         ) : (
-        <View style={styles.timelineContainer} accessibilityLiveRegion="polite">
-          {filteredEntries.map(entry => {
-            const { iconName, color } = getActionIconForUI(entry.action);
-            const statusDotColor = getStatusDot(entry.status);
-            const actionLabel = getAuditLabel(entry.action);
-            const resource =
-              entry.resource && entry.resource !== 'system' ? ` — ${entry.resource}` : '';
+          <View style={styles.timelineContainer} accessibilityLiveRegion="polite">
+            {filteredEntries.map(entry => {
+              const { iconName, color } = getActionIconForUI(entry.action);
+              const statusDotColor = getStatusDot(entry.status);
+              const actionLabel = getAuditLabel(entry.action);
+              const resource =
+                entry.resource && entry.resource !== 'system' ? ` — ${entry.resource}` : '';
 
-            return (
-              <Pressable
-                key={entry.id}
-                style={(state: any) => [
-                  styles.timelineEntry,
-                  glassPanelBase,
-                  webOnlyGlass,
-                  webOnlyGlowTier3,
-                  state.hovered && styles.timelineEntryHover,
-                ]}
-                accessibilityRole="button"
-              >
-                {/* Icon */}
-                <View style={styles.iconWrapper}>
-                  <View style={[styles.iconBg]}>
-                    <Feather name={iconName} size={20} color={color} />
+              return (
+                <Pressable
+                  key={entry.id}
+                  style={(state: any) => [
+                    styles.timelineEntry,
+                    glassPanelBase,
+                    webOnlyGlass,
+                    webOnlyGlowTier3,
+                    state.hovered && styles.timelineEntryHover,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  {/* Icon */}
+                  <View style={styles.iconWrapper}>
+                    <View style={[styles.iconBg]}>
+                      <Feather name={iconName} size={20} color={color} />
+                    </View>
                   </View>
-                </View>
 
-                {/* Content */}
-                <View style={styles.entryContent}>
-                  <Text style={styles.actionLabel}>
-                    {actionLabel}
-                    {resource}
-                  </Text>
-                  <View style={styles.entryMeta}>
-                    <Text style={styles.metaUser}>{entry.userId}</Text>
-                    <Text style={styles.metaSeparator}>•</Text>
-                    <Text style={styles.metaTime}>{formatTimestamp(entry.timestamp, t)}</Text>
+                  {/* Content */}
+                  <View style={styles.entryContent}>
+                    <Text style={styles.actionLabel}>
+                      {actionLabel}
+                      {resource}
+                    </Text>
+                    <View style={styles.entryMeta}>
+                      <Text style={styles.metaUser}>{entry.userId}</Text>
+                      <Text style={styles.metaSeparator}>•</Text>
+                      <Text style={styles.metaTime}>{formatTimestamp(entry.timestamp, t)}</Text>
+                    </View>
                   </View>
-                </View>
 
-                {/* Status Dot */}
-                <View style={[styles.statusDot, { backgroundColor: statusDotColor }]} />
-              </Pressable>
-            );
-          })}
-        </View>
+                  {/* Status Dot */}
+                  <View style={[styles.statusDot, { backgroundColor: statusDotColor }]} />
+                </Pressable>
+              );
+            })}
+          </View>
         )}
       </View>
       <InAppModal config={modal} />

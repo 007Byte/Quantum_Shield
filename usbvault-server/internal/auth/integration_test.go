@@ -12,13 +12,26 @@ import (
 
 // TS-017: HTTP integration tests for auth endpoints
 
-// mockAuditService implements the audit service interface for testing
+// mockAuditService implements the audit service interface for testing.
+// It is the single shared definition for the auth package tests; the
+// integration-tagged tests (fido2_test.go, srp_test.go) reuse it via the
+// actions and loggedActions fields.
 type mockAuditService struct {
-	actions []string
+	actions       []string
+	loggedActions []struct {
+		userID        string
+		actionType    string
+		encryptedData []byte
+	}
 }
 
-func (m *mockAuditService) LogAction(_ context.Context, _ string, actionType string, _ []byte) error {
+func (m *mockAuditService) LogAction(_ context.Context, userID string, actionType string, encryptedDetail []byte) error {
 	m.actions = append(m.actions, actionType)
+	m.loggedActions = append(m.loggedActions, struct {
+		userID        string
+		actionType    string
+		encryptedData []byte
+	}{userID, actionType, encryptedDetail})
 	return nil
 }
 

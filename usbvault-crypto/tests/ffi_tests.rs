@@ -8,6 +8,10 @@
 //! - Memory is properly freed
 
 #![cfg(feature = "ffi")]
+// Test-only lint relaxations: the FFI exports are safe `extern "C"` fns, so
+// `unsafe {}` wrappers around them are redundant, and the error-code sanity
+// assertions deliberately check compile-time constants.
+#![allow(unused_unsafe, clippy::assertions_on_constants, dead_code)]
 
 // Import FFI functions directly from the crate (they are pub extern "C" #[no_mangle])
 use usbvault_crypto::ffi::{
@@ -107,7 +111,7 @@ fn test_key_derivation_invalid_salt_length() {
 #[test]
 fn test_key_derivation_null_pointers() {
     let password = b"test_password";
-    let mut salt = [0u8; 32];
+    let salt = [0u8; 32];
     let mut key = [0u8; 64];
     let mut key_len = 0usize;
 
@@ -454,7 +458,7 @@ fn test_memory_safety() {
 #[test]
 fn test_ffi_free_is_safe() {
     // Test that free function is safe to call (it's a no-op in current implementation)
-    let buffer = vec![1u8, 2, 3, 4, 5];
+    let buffer = [1u8, 2, 3, 4, 5];
 
     unsafe {
         // Should not crash
@@ -488,7 +492,7 @@ fn test_multiple_sequential_operations() {
         );
         assert_eq!(result, ERR_SUCCESS);
 
-        let first_key = key.clone();
+        let first_key = key;
 
         // Second salt generation
         let result = usbvault_generate_salt(salt.as_mut_ptr());

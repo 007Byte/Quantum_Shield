@@ -6,22 +6,32 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { learnStyles } from './styles';
 
 /** Collapsible "Learn More" panel for ciphers and KDFs */
-export function LearnMorePanel({
-  prefix,
-  accentColor,
-}: {
-  prefix: string;
-  accentColor: string;
-}) {
+export function LearnMorePanel({ prefix, accentColor }: { prefix: string; accentColor: string }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   const sections = [
-    { icon: 'cpu' as const, labelKey: 'classroom.learn.howItWorks', contentKey: `${prefix}.howItWorks` },
-    { icon: 'check-circle' as const, labelKey: 'classroom.learn.strengths', contentKey: `${prefix}.strengths` },
-    { icon: 'alert-triangle' as const, labelKey: 'classroom.learn.weaknesses', contentKey: `${prefix}.weaknesses` },
-    { icon: 'globe' as const, labelKey: 'classroom.learn.realWorld', contentKey: `${prefix}.realWorld` },
+    {
+      icon: 'cpu' as const,
+      labelKey: 'classroom.learn.howItWorks',
+      contentKey: `${prefix}.howItWorks`,
+    },
+    {
+      icon: 'check-circle' as const,
+      labelKey: 'classroom.learn.strengths',
+      contentKey: `${prefix}.strengths`,
+    },
+    {
+      icon: 'alert-triangle' as const,
+      labelKey: 'classroom.learn.weaknesses',
+      contentKey: `${prefix}.weaknesses`,
+    },
+    {
+      icon: 'globe' as const,
+      labelKey: 'classroom.learn.realWorld',
+      contentKey: `${prefix}.realWorld`,
+    },
   ];
 
   return (
@@ -39,11 +49,7 @@ export function LearnMorePanel({
         <Text style={[learnStyles.toggleText, { color: accentColor }]}>
           {t('classroom.learn.learnMore')}
         </Text>
-        <Feather
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={14}
-          color={accentColor}
-        />
+        <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={accentColor} />
       </Pressable>
 
       {expanded && (

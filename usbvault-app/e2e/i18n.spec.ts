@@ -1,10 +1,5 @@
-import { test, expect } from '@playwright/test';
-import {
-  waitForApp,
-  registerAccount,
-  expectAuthenticated,
-  expectLoginScreen,
-} from './helpers';
+import { test, expect } from './test-base';
+import { waitForApp, registerAccount, expectAuthenticated, expectLoginScreen } from './helpers';
 
 /**
  * Internationalization (i18n) E2E tests.
@@ -23,9 +18,9 @@ const LOCALES = [
 /** Helper: navigate to language/settings and switch locale. */
 async function switchLanguage(page: import('@playwright/test').Page, localeCode: string) {
   // Try settings tab first
-  const settingsNav = page.locator(
-    '[data-testid*="settings"], [data-testid*="Settings"], [href*="settings"]'
-  ).first();
+  const settingsNav = page
+    .locator('[data-testid*="settings"], [data-testid*="Settings"], [href*="settings"]')
+    .first();
 
   if (await settingsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
     await settingsNav.click();
@@ -33,18 +28,18 @@ async function switchLanguage(page: import('@playwright/test').Page, localeCode:
   }
 
   // Look for language picker / selector
-  const langPicker = page.locator(
-    '[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang-select"]'
-  ).first();
+  const langPicker = page
+    .locator('[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang-select"]')
+    .first();
 
   if (await langPicker.isVisible({ timeout: 5000 }).catch(() => false)) {
     await langPicker.click();
     await page.waitForTimeout(500);
 
     // Select the target locale
-    const localeOption = page.locator(
-      `[data-testid*="${localeCode}"], text=/${localeCode}/i`
-    ).first();
+    const localeOption = page
+      .locator(`[data-testid*="${localeCode}"], text=/${localeCode}/i`)
+      .first();
 
     if (await localeOption.isVisible({ timeout: 3000 }).catch(() => false)) {
       await localeOption.click();
@@ -63,28 +58,26 @@ test.describe('Internationalization (i18n)', () => {
     test('login screen loads in English by default', async ({ page }) => {
       await expectLoginScreen(page);
 
-      const englishContent = page.locator(
-        'text=/login|sign in|email|password/i'
-      ).first();
+      const englishContent = page.locator('text=/login|sign in|email|password/i').first();
       await expect(englishContent).toBeVisible({ timeout: 10000 });
     });
 
-    for (const locale of LOCALES.filter((l) => l.code !== 'en')) {
+    for (const locale of LOCALES.filter(l => l.code !== 'en')) {
       test(`switch login screen to ${locale.label} (${locale.code})`, async ({ page }) => {
         await expectLoginScreen(page);
 
         // Look for an on-screen language selector (some apps show it on login)
-        const langToggle = page.locator(
-          '[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang"]'
-        ).first();
+        const langToggle = page
+          .locator('[data-testid*="language"], [data-testid*="locale"], [data-testid*="lang"]')
+          .first();
 
         if (await langToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
           await langToggle.click();
           await page.waitForTimeout(500);
 
-          const option = page.locator(
-            `[data-testid*="${locale.code}"], text=/${locale.label}/i`
-          ).first();
+          const option = page
+            .locator(`[data-testid*="${locale.code}"], text=/${locale.label}/i`)
+            .first();
 
           if (await option.isVisible({ timeout: 3000 }).catch(() => false)) {
             await option.click();
@@ -140,26 +133,24 @@ test.describe('Internationalization (i18n)', () => {
       await switchLanguage(page, 'es');
 
       // Navigate to encrypt with no file selected and try to encrypt
-      const encryptNav = page.locator(
-        '[data-testid*="encrypt"], [href*="encrypt"]'
-      ).first();
+      const encryptNav = page.locator('[data-testid*="encrypt"], [href*="encrypt"]').first();
 
       if (await encryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
         await encryptNav.click();
         await page.waitForTimeout(1000);
 
-        const encryptButton = page.locator(
-          '[data-testid*="encrypt-button"], [data-testid*="start-encrypt"]'
-        ).first();
+        const encryptButton = page
+          .locator('[data-testid*="encrypt-button"], [data-testid*="start-encrypt"]')
+          .first();
 
         if (await encryptButton.isVisible({ timeout: 3000 }).catch(() => false)) {
           await encryptButton.click();
           await page.waitForTimeout(1000);
 
           // Any error/validation should be in Spanish (or at least not English)
-          const errorText = page.locator(
-            '[data-testid*="error"], [data-testid*="validation"]'
-          ).first();
+          const errorText = page
+            .locator('[data-testid*="error"], [data-testid*="validation"]')
+            .first();
 
           if (await errorText.isVisible({ timeout: 3000 }).catch(() => false)) {
             await expect(errorText).toBeVisible();

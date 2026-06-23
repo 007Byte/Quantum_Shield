@@ -1,9 +1,5 @@
-import { test, expect } from '@playwright/test';
-import {
-  waitForApp,
-  registerAccount,
-  expectAuthenticated,
-} from './helpers';
+import { test, expect } from './test-base';
+import { waitForApp, registerAccount, expectAuthenticated } from './helpers';
 
 /**
  * Full encrypt → decrypt cycle tests.
@@ -26,9 +22,9 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
 
   /** Helper: navigate to the encrypt screen. */
   async function navigateToEncrypt(page: import('@playwright/test').Page) {
-    const encryptNav = page.locator(
-      '[data-testid*="encrypt"], [data-testid*="Encrypt"], [href*="encrypt"]'
-    ).first();
+    const encryptNav = page
+      .locator('[data-testid*="encrypt"], [data-testid*="Encrypt"], [href*="encrypt"]')
+      .first();
 
     if (await encryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await encryptNav.click();
@@ -38,9 +34,9 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
 
   /** Helper: navigate to the decrypt screen. */
   async function navigateToDecrypt(page: import('@playwright/test').Page) {
-    const decryptNav = page.locator(
-      '[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]'
-    ).first();
+    const decryptNav = page
+      .locator('[data-testid*="decrypt"], [data-testid*="Decrypt"], [href*="decrypt"]')
+      .first();
 
     if (await decryptNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await decryptNav.click();
@@ -52,7 +48,7 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
   async function uploadTestFile(
     page: import('@playwright/test').Page,
     filename: string,
-    content: string,
+    content: string
   ) {
     const fileInput = page.locator('input[type="file"]').first();
 
@@ -67,14 +63,13 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
   }
 
   /** Helper: select a security level from the UI controls. */
-  async function selectSecurityLevel(
-    page: import('@playwright/test').Page,
-    level: string,
-  ) {
+  async function selectSecurityLevel(page: import('@playwright/test').Page, level: string) {
     // Try testID first, then fall back to text match
-    const levelSelector = page.locator(
-      `[data-testid*="security-${level.toLowerCase()}"], [data-testid*="${level.toLowerCase()}-level"]`
-    ).first();
+    const levelSelector = page
+      .locator(
+        `[data-testid*="security-${level.toLowerCase()}"], [data-testid*="${level.toLowerCase()}-level"]`
+      )
+      .first();
 
     if (await levelSelector.isVisible({ timeout: 3000 }).catch(() => false)) {
       await levelSelector.click();
@@ -111,9 +106,11 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
       await selectSecurityLevel(page, level);
 
       // Trigger encryption
-      const encryptButton = page.locator(
-        '[data-testid*="encrypt-button"], [data-testid*="start-encrypt"], [data-testid*="encrypt-submit"]'
-      ).first();
+      const encryptButton = page
+        .locator(
+          '[data-testid*="encrypt-button"], [data-testid*="start-encrypt"], [data-testid*="encrypt-submit"]'
+        )
+        .first();
 
       if (await encryptButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await encryptButton.click();
@@ -121,9 +118,7 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
       }
 
       // Verify success indicator (toast, status text, or completed badge)
-      const successIndicator = page.locator(
-        'text=/success|encrypted|complete|done/i'
-      ).first();
+      const successIndicator = page.locator('text=/success|encrypted|complete|done/i').first();
 
       if (await successIndicator.isVisible({ timeout: 10000 }).catch(() => false)) {
         await expect(successIndicator).toBeVisible();
@@ -133,9 +128,7 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
       await navigateToDecrypt(page);
 
       // Select the encrypted file
-      const encryptedFile = page.locator(
-        `text=/${testFilename.replace('.txt', '')}/i`
-      ).first();
+      const encryptedFile = page.locator(`text=/${testFilename.replace('.txt', '')}/i`).first();
 
       if (await encryptedFile.isVisible({ timeout: 5000 }).catch(() => false)) {
         await encryptedFile.click();
@@ -143,9 +136,11 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
       }
 
       // Trigger decryption
-      const decryptButton = page.locator(
-        '[data-testid*="decrypt-button"], [data-testid*="start-decrypt"], [data-testid*="decrypt-submit"]'
-      ).first();
+      const decryptButton = page
+        .locator(
+          '[data-testid*="decrypt-button"], [data-testid*="start-decrypt"], [data-testid*="decrypt-submit"]'
+        )
+        .first();
 
       if (await decryptButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await decryptButton.click();
@@ -153,9 +148,9 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
       }
 
       // Verify decryption success
-      const decryptSuccess = page.locator(
-        'text=/decrypted|success|complete|done|original/i'
-      ).first();
+      const decryptSuccess = page
+        .locator('text=/decrypted|success|complete|done|original/i')
+        .first();
 
       if (await decryptSuccess.isVisible({ timeout: 10000 }).catch(() => false)) {
         await expect(decryptSuccess).toBeVisible();
@@ -168,9 +163,9 @@ test.describe('Full Crypto Cycle (Encrypt → Decrypt)', () => {
 
     // Verify each level is represented in the UI
     for (const level of SECURITY_LEVELS) {
-      const levelOption = page.locator(
-        `text=/${level}/i, [data-testid*="${level.toLowerCase()}"]`
-      ).first();
+      const levelOption = page
+        .locator(`text=/${level}/i, [data-testid*="${level.toLowerCase()}"]`)
+        .first();
 
       if (await levelOption.isVisible({ timeout: 3000 }).catch(() => false)) {
         await expect(levelOption).toBeVisible();

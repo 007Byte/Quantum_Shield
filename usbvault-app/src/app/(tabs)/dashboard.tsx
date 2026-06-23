@@ -31,7 +31,7 @@ function DashboardScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} testID="dashboard-screen">
       <ScrollView
         style={styles.pageScroll}
         contentContainerStyle={styles.pageContent}

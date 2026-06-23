@@ -31,6 +31,12 @@ paths = [
   '''__tests__/.*\.key''',
   '''fixtures/''',
   '''testdata/''',
+  # Test sources contain only fake/sample credentials, not real secrets
+  '''__tests__/''',
+  '''.*\.test\.(ts|tsx|js|jsx)$''',
+  '''.*_test\.go$''',
+  # UI translation strings (e.g. "16-Byte-AEAD-Tag") trip entropy rules
+  '''i18n/locales/.*\.json$''',
 ]
 regexes = [
   # Test/example JWT from IETF RFC 7519
@@ -40,6 +46,10 @@ regexes = [
   '''example.*secret''',
   '''dummy.*password''',
   '''fake.*token''',
+  # Any literal placeholder value (e.g. STRIPE_SECRET_KEY=sk_test_placeholder)
+  '''placeholder''',
+  # RFC 6455 §1.3 canonical sample WebSocket key ("the sample nonce")
+  '''dGhlIHNhbXBsZSBub25jZQ==''',
   # Stripe test keys (non-live)
   '''sk_test_[0-9a-z]{24}''',
   '''pk_test_[0-9a-z]{24}''',

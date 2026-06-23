@@ -80,7 +80,8 @@ export function VaultTable() {
       if (diffMins >= 1 && diffMins < 60) modifiedLabel = t('vault.mAgo', { count: diffMins });
       else if (diffMins >= 60 && diffMins < 1440)
         modifiedLabel = t('vault.hAgo', { count: Math.floor(diffMins / 60) });
-      else if (diffMins >= 1440) modifiedLabel = t('vault.dAgo', { count: Math.floor(diffMins / 1440) });
+      else if (diffMins >= 1440)
+        modifiedLabel = t('vault.dAgo', { count: Math.floor(diffMins / 1440) });
 
       return {
         id: file.id,
@@ -121,7 +122,10 @@ export function VaultTable() {
       router.navigate('/(tabs)/decrypt-export' as any);
     } else if (actionId === 'show-folder') {
       const filePath = `/vault/${fileName}`;
-      Alert.alert(t('vault.contextMenu.showInFolder'), t('vault.alerts.fileLocation', { path: filePath }));
+      Alert.alert(
+        t('vault.contextMenu.showInFolder'),
+        t('vault.alerts.fileLocation', { path: filePath })
+      );
     } else if (actionId === 'rename') {
       Alert.prompt(
         t('vault.contextMenu.rename'),
@@ -145,20 +149,24 @@ export function VaultTable() {
         fileName
       );
     } else if (actionId === 'remove') {
-      Alert.alert(t('vault.contextMenu.removeFromRecent'), t('vault.alerts.confirmDelete', { fileName }), [
-        {
-          text: t('vault.alerts.cancel'),
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: t('vault.alerts.delete'),
-          onPress: () => {
-            Alert.alert(t('vault.alerts.deleted'), t('vault.alerts.fileRemoved', { fileName }));
+      Alert.alert(
+        t('vault.contextMenu.removeFromRecent'),
+        t('vault.alerts.confirmDelete', { fileName }),
+        [
+          {
+            text: t('vault.alerts.cancel'),
+            onPress: () => {},
+            style: 'cancel',
           },
-          style: 'destructive',
-        },
-      ]);
+          {
+            text: t('vault.alerts.delete'),
+            onPress: () => {
+              Alert.alert(t('vault.alerts.deleted'), t('vault.alerts.fileRemoved', { fileName }));
+            },
+            style: 'destructive',
+          },
+        ]
+      );
     } else if (actionId === 'decrypt') {
       router.navigate('/(tabs)/decrypt-export' as any);
     } else if (actionId === 'share') {

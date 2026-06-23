@@ -1,41 +1,27 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor
-    - node_modules
 
 linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
   enable:
     - gosec      # security issues
-    - govet      # vet issues
-    - staticcheck # static analysis
-    - errcheck   # unchecked errors
-    - ineffassign # ineffective assignments
-    - unused     # unused variables/functions
     - misspell   # spelling mistakes
-  disable-all: false
-
-linters-settings:
-  gosec:
-    exclude:
-      - G101  # hard-coded credentials in tests only
-    excludes-dirs:
-      - test
-      - tests
-      - _test.go
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-
-issues:
-  exclude-use-default: false
-  exclude:
-    - "G101" # Excluding hard-coded credentials only in test context
-  exclude-rules:
-    - path: ".*_test.go"
-      linters:
-        - gosec
-      text: "G101"
+  settings:
+    gosec:
+      excludes:
+        - G101   # hard-coded credentials — excluded for test files below
+  exclusions:
+    # Replaces the old run.skip-dirs / issues.exclude-dirs
+    paths:
+      - vendor
+      - node_modules
+    rules:
+      # Allow test fixtures to contain literals gosec flags as G101 credentials
+      - path: '_test\.go'
+        linters:
+          - gosec
+        text: "G101"

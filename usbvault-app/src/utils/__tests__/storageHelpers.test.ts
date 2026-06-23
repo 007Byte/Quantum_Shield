@@ -6,6 +6,16 @@
  */
 
 // Mock localStorage
+import {
+  readLocal,
+  writeLocal,
+  removeLocal,
+  readSession,
+  writeSession,
+  readLocalRaw,
+  writeLocalRaw,
+} from '../storageHelpers';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -51,16 +61,6 @@ jest.mock('react-native', () => ({
 
 // Mock crypto bridge
 jest.mock('@/crypto/bridge', () => ({}));
-
-import {
-  readLocal,
-  writeLocal,
-  removeLocal,
-  readSession,
-  writeSession,
-  readLocalRaw,
-  writeLocalRaw,
-} from '../storageHelpers';
 
 describe('storageHelpers', () => {
   beforeEach(() => {

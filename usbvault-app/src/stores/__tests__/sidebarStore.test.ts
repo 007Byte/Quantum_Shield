@@ -5,11 +5,11 @@
  */
 
 // Mock React Native
+import { useSidebarStore } from '../sidebarStore';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
-
-import { useSidebarStore } from '../sidebarStore';
 
 describe('sidebarStore', () => {
   beforeEach(() => {

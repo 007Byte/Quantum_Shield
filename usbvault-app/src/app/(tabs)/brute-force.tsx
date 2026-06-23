@@ -31,7 +31,9 @@ export default function BruteForcePage() {
   const [lockoutDuration, setLockoutDuration] = useState<'1min' | '5min' | '30min' | 'permanent'>(
     '5min'
   );
-  const [failedAttempts] = useState<{ id: number; timestamp: string; ip: string; status: string }[]>([]);
+  const [failedAttempts] = useState<
+    { id: number; timestamp: string; ip: string; status: string }[]
+  >([]);
   const [wipeEnabled, setWipeEnabled] = useState(false);
   const [progressiveDelayEnabled, setProgressiveDelayEnabled] = useState(true);
 
@@ -89,9 +91,7 @@ export default function BruteForcePage() {
                 <Text style={styles.pageTitle} accessibilityRole="header">
                   {t('bruteForce.pageTitle')}
                 </Text>
-                <Text style={styles.pageSubtitle}>
-                  {t('bruteForce.pageSubtitle')}
-                </Text>
+                <Text style={styles.pageSubtitle}>{t('bruteForce.pageSubtitle')}</Text>
               </View>
 
               {/* Status Card */}
@@ -184,9 +184,7 @@ export default function BruteForcePage() {
                     onToggle={() => setWipeEnabled(!wipeEnabled)}
                   />
                 </View>
-                <Text style={styles.warningText}>
-                  {t('bruteForce.wipeAfterFailedDesc')}
-                </Text>
+                <Text style={styles.warningText}>{t('bruteForce.wipeAfterFailedDesc')}</Text>
               </View>
 
               {/* Progressive Delay Section */}
@@ -201,9 +199,7 @@ export default function BruteForcePage() {
                     onToggle={() => setProgressiveDelayEnabled(!progressiveDelayEnabled)}
                   />
                 </View>
-                <Text style={styles.descriptionText}>
-                  {t('bruteForce.progressiveDelayDesc')}
-                </Text>
+                <Text style={styles.descriptionText}>{t('bruteForce.progressiveDelayDesc')}</Text>
               </View>
 
               {/* Failed Attempt Log Section */}
@@ -216,39 +212,45 @@ export default function BruteForcePage() {
                 </View>
                 <View style={styles.logTable}>
                   <View style={[styles.logRow, styles.logHeaderRow]}>
-                    <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.timestamp')}</Text>
+                    <Text style={[styles.logCell, styles.logHeaderCell]}>
+                      {t('bruteForce.timestamp')}
+                    </Text>
                     <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.ip')}</Text>
-                    <Text style={[styles.logCell, styles.logHeaderCell]}>{t('bruteForce.status')}</Text>
+                    <Text style={[styles.logCell, styles.logHeaderCell]}>
+                      {t('bruteForce.status')}
+                    </Text>
                   </View>
                   {failedAttempts.length === 0 ? (
                     <View style={[styles.logRow, { justifyContent: 'center' }]}>
                       <Text style={styles.logCell}>No failed attempts detected</Text>
                     </View>
-                  ) : failedAttempts.map(attempt => (
-                    <View key={attempt.id} style={styles.logRow}>
-                      <Text style={styles.logCell}>{attempt.timestamp}</Text>
-                      <Text style={styles.logCell}>{attempt.ip}</Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          attempt.status === 'Blocked'
-                            ? styles.statusBadgeBlocked
-                            : styles.statusBadgeDelayed,
-                        ]}
-                      >
-                        <Text
+                  ) : (
+                    failedAttempts.map(attempt => (
+                      <View key={attempt.id} style={styles.logRow}>
+                        <Text style={styles.logCell}>{attempt.timestamp}</Text>
+                        <Text style={styles.logCell}>{attempt.ip}</Text>
+                        <View
                           style={[
-                            styles.statusBadgeText,
+                            styles.statusBadge,
                             attempt.status === 'Blocked'
-                              ? styles.statusBadgeTextBlocked
-                              : styles.statusBadgeTextDelayed,
+                              ? styles.statusBadgeBlocked
+                              : styles.statusBadgeDelayed,
                           ]}
                         >
-                          {attempt.status}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              attempt.status === 'Blocked'
+                                ? styles.statusBadgeTextBlocked
+                                : styles.statusBadgeTextDelayed,
+                            ]}
+                          >
+                            {attempt.status}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    ))
+                  )}
                 </View>
               </View>
 

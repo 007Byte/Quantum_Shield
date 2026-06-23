@@ -16,7 +16,7 @@ export function formatFileSize(bytes: number): string {
 export function formatDate(
   date: Date | string,
   t?: (key: string, opts?: Record<string, unknown>) => string,
-  locale?: string,
+  locale?: string
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
@@ -44,7 +44,7 @@ export function formatDate(
 export function formatRelativeTime(
   isoOrRelative: string,
   t?: (key: string, opts?: Record<string, unknown>) => string,
-  locale?: string,
+  locale?: string
 ): string {
   // If it's already a relative string (no ISO markers), return as-is
   if (!isoOrRelative.includes('T') && !isoOrRelative.includes('-')) return isoOrRelative;
@@ -54,12 +54,18 @@ export function formatRelativeTime(
 /** English fallback when no translation function is provided */
 function formatRelativeEnglish(key: string, count?: number): string {
   switch (key) {
-    case 'common.justNow': return 'Just now';
-    case 'common.minutesAgo': return `${count}m ago`;
-    case 'common.hoursAgo': return `${count}h ago`;
-    case 'common.daysAgo': return `${count}d ago`;
-    case 'common.weeksAgo': return `${count}w ago`;
-    default: return key;
+    case 'common.justNow':
+      return 'Just now';
+    case 'common.minutesAgo':
+      return `${count}m ago`;
+    case 'common.hoursAgo':
+      return `${count}h ago`;
+    case 'common.daysAgo':
+      return `${count}d ago`;
+    case 'common.weeksAgo':
+      return `${count}w ago`;
+    default:
+      return key;
   }
 }
 

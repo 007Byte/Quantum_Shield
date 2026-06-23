@@ -48,7 +48,7 @@ function getCompanionClient(): AxiosInstance {
 // ── Types ──────────────────────────────────────────────────────────────
 
 export interface CompactResult {
-  entries: Array<{ id: string; offset: number; length: number }>;
+  entries: { id: string; offset: number; length: number }[];
   newOffsets: Record<string, { offset: number; length: number }>;
   oldSize: number;
   newSize: number;
@@ -466,15 +466,8 @@ class UsbServiceImpl {
     try {
       const bridge = getElectronBridge();
       if (bridge) {
-        const result = await bridge.getCapacity(mountPoint, requestedBytes ?? 0);
         // IPC returns vaultContainerService.checkCapacity() format directly
-        const capacity = result as {
-          allowed: boolean;
-          vaultSize: number;
-          partitionTotal: number;
-          maxAllowed: number;
-          remaining: number;
-        };
+        const capacity = await bridge.getCapacity(mountPoint, requestedBytes ?? 0);
         usbDebug.traceExit('checkCapacity', {
           allowed: capacity.allowed,
           remaining: capacity.remaining,
@@ -503,7 +496,10 @@ class UsbServiceImpl {
   }
 
   /** Compact the vault container by removing deleted file gaps. */
-  async compactVaultContainer(mountPoint: string, activeFiles: Record<string, { offset: number; length: number }>): Promise<CompactResult> {
+  async compactVaultContainer(
+    mountPoint: string,
+    activeFiles: Record<string, { offset: number; length: number }>
+  ): Promise<CompactResult> {
     const client = getCompanionClient();
     const { data } = await client.post<CompactResult>('/usb/vault/container/compact', {
       mountPoint,
@@ -602,11 +598,27 @@ class UsbServiceImpl {
   // ── Drive Discovery & Companion ──────────────────────────────────────
 
   /** Discover vaults across all connected USB drives. */
-  async discoverVaults(): Promise<Array<{ driveId: string; driveName: string; device: string; capacity: string; partitions: USBPartition[] }>> {
+  async discoverVaults(): Promise<
+    {
+      driveId: string;
+      driveName: string;
+      device: string;
+      capacity: string;
+      partitions: USBPartition[];
+    }[]
+  > {
     usbDebug.traceEntry('discoverVaults', {});
     try {
       const client = getCompanionClient();
-      const { data } = await client.get<{ vaults: Array<{ driveId: string; driveName: string; device: string; capacity: string; partitions: USBPartition[] }> }>('/usb/discover');
+      const { data } = await client.get<{
+        vaults: {
+          driveId: string;
+          driveName: string;
+          device: string;
+          capacity: string;
+          partitions: USBPartition[];
+        }[];
+      }>('/usb/discover');
       const result = data.vaults ?? [];
       usbDebug.traceExit('discoverVaults', { vaultCount: result.length });
       return result;
@@ -620,7 +632,9 @@ class UsbServiceImpl {
   async isApiVersionMismatch(): Promise<boolean> {
     try {
       const client = getCompanionClient();
-      const { data } = await client.get<{ apiVersion: number }>('/companion/version', { timeout: 3000 });
+      const { data } = await client.get<{ apiVersion: number }>('/companion/version', {
+        timeout: 3000,
+      });
       // API version 1 is the only supported version currently
       return typeof data.apiVersion === 'number' && data.apiVersion !== 1;
     } catch {
@@ -640,15 +654,15 @@ class UsbServiceImpl {
   /** Scan for forensic artifacts on the host system. */
   async scanArtifacts(
     volumePaths: string[]
-  ): Promise<Array<{ id: string; severity: string; description: string; canRemediate: boolean }>> {
+  ): Promise<{ id: string; severity: string; description: string; canRemediate: boolean }[]> {
     const client = getCompanionClient();
     const { data } = await client.post<{
-      artifacts: Array<{
+      artifacts: {
         id: string;
         severity: string;
         description: string;
         canRemediate: boolean;
-      }>;
+      }[];
     }>('/usb/zero-trace/scan', { volume_paths: volumePaths });
     return data.artifacts ?? [];
   }
@@ -698,9 +712,7 @@ class UsbServiceImpl {
   }
 
   /** Safely eject a USB drive (unmount all partitions + power off). */
-  async safeEjectWithCleanup(
-    driveId: string
-  ): Promise<{ success: boolean; message: string }> {
+  async safeEjectWithCleanup(driveId: string): Promise<{ success: boolean; message: string }> {
     const client = getCompanionClient();
     const { data } = await client.post<{
       success: boolean;

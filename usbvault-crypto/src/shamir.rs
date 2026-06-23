@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(shares.len(), 5);
 
         // Recover with exactly threshold shares (any 3 of 5)
-        let recovered = recover_secret(&shares[0..3].to_vec(), 3).expect("Failed to recover");
+        let recovered = recover_secret(&shares[0..3], 3).expect("Failed to recover");
         assert_eq!(recovered, secret);
     }
 
@@ -265,17 +265,17 @@ mod tests {
 
         // Try different subsets of 3 shares
         let recovered1 = recover_secret(
-            &vec![shares[0].clone(), shares[1].clone(), shares[2].clone()],
+            &[shares[0].clone(), shares[1].clone(), shares[2].clone()],
             3,
         )
         .unwrap();
         let recovered2 = recover_secret(
-            &vec![shares[2].clone(), shares[3].clone(), shares[4].clone()],
+            &[shares[2].clone(), shares[3].clone(), shares[4].clone()],
             3,
         )
         .unwrap();
         let recovered3 = recover_secret(
-            &vec![shares[0].clone(), shares[2].clone(), shares[4].clone()],
+            &[shares[0].clone(), shares[2].clone(), shares[4].clone()],
             3,
         )
         .unwrap();
@@ -291,7 +291,7 @@ mod tests {
         let shares = create_shares(&secret, 3, 5).expect("Failed to create shares");
 
         // Only 2 shares (below threshold of 3)
-        let result = recover_secret(&shares[0..2].to_vec(), 3);
+        let result = recover_secret(&shares[0..2], 3);
         assert!(result.is_err());
     }
 
@@ -302,7 +302,7 @@ mod tests {
 
         assert_eq!(shares.len(), DEFAULT_TOTAL_SHARES);
 
-        let recovered = recover_mek(&shares[1..4].to_vec()).expect("Failed to recover MEK");
+        let recovered = recover_mek(&shares[1..4]).expect("Failed to recover MEK");
         assert_eq!(recovered, mek);
     }
 
@@ -328,7 +328,7 @@ mod tests {
     fn test_single_byte_secret() {
         let secret = vec![0xFF];
         let shares = create_shares(&secret, 2, 3).unwrap();
-        let recovered = recover_secret(&shares[0..2].to_vec(), 2).unwrap();
+        let recovered = recover_secret(&shares[0..2], 2).unwrap();
         assert_eq!(recovered, secret);
     }
 
@@ -336,7 +336,7 @@ mod tests {
     fn test_all_zero_secret() {
         let secret = vec![0x00; 32];
         let shares = create_shares(&secret, 3, 5).unwrap();
-        let recovered = recover_secret(&shares[1..4].to_vec(), 3).unwrap();
+        let recovered = recover_secret(&shares[1..4], 3).unwrap();
         assert_eq!(recovered, secret);
     }
 
@@ -369,7 +369,10 @@ mod tests {
         let shares = create_shares(&secret, 3, 5).unwrap();
 
         // Using threshold=2 with only 2 shares — should reconstruct, but incorrectly
-        let wrong = recover_secret(&shares[0..2].to_vec(), 2).unwrap();
-        assert_ne!(wrong, secret, "2 shares should not recover a threshold-3 secret");
+        let wrong = recover_secret(&shares[0..2], 2).unwrap();
+        assert_ne!(
+            wrong, secret,
+            "2 shares should not recover a threshold-3 secret"
+        );
     }
 }

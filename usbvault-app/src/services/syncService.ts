@@ -123,7 +123,7 @@ function computeBackoff(attempt: number, config: ReconnectConfig): number {
 class SyncService {
   private _isOnline = true;
   private _isSyncing = false;
-  private _listeners: Array<(state: SyncState) => void> = [];
+  private _listeners: ((state: SyncState) => void)[] = [];
 
   // PL-025: Store handler references for cleanup
   private _onlineHandler: (() => void) | null = null;

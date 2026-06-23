@@ -83,9 +83,7 @@ function BackupScreenInner() {
                   <View style={styles.lastBackupHeader}>
                     <View style={styles.lastBackupTitleRow}>
                       <Feather name="check-circle" size={20} color="#10B981" />
-                      <Text style={styles.lastBackupTitle}>
-                        {t('backup.lastBackup')}
-                      </Text>
+                      <Text style={styles.lastBackupTitle}>{t('backup.lastBackup')}</Text>
                     </View>
                   </View>
 
@@ -185,41 +183,45 @@ function BackupScreenInner() {
                     title={t('empty.backup')}
                     description={t('empty.backupDescription')}
                   />
-                ) : backupHistory.map(item => (
-                  <View key={item.id} style={styles.historyRow}>
-                    <View style={styles.historyRowContent}>
-                      <View style={styles.historyRowMain}>
-                        <View style={styles.historyInfo}>
-                          <View style={styles.historyDateRow}>
-                            <Feather
-                              name={item.status === 'success' ? 'check-circle' : 'alert-circle'}
-                              size={16}
-                              color={item.status === 'success' ? '#10B981' : '#EF4444'}
-                            />
-                            <Text style={styles.historyDate}>{item.date}</Text>
-                          </View>
-                          <View style={styles.historyMetaRow}>
-                            <Text style={styles.historyMeta}>{item.size}</Text>
-                            <Text style={styles.historyMetaDot}>•</Text>
-                            <Text style={styles.historyMeta}>{item.duration}</Text>
+                ) : (
+                  backupHistory.map(item => (
+                    <View key={item.id} style={styles.historyRow}>
+                      <View style={styles.historyRowContent}>
+                        <View style={styles.historyRowMain}>
+                          <View style={styles.historyInfo}>
+                            <View style={styles.historyDateRow}>
+                              <Feather
+                                name={item.status === 'success' ? 'check-circle' : 'alert-circle'}
+                                size={16}
+                                color={item.status === 'success' ? '#10B981' : '#EF4444'}
+                              />
+                              <Text style={styles.historyDate}>{item.date}</Text>
+                            </View>
+                            <View style={styles.historyMetaRow}>
+                              <Text style={styles.historyMeta}>{item.size}</Text>
+                              <Text style={styles.historyMetaDot}>•</Text>
+                              <Text style={styles.historyMeta}>{item.duration}</Text>
+                            </View>
                           </View>
                         </View>
-                      </View>
 
-                      <Pressable
-                        accessibilityRole="button"
-                        style={({ pressed }) => [
-                          styles.restoreButton,
-                          pressed && styles.restoreButtonPressed,
-                        ]}
-                        onPress={() => showConfirm(t('backup.restore'), t('backup.restoring'), () => {})}
-                      >
-                        <Feather name="download" size={16} color="#22D3EE" />
-                        <Text style={styles.restoreButtonText}>{t('backup.restore')}</Text>
-                      </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={({ pressed }) => [
+                            styles.restoreButton,
+                            pressed && styles.restoreButtonPressed,
+                          ]}
+                          onPress={() =>
+                            showConfirm(t('backup.restore'), t('backup.restoring'), () => {})
+                          }
+                        >
+                          <Feather name="download" size={16} color="#22D3EE" />
+                          <Text style={styles.restoreButtonText}>{t('backup.restore')}</Text>
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </View>
 
               {/* Backup Location Card */}
@@ -259,7 +261,7 @@ function BackupScreenInner() {
       <InAppModal config={modal} />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   // Layout

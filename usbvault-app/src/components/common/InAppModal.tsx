@@ -233,6 +233,7 @@ export function InAppModal({
 
               return (
                 <Pressable
+                  testID={isCancel ? 'modal-cancel' : 'modal-confirm'}
                   accessibilityRole="button"
                   key={i}
                   style={(state: any) => [

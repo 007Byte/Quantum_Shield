@@ -139,11 +139,7 @@ export function TextEncryptorTool({ t: externalT }: TextEncryptorToolProps) {
         setOutput(result);
       }
     } catch {
-      setError(
-        mode === 'decrypt'
-          ? t('tools.decryptFailed')
-          : t('tools.encryptFailed')
-      );
+      setError(mode === 'decrypt' ? t('tools.decryptFailed') : t('tools.encryptFailed'));
     } finally {
       setLoading(false);
     }

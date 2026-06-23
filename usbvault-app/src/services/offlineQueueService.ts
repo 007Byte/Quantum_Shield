@@ -229,7 +229,7 @@ class OfflineQueueService {
   /**
    * Get all queued operations (for debugging or admin UI).
    */
-  getOperations(): ReadonlyArray<QueuedOperation> {
+  getOperations(): readonly QueuedOperation[] {
     return [...this.queue];
   }
 

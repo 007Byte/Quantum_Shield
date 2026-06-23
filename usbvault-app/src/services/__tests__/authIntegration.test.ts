@@ -14,6 +14,14 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+import * as authService from '@/services/auth';
+import * as apiService from '@/services/api';
+import * as cryptoBridge from '@/crypto/bridge';
+import { useAuthStore } from '@/stores/authStore';
+import { stopVaultPolling } from '@/stores/vaultPolling';
+import { stopIdleTimer } from '@/stores/vaultIdleTimer';
+import { cleanupStoreSubscriptions } from '@/stores/storeCleanup';
+
 // ── Mocks ──────────────────────────────────────────────────────────
 
 // Mock API layer — the network boundary. Everything above this runs for real.
@@ -42,14 +50,6 @@ jest.mock('@/stores/vaultIdleTimer', () => ({
 jest.mock('@/stores/storeCleanup', () => ({
   cleanupStoreSubscriptions: jest.fn(),
 }));
-
-import * as authService from '@/services/auth';
-import * as apiService from '@/services/api';
-import * as cryptoBridge from '@/crypto/bridge';
-import { useAuthStore } from '@/stores/authStore';
-import { stopVaultPolling } from '@/stores/vaultPolling';
-import { stopIdleTimer } from '@/stores/vaultIdleTimer';
-import { cleanupStoreSubscriptions } from '@/stores/storeCleanup';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -171,10 +171,7 @@ describe('Auth Integration Tests', () => {
       await store.login(TEST_EMAIL, TEST_PASSWORD);
 
       // Verify: deriveKey was called (password + salt from srpInit response)
-      expect(cryptoBridge.deriveKey).toHaveBeenCalledWith(
-        TEST_PASSWORD,
-        expect.any(Uint8Array)
-      );
+      expect(cryptoBridge.deriveKey).toHaveBeenCalledWith(TEST_PASSWORD, expect.any(Uint8Array));
 
       // Verify: master key is available after login
       const masterKey = authService.getMasterKey();
@@ -194,7 +191,9 @@ describe('Auth Integration Tests', () => {
     it('should set loading state during login', async () => {
       // Slow down the SRP init to inspect intermediate state
       let resolveDelay: () => void;
-      const delayPromise = new Promise<void>(r => { resolveDelay = r; });
+      const delayPromise = new Promise<void>(r => {
+        resolveDelay = r;
+      });
 
       (apiService.srpInit as jest.Mock).mockImplementation(async () => {
         await delayPromise;
@@ -550,9 +549,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should not leave partial state on getUserInfo failure', async () => {
-      (apiService.getUserInfo as jest.Mock).mockRejectedValue(
-        new Error('Server unreachable')
-      );
+      (apiService.getUserInfo as jest.Mock).mockRejectedValue(new Error('Server unreachable'));
 
       const store = useAuthStore.getState();
       await expect(store.login(TEST_EMAIL, TEST_PASSWORD)).rejects.toThrow();

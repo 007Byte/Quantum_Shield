@@ -14,7 +14,12 @@ import { useLanguage } from '@/hooks/useLanguage';
 // ── Constants ──────────────────────────────────────────────────────────
 
 // Step labels will be fetched from i18n context in component
-const getSteps = (t: any) => [t('setupUsb.detectUsb'), t('setupUsb.formatOptions'), t('setupUsb.setPassword'), t('setupUsb.initialize')];
+const getSteps = (t: any) => [
+  t('setupUsb.detectUsb'),
+  t('setupUsb.formatOptions'),
+  t('setupUsb.setPassword'),
+  t('setupUsb.initialize'),
+];
 
 interface SetupState {
   currentStep: number;
@@ -37,7 +42,13 @@ function getStrength(password: string, t: any): { strength: number; label: strin
     const pct = Math.round((result.score / 5) * 100);
     const level = result.level;
     const label =
-      level === 'weak' ? t('setupUsb.weak') : level === 'fair' ? t('setupUsb.fair') : level === 'good' ? t('setupUsb.good') : t('setupUsb.strong');
+      level === 'weak'
+        ? t('setupUsb.weak')
+        : level === 'fair'
+          ? t('setupUsb.fair')
+          : level === 'good'
+            ? t('setupUsb.good')
+            : t('setupUsb.strong');
     const color =
       level === 'weak'
         ? '#EF4444'
@@ -56,7 +67,14 @@ function getStrength(password: string, t: any): { strength: number; label: strin
     if (/[A-Z]/.test(password) && /[a-z]/.test(password)) s += 20;
     if (/[0-9]/.test(password)) s += 10;
     if (/[^A-Za-z0-9]/.test(password)) s += 10;
-    const label = s < 40 ? t('setupUsb.weak') : s < 60 ? t('setupUsb.fair') : s < 80 ? t('setupUsb.good') : t('setupUsb.strong');
+    const label =
+      s < 40
+        ? t('setupUsb.weak')
+        : s < 60
+          ? t('setupUsb.fair')
+          : s < 80
+            ? t('setupUsb.good')
+            : t('setupUsb.strong');
     const color = s < 40 ? '#EF4444' : s < 60 ? '#F59E0B' : s < 80 ? '#3B82F6' : '#10B981';
     return { strength: s, label, color };
   }
@@ -158,19 +176,13 @@ function SetupUSB() {
           // with the password-derived crypto header that enables unlock.
           if (result.secureMountPoint) {
             const { vaultOrchestrator } = await import('@/services/vaultOrchestrator');
-            await vaultOrchestrator.provision(
-              result.secureMountPoint,
-              state.password
-            );
+            await vaultOrchestrator.provision(result.secureMountPoint, state.password);
 
             // Step 3: Unmount SECURE partition (makes it invisible per INVISIBLE principle)
             await usbService.unmountSecure(state.selectedDriveId!);
           }
 
-          showSuccess(
-            t('setupUsb.successTitle'),
-            t('setupUsb.successMessage')
-          );
+          showSuccess(t('setupUsb.successTitle'), t('setupUsb.successMessage'));
           setState({
             currentStep: 0,
             selectedDriveId: null,
@@ -183,8 +195,7 @@ function SetupUSB() {
           });
           loadDrives();
         } catch (err: unknown) {
-          const msg =
-            err instanceof Error ? err.message : t('setupUsb.initFailedDefault');
+          const msg = err instanceof Error ? err.message : t('setupUsb.initFailedDefault');
           showError(t('setupUsb.initFailed'), msg);
         } finally {
           setProvisioning(false);
@@ -270,7 +281,11 @@ function SetupUSB() {
               <View style={styles.cardHeader}>
                 <Feather name="disc" size={24} color="#22D3EE" />
                 <Text style={styles.cardTitle}>{t('setupUsb.detectDrivesTitle')}</Text>
-                <Pressable style={styles.refreshBtn} onPress={() => loadDrives()} disabled={loadingDrives}>
+                <Pressable
+                  style={styles.refreshBtn}
+                  onPress={() => loadDrives()}
+                  disabled={loadingDrives}
+                >
                   {loadingDrives ? (
                     <ActivityIndicator size="small" color="#22D3EE" />
                   ) : (
@@ -278,9 +293,7 @@ function SetupUSB() {
                   )}
                 </Pressable>
               </View>
-              <Text style={styles.cardDescription}>
-                {t('setupUsb.selectDriveDesc')}
-              </Text>
+              <Text style={styles.cardDescription}>{t('setupUsb.selectDriveDesc')}</Text>
 
               {loadingDrives ? (
                 <View style={styles.centerState}>
@@ -291,21 +304,37 @@ function SetupUSB() {
                 <View style={companionDownStyles.container}>
                   <Feather name="wifi-off" size={36} color="#F59E0B" />
                   <Text style={companionDownStyles.title}>
-                    {t('setupUsb.companionNeeded', { defaultValue: 'USB Companion Service Not Detected' })}
+                    {t('setupUsb.companionNeeded', {
+                      defaultValue: 'USB Companion Service Not Detected',
+                    })}
                   </Text>
                   <Text style={companionDownStyles.desc}>
-                    {t('setupUsb.companionNeededDesc', { defaultValue: 'The USB companion service handles all hardware communication. Make sure it is running on your machine.' })}
+                    {t('setupUsb.companionNeededDesc', {
+                      defaultValue:
+                        'The USB companion service handles all hardware communication. Make sure it is running on your machine.',
+                    })}
                   </Text>
                   <View style={companionDownStyles.steps}>
                     <Text style={companionDownStyles.step}>
-                      {'1. '}{t('setupUsb.companionStep1', { defaultValue: 'Open a terminal and start the companion service' })}
+                      {'1. '}
+                      {t('setupUsb.companionStep1', {
+                        defaultValue: 'Open a terminal and start the companion service',
+                      })}
                     </Text>
-                    <Text style={companionDownStyles.stepCode}>{'   cd usb-companion && npm start'}</Text>
-                    <Text style={companionDownStyles.step}>
-                      {'2. '}{t('setupUsb.companionStep2', { defaultValue: 'Verify the service starts without errors' })}
+                    <Text style={companionDownStyles.stepCode}>
+                      {'   cd usb-companion && npm start'}
                     </Text>
                     <Text style={companionDownStyles.step}>
-                      {'3. '}{t('setupUsb.companionStep3', { defaultValue: 'The app will connect automatically' })}
+                      {'2. '}
+                      {t('setupUsb.companionStep2', {
+                        defaultValue: 'Verify the service starts without errors',
+                      })}
+                    </Text>
+                    <Text style={companionDownStyles.step}>
+                      {'3. '}
+                      {t('setupUsb.companionStep3', {
+                        defaultValue: 'The app will connect automatically',
+                      })}
                     </Text>
                   </View>
                   <Pressable
@@ -315,7 +344,9 @@ function SetupUSB() {
                     onPress={() => loadDrives()}
                   >
                     <Feather name="refresh-cw" size={16} color="#22D3EE" />
-                    <Text style={companionDownStyles.retryText}>{t('setupUsb.retry', { defaultValue: 'Try Again' })}</Text>
+                    <Text style={companionDownStyles.retryText}>
+                      {t('setupUsb.retry', { defaultValue: 'Try Again' })}
+                    </Text>
                   </Pressable>
                 </View>
               ) : driveError ? (
@@ -444,7 +475,9 @@ function SetupUSB() {
                 ))}
               </View>
 
-              <Text style={[styles.optionGroupLabel, { marginTop: 20 }]}>{t('setupUsb.fileSystem')}</Text>
+              <Text style={[styles.optionGroupLabel, { marginTop: 20 }]}>
+                {t('setupUsb.fileSystem')}
+              </Text>
               <View style={styles.pillGroup}>
                 {(['exfat', 'ntfs', 'ext4'] as const).map(fs => (
                   <Pressable
@@ -473,9 +506,7 @@ function SetupUSB() {
                 <Feather name="lock" size={24} color="#22D3EE" />
                 <Text style={styles.cardTitle}>{t('setupUsb.setPasswordTitle')}</Text>
               </View>
-              <Text style={styles.cardDescription}>
-                {t('setupUsb.createPassword')}
-              </Text>
+              <Text style={styles.cardDescription}>{t('setupUsb.createPassword')}</Text>
 
               {/* Master password field */}
               <View style={styles.fieldGroup}>
@@ -592,19 +623,28 @@ function SetupUSB() {
                 <Feather name="check-square" size={24} color="#22D3EE" />
                 <Text style={styles.cardTitle}>{t('setupUsb.reviewTitle')}</Text>
               </View>
-              <Text style={styles.cardDescription}>
-                {t('setupUsb.reviewDesc')}
-              </Text>
+              <Text style={styles.cardDescription}>{t('setupUsb.reviewDesc')}</Text>
 
               <View style={styles.summaryContainer}>
                 {[
-                  { icon: 'disc', label: t('setupUsb.usbDrive'), value: selectedDrive?.name ?? '—' },
+                  {
+                    icon: 'disc',
+                    label: t('setupUsb.usbDrive'),
+                    value: selectedDrive?.name ?? '—',
+                  },
                   {
                     icon: 'hard-drive',
                     label: t('setupUsb.formatType'),
-                    value: state.formatType === 'quick' ? t('setupUsb.quickFormat') : t('setupUsb.fullFormat'),
+                    value:
+                      state.formatType === 'quick'
+                        ? t('setupUsb.quickFormat')
+                        : t('setupUsb.fullFormat'),
                   },
-                  { icon: 'database', label: t('setupUsb.fileSystem'), value: state.fileSystem.toUpperCase() },
+                  {
+                    icon: 'database',
+                    label: t('setupUsb.fileSystem'),
+                    value: state.fileSystem.toUpperCase(),
+                  },
                   {
                     icon: 'shield',
                     label: t('setupUsb.encryption'),
@@ -628,7 +668,9 @@ function SetupUSB() {
                 <View style={styles.warningContent}>
                   <Text style={styles.warningTitle}>{t('setupUsb.warning')}</Text>
                   <Text style={styles.warningText}>
-                    {t('setupUsb.warningMessage', { driveName: selectedDrive?.name ?? t('setupUsb.selectedDrive') })}
+                    {t('setupUsb.warningMessage', {
+                      driveName: selectedDrive?.name ?? t('setupUsb.selectedDrive'),
+                    })}
                   </Text>
                 </View>
               </View>

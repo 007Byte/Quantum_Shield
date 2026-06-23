@@ -100,97 +100,104 @@ function RestoreScreen() {
                         </Text>
                       </View>
                     </View>
-                  ) : backups.map(backup => (
-                    <View
-                      key={backup.id}
-                      style={[
-                        styles.backupItem,
-                        selectedBackupId === backup.id && styles.backupItemSelected,
-                      ]}
-                    >
-                      <Pressable
-                        accessibilityRole="button"
-                        style={styles.backupItemContent}
-                        onPress={() => setSelectedBackupId(backup.id)}
+                  ) : (
+                    backups.map(backup => (
+                      <View
+                        key={backup.id}
+                        style={[
+                          styles.backupItem,
+                          selectedBackupId === backup.id && styles.backupItemSelected,
+                        ]}
                       >
-                        <View style={styles.backupInfo}>
-                          <View style={styles.backupHeader}>
-                            <Feather name="archive" size={18} color="#10B981" />
-                            <Text style={styles.backupDate}>{backup.date}</Text>
-                          </View>
-                          <View style={styles.backupMeta}>
-                            <View style={styles.metaItem}>
-                              <Feather
-                                name="database"
-                                size={14}
-                                color={dashboardColors.textSecondary}
-                              />
-                              <Text style={styles.metaText}>{backup.size}</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.backupItemContent}
+                          onPress={() => setSelectedBackupId(backup.id)}
+                        >
+                          <View style={styles.backupInfo}>
+                            <View style={styles.backupHeader}>
+                              <Feather name="archive" size={18} color="#10B981" />
+                              <Text style={styles.backupDate}>{backup.date}</Text>
                             </View>
-                            <View style={styles.metaItem}>
-                              <Feather
-                                name="file"
-                                size={14}
-                                color={dashboardColors.textSecondary}
-                              />
-                              <Text style={styles.metaText}>{backup.fileCount} files</Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.integrityBadge,
-                                {
-                                  backgroundColor:
-                                    backup.integrity === 'verified'
-                                      ? 'rgba(34, 197, 94, 0.2)'
-                                      : 'rgba(168, 85, 247, 0.2)',
-                                },
-                              ]}
-                            >
-                              <Feather
-                                name={
-                                  backup.integrity === 'verified' ? 'check-circle' : 'alert-circle'
-                                }
-                                size={12}
-                                color={backup.integrity === 'verified' ? '#22c55e' : '#a855f7'}
-                              />
-                              <Text
+                            <View style={styles.backupMeta}>
+                              <View style={styles.metaItem}>
+                                <Feather
+                                  name="database"
+                                  size={14}
+                                  color={dashboardColors.textSecondary}
+                                />
+                                <Text style={styles.metaText}>{backup.size}</Text>
+                              </View>
+                              <View style={styles.metaItem}>
+                                <Feather
+                                  name="file"
+                                  size={14}
+                                  color={dashboardColors.textSecondary}
+                                />
+                                <Text style={styles.metaText}>{backup.fileCount} files</Text>
+                              </View>
+                              <View
                                 style={[
-                                  styles.integrityText,
+                                  styles.integrityBadge,
                                   {
-                                    color: backup.integrity === 'verified' ? '#22c55e' : '#a855f7',
+                                    backgroundColor:
+                                      backup.integrity === 'verified'
+                                        ? 'rgba(34, 197, 94, 0.2)'
+                                        : 'rgba(168, 85, 247, 0.2)',
                                   },
                                 ]}
                               >
-                                {backup.integrity === 'verified' ? t('restore.verified') : t('restore.unverified')}
-                              </Text>
+                                <Feather
+                                  name={
+                                    backup.integrity === 'verified'
+                                      ? 'check-circle'
+                                      : 'alert-circle'
+                                  }
+                                  size={12}
+                                  color={backup.integrity === 'verified' ? '#22c55e' : '#a855f7'}
+                                />
+                                <Text
+                                  style={[
+                                    styles.integrityText,
+                                    {
+                                      color:
+                                        backup.integrity === 'verified' ? '#22c55e' : '#a855f7',
+                                    },
+                                  ]}
+                                >
+                                  {backup.integrity === 'verified'
+                                    ? t('restore.verified')
+                                    : t('restore.unverified')}
+                                </Text>
+                              </View>
                             </View>
                           </View>
+                        </Pressable>
+                        <View style={styles.backupActions}>
+                          <Pressable
+                            accessibilityRole="button"
+                            style={[styles.button, styles.secondaryButton]}
+                            onPress={() => handlePreview(backup.id)}
+                          >
+                            <Feather name="eye" size={14} color={dashboardColors.textPrimary} />
+                            <Text style={styles.secondaryButtonText}>{t('restore.preview')}</Text>
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            style={[styles.button, styles.primaryButton]}
+                            onPress={() => {
+                              setSelectedBackupId(backup.id);
+                              handleRestoreStart();
+                            }}
+                            disabled={isRestoring}
+                          >
+                            <Feather name="download" size={14} color="#ffffff" />
+                            <Text style={styles.primaryButtonText}>{t('restore.restore')}</Text>
+                          </Pressable>
                         </View>
-                      </Pressable>
-                      <View style={styles.backupActions}>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={[styles.button, styles.secondaryButton]}
-                          onPress={() => handlePreview(backup.id)}
-                        >
-                          <Feather name="eye" size={14} color={dashboardColors.textPrimary} />
-                          <Text style={styles.secondaryButtonText}>{t('restore.preview')}</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={[styles.button, styles.primaryButton]}
-                          onPress={() => {
-                            setSelectedBackupId(backup.id);
-                            handleRestoreStart();
-                          }}
-                          disabled={isRestoring}
-                        >
-                          <Feather name="download" size={14} color="#ffffff" />
-                          <Text style={styles.primaryButtonText}>{t('restore.restore')}</Text>
-                        </Pressable>
                       </View>
-                    </View>
-                  ))}
+                    ))
+                  )}
                 </View>
               </View>
 
@@ -204,9 +211,7 @@ function RestoreScreen() {
                   <View style={styles.optionRow}>
                     <View style={styles.optionLabel}>
                       <Text style={styles.optionTitle}>{t('restore.restoreType')}</Text>
-                      <Text style={styles.optionDescription}>
-                        {t('restore.chooseRestoreType')}
-                      </Text>
+                      <Text style={styles.optionDescription}>{t('restore.chooseRestoreType')}</Text>
                     </View>
                     <View style={styles.toggleGroup}>
                       <Pressable
@@ -266,9 +271,7 @@ function RestoreScreen() {
                     <Feather name="alert-triangle" size={16} color="#f59e0b" />
                     <View style={styles.warningContent}>
                       <Text style={styles.warningTitle}>{t('restore.warning')}</Text>
-                      <Text style={styles.warningText}>
-                        {t('restore.restoringWarning')}
-                      </Text>
+                      <Text style={styles.warningText}>{t('restore.restoringWarning')}</Text>
                     </View>
                   </View>
                 </View>
@@ -283,9 +286,7 @@ function RestoreScreen() {
                   <View style={styles.checkboxRow}>
                     <View style={styles.optionLabel}>
                       <Text style={styles.optionTitle}>{t('restore.verifyBeforeRestore')}</Text>
-                      <Text style={styles.optionDescription}>
-                        {t('restore.verifyRecommended')}
-                      </Text>
+                      <Text style={styles.optionDescription}>{t('restore.verifyRecommended')}</Text>
                     </View>
                     <Switch
                       value={verifyBeforeRestore}

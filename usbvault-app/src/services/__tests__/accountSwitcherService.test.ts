@@ -4,7 +4,7 @@
  * Tests multi-account management, switching, persistence, and audit logging.
  */
 
-import { accountSwitcherService, UserAccount } from '../accountSwitcherService';
+import { accountSwitcherService } from '../accountSwitcherService';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -154,7 +154,7 @@ describe('AccountSwitcherService', () => {
     });
 
     it('should switch active account to first remaining if active account is removed', async () => {
-      const account1 = accountSwitcherService.addAccount('stay@example.com', 'Stay');
+      accountSwitcherService.addAccount('stay@example.com', 'Stay');
       const account2 = accountSwitcherService.addAccount('go@example.com', 'Go');
 
       await accountSwitcherService.switchAccount(account2.id);

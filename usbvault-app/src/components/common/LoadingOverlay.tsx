@@ -23,7 +23,9 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ visible, message
       <View style={styles.overlay}>
         <View style={styles.container}>
           {reducedMotion ? (
-            <Text style={styles.staticLoadingText} accessibilityRole="text">Loading...</Text>
+            <Text style={styles.staticLoadingText} accessibilityRole="text">
+              Loading...
+            </Text>
           ) : (
             <ActivityIndicator size="large" color="#8B5CF6" testID="loading-spinner" />
           )}

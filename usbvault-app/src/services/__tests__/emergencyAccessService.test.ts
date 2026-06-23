@@ -120,9 +120,9 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should throw error for missing email', async () => {
-      await expect(
-        emergencyAccessService.designateContact('', 'Name', 'key')
-      ).rejects.toThrow('Email, display name, and vault key are required');
+      await expect(emergencyAccessService.designateContact('', 'Name', 'key')).rejects.toThrow(
+        'Email, display name, and vault key are required'
+      );
     });
 
     it('should throw error for missing display name', async () => {
@@ -158,11 +158,7 @@ describe('EmergencyAccessService', () => {
     it('should enqueue sync after designation', async () => {
       const { syncService } = require('@/services/syncService');
 
-      await emergencyAccessService.designateContact(
-        'sync@example.com',
-        'Sync Contact',
-        'aabbccdd'
-      );
+      await emergencyAccessService.designateContact('sync@example.com', 'Sync Contact', 'aabbccdd');
 
       expect(syncService.enqueue).toHaveBeenCalledWith(
         'share',
@@ -215,7 +211,10 @@ describe('EmergencyAccessService', () => {
         'aabbccdd'
       );
 
-      const request = await emergencyAccessService.requestAccess('requester@example.com', 'Lost access');
+      const request = await emergencyAccessService.requestAccess(
+        'requester@example.com',
+        'Lost access'
+      );
 
       expect(request.status).toBe('pending');
       expect(request.contactEmail).toBe('requester@example.com');
@@ -236,9 +235,9 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should throw error for non-existent active contact', async () => {
-      await expect(
-        emergencyAccessService.requestAccess('nobody@example.com')
-      ).rejects.toThrow('Active contact not found');
+      await expect(emergencyAccessService.requestAccess('nobody@example.com')).rejects.toThrow(
+        'Active contact not found'
+      );
     });
   });
 
@@ -247,11 +246,7 @@ describe('EmergencyAccessService', () => {
   // ============================================================================
   describe('denyAccess', () => {
     it('should deny a pending request', async () => {
-      await emergencyAccessService.designateContact(
-        'deny@example.com',
-        'Deny Contact',
-        'aabbccdd'
-      );
+      await emergencyAccessService.designateContact('deny@example.com', 'Deny Contact', 'aabbccdd');
       const request = await emergencyAccessService.requestAccess('deny@example.com');
 
       await emergencyAccessService.denyAccess(request.id);
@@ -262,9 +257,7 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should throw error for missing request ID', async () => {
-      await expect(emergencyAccessService.denyAccess('')).rejects.toThrow(
-        'Request ID is required'
-      );
+      await expect(emergencyAccessService.denyAccess('')).rejects.toThrow('Request ID is required');
     });
 
     it('should throw error for non-pending request', async () => {
@@ -326,7 +319,7 @@ describe('EmergencyAccessService', () => {
   // ============================================================================
   describe('accessVault', () => {
     it('should return encrypted vault key for approved request', async () => {
-      const contact = await emergencyAccessService.designateContact(
+      await emergencyAccessService.designateContact(
         'vault-access@example.com',
         'Vault Access',
         'aabbccdd'
@@ -363,11 +356,7 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should throw error for mismatched email', async () => {
-      await emergencyAccessService.designateContact(
-        'mismatch@example.com',
-        'Mismatch',
-        'aabbccdd'
-      );
+      await emergencyAccessService.designateContact('mismatch@example.com', 'Mismatch', 'aabbccdd');
       const request = await emergencyAccessService.requestAccess('mismatch@example.com');
       await emergencyAccessService.approveAccess(request.id);
 
@@ -377,11 +366,7 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should mark request as accessed after retrieval', async () => {
-      await emergencyAccessService.designateContact(
-        'accessed@example.com',
-        'Accessed',
-        'aabbccdd'
-      );
+      await emergencyAccessService.designateContact('accessed@example.com', 'Accessed', 'aabbccdd');
       const request = await emergencyAccessService.requestAccess('accessed@example.com');
       await emergencyAccessService.approveAccess(request.id);
       await emergencyAccessService.accessVault(request.id, 'accessed@example.com');
@@ -423,11 +408,7 @@ describe('EmergencyAccessService', () => {
     });
 
     it('should record history entries for access requests', async () => {
-      await emergencyAccessService.designateContact(
-        'history@example.com',
-        'History',
-        'aabbccdd'
-      );
+      await emergencyAccessService.designateContact('history@example.com', 'History', 'aabbccdd');
       await emergencyAccessService.requestAccess('history@example.com');
 
       const history = await emergencyAccessService.getAccessHistory();

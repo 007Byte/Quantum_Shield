@@ -5,6 +5,8 @@
  */
 
 // Mock crypto.getRandomValues
+import { generateId, generateSecureId } from '../generateId';
+
 const mockGetRandomValues = jest.fn((arr: Uint8Array) => {
   for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
   return arr;
@@ -25,8 +27,6 @@ jest.mock('react-native', () => ({
 
 // Mock crypto bridge
 jest.mock('@/crypto/bridge', () => ({}));
-
-import { generateId, generateSecureId } from '../generateId';
 
 describe('generateId()', () => {
   it('should return a string starting with the given prefix', () => {

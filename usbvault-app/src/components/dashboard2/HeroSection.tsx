@@ -14,7 +14,6 @@ import {
   webOnlyGlowTier1,
   webOnlyGlowTier1Light,
   webOnlyGlowTier2,
-  webOnlyGlowTier2Light,
   webOnlyTransition,
 } from './styles';
 import { HeroAction } from './types';
@@ -76,15 +75,31 @@ export function HeroSection() {
       <View style={styles.heroArea}>
         {/* Shield image — absolutely positioned behind everything */}
         <View style={styles.shieldContainer}>
-          <View style={[styles.visualGlowLarge, isLight ? webOnlyGlowTier1Light : webOnlyGlowTier1, isLight && styles.visualGlowLargeLight]} />
+          <View
+            style={[
+              styles.visualGlowLarge,
+              isLight ? webOnlyGlowTier1Light : webOnlyGlowTier1,
+              isLight && styles.visualGlowLargeLight,
+            ]}
+          />
           <View style={[styles.visualGlowSmall, isLight && styles.visualGlowSmallLight]} />
           <View style={[styles.visualLightSpill, isLight && styles.visualLightSpillLight]} />
-          <Image source={heroLogoAsset} style={[styles.heroLogo, isLight && styles.heroLogoLight]} resizeMode="contain" />
+          <Image
+            source={heroLogoAsset}
+            style={[styles.heroLogo, isLight && styles.heroLogoLight]}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Text content — sits on top of the shield */}
         <View style={styles.copyCol}>
-          <Text style={[styles.title, !isLight && textGlowStrong, isLight && { color: theme.L0.base.text.primary }]}>
+          <Text
+            style={[
+              styles.title,
+              !isLight && textGlowStrong,
+              isLight && { color: theme.L0.base.text.primary },
+            ]}
+          >
             {t('hero.title')}
           </Text>
           <Text style={[styles.subtitle, isLight && { color: theme.L0.base.text.secondary }]}>

@@ -176,7 +176,7 @@ func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, upload
 		Bucket:     aws.String(upload.Bucket),
 		Key:        aws.String(upload.Key),
 		UploadId:   aws.String(upload.UploadID),
-		PartNumber: aws.Int32(int32(partNumber)),
+		PartNumber: aws.Int32(int32(partNumber)), //gosec:disable G115 -- S3 part numbers are bounded to 1..10000 by the S3 API
 	}, s3.WithPresignExpires(15*time.Minute))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
@@ -229,7 +229,7 @@ func (ms *MultipartService) FinalizeUpload(ctx context.Context, uploadID string)
 	for i, p := range upload.CompleteParts {
 		etag := p.ETag
 		parts[i] = types.CompletedPart{
-			PartNumber: aws.Int32(int32(p.PartNumber)),
+			PartNumber: aws.Int32(int32(p.PartNumber)), //gosec:disable G115 -- S3 part numbers are bounded to 1..10000 by the S3 API
 			ETag:       aws.String(etag),
 		}
 	}

@@ -90,7 +90,8 @@ class USBDebugTracer {
    */
   private sanitizeResult(result: any): any {
     if (result instanceof Uint8Array || result instanceof ArrayBuffer) {
-      const size = result instanceof Uint8Array ? result.length : (result as ArrayBuffer).byteLength;
+      const size =
+        result instanceof Uint8Array ? result.length : (result as ArrayBuffer).byteLength;
       return `[Binary result: ${size} bytes]`;
     }
 
@@ -146,7 +147,6 @@ class USBDebugTracer {
    */
   traceExit(method: string, result: any): void {
     const timestamp = Date.now();
-    const operationId = `${method}:${timestamp}`;
 
     // Find the most recent entry for this method that doesn't have a result
     const entry = this.traces.findLast(e => e.method === method && !e.result && !e.error);
@@ -203,7 +203,6 @@ class USBDebugTracer {
 
     for (const entry of this.traces) {
       const status = entry.success ? '✓' : '✗';
-      const statusColor = entry.success ? 'green' : 'red';
       output += `[${entry.timestamp}] ${status} ${entry.method} (${entry.duration}ms)\n`;
 
       if (Object.keys(entry.args).length > 0) {
@@ -252,9 +251,7 @@ class USBDebugTracer {
     const total = this.traces.length;
     const successful = this.traces.filter(e => e.success).length;
     const failed = this.traces.filter(e => !e.success).length;
-    const avgDuration = total > 0
-      ? this.traces.reduce((sum, e) => sum + e.duration, 0) / total
-      : 0;
+    const avgDuration = total > 0 ? this.traces.reduce((sum, e) => sum + e.duration, 0) / total : 0;
 
     return {
       totalOperations: total,

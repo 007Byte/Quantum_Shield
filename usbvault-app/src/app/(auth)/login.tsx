@@ -284,11 +284,21 @@ export default function LoginScreen() {
             <Text style={styles.usbStatusText}>No USB vaults detected</Text>
           </View>
           <View style={styles.usbActions}>
-            <Pressable style={styles.usbRescanBtn} onPress={() => {}} accessibilityRole="button" accessibilityLabel="Rescan for USB vaults">
+            <Pressable
+              style={styles.usbRescanBtn}
+              onPress={() => {}}
+              accessibilityRole="button"
+              accessibilityLabel="Rescan for USB vaults"
+            >
               <Feather name="refresh-cw" size={14} color={colors.accentPrimary} />
               <Text style={styles.usbRescanText}>Rescan</Text>
             </Pressable>
-            <Pressable style={styles.usbSetupBtn} onPress={() => {}} accessibilityRole="button" accessibilityLabel="Setup new USB vault">
+            <Pressable
+              style={styles.usbSetupBtn}
+              onPress={() => {}}
+              accessibilityRole="button"
+              accessibilityLabel="Setup new USB vault"
+            >
               <Feather name="plus-circle" size={14} color={colors.accentPrimary} />
               <Text style={styles.usbSetupText}>Setup New USB</Text>
             </Pressable>

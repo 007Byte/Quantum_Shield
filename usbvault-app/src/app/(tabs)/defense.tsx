@@ -403,7 +403,16 @@ function LayerCard({ layer, index }: { layer: SecurityLayer; index: number }) {
 function CryptoPropertyCard({ property }: { property: CryptoProperty }) {
   const { t } = useLanguage();
   return (
-    <View style={[styles.cryptoCard, glassPanelBase, webOnlyGlass, webOnlyGlowTier3, styles.cryptoHalo, { borderLeftWidth: 3, borderLeftColor: property.color }]}>
+    <View
+      style={[
+        styles.cryptoCard,
+        glassPanelBase,
+        webOnlyGlass,
+        webOnlyGlowTier3,
+        styles.cryptoHalo,
+        { borderLeftWidth: 3, borderLeftColor: property.color },
+      ]}
+    >
       <View style={styles.cryptoHeader}>
         <View style={[styles.cryptoIcon, { borderColor: property.color }]}>
           <Feather name={property.icon as any} size={20} color={property.color} />

@@ -375,7 +375,10 @@ export const NotificationBell = React.memo(function NotificationBell({
         <Feather name="bell" size={16} color={theme.L2.base.text.primary} />
         {unreadCount > 0 && (
           <View style={styles.badge} accessibilityLiveRegion="polite">
-            <Text style={styles.badgeText} accessibilityLabel={`${unreadCount} unread notifications`}>
+            <Text
+              style={styles.badgeText}
+              accessibilityLabel={`${unreadCount} unread notifications`}
+            >
               {unreadCount}
             </Text>
           </View>

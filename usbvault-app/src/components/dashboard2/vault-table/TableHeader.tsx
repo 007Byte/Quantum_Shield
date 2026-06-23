@@ -32,12 +32,12 @@ export function TableHeader({
   const typeToKeyMap: Record<string, string> = {
     'All Types': 'vault.allTypes',
     'PDF Document': 'vault.fileTypes.pdfDocument',
-    'Document': 'vault.fileTypes.document',
-    'Spreadsheet': 'vault.fileTypes.spreadsheet',
-    'Archive': 'vault.fileTypes.archive',
+    Document: 'vault.fileTypes.document',
+    Spreadsheet: 'vault.fileTypes.spreadsheet',
+    Archive: 'vault.fileTypes.archive',
     'Secure Folder': 'vault.fileTypes.secureFolder',
     'Password Database': 'vault.fileTypes.passwordDatabase',
-    'Image': 'vault.fileTypes.image',
+    Image: 'vault.fileTypes.image',
     'Encrypted File': 'vault.fileTypes.encryptedFile',
   };
 

@@ -6,6 +6,8 @@
  */
 
 // Mock localStorage
+import { passwordService, PasswordEntry, GeneratorOptions } from '../passwordService';
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -57,8 +59,6 @@ jest.mock('react-native', () => ({
 
 // Mock crypto bridge
 jest.mock('@/crypto/bridge', () => ({}));
-
-import { passwordService, PasswordEntry, GeneratorOptions } from '../passwordService';
 
 const STORAGE_KEY = 'usbvault:passwords';
 

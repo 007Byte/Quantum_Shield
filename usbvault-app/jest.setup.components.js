@@ -7,7 +7,7 @@ global.__DEV__ = true;
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
   const { View } = require('react-native');
-  const icon = (props) => React.createElement(View, props);
+  const icon = props => React.createElement(View, props);
   return {
     Feather: icon,
     Ionicons: icon,

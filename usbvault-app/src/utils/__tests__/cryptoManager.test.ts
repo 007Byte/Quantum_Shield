@@ -6,6 +6,18 @@
  */
 
 // Mock React Native Platform
+import {
+  CHUNK_SIZE,
+  generateSalt,
+  deriveEncryptionKey,
+  encryptFile,
+  decryptData,
+  downloadDecryptedFile,
+  formatFileSize,
+  uint8ArrayToBase64,
+} from '../cryptoManager';
+import { CipherId } from '../../crypto/bridge';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
@@ -43,18 +55,6 @@ jest.mock('../../crypto/bridge', () => ({
 // Provide a global fetch mock for web file reading
 const mockFetch = jest.fn();
 (global as any).fetch = mockFetch;
-
-import {
-  CHUNK_SIZE,
-  generateSalt,
-  deriveEncryptionKey,
-  encryptFile,
-  decryptData,
-  downloadDecryptedFile,
-  formatFileSize,
-  uint8ArrayToBase64,
-} from '../cryptoManager';
-import { CipherId } from '../../crypto/bridge';
 
 describe('CryptoManager', () => {
   beforeEach(() => {

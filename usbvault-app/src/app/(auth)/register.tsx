@@ -205,9 +205,13 @@ export default function RegisterScreen() {
   const handlePasswordBlur = useCallback(async () => {
     if (password.length >= PASSWORD_MIN_LENGTH) {
       try {
-        const breached = await checkPasswordBreach(password);
+        // checkPasswordBreach returns an HIBPResult OBJECT ({ isBreached, source }),
+        // which is ALWAYS truthy — so check the .isBreached field, not the object.
+        // (The old `breached ? …` flagged EVERY password the moment the async
+        // check resolved, falsely blocking registration with a valid password.)
+        const result = await checkPasswordBreach(password);
         setBreachWarning(
-          breached
+          result.isBreached
             ? 'This password has appeared in a known data breach. Please choose a different one.'
             : ''
         );

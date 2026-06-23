@@ -52,15 +52,18 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
 
   const handleRegisterFido2 = () => {
     if (!webAuthnSupported) {
-      showAlert(
-        t('settings.notSupported'),
-        t('settings.webauthnNotSupportedMsg')
-      );
+      showAlert(t('settings.notSupported'), t('settings.webauthnNotSupportedMsg'));
       return;
     }
     showPrompt(
       t('settings.registerKey'),
-      [{ key: 'name', label: t('settings.deviceName'), placeholder: t('settings.deviceNamePlaceholder') }],
+      [
+        {
+          key: 'name',
+          label: t('settings.deviceName'),
+          placeholder: t('settings.deviceNamePlaceholder'),
+        },
+      ],
       async values => {
         const name = values.name?.trim();
         if (!name) return;
@@ -104,10 +107,7 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
       try {
         const available = await checkBiometricAvailability();
         if (!available.available) {
-          showAlert(
-            t('settings.biometricNotAvailable'),
-            t('settings.biometricNotAvailableMsg')
-          );
+          showAlert(t('settings.biometricNotAvailable'), t('settings.biometricNotAvailableMsg'));
           return;
         }
 
@@ -123,10 +123,7 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
         setBiometricLocked(true);
         settingsService.set('biometricLockEnabled', true);
         auditService.log('settings_change', 'biometric_lock', { enabled: true }).catch(() => {});
-        showSuccess(
-          t('settings.biometricEnabled'),
-          t('settings.biometricEnabledMsg')
-        );
+        showSuccess(t('settings.biometricEnabled'), t('settings.biometricEnabledMsg'));
       } catch (error) {
         const msg = error instanceof Error ? error.message : t('settings.biometricEnableError');
         showError(t('settings.error'), msg);
@@ -146,7 +143,8 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
               .catch(() => {});
             showAlert(t('settings.biometricDisabled'), t('settings.biometricDisabledMsg'));
           } catch (error) {
-            const msg = error instanceof Error ? error.message : t('settings.biometricDisableError');
+            const msg =
+              error instanceof Error ? error.message : t('settings.biometricDisableError');
             showError(t('settings.error'), msg);
           }
         },
@@ -193,10 +191,7 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
           setTwoFactorEnabled(false);
           settingsService.set('twoFactorEnabled', false);
           auditService.log('settings_change', '2fa', { enabled: false }).catch(() => {});
-          showAlert(
-            t('settings.twoFaDisabled'),
-            t('settings.twoFaDisabledMsg')
-          );
+          showAlert(t('settings.twoFaDisabled'), t('settings.twoFaDisabledMsg'));
         },
         t('settings.disableBtn'),
         'destructive'
@@ -205,7 +200,13 @@ export function SecuritySection({ onLockVault }: SecuritySectionProps) {
   };
 
   const handleAutoLockChange = () => {
-    const options = [t('settings.min5'), t('settings.min10'), t('settings.min15'), t('settings.min30'), t('settings.hour1')];
+    const options = [
+      t('settings.min5'),
+      t('settings.min10'),
+      t('settings.min15'),
+      t('settings.min30'),
+      t('settings.hour1'),
+    ];
     const minuteMap: Record<string, number> = {
       [t('settings.min5')]: 5,
       [t('settings.min10')]: 10,

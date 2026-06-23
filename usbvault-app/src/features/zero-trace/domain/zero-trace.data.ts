@@ -5,6 +5,10 @@
 
 import { Platform } from 'react-native';
 
+// ── Severity / Status Helpers ─────────────────────────────────────────
+
+import type { FeatherIconName } from './zero-trace.types';
+
 // ── Color Constants ────────────────────────────────────────────────────
 // Zero-Trace UI palette — static constants for the dark glass theme
 
@@ -89,10 +93,6 @@ export function getPlatformKey(): string {
   }
   return 'macos'; // fallback
 }
-
-// ── Severity / Status Helpers ─────────────────────────────────────────
-
-import type { FeatherIconName } from './zero-trace.types';
 
 export function getSeverityIcon(severity: string): FeatherIconName {
   switch (severity) {

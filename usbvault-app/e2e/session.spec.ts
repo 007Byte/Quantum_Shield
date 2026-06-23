@@ -1,8 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-base';
 import {
   waitForApp,
   registerAccount,
   loginAccount,
+  logout,
   expectAuthenticated,
   expectLoginScreen,
   TEST_PASSWORD,
@@ -24,9 +25,7 @@ test.describe('Session Management', () => {
     await expectAuthenticated(page);
 
     // Find and click logout
-    const logoutButton = page.locator(
-      '[data-testid*="logout"], [data-testid*="sign-out"]'
-    ).first();
+    const logoutButton = page.locator('[data-testid*="logout"], [data-testid*="sign-out"]').first();
 
     if (await logoutButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       await logoutButton.click();
@@ -39,9 +38,9 @@ test.describe('Session Management', () => {
         await settingsTab.click();
         await page.waitForTimeout(500);
 
-        const logoutInSettings = page.locator(
-          '[data-testid*="logout"], [data-testid*="sign-out"]'
-        ).first();
+        const logoutInSettings = page
+          .locator('[data-testid*="logout"], [data-testid*="sign-out"]')
+          .first();
 
         if (await logoutInSettings.isVisible({ timeout: 3000 }).catch(() => false)) {
           await logoutInSettings.click();
@@ -64,16 +63,20 @@ test.describe('Session Management', () => {
 
     for (const route of protectedRoutes) {
       await page.goto(route);
-      await waitForApp(page);
+      // These routes can land on login, the root, or a non-existent fallback —
+      // not necessarily a known entry screen, so just let the page settle
+      // (don't use the stricter waitForApp here). The checks below poll.
+      await page.waitForLoadState('domcontentloaded');
 
       // Should be redirected to login or see the login screen
-      const loginVisible = await page.getByTestId('login-email-input')
+      const loginVisible = await page
+        .getByTestId('login-email-input')
         .isVisible({ timeout: 5000 })
         .catch(() => false);
 
-      const authContent = page.locator(
-        '[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"]'
-      ).first();
+      const authContent = page
+        .locator('[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"]')
+        .first();
       const authVisible = await authContent.isVisible({ timeout: 2000 }).catch(() => false);
 
       // Either redirected to login or the app shows login screen
@@ -94,9 +97,11 @@ test.describe('Session Management', () => {
     // Give the app time to restore session
     await page.waitForTimeout(2000);
 
-    const stillAuthenticated = page.locator(
-      '[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"], [data-testid*="encrypt"]'
-    ).first();
+    const stillAuthenticated = page
+      .locator(
+        '[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"], [data-testid*="encrypt"]'
+      )
+      .first();
 
     const loginScreen = page.getByTestId('login-email-input');
 
@@ -119,9 +124,7 @@ test.describe('Session Management', () => {
     await expectAuthenticated(page);
 
     // Perform logout
-    const logoutButton = page.locator(
-      '[data-testid*="logout"], [data-testid*="sign-out"]'
-    ).first();
+    const logoutButton = page.locator('[data-testid*="logout"], [data-testid*="sign-out"]').first();
 
     let loggedOut = false;
 
@@ -134,9 +137,9 @@ test.describe('Session Management', () => {
       if (await settingsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
         await settingsTab.click();
         await page.waitForTimeout(500);
-        const logoutInSettings = page.locator(
-          '[data-testid*="logout"], [data-testid*="sign-out"]'
-        ).first();
+        const logoutInSettings = page
+          .locator('[data-testid*="logout"], [data-testid*="sign-out"]')
+          .first();
         if (await logoutInSettings.isVisible({ timeout: 3000 }).catch(() => false)) {
           await logoutInSettings.click();
           await page.waitForTimeout(1500);
@@ -166,12 +169,7 @@ test.describe('Session Management', () => {
     await expectAuthenticated(page);
 
     for (let cycle = 0; cycle < 2; cycle++) {
-      // Logout
-      await page.evaluate(() => {
-        localStorage.removeItem('usbvault:session');
-      });
-      await page.goto('/');
-      await waitForApp(page);
+      await logout(page);
       await expectLoginScreen(page);
 
       // Login again

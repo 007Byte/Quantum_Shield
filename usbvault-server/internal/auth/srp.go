@@ -28,10 +28,10 @@ const (
 
 	// LOW-FIX: Extracted magic numbers to named constants
 	srpSessionTTL       = 5 * time.Minute
-	srpEphemeralKeyBits = 256                 // Must be at least 256 bits for 3072-bit group
-	srpVerifierMinLen   = 32                  // Minimum verifier byte length
-	srpVerifierMaxLen   = 512                 // Maximum verifier byte length
-	srpRandomDelayMax   = 100                 // Maximum random delay in milliseconds
+	srpEphemeralKeyBits = 256 // Must be at least 256 bits for 3072-bit group
+	srpVerifierMinLen   = 32  // Minimum verifier byte length
+	srpVerifierMaxLen   = 512 // Maximum verifier byte length
+	srpRandomDelayMax   = 100 // Maximum random delay in milliseconds
 	srpContextTimeout   = 5 * time.Second
 
 	// Argon2id parameters for SRP verifier hashing (PHASE 2.1)
@@ -65,16 +65,21 @@ type SRPVerifyResponse struct {
 }
 
 type srpServerState struct {
-	B                    string
-	b                    *big.Int
-	A                    *big.Int
-	Salt                 []byte
-	SRPVerifier          []byte
-	EmailHash            string
-	UserID               string
-	CreatedAt            time.Time
-	VerifierHashAlgo     string // "sha256" (legacy) or "argon2id" (current)
-	RequiresRehash       bool   // Flag for transparent rehashing on successful login
+	B string
+	// BPrivate is the server's private ephemeral 'b' (RFC 5054), as a base-10
+	// string. It MUST be exported and JSON-tagged: the state is marshalled to
+	// JSON and stored in Redis at init, then unmarshalled at verify. An
+	// unexported field is silently dropped by encoding/json, which previously
+	// left b nil at verify and broke (panicked) every SRP login.
+	BPrivate         string `json:"b_private"`
+	A                *big.Int
+	Salt             []byte
+	SRPVerifier      []byte
+	EmailHash        string
+	UserID           string
+	CreatedAt        time.Time
+	VerifierHashAlgo string // "sha256" (legacy) or "argon2id" (current)
+	RequiresRehash   bool   // Flag for transparent rehashing on successful login
 }
 
 // HashVerifierArgon2id hashes an SRP verifier using Argon2id for offline attack resistance.
@@ -206,15 +211,15 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		// PHASE 2.1: Track whether verifier needs rehashing on successful login
 		requiresRehash := verifierHashAlgo != "argon2id"
 		state := srpServerState{
-			B:                    B.String(),
-			b:                    b,
-			Salt:                 srpSalt,
-			SRPVerifier:          srpVerifier,
-			EmailHash:            emailHash,
-			UserID:               userID,
-			CreatedAt:            time.Now(),
-			VerifierHashAlgo:     verifierHashAlgo,
-			RequiresRehash:       requiresRehash,
+			B:                B.String(),
+			BPrivate:         b.String(),
+			Salt:             srpSalt,
+			SRPVerifier:      srpVerifier,
+			EmailHash:        emailHash,
+			UserID:           userID,
+			CreatedAt:        time.Now(),
+			VerifierHashAlgo: verifierHashAlgo,
+			RequiresRehash:   requiresRehash,
 		}
 
 		stateJSON, _ := json.Marshal(state)
@@ -263,7 +268,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 
 		// CR-2 FIX: Validate required fields in deserialized SRP state
 		// Prevents processing with zero-value fields from corrupted/tampered Redis data
-		if state.UserID == "" || state.EmailHash == "" || len(state.Salt) == 0 || len(state.SRPVerifier) == 0 || state.B == "" {
+		if state.UserID == "" || state.EmailHash == "" || len(state.Salt) == 0 || len(state.SRPVerifier) == 0 || state.B == "" || state.BPrivate == "" {
 			log.Warn().Str("session_id", req.SessionID).Msg("SRP state missing required fields")
 			http.Error(w, "invalid session", http.StatusUnauthorized)
 			return
@@ -300,11 +305,20 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		v := new(big.Int)
 		v.SetBytes(state.SRPVerifier)
 
+		// Recover the server private ephemeral b persisted at init (see
+		// srpServerState.BPrivate). Parsing failure means tampered/corrupt state.
+		b := new(big.Int)
+		if _, ok := b.SetString(state.BPrivate, 10); !ok {
+			log.Warn().Str("user_id", state.UserID).Msg("invalid SRP server state: b_private not parseable")
+			http.Error(w, "invalid session", http.StatusUnauthorized)
+			return
+		}
+
 		// Compute S = (A * v^u)^b mod N
 		vu := new(big.Int).Exp(v, u, N)
 		Avu := new(big.Int).Mul(A, vu)
 		Avu.Mod(Avu, N)
-		S := new(big.Int).Exp(Avu, state.b, N)
+		S := new(big.Int).Exp(Avu, b, N)
 
 		// Compute K = H(S)
 		K := sha256.Sum256(S.Bytes())
@@ -350,7 +364,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// PHASE 2.1: Transparent rehashing of SRP verifier from SHA-256 to Argon2id
 		// This happens automatically on successful login, upgrading legacy verifiers
 		if state.RequiresRehash {
-			go func() {
+			go func() { //gosec:disable G118 -- intentional fire-and-forget background rehash; login response already sent, uses its own timeout context
 				// Use background context with timeout since the login response is already sent
 				rehashCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()

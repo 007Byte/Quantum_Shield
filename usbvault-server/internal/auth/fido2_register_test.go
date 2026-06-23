@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pashagolub/pgxmock/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // ============================================================================
@@ -40,7 +41,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 			name: "authenticated user can register credential",
 			setupContext: func(r *http.Request) {
 				// Simulate auth middleware adding user_id to context
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
@@ -77,7 +78,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 		{
 			name: "empty user_id is treated as unauthenticated",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "")
 				*r = *r.WithContext(ctx)
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
@@ -89,7 +90,7 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 		{
 			name: "user not found in database returns generic error",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "nonexistent-user")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "nonexistent-user")
 				*r = *r.WithContext(ctx)
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
@@ -111,8 +112,12 @@ func TestHandleFIDO2RegisterChallenge(t *testing.T) {
 
 			tt.setupDB(mock)
 
-			// Create mock Redis
-			mockRedis := redis.NewClient(&redis.Options{})
+			// Create mock Redis backed by miniredis so session storage works
+			mr := miniredis.NewMiniRedis()
+			require.NoError(t, mr.Start())
+			defer mr.Close()
+			mockRedis := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+			defer mockRedis.Close()
 
 			// Create request
 			req := httptest.NewRequest("POST", "/fido2/register/challenge", nil)
@@ -148,6 +153,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 		name         string
 		setupContext func(*http.Request)
 		setupRequest func() FIDO2RegisterVerifyRequest
+		setupRedis   func(*testing.T, *redis.Client)
 		setupDB      func(pgxmock.PgxPoolIface)
 		expectStatus int
 		expectError  string
@@ -155,15 +161,18 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 		{
 			name: "expired session",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			setupRequest: func() FIDO2RegisterVerifyRequest {
 				return FIDO2RegisterVerifyRequest{
-					SessionID:              "expired-session",
+					SessionID:               "expired-session",
 					AttestationResponseJSON: "response",
-					CredentialName:        "My Key",
+					CredentialName:          "My Key",
 				}
+			},
+			setupRedis: func(t *testing.T, rc *redis.Client) {
+				// No session stored - Redis lookup will miss (expired).
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				// No queries - session lookup in Redis will fail
@@ -174,25 +183,37 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 		{
 			name: "max credentials limit exceeded",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			setupRequest: func() FIDO2RegisterVerifyRequest {
 				return FIDO2RegisterVerifyRequest{
-					SessionID:              "valid-session",
+					SessionID:               "valid-session",
 					AttestationResponseJSON: "response",
-					CredentialName:        "My Key",
+					CredentialName:          "My Key",
 				}
 			},
+			setupRedis: func(t *testing.T, rc *redis.Client) {
+				// Store a valid registration session so the handler proceeds
+				// past the Redis lookup to the max-credentials check.
+				sessionData := webauthn.SessionData{
+					Challenge: "test-challenge",
+					UserID:    []byte("user-123"),
+				}
+				sessionJSON, err := json.Marshal(sessionData)
+				require.NoError(t, err)
+				require.NoError(t, rc.Set(context.Background(), "fido2reg:valid-session", sessionJSON, time.Minute).Err())
+			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				// User already has 10 credentials - at limit
+				// User already has 10 credentials - at limit. The handler scans
+				// both webauthn_credentials and email_hash.
 				existingCreds := make([]webauthn.Credential, 10)
 				credsJSON, _ := json.Marshal(existingCreds)
 
-				mock.ExpectQuery("SELECT webauthn_credentials FROM users WHERE id").
+				mock.ExpectQuery("SELECT webauthn_credentials, email_hash FROM users WHERE id").
 					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
-						AddRow(credsJSON))
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials", "email_hash"}).
+						AddRow(credsJSON, "hashed_email"))
 			},
 			expectStatus: http.StatusBadRequest,
 			expectError:  "maximum credentials",
@@ -208,8 +229,16 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 
 			tt.setupDB(mock)
 
-			// Create mock Redis
-			mockRedis := redis.NewClient(&redis.Options{})
+			// Create mock Redis backed by miniredis so session storage works
+			mr := miniredis.NewMiniRedis()
+			require.NoError(t, mr.Start())
+			defer mr.Close()
+			mockRedis := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+			defer mockRedis.Close()
+
+			if tt.setupRedis != nil {
+				tt.setupRedis(t, mockRedis)
+			}
 
 			// Create request
 			req := tt.setupRequest()
@@ -219,7 +248,7 @@ func TestHandleFIDO2RegisterVerify(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Create handler
-			handler := HandleFIDO2RegisterVerify(mock, mockRedis)
+			handler := HandleFIDO2RegisterVerify(mock, mockRedis, &mockAuditService{})
 			handler(w, httpReq)
 
 			assert.Equal(t, tt.expectStatus, w.Code)
@@ -250,51 +279,51 @@ func TestHandleFIDO2ListCredentials(t *testing.T) {
 		{
 			name: "list credentials for user with credentials",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				creds := []FIDO2Credential{
-					{
-						ID:        "cred-1",
-						Name:      "My Key",
-						CreatedAt: time.Now(),
-					},
+				// Handler scans webauthn_credentials and json.Unmarshals it into
+				// []webauthn.Credential, so the stored value must be that shape.
+				creds := []webauthn.Credential{
+					{ID: []byte("cred-1")},
 				}
 				credsJSON, _ := json.Marshal(creds)
 
 				mock.ExpectQuery("SELECT.*credentials.*FROM users WHERE id").
 					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"fido2_credentials"}).
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
 						AddRow(credsJSON))
 			},
 			expectStatus: http.StatusOK,
 			validateResp: func(t *testing.T, body []byte) {
-				var resp map[string]interface{}
+				// Handler responds with a top-level JSON array of FIDO2Credential.
+				var resp []FIDO2Credential
 				err := json.Unmarshal(body, &resp)
 				assert.NoError(t, err)
-				assert.NotNil(t, resp["credentials"])
+				assert.Len(t, resp, 1)
+				assert.Equal(t, "cred-1", resp[0].ID)
 			},
 		},
 		{
 			name: "list credentials for user without credentials",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-456")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-456")
 				*r = *r.WithContext(ctx)
 			},
 			setupDB: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT.*credentials.*FROM users WHERE id").
 					WithArgs("user-456").
-					WillReturnRows(pgxmock.NewRows([]string{"fido2_credentials"}).
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
 						AddRow([]byte(`[]`)))
 			},
 			expectStatus: http.StatusOK,
 			validateResp: func(t *testing.T, body []byte) {
-				var resp map[string]interface{}
+				// Empty credential list serializes to an empty JSON array.
+				var resp []FIDO2Credential
 				err := json.Unmarshal(body, &resp)
 				assert.NoError(t, err)
-				creds := resp["credentials"].([]interface{})
-				assert.Len(t, creds, 0)
+				assert.Len(t, resp, 0)
 			},
 		},
 		{
@@ -356,41 +385,48 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 		{
 			name: "delete valid credential",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "cred-1",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				// Count credentials
-				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
+				// Handler reads credentials + whether a password backup exists.
+				storedJSON, _ := json.Marshal([]webauthn.Credential{
+					{ID: []byte("cred-1")},
+					{ID: []byte("cred-2")},
+				})
+				mock.ExpectQuery("SELECT webauthn_credentials, password_hash IS NOT NULL FROM users WHERE id").
 					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"count"}).AddRow(2))
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials", "has_password"}).
+						AddRow(storedJSON, true))
 
-				// Get credentials to remove target credential
-				mock.ExpectQuery("SELECT webauthn_credentials FROM users WHERE id").
-					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
-						AddRow([]byte(`[{"id":"cred-1"},{"id":"cred-2"}]`)))
-
-				// Update credentials
-				mock.ExpectExec("UPDATE users SET webauthn_credentials").
-					WithArgs("user-123").
-					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				// After removing cred-1, the remaining credential set is persisted
+				// via UPDATE ... RETURNING id (QueryRow, not Exec).
+				remainingJSON, _ := json.Marshal([]webauthn.Credential{
+					{ID: []byte("cred-2")},
+				})
+				mock.ExpectQuery("UPDATE users SET webauthn_credentials").
+					WithArgs(remainingJSON, "user-123").
+					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow("user-123"))
 			},
 			expectStatus: http.StatusOK,
 		},
 		{
 			name: "cannot delete last credential without password",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "cred-1",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				// Only 1 credential
-				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
+				// Single credential and no password backup -> deletion blocked.
+				storedJSON, _ := json.Marshal([]webauthn.Credential{
+					{ID: []byte("cred-1")},
+				})
+				mock.ExpectQuery("SELECT webauthn_credentials, password_hash IS NOT NULL FROM users WHERE id").
 					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"count"}).AddRow(1))
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials", "has_password"}).
+						AddRow(storedJSON, false))
 			},
 			expectStatus: http.StatusBadRequest,
 			expectError:  "last credential",
@@ -398,21 +434,19 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 		{
 			name: "credential not found",
 			setupContext: func(r *http.Request) {
-				ctx := context.WithValue(r.Context(), "user_id", "user-123")
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, "user-123")
 				*r = *r.WithContext(ctx)
 			},
 			credentialID: "nonexistent",
 			setupDB: func(mock pgxmock.PgxPoolIface) {
-				// Count credentials
-				mock.ExpectQuery("SELECT COUNT.*FROM.*webauthn").
+				// Stored credentials do not include the requested ID.
+				storedJSON, _ := json.Marshal([]webauthn.Credential{
+					{ID: []byte("cred-1")},
+				})
+				mock.ExpectQuery("SELECT webauthn_credentials, password_hash IS NOT NULL FROM users WHERE id").
 					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"count"}).AddRow(1))
-
-				// Get credentials - doesn't contain the target
-				mock.ExpectQuery("SELECT webauthn_credentials FROM users WHERE id").
-					WithArgs("user-123").
-					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
-						AddRow([]byte(`[{"id":"cred-1"}]`)))
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials", "has_password"}).
+						AddRow(storedJSON, true))
 			},
 			expectStatus: http.StatusNotFound,
 			expectError:  "credential not found",
@@ -439,13 +473,14 @@ func TestHandleFIDO2DeleteCredential(t *testing.T) {
 
 			tt.setupDB(mock)
 
-			// Create request
-			req := httptest.NewRequest("DELETE", "/fido2/credentials/"+tt.credentialID, nil)
+			// Create request. The handler reads the credential ID from the
+			// "id" query parameter, not the path.
+			req := httptest.NewRequest("DELETE", "/fido2/credentials?id="+tt.credentialID, nil)
 			tt.setupContext(req)
 			w := httptest.NewRecorder()
 
 			// Create handler
-			handler := HandleFIDO2DeleteCredential(mock)
+			handler := HandleFIDO2DeleteCredential(mock, &mockAuditService{})
 			handler(w, req)
 
 			assert.Equal(t, tt.expectStatus, w.Code)
@@ -524,7 +559,7 @@ func TestFIDO2RegisterSessionHandling(t *testing.T) {
 
 	t.Run("session data structures are valid", func(t *testing.T) {
 		sessionData := webauthn.SessionData{
-			Challenge: []byte("test-challenge"),
+			Challenge: "test-challenge",
 			UserID:    []byte("user-123"),
 		}
 

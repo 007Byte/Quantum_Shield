@@ -226,11 +226,7 @@ function ToolsScreen() {
           <View key={category.id} style={styles.categorySection}>
             {/* Category Header */}
             <View style={styles.categoryHeader}>
-              <Feather
-                name={category.icon as any}
-                size={18}
-                color={theme.L2.base.text.primary}
-              />
+              <Feather name={category.icon as any} size={18} color={theme.L2.base.text.primary} />
               <Text style={[styles.categoryTitle, { color: theme.L2.base.text.primary }]}>
                 {t(category.titleKey)}
               </Text>

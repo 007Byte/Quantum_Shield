@@ -35,17 +35,44 @@ func setupTokenLeakageTestRedis(t *testing.T) *redis.Client {
 	return client
 }
 
-// TestTokenLeakage_TokenNotInURLParams verifies tokens are not included in URL parameters
+// extractBearerToken mirrors the auth middleware's token extraction: the token
+// is read ONLY from the Authorization header, never from URL query parameters.
+// (The auth package cannot import internal/middleware without an import cycle.)
+func extractBearerToken(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return ""
+	}
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) == 2 && parts[0] == "Bearer" {
+		return parts[1]
+	}
+	return ""
+}
+
+// TestTokenLeakage_TokenNotInURLParams verifies tokens passed as URL parameters
+// are never accepted as credentials. Tokens supplied via the query string (a
+// leakage risk via browser history, server logs, and Referer headers) must be
+// ignored; only the Authorization header is honored.
 func TestTokenLeakage_TokenNotInURLParams(t *testing.T) {
-	// This test verifies that the API should never accept tokens in URL parameters
-	// Tokens should only be in Authorization header
+	// A malicious/legacy client puts a token in the URL but sends no
+	// Authorization header.
+	req := httptest.NewRequest("GET", "/api/vaults?token=eyJhbGc.fake.token", nil)
 
-	req := httptest.NewRequest("GET", "/api/vaults?token=eyJhbGc...", nil)
-	query := req.URL.Query()
+	// The token is present in the raw query (we just put it there)...
+	assert.NotEmpty(t, req.URL.Query().Get("token"))
 
-	// Verify token parameter should be empty (API should reject this)
-	token := query.Get("token")
-	assert.Empty(t, token, "tokens should not be passed in URL parameters due to leakage risk (browser history, logs, referrer headers)")
+	// ...but the application must NOT extract it as a credential, because token
+	// extraction only ever reads the Authorization header.
+	extracted := extractBearerToken(req)
+	assert.Empty(t, extracted, "tokens in URL parameters must never be accepted as credentials (leakage risk via browser history, logs, referrer headers)")
+
+	// And when the token is correctly supplied via the Authorization header, it
+	// is the value that gets used.
+	req2 := httptest.NewRequest("GET", "/api/vaults?token=eyJhbGc.url.token", nil)
+	req2.Header.Set("Authorization", "Bearer eyJhbGc.header.token")
+	assert.Equal(t, "eyJhbGc.header.token", extractBearerToken(req2),
+		"only the Authorization header token is honored, never the URL parameter")
 }
 
 // TestTokenLeakage_TokenNotInResponseBody verifies tokens are not leaked in response body

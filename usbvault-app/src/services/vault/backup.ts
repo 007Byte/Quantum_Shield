@@ -56,7 +56,7 @@ export interface BackupData {
   files: FileInfo[];
   settings: UserSettings;
   /** Password hashes (optional) — only if includePasswords was true */
-  passwords?: Array<{ id: string; hash: string }>;
+  passwords?: { id: string; hash: string }[];
 }
 
 /**

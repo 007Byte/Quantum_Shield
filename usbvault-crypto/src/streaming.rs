@@ -183,7 +183,7 @@ impl StreamingEncryptor {
                 let nonce_array = chacha20poly1305::XNonce::from_slice(nonce);
 
                 let ciphertext = cipher
-                    .encrypt(&nonce_array, plaintext)
+                    .encrypt(nonce_array, plaintext)
                     .map_err(|_| CryptoError::DecryptionFailed)?;
 
                 // Return: nonce || ciphertext || tag
@@ -569,7 +569,8 @@ impl StreamingDecryptor {
         nonce_info.extend_from_slice(b"stream_chunk_nonce:");
         nonce_info.extend_from_slice(&chunk_index.to_le_bytes());
         let mut nonce = [0u8; 24];
-        hkdf_nonce.expand(&nonce_info, &mut nonce)
+        hkdf_nonce
+            .expand(&nonce_info, &mut nonce)
             .expect("HKDF expand should not fail for 24-byte output");
 
         let hkdf = Hkdf::<Sha256>::new(Some(base_nonce), master_key);

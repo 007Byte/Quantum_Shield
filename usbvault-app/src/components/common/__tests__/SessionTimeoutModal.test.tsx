@@ -65,9 +65,7 @@ describe('SessionTimeoutModal', () => {
   });
 
   it('renders nothing when not visible', () => {
-    const { toJSON } = render(
-      <SessionTimeoutModal {...defaultProps} visible={false} />
-    );
+    const { toJSON } = render(<SessionTimeoutModal {...defaultProps} visible={false} />);
     expect(toJSON()).toBeNull();
   });
 
@@ -87,16 +85,12 @@ describe('SessionTimeoutModal', () => {
   });
 
   it('displays formatted countdown for non-round seconds', () => {
-    const { getByText } = render(
-      <SessionTimeoutModal {...defaultProps} secondsLeft={95} />
-    );
+    const { getByText } = render(<SessionTimeoutModal {...defaultProps} secondsLeft={95} />);
     expect(getByText('1:35')).toBeTruthy();
   });
 
   it('displays formatted countdown for seconds under 60', () => {
-    const { getByText } = render(
-      <SessionTimeoutModal {...defaultProps} secondsLeft={45} />
-    );
+    const { getByText } = render(<SessionTimeoutModal {...defaultProps} secondsLeft={45} />);
     expect(getByText('0:45')).toBeTruthy();
   });
 
@@ -112,9 +106,7 @@ describe('SessionTimeoutModal', () => {
 
   it('calls logoutNow when Logout is pressed', () => {
     const logoutNow = jest.fn();
-    const { getByText } = render(
-      <SessionTimeoutModal {...defaultProps} logoutNow={logoutNow} />
-    );
+    const { getByText } = render(<SessionTimeoutModal {...defaultProps} logoutNow={logoutNow} />);
     fireEvent.press(getByText('Logout'));
     expect(logoutNow).toHaveBeenCalledTimes(1);
   });
@@ -129,23 +121,17 @@ describe('SessionTimeoutModal', () => {
   });
 
   it('shows urgent subtext when secondsLeft <= 60', () => {
-    const { getByText } = render(
-      <SessionTimeoutModal {...defaultProps} secondsLeft={30} />
-    );
+    const { getByText } = render(<SessionTimeoutModal {...defaultProps} secondsLeft={30} />);
     expect(getByText('You will be logged out shortly')).toBeTruthy();
   });
 
   it('shows extend-or-logout subtext when secondsLeft > 60', () => {
-    const { getByText } = render(
-      <SessionTimeoutModal {...defaultProps} secondsLeft={90} />
-    );
+    const { getByText } = render(<SessionTimeoutModal {...defaultProps} secondsLeft={90} />);
     expect(getByText('Extend your session or logout now')).toBeTruthy();
   });
 
   it('renders countdown with accessibility label', () => {
-    const { getByLabelText } = render(
-      <SessionTimeoutModal {...defaultProps} secondsLeft={45} />
-    );
+    const { getByLabelText } = render(<SessionTimeoutModal {...defaultProps} secondsLeft={45} />);
     expect(getByLabelText('45 seconds remaining')).toBeTruthy();
   });
 

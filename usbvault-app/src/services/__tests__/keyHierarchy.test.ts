@@ -6,6 +6,14 @@
  */
 
 // Mock React Native Platform
+import {
+  createKeyHierarchy,
+  unlockKeyHierarchy,
+  rotatePassword,
+  getFileEncryptionKey,
+  migrateToKeyHierarchy,
+} from '../crypto/keyHierarchy';
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
@@ -36,14 +44,6 @@ jest.mock('@/utils/logger', () => ({
     debug: jest.fn(),
   },
 }));
-
-import {
-  createKeyHierarchy,
-  unlockKeyHierarchy,
-  rotatePassword,
-  getFileEncryptionKey,
-  migrateToKeyHierarchy,
-} from '../crypto/keyHierarchy';
 
 describe('Key Hierarchy Service', () => {
   beforeEach(() => {

@@ -127,7 +127,11 @@ class VaultOrchestratorImpl {
   private notifyLockStateChange(): void {
     const unlocked = this.activeVault !== null;
     for (const listener of this.lockStateListeners) {
-      try { listener(unlocked); } catch { /* swallow listener errors */ }
+      try {
+        listener(unlocked);
+      } catch {
+        /* swallow listener errors */
+      }
     }
   }
 
@@ -135,7 +139,11 @@ class VaultOrchestratorImpl {
     if (!this.activeVault) return;
     const index = this.activeVault.index;
     for (const listener of this.indexChangeListeners) {
-      try { listener(index); } catch { /* swallow listener errors */ }
+      try {
+        listener(index);
+      } catch {
+        /* swallow listener errors */
+      }
     }
   }
 
@@ -264,11 +272,7 @@ class VaultOrchestratorImpl {
       // mismatched salt means a different physical vault was plugged in.
       if (this.activeVault) {
         const knownSalt = this.activeVault.headerInfo.salt;
-        if (
-          knownSalt &&
-          headerInfo.salt &&
-          knownSalt.length === headerInfo.salt.length
-        ) {
+        if (knownSalt && headerInfo.salt && knownSalt.length === headerInfo.salt.length) {
           let saltMismatch = false;
           for (let i = 0; i < knownSalt.length; i++) {
             if (knownSalt[i] !== headerInfo.salt[i]) {
@@ -281,17 +285,12 @@ class VaultOrchestratorImpl {
               mountPoint,
             });
             fireAndForget(
-              auditService.log(
-                'vault',
-                'vault_identity_mismatch',
-                { mountPoint },
-                'error'
-              )
+              auditService.log('vault', 'vault_identity_mismatch', { mountPoint }, 'error')
             );
             throw new Error(
               'This USB drive contains a different vault than expected. ' +
-              'The previously unlocked vault had a different identity. ' +
-              'Please lock the current vault first, then unlock this drive.'
+                'The previously unlocked vault had a different identity. ' +
+                'Please lock the current vault first, then unlock this drive.'
             );
           }
         }
@@ -419,7 +418,11 @@ class VaultOrchestratorImpl {
 
       let index: VaultIndexData;
       if (indexLength > 0) {
-        const encryptedIndex = await usbService.readVaultBytes(mountPoint, indexOffset, indexLength);
+        const encryptedIndex = await usbService.readVaultBytes(
+          mountPoint,
+          indexOffset,
+          indexLength
+        );
         index = await decryptVaultContainerIndex(session.encryptionKey, encryptedIndex);
       } else {
         index = { files: {} };
@@ -511,7 +514,10 @@ class VaultOrchestratorImpl {
       );
 
       // Step 2: Append to VAULT.bin
-      const { offset, length } = await usbService.appendVaultBytes(vault.mountPoint, encryptedRecord);
+      const { offset, length } = await usbService.appendVaultBytes(
+        vault.mountPoint,
+        encryptedRecord
+      );
 
       // Step 3: Update cached index
       vault.index.files[fileId] = {

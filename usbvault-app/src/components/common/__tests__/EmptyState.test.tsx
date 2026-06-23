@@ -70,9 +70,7 @@ describe('EmptyState', () => {
 
   it('does not render action button when only onAction is provided without actionLabel', () => {
     const onAction = jest.fn();
-    const { queryByRole } = render(
-      <EmptyState icon="folder" title="Empty" onAction={onAction} />
-    );
+    const { queryByRole } = render(<EmptyState icon="folder" title="Empty" onAction={onAction} />);
     expect(queryByRole('button')).toBeNull();
   });
 

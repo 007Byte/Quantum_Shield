@@ -89,6 +89,31 @@
     "node": true,
     "es2021": true
   },
+  // Test files & Jest setup scripts run under the Jest runtime (globals: jest,
+  // describe, beforeAll, afterAll, ...), so we enable the `jest` env to silence
+  // `no-undef`. Integration tests also intentionally wire layers together
+  // (e.g. a service test exercising the real store), so the architectural
+  // import/no-restricted-paths layering rule is turned off for test code only.
+  "overrides": [
+    {
+      "files": [
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "jest.setup.js",
+        "jest.setup.components.js"
+      ],
+      "env": {
+        "jest": true,
+        "node": true
+      },
+      "rules": {
+        "import/no-restricted-paths": "off"
+      }
+    }
+  ],
   "settings": {
     "import/resolver": {
       "node": {

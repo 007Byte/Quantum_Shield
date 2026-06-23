@@ -156,9 +156,9 @@ const LIGHT_MODE_OVERRIDES: Record<string, string> = {
   'rgb(244, 114, 182)': '#DB2777', // pink (#F472B6)
 
   // ── Dark borders → light borders ──
-  'rgb(45, 38, 69)': 'rgba(200,190,230,0.35)',   // colors.border #2D2645
-  'rgb(61, 53, 81)': 'rgba(200,190,230,0.30)',   // colors.borderLight #3D3551
-  'rgb(61, 44, 94)': 'rgba(139,92,246,0.15)',    // colors.borderAccent #3D2C5E
+  'rgb(45, 38, 69)': 'rgba(200,190,230,0.35)', // colors.border #2D2645
+  'rgb(61, 53, 81)': 'rgba(200,190,230,0.30)', // colors.borderLight #3D3551
+  'rgb(61, 44, 94)': 'rgba(139,92,246,0.15)', // colors.borderAccent #3D2C5E
 };
 
 // Background color overrides for cards/panels that freeze with the wrong theme
@@ -231,13 +231,12 @@ const LIGHT_BG_OVERRIDES: Record<string, string> = {
   // L0 dark bg → L0 light bg
   'rgb(17, 13, 34)': '#EDE8F5',
   // Legacy colors.ts dark backgrounds → light glass equivalents
-  'rgb(19, 15, 36)': 'rgba(255,255,255,0.50)',   // colors.bgInput #130F24
-  'rgb(26, 21, 48)': 'rgba(255,255,255,0.55)',   // colors.bgSecondary #1A1530
-  'rgb(37, 29, 64)': 'rgba(255,255,255,0.50)',   // colors.bgTertiary #251D40
-  'rgb(45, 38, 69)': 'rgba(200,190,230,0.35)',   // colors.border #2D2645 (as bg)
-  'rgb(61, 53, 81)': 'rgba(200,190,230,0.30)',   // colors.borderLight #3D3551 (as bg)
-  'rgb(61, 44, 94)': 'rgba(139,92,246,0.15)',    // colors.borderAccent #3D2C5E (as bg)
-  'rgb(45, 38, 69)': 'rgba(200,190,230,0.35)',   // colors.bgHover #2D2645
+  'rgb(19, 15, 36)': 'rgba(255,255,255,0.50)', // colors.bgInput #130F24
+  // rgb(26, 21, 48) (colors.bgSecondary) and rgb(37, 29, 64) (colors.bgTertiary)
+  // already mapped above (same target values).
+  'rgb(45, 38, 69)': 'rgba(200,190,230,0.35)', // colors.border #2D2645 / colors.bgHover (as bg)
+  'rgb(61, 53, 81)': 'rgba(200,190,230,0.30)', // colors.borderLight #3D3551 (as bg)
+  'rgb(61, 44, 94)': 'rgba(139,92,246,0.15)', // colors.borderAccent #3D2C5E (as bg)
 };
 
 const STYLE_ID = 'usbvault-theme-text-sync';

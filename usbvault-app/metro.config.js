@@ -111,7 +111,7 @@ const { createUsbMiddleware } = require('./usb-dev-middleware');
 
 config.server = {
   ...config.server,
-  enhanceMiddleware: (middleware) => createUsbMiddleware(middleware),
+  enhanceMiddleware: middleware => createUsbMiddleware(middleware),
 };
 
 // NativeWind/Tailwind CSS is installed but not yet active in Metro.

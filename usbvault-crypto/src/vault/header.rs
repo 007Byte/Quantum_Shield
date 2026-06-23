@@ -2,9 +2,7 @@
 
 use crate::cipher::CipherId;
 use crate::error::{CryptoError, Result};
-use crate::kdf::{
-    derive_kek, generate_salt, wrap_mek, unwrap_mek, MasterEncryptionKey, MasterKey,
-};
+use crate::kdf::{derive_kek, generate_salt, unwrap_mek, wrap_mek, MasterEncryptionKey, MasterKey};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
@@ -282,9 +280,8 @@ impl VaultHeader {
 
                 // Index encrypted flag (1 byte)
                 let ie = if offset < data.len() {
-                    let flag = data[offset] != 0;
-                    offset += 1;
-                    flag
+                    // Last field parsed; no further reads, so `offset` is not advanced.
+                    data[offset] != 0
                 } else {
                     false
                 };
@@ -522,10 +519,7 @@ impl VaultHeader {
     /// Returns (header, enc_key_32, hmac_key_32) — the MEK halves for
     /// immediate use. The caller MUST zero these after writing the
     /// initial empty index.
-    pub fn create_new(
-        password: &[u8],
-        cipher_id: CipherId,
-    ) -> Result<(Self, [u8; 32], [u8; 32])> {
+    pub fn create_new(password: &[u8], cipher_id: CipherId) -> Result<(Self, [u8; 32], [u8; 32])> {
         let salt = generate_salt();
 
         // Derive KEK from password
@@ -542,11 +536,15 @@ impl VaultHeader {
         let mut verify_iv = [0u8; 24];
         rand::rngs::OsRng.fill_bytes(&mut verify_iv);
         let verify_ciphertext = {
-            use chacha20poly1305::{aead::{Aead, KeyInit}, XChaCha20Poly1305};
+            use chacha20poly1305::{
+                aead::{Aead, KeyInit},
+                XChaCha20Poly1305,
+            };
             use generic_array::GenericArray;
             let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
             let nonce = chacha20poly1305::XNonce::from_slice(&verify_iv);
-            cipher.encrypt(nonce, verify_plaintext.as_ref())
+            cipher
+                .encrypt(nonce, verify_plaintext.as_ref())
                 .map_err(|_| CryptoError::KeyDerivationFailed)?
         };
 
@@ -597,19 +595,23 @@ impl VaultHeader {
     /// Derives KEK, unwraps MEK, verifies password via verify marker.
     /// Returns the MEK halves (enc_key, hmac_key) on success.
     pub fn unlock(&self, password: &[u8]) -> Result<([u8; 32], [u8; 32])> {
-        let wrapped = self.wrapped_mek.as_ref()
+        let wrapped = self
+            .wrapped_mek
+            .as_ref()
             .ok_or(CryptoError::InvalidHeader)?;
 
         // Derive KEK from password + header salt
         let kek = derive_kek(password, &self.salt)?;
 
         // Unwrap MEK
-        let mek = unwrap_mek(&kek, wrapped)
-            .map_err(|_| CryptoError::PasswordWrong)?;
+        let mek = unwrap_mek(&kek, wrapped).map_err(|_| CryptoError::PasswordWrong)?;
 
         // Verify password by decrypting verify marker
         let is_valid = {
-            use chacha20poly1305::{aead::{Aead, KeyInit}, XChaCha20Poly1305};
+            use chacha20poly1305::{
+                aead::{Aead, KeyInit},
+                XChaCha20Poly1305,
+            };
             use generic_array::GenericArray;
             let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
             let nonce = chacha20poly1305::XNonce::from_slice(&self.verify_iv);
@@ -642,7 +644,9 @@ impl VaultHeader {
     /// Returns the current fail count, or error if the block is
     /// tampered or missing.
     pub fn read_fail_counter(&self, hmac_key: &[u8; 32]) -> Result<u32> {
-        let block = self.fail_counter_block.as_ref()
+        let block = self
+            .fail_counter_block
+            .as_ref()
             .ok_or(CryptoError::InvalidHeader)?;
 
         if block.len() != 36 {
@@ -734,7 +738,7 @@ mod tests {
 
     #[test]
     fn test_header_roundtrip() {
-        let mut header = VaultHeader {
+        let header = VaultHeader {
             version: 2,
             kdf_hash_id: 1,
             cipher_id: 2,
@@ -873,7 +877,7 @@ mod tests {
 
         assert_eq!(parsed.version, 4);
         assert_eq!(parsed.state_version, 42);
-        assert_eq!(parsed.index_encrypted, true);
+        assert!(parsed.index_encrypted);
         assert_eq!(parsed.wrapped_mek.as_ref().unwrap().len(), 104);
         assert_eq!(parsed.salt, header.salt);
         assert_eq!(parsed.commit_counter, 100);

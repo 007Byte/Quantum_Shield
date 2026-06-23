@@ -29,41 +29,72 @@ export function CryptoLab() {
       setOutput(`[AEAD encrypted — ${bytes.length + 16}B ciphertext + 16B auth tag]\n${hex}`);
     } else if (selectedCipher === 'aes-cbc') {
       try {
-        const key = await crypto.subtle.generateKey({ name: 'AES-CBC', length: 256 }, true, ['encrypt', 'decrypt']);
+        const key = await crypto.subtle.generateKey({ name: 'AES-CBC', length: 256 }, true, [
+          'encrypt',
+          'decrypt',
+        ]);
         const iv = crypto.getRandomValues(new Uint8Array(16));
         const encoded = new TextEncoder().encode(input);
         const ciphertext = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, encoded);
-        const ctHex = Array.from(new Uint8Array(ciphertext)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-        const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(' ');
-        setOutput(`IV: ${ivHex}\nCiphertext (${new Uint8Array(ciphertext).length}B with PKCS7 padding):\n${ctHex}`);
+        const ctHex = Array.from(new Uint8Array(ciphertext))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(' ');
+        const ivHex = Array.from(iv)
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(' ');
+        setOutput(
+          `IV: ${ivHex}\nCiphertext (${new Uint8Array(ciphertext).length}B with PKCS7 padding):\n${ctHex}`
+        );
       } catch {
         setOutput('[AES-CBC demo — WebCrypto unavailable in this environment]');
       }
     } else if (selectedCipher === 'rsa') {
       try {
         const keyPair = await crypto.subtle.generateKey(
-          { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+          {
+            name: 'RSA-OAEP',
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: 'SHA-256',
+          },
           true,
           ['encrypt', 'decrypt']
         );
         const encoded = new TextEncoder().encode(input);
-        const ciphertext = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, keyPair.publicKey, encoded);
-        const ctHex = Array.from(new Uint8Array(ciphertext)).slice(0, 32).map(b => b.toString(16).padStart(2, '0')).join(' ');
-        const decrypted = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, keyPair.privateKey, ciphertext);
+        const ciphertext = await crypto.subtle.encrypt(
+          { name: 'RSA-OAEP' },
+          keyPair.publicKey,
+          encoded
+        );
+        const ctHex = Array.from(new Uint8Array(ciphertext))
+          .slice(0, 32)
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(' ');
+        const decrypted = await crypto.subtle.decrypt(
+          { name: 'RSA-OAEP' },
+          keyPair.privateKey,
+          ciphertext
+        );
         const plaintext = new TextDecoder().decode(decrypted);
-        setOutput(`Public key encrypted (${new Uint8Array(ciphertext).length}B):\n${ctHex} ...\n\nPrivate key decrypted: "${plaintext}"`);
+        setOutput(
+          `Public key encrypted (${new Uint8Array(ciphertext).length}B):\n${ctHex} ...\n\nPrivate key decrypted: "${plaintext}"`
+        );
       } catch {
         setOutput('[RSA demo — WebCrypto unavailable in this environment]');
       }
     } else if (selectedCipher === 'chacha-compare') {
-      const nonce12 = Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, '0')).join(' ');
-      const nonce24 = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      const nonce12 = Array.from(crypto.getRandomValues(new Uint8Array(12)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join(' ');
+      const nonce24 = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join(' ');
       setOutput(
         `ChaCha20-Poly1305 nonce (12 bytes):\n${nonce12}\n\n` +
-        `XChaCha20-Poly1305 nonce (24 bytes):\n${nonce24}\n\n` +
-        `Collision probability at 2^32 messages:\n` +
-        `  ChaCha20 (96-bit):   ~1 in 2^32 — DANGEROUS\n` +
-        `  XChaCha20 (192-bit): ~1 in 2^128 — SAFE`
+          `XChaCha20-Poly1305 nonce (24 bytes):\n${nonce24}\n\n` +
+          `Collision probability at 2^32 messages:\n` +
+          `  ChaCha20 (96-bit):   ~1 in 2^32 — DANGEROUS\n` +
+          `  XChaCha20 (192-bit): ~1 in 2^128 — SAFE`
       );
     }
   }, [input, selectedCipher]);
@@ -189,7 +220,12 @@ export function CryptoLab() {
 
       {/* Takeaway for new ciphers */}
       {CIPHER_DEMOS.find(c => c.id === selectedCipher)?.takeawayKey && (
-        <View style={[labStyles.takeawayRow, { borderColor: 'rgba(34,211,238,0.3)', backgroundColor: 'rgba(34,211,238,0.06)' }]}>
+        <View
+          style={[
+            labStyles.takeawayRow,
+            { borderColor: 'rgba(34,211,238,0.3)', backgroundColor: 'rgba(34,211,238,0.06)' },
+          ]}
+        >
           <Feather name="info" size={14} color={theme.semantic.cyan} />
           <Text style={[labStyles.takeawayText, { color: theme.L2.base.text.primary }]}>
             {t(CIPHER_DEMOS.find(c => c.id === selectedCipher)?.takeawayKey || '')}

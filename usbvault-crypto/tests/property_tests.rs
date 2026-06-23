@@ -355,7 +355,7 @@ proptest! {
 
         if let Ok(subkey1) = derive_subkey(&master, &context) {
             let different_context = format!("{}different", context);
-            if let Ok(subkey2) = derive_subkey(&master, &different_context.as_str()) {
+            if let Ok(subkey2) = derive_subkey(&master, different_context.as_str()) {
                 // PROPERTY: different contexts produce different subkeys
                 prop_assert_ne!(subkey1, subkey2,
                     "Different contexts must produce different subkeys");

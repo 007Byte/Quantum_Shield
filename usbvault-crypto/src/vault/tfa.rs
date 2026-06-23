@@ -41,7 +41,9 @@ impl TfaMethod {
         match b {
             0 => Ok(TfaMethod::None),
             1 => Ok(TfaMethod::Fido2),
-            _ => Err(CryptoError::InvalidInput(format!("Unknown TFA method: {b}"))),
+            _ => Err(CryptoError::InvalidInput(format!(
+                "Unknown TFA method: {b}"
+            ))),
         }
     }
 }
@@ -155,19 +157,25 @@ impl TfaBlock {
         // FIDO2 salt (32B)
         let mut fido2_salt = [0u8; 32];
         if offset + 32 > data.len() {
-            return Err(CryptoError::InvalidInput("TFA block truncated at salt".into()));
+            return Err(CryptoError::InvalidInput(
+                "TFA block truncated at salt".into(),
+            ));
         }
         fido2_salt.copy_from_slice(&data[offset..offset + 32]);
         offset += 32;
 
         // Recovery blob (length-prefixed)
         if offset >= data.len() {
-            return Err(CryptoError::InvalidInput("TFA block truncated at recovery blob".into()));
+            return Err(CryptoError::InvalidInput(
+                "TFA block truncated at recovery blob".into(),
+            ));
         }
         let rb_len = data[offset] as usize;
         offset += 1;
         if offset + rb_len > data.len() {
-            return Err(CryptoError::InvalidInput("TFA block truncated in recovery blob data".into()));
+            return Err(CryptoError::InvalidInput(
+                "TFA block truncated in recovery blob data".into(),
+            ));
         }
         let recovery_blob = data[offset..offset + rb_len].to_vec();
         offset += rb_len;
@@ -175,16 +183,20 @@ impl TfaBlock {
         // Credential count (1B)
         if offset >= data.len() {
             return Ok(TfaBlock {
-                method, max_attempts, fido2_salt, recovery_blob, credentials: Vec::new(),
+                method,
+                max_attempts,
+                fido2_salt,
+                recovery_blob,
+                credentials: Vec::new(),
             });
         }
         let cred_count = data[offset] as usize;
         offset += 1;
 
         if cred_count > MAX_CREDENTIALS {
-            return Err(CryptoError::InvalidInput(
-                format!("Too many TFA credentials: {cred_count} (max {MAX_CREDENTIALS})"),
-            ));
+            return Err(CryptoError::InvalidInput(format!(
+                "Too many TFA credentials: {cred_count} (max {MAX_CREDENTIALS})"
+            )));
         }
 
         // Parse credential entries
@@ -192,27 +204,33 @@ impl TfaBlock {
         for _ in 0..cred_count {
             // cred_id_len (2B u16 LE)
             if offset + 2 > data.len() {
-                return Err(CryptoError::InvalidInput("TFA block truncated at credential".into()));
+                return Err(CryptoError::InvalidInput(
+                    "TFA block truncated at credential".into(),
+                ));
             }
             let cred_id_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
             offset += 2;
 
             if cred_id_len > MAX_CRED_ID_SIZE {
-                return Err(CryptoError::InvalidInput(
-                    format!("Credential ID too large: {cred_id_len} bytes"),
-                ));
+                return Err(CryptoError::InvalidInput(format!(
+                    "Credential ID too large: {cred_id_len} bytes"
+                )));
             }
 
             // credential_id (variable)
             if offset + cred_id_len > data.len() {
-                return Err(CryptoError::InvalidInput("TFA block truncated in credential ID".into()));
+                return Err(CryptoError::InvalidInput(
+                    "TFA block truncated in credential ID".into(),
+                ));
             }
             let credential_id = data[offset..offset + cred_id_len].to_vec();
             offset += cred_id_len;
 
             // aaguid (16B)
             if offset + AAGUID_SIZE > data.len() {
-                return Err(CryptoError::InvalidInput("TFA block truncated at AAGUID".into()));
+                return Err(CryptoError::InvalidInput(
+                    "TFA block truncated at AAGUID".into(),
+                ));
             }
             let mut aaguid = [0u8; AAGUID_SIZE];
             aaguid.copy_from_slice(&data[offset..offset + AAGUID_SIZE]);
@@ -220,20 +238,24 @@ impl TfaBlock {
 
             // label_len (1B)
             if offset >= data.len() {
-                return Err(CryptoError::InvalidInput("TFA block truncated at label length".into()));
+                return Err(CryptoError::InvalidInput(
+                    "TFA block truncated at label length".into(),
+                ));
             }
             let label_len = data[offset] as usize;
             offset += 1;
 
             if label_len > MAX_LABEL_SIZE {
-                return Err(CryptoError::InvalidInput(
-                    format!("Label too large: {label_len} bytes (max {MAX_LABEL_SIZE})"),
-                ));
+                return Err(CryptoError::InvalidInput(format!(
+                    "Label too large: {label_len} bytes (max {MAX_LABEL_SIZE})"
+                )));
             }
 
             // label (variable)
             if offset + label_len > data.len() {
-                return Err(CryptoError::InvalidInput("TFA block truncated in label".into()));
+                return Err(CryptoError::InvalidInput(
+                    "TFA block truncated in label".into(),
+                ));
             }
             let label = String::from_utf8(data[offset..offset + label_len].to_vec())
                 .map_err(|_| CryptoError::InvalidInput("Label is not valid UTF-8".into()))?;
@@ -289,7 +311,10 @@ mod tests {
         assert_eq!(unpacked.fido2_salt, [0xAA; 32]);
         assert_eq!(unpacked.recovery_blob, vec![0x01, 0x02, 0x03]);
         assert_eq!(unpacked.credentials.len(), 2);
-        assert_eq!(unpacked.credentials[0].credential_id, vec![0x10, 0x20, 0x30, 0x40]);
+        assert_eq!(
+            unpacked.credentials[0].credential_id,
+            vec![0x10, 0x20, 0x30, 0x40]
+        );
         assert_eq!(unpacked.credentials[0].label, "YubiKey 5");
         assert_eq!(unpacked.credentials[1].credential_id, vec![0x50, 0x60]);
         assert_eq!(unpacked.credentials[1].label, "Backup Key");
@@ -313,7 +338,7 @@ mod tests {
         data.push(0); // recovery_blob_len=0
         data.push(1); // 1 credential
         data.extend_from_slice(&300u16.to_le_bytes()); // cred_id_len=300 (over limit)
-        // Don't provide the actual credential data
+                                                       // Don't provide the actual credential data
 
         let result = TfaBlock::unpack(&data);
         assert!(result.is_err());

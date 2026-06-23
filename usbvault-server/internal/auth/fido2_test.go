@@ -11,35 +11,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pashagolub/pgxmock/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Mock Audit Service
-// ============================================================================
-
-type mockAuditService struct {
-	loggedActions []struct {
-		userID        string
-		actionType    string
-		encryptedData []byte
-	}
-}
-
-func (m *mockAuditService) LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error {
-	m.loggedActions = append(m.loggedActions, struct {
-		userID        string
-		actionType    string
-		encryptedData []byte
-	}{userID, actionType, encryptedDetail})
-	return nil
-}
+// mockAuditService is defined once in integration_test.go and shared here.
 
 // ============================================================================
 // Test HandleFIDO2Challenge
@@ -49,19 +30,20 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		email          string
-		dbScanFunc     func(pgxmock.PgxPoolIface)
-		expectStatus   int
-		expectError    string
-		validateResp   func(*testing.T, []byte)
+		name         string
+		email        string
+		rawBody      string // when set, sent verbatim instead of a marshaled struct
+		dbScanFunc   func(pgxmock.PgxPoolIface)
+		expectStatus int
+		expectError  string
+		validateResp func(*testing.T, []byte)
 	}{
 		{
 			name:  "valid user with existing credentials",
 			email: "user@example.com",
 			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
-					WithArgs("hashed_email").
+					WithArgs(hashEmail("user@example.com")).
 					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow("user-123"))
 
 				mock.ExpectQuery("SELECT webauthn_credentials FROM users WHERE id").
@@ -83,15 +65,15 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 			email: "nonexistent@example.com",
 			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
-					WithArgs("hashed_email").
+					WithArgs(hashEmail("nonexistent@example.com")).
 					WillReturnError(pgx.ErrNoRows)
 			},
 			expectStatus: http.StatusUnauthorized,
 			expectError:  "invalid credentials",
 		},
 		{
-			name:  "invalid request body",
-			email: "",
+			name:    "invalid request body",
+			rawBody: "not valid json",
 			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				// No queries expected
 			},
@@ -109,11 +91,20 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 
 			tt.dbScanFunc(mock)
 
-			// Create mock Redis
-			mockRedis := redis.NewClient(&redis.Options{})
+			// Create mock Redis backed by miniredis so session storage works
+			mr := miniredis.NewMiniRedis()
+			require.NoError(t, mr.Start())
+			defer mr.Close()
+			mockRedis := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+			defer mockRedis.Close()
 
 			// Create request
-			body, _ := json.Marshal(FIDO2ChallengeRequest{Email: tt.email})
+			var body []byte
+			if tt.rawBody != "" {
+				body = []byte(tt.rawBody)
+			} else {
+				body, _ = json.Marshal(FIDO2ChallengeRequest{Email: tt.email})
+			}
 			req := httptest.NewRequest("POST", "/fido2/challenge", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
@@ -143,13 +134,13 @@ func TestHandleFIDO2Verify(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		setupRequest   func() FIDO2VerifyRequest
-		setupRedis     func(*redis.Client) error
-		setupDB        func(pgxmock.PgxPoolIface)
-		expectStatus   int
-		expectError    string
-		validateResp   func(*testing.T, []byte)
+		name         string
+		setupRequest func() FIDO2VerifyRequest
+		setupRedis   func(*redis.Client) error
+		setupDB      func(pgxmock.PgxPoolIface)
+		expectStatus int
+		expectError  string
+		validateResp func(*testing.T, []byte)
 	}{
 		{
 			name: "missing session_id",
@@ -210,8 +201,12 @@ func TestHandleFIDO2Verify(t *testing.T) {
 
 			tt.setupDB(mock)
 
-			// Create mock Redis
-			mockRedis := redis.NewClient(&redis.Options{})
+			// Create mock Redis backed by miniredis so session storage works
+			mr := miniredis.NewMiniRedis()
+			require.NoError(t, mr.Start())
+			defer mr.Close()
+			mockRedis := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+			defer mockRedis.Close()
 			err = tt.setupRedis(mockRedis)
 			require.NoError(t, err)
 
@@ -248,7 +243,7 @@ func TestFIDO2SessionStorageAndExpiry(t *testing.T) {
 		// This test validates that session data is properly stored
 		// with 10-minute expiration as per the implementation
 		sessionData := webauthn.SessionData{
-			Challenge: []byte("test-challenge"),
+			Challenge: "test-challenge",
 			UserID:    []byte("user-123"),
 		}
 
@@ -358,6 +353,7 @@ func TestFIDO2ErrorHandling(t *testing.T) {
 		if credentialsJSON == nil {
 			// Should return "no credentials registered" error
 			assert.True(t, credentialsJSON == nil)
+			assert.Empty(t, credentials)
 		}
 	})
 }

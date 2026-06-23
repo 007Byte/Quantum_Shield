@@ -203,7 +203,7 @@ class FindMyVaultService {
     logger.debug(`Opening vault location: ${path}`);
   }
 
-  getScanHistory(): Array<{ date: number; found: number; duration: number }> {
+  getScanHistory(): { date: number; found: number; duration: number }[] {
     // Simulated history - in real app would track multiple scans
     if (this.scanProgress.completedAt && this.scanProgress.duration) {
       return [

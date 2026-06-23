@@ -67,11 +67,7 @@ export function TicketFormModal({
             <Text accessibilityRole="header" style={styles.modalTitle}>
               {t('help.submitTicket')}
             </Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Close"
-              accessibilityRole="button"
-            >
+            <Pressable onPress={onClose} accessibilityLabel="Close" accessibilityRole="button">
               <Feather name="x" size={24} color={dashboardColors.textSecondary} />
             </Pressable>
           </View>
@@ -97,9 +93,7 @@ export function TicketFormModal({
                   ]}
                 >
                   <Feather name="alert-circle" size={14} color={theme.semantic.danger} />
-                  <Text style={[styles.errorText, { color: theme.semantic.danger }]}>
-                    {error}
-                  </Text>
+                  <Text style={[styles.errorText, { color: theme.semantic.danger }]}>{error}</Text>
                 </View>
               )}
 
@@ -123,10 +117,7 @@ export function TicketFormModal({
                     onPress={() => onCategoryChange(cat.value)}
                   >
                     <Text
-                      style={[
-                        styles.chipText,
-                        category === cat.value && styles.chipTextActive,
-                      ]}
+                      style={[styles.chipText, category === cat.value && styles.chipTextActive]}
                     >
                       {t(CATEGORY_I18N[cat.value]) || cat.value}
                     </Text>
@@ -149,9 +140,7 @@ export function TicketFormModal({
                     ]}
                     onPress={() => onPriorityChange(p.value)}
                   >
-                    <Text
-                      style={[styles.chipText, priority === p.value && { color: p.color }]}
-                    >
+                    <Text style={[styles.chipText, priority === p.value && { color: p.color }]}>
                       {t(PRIORITY_I18N[p.value]) || p.value}
                     </Text>
                   </Pressable>

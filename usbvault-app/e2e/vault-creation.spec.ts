@@ -1,9 +1,5 @@
-import { test, expect } from '@playwright/test';
-import {
-  waitForApp,
-  registerAccount,
-  expectAuthenticated,
-} from './helpers';
+import { test, expect } from './test-base';
+import { waitForApp, registerAccount, expectAuthenticated } from './helpers';
 
 test.describe('Vault CRUD Operations', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,9 +10,9 @@ test.describe('Vault CRUD Operations', () => {
   });
 
   test('navigate to manage-vaults screen', async ({ page }) => {
-    const vaultsNav = page.locator(
-      '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-    ).first();
+    const vaultsNav = page
+      .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+      .first();
 
     if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await vaultsNav.click();
@@ -24,17 +20,15 @@ test.describe('Vault CRUD Operations', () => {
     }
 
     // Vault management screen should show vault list or empty state
-    const vaultContent = page.locator(
-      'text=/vault|Vault|manage|create|no vaults/i'
-    ).first();
+    const vaultContent = page.locator('text=/vault|Vault|manage|create|no vaults/i').first();
     await expect(vaultContent).toBeVisible({ timeout: 10000 });
   });
 
   test('create a new vault', async ({ page }) => {
     // Navigate to vaults screen
-    const vaultsNav = page.locator(
-      '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-    ).first();
+    const vaultsNav = page
+      .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+      .first();
 
     if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await vaultsNav.click();
@@ -42,18 +36,22 @@ test.describe('Vault CRUD Operations', () => {
     }
 
     // Click create / add vault button
-    const createButton = page.locator(
-      '[data-testid*="create-vault"], [data-testid*="add-vault"], [data-testid*="new-vault"]'
-    ).first();
+    const createButton = page
+      .locator(
+        '[data-testid*="create-vault"], [data-testid*="add-vault"], [data-testid*="new-vault"]'
+      )
+      .first();
 
     if (await createButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       await createButton.click();
       await page.waitForTimeout(500);
 
       // Fill vault name
-      const nameInput = page.locator(
-        '[data-testid*="vault-name"], input[placeholder*="name" i], input[placeholder*="vault" i]'
-      ).first();
+      const nameInput = page
+        .locator(
+          '[data-testid*="vault-name"], input[placeholder*="name" i], input[placeholder*="vault" i]'
+        )
+        .first();
 
       if (await nameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await nameInput.fill('E2E-TestVault');
@@ -61,9 +59,11 @@ test.describe('Vault CRUD Operations', () => {
       }
 
       // Submit the form
-      const submitButton = page.locator(
-        '[data-testid*="submit-vault"], [data-testid*="save-vault"], [data-testid*="confirm"]'
-      ).first();
+      const submitButton = page
+        .locator(
+          '[data-testid*="submit-vault"], [data-testid*="save-vault"], [data-testid*="confirm"]'
+        )
+        .first();
 
       if (await submitButton.isVisible({ timeout: 3000 }).catch(() => false)) {
         await submitButton.click();
@@ -79,26 +79,25 @@ test.describe('Vault CRUD Operations', () => {
   });
 
   test('verify vault appears in vault list after creation', async ({ page }) => {
-    const vaultsNav = page.locator(
-      '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-    ).first();
+    const vaultsNav = page
+      .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+      .first();
 
     if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await vaultsNav.click();
       await page.waitForTimeout(1000);
     }
 
-    // The vault list should render with at least one item or an empty state
-    const vaultList = page.locator(
-      '[data-testid*="vault-list"], [data-testid*="vault-item"], text=/vault/i'
-    ).first();
-    await expect(vaultList).toBeVisible({ timeout: 10000 });
+    // The vault area should render — after registration the default
+    // "Personal Vault" is present on the dashboard. (The previous locator mixed
+    // CSS selectors with a text= engine in one string, which never matches.)
+    await expect(page.getByText(/vault/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('rename a vault', async ({ page }) => {
-    const vaultsNav = page.locator(
-      '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-    ).first();
+    const vaultsNav = page
+      .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+      .first();
 
     if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await vaultsNav.click();
@@ -106,26 +105,28 @@ test.describe('Vault CRUD Operations', () => {
     }
 
     // Look for an edit/rename action on a vault entry
-    const editButton = page.locator(
-      '[data-testid*="edit-vault"], [data-testid*="rename-vault"], [data-testid*="vault-menu"]'
-    ).first();
+    const editButton = page
+      .locator(
+        '[data-testid*="edit-vault"], [data-testid*="rename-vault"], [data-testid*="vault-menu"]'
+      )
+      .first();
 
     if (await editButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       await editButton.click();
       await page.waitForTimeout(500);
 
-      const renameInput = page.locator(
-        '[data-testid*="vault-name"], input[placeholder*="name" i]'
-      ).first();
+      const renameInput = page
+        .locator('[data-testid*="vault-name"], input[placeholder*="name" i]')
+        .first();
 
       if (await renameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await renameInput.clear();
         await renameInput.fill('E2E-RenamedVault');
         await page.waitForTimeout(300);
 
-        const saveButton = page.locator(
-          '[data-testid*="save"], [data-testid*="confirm"], [data-testid*="submit"]'
-        ).first();
+        const saveButton = page
+          .locator('[data-testid*="save"], [data-testid*="confirm"], [data-testid*="submit"]')
+          .first();
 
         if (await saveButton.isVisible({ timeout: 3000 }).catch(() => false)) {
           await saveButton.click();
@@ -142,9 +143,9 @@ test.describe('Vault CRUD Operations', () => {
   });
 
   test('delete a vault', async ({ page }) => {
-    const vaultsNav = page.locator(
-      '[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]'
-    ).first();
+    const vaultsNav = page
+      .locator('[data-testid*="vault"], [data-testid*="manage-vault"], [href*="vault"]')
+      .first();
 
     if (await vaultsNav.isVisible({ timeout: 5000 }).catch(() => false)) {
       await vaultsNav.click();
@@ -152,18 +153,22 @@ test.describe('Vault CRUD Operations', () => {
     }
 
     // Look for a delete action on a vault entry
-    const deleteButton = page.locator(
-      '[data-testid*="delete-vault"], [data-testid*="remove-vault"], [data-testid*="vault-delete"]'
-    ).first();
+    const deleteButton = page
+      .locator(
+        '[data-testid*="delete-vault"], [data-testid*="remove-vault"], [data-testid*="vault-delete"]'
+      )
+      .first();
 
     if (await deleteButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       await deleteButton.click();
       await page.waitForTimeout(500);
 
       // Confirm deletion dialog
-      const confirmDelete = page.locator(
-        '[data-testid*="confirm-delete"], [data-testid*="confirm"], text=/confirm|yes|delete/i'
-      ).first();
+      const confirmDelete = page
+        .locator(
+          '[data-testid*="confirm-delete"], [data-testid*="confirm"], text=/confirm|yes|delete/i'
+        )
+        .first();
 
       if (await confirmDelete.isVisible({ timeout: 3000 }).catch(() => false)) {
         await confirmDelete.click();
@@ -173,9 +178,7 @@ test.describe('Vault CRUD Operations', () => {
 
     // After deletion, the vault should no longer be in the list
     // or we should see an empty state
-    const emptyOrRemoved = page.locator(
-      'text=/no vaults|empty|create your first/i'
-    ).first();
+    const emptyOrRemoved = page.locator('text=/no vaults|empty|create your first/i').first();
 
     // Either the vault is removed or the list is now empty — both are valid
     const isVisible = await emptyOrRemoved.isVisible({ timeout: 5000 }).catch(() => false);

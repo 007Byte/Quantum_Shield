@@ -48,6 +48,7 @@ export function AboutSection({ onSignOut }: AboutSectionProps) {
       </View>
 
       <Pressable
+        testID="settings-sign-out"
         accessibilityRole="button"
         style={(state: any) => [styles.signOutBtn, state.hovered && styles.signOutBtnHover]}
         onPress={onSignOut}
