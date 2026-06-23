@@ -39,10 +39,33 @@ export async function registerAccount(page: Page, email?: string): Promise<strin
   await page.getByTestId('register-confirm-password-input').fill(TEST_PASSWORD);
   await page.getByTestId('register-button').click();
 
-  // Wait for navigation to authenticated area
-  await page.waitForTimeout(2000);
+  // After registration the OnboardingWizard is shown (PQC check → cipher →
+  // identity → vault-ready). No input is required (cipher/displayName default),
+  // so click "Continue" through all steps until the wizard is gone.
+  await completeOnboarding(page);
 
   return userEmail;
+}
+
+/** Click through the post-registration OnboardingWizard if present. */
+export async function completeOnboarding(page: Page): Promise<void> {
+  const next = page.getByTestId('onboarding-next-button');
+  for (let i = 0; i < 6; i++) {
+    if (!(await next.isVisible({ timeout: i === 0 ? 5000 : 1500 }).catch(() => false))) break;
+    await next.click();
+    await page.waitForTimeout(400);
+  }
+}
+
+/** Log out via Settings → Sign Out. Returns to the login screen. */
+export async function logout(page: Page): Promise<void> {
+  await page.goto('/settings');
+  const signOut = page.getByTestId('settings-sign-out');
+  await signOut.scrollIntoViewIfNeeded().catch(() => {});
+  await signOut.click();
+  // Sign-out shows a confirmation modal — confirm it.
+  await page.getByTestId('modal-confirm').click({ timeout: 5000 });
+  await page.waitForTimeout(800);
 }
 
 /** Log in with an existing account. */
@@ -61,11 +84,8 @@ export async function loginAccount(
 
 /** Assert we're on the authenticated dashboard. */
 export async function expectAuthenticated(page: Page): Promise<void> {
-  // The tabs layout renders after authentication — look for dashboard content
-  // The sidebar or tab navigation should be visible
-  await expect(
-    page.locator('[data-testid*="dashboard"], [data-testid*="vault"], [data-testid*="tab"]').first()
-  ).toBeVisible({ timeout: 10000 });
+  // After auth (and the onboarding wizard on register) the dashboard renders.
+  await expect(page.getByTestId('dashboard-screen')).toBeVisible({ timeout: 15000 });
 }
 
 /** Assert we're on the login screen (unauthenticated). */

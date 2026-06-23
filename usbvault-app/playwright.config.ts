@@ -67,6 +67,7 @@ export default defineConfig({
     command: 'npx expo start --web --port 8081',
     url: 'http://localhost:8081',
     reuseExistingServer: !process.env.CI,
-    timeout: 60000,
+    // Cold Metro web bundle on CI can take well over a minute.
+    timeout: 180000,
   },
 });

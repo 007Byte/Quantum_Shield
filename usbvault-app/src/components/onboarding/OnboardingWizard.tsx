@@ -260,6 +260,7 @@ export function OnboardingWizard({ onComplete, email }: OnboardingWizardProps) {
         )}
 
         <Pressable
+          testID="onboarding-next-button"
           accessibilityRole="button"
           style={(state: any) => [s.navBtn, s.navBtnPrimary, state.hovered && s.navBtnPrimaryHover]}
           onPress={handleNext}

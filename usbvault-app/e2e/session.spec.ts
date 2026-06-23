@@ -3,6 +3,7 @@ import {
   waitForApp,
   registerAccount,
   loginAccount,
+  logout,
   expectAuthenticated,
   expectLoginScreen,
   TEST_PASSWORD,
@@ -165,12 +166,7 @@ test.describe('Session Management', () => {
     await expectAuthenticated(page);
 
     for (let cycle = 0; cycle < 2; cycle++) {
-      // Logout
-      await page.evaluate(() => {
-        localStorage.removeItem('usbvault:session');
-      });
-      await page.goto('/');
-      await waitForApp(page);
+      await logout(page);
       await expectLoginScreen(page);
 
       // Login again

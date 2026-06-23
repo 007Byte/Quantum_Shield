@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   waitForApp,
   registerAccount,
-  loginAccount,
+  logout,
   expectLoginScreen,
   testEmail,
   TEST_PASSWORD,
@@ -17,15 +17,9 @@ test.describe('Error Scenarios', () => {
   // ─── Login errors ────────────────────────────────────────
 
   test('login with wrong password shows error', async ({ page }) => {
-    // Register first so the account exists
+    // Register first so the account exists, then log out
     const email = await registerAccount(page);
-
-    // Clear session and go back to login
-    await page.evaluate(() => {
-      localStorage.removeItem('usbvault:session');
-    });
-    await page.goto('/');
-    await waitForApp(page);
+    await logout(page);
     await expectLoginScreen(page);
 
     // Attempt login with incorrect password
@@ -202,32 +196,24 @@ test.describe('Error Scenarios', () => {
     }
   });
 
-  test('network failure on register shows error gracefully', async ({ page }) => {
-    await page.route('**/api/**', route =>
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'Internal Server Error' }),
-      })
-    );
-    await page.route('**/auth/**', route =>
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'Internal Server Error' }),
-      })
-    );
+  test('duplicate email registration shows error gracefully', async ({ page }) => {
+    // Web auth is client-side, so register has no network dependency to fail —
+    // the real "register fails gracefully" path is a duplicate account. Register
+    // an email, log out, then try to register the SAME email again.
+    const email = await registerAccount(page);
+    await logout(page);
+    await expectLoginScreen(page);
 
     await page.getByTestId('login-register-link').click();
     await page.waitForTimeout(500);
 
-    await page.getByTestId('register-email-input').fill(testEmail());
+    await page.getByTestId('register-email-input').fill(email);
     await page.getByTestId('register-password-input').fill(TEST_PASSWORD);
     await page.getByTestId('register-confirm-password-input').fill(TEST_PASSWORD);
     await page.getByTestId('register-button').click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    // Should remain on register — not crash
+    // Duplicate is rejected — we stay on the register screen, not onboarding.
     await expect(page.getByTestId('register-email-input')).toBeVisible();
   });
 

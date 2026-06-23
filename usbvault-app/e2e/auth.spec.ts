@@ -3,6 +3,7 @@ import {
   waitForApp,
   registerAccount,
   loginAccount,
+  logout,
   expectAuthenticated,
   expectLoginScreen,
   testEmail,
@@ -46,24 +47,8 @@ test.describe('Authentication Flow', () => {
     const email = await registerAccount(page);
     await expectAuthenticated(page);
 
-    // Step 2: Logout — find and click logout in settings or sidebar
-    const logoutButton = page.locator('[data-testid*="logout"], [data-testid*="sign-out"]').first();
-    if (await logoutButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await logoutButton.click();
-      await page.waitForTimeout(1000);
-    } else {
-      // Try navigating to settings first
-      const settingsTab = page.locator('[data-testid*="settings"]').first();
-      if (await settingsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await settingsTab.click();
-        await page.waitForTimeout(500);
-        const logoutInSettings = page
-          .locator('[data-testid*="logout"], [data-testid*="sign-out"]')
-          .first();
-        await logoutInSettings.click();
-        await page.waitForTimeout(1000);
-      }
-    }
+    // Step 2: Logout via Settings → Sign Out
+    await logout(page);
 
     // Step 3: Should be back on login
     await expectLoginScreen(page);
@@ -78,12 +63,8 @@ test.describe('Authentication Flow', () => {
     const email = await registerAccount(page);
     await expectAuthenticated(page);
 
-    // Clear session by navigating fresh
-    await page.evaluate(() => {
-      localStorage.removeItem('usbvault:session');
-    });
-    await page.goto('/');
-    await waitForApp(page);
+    // Log out (the session lives in sessionStorage), then return to login
+    await logout(page);
     await expectLoginScreen(page);
 
     // Try logging in with wrong password

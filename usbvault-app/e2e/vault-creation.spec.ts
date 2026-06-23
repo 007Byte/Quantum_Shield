@@ -88,11 +88,10 @@ test.describe('Vault CRUD Operations', () => {
       await page.waitForTimeout(1000);
     }
 
-    // The vault list should render with at least one item or an empty state
-    const vaultList = page
-      .locator('[data-testid*="vault-list"], [data-testid*="vault-item"], text=/vault/i')
-      .first();
-    await expect(vaultList).toBeVisible({ timeout: 10000 });
+    // The vault area should render — after registration the default
+    // "Personal Vault" is present on the dashboard. (The previous locator mixed
+    // CSS selectors with a text= engine in one string, which never matches.)
+    await expect(page.getByText(/vault/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('rename a vault', async ({ page }) => {
