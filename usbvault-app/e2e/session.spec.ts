@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-base';
 import {
   waitForApp,
   registerAccount,
@@ -63,7 +63,10 @@ test.describe('Session Management', () => {
 
     for (const route of protectedRoutes) {
       await page.goto(route);
-      await waitForApp(page);
+      // These routes can land on login, the root, or a non-existent fallback —
+      // not necessarily a known entry screen, so just let the page settle
+      // (don't use the stricter waitForApp here). The checks below poll.
+      await page.waitForLoadState('domcontentloaded');
 
       // Should be redirected to login or see the login screen
       const loginVisible = await page

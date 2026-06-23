@@ -15,12 +15,23 @@ export function testEmail(): string {
 /** A password that meets NIST SP 800-63B-4 requirements. */
 export const TEST_PASSWORD = 'E2E-Str0ng!Pass#2026';
 
-/** Wait for the app to finish initial loading and settle. */
+// Generous timeouts: the slow single-worker CI runner is ~6x slower than a dev
+// machine, so every wait below uses web-first (reactive) polling with margin
+// rather than fixed `waitForTimeout` sleeps that were calibrated for fast
+// hardware. This is what makes the suite machine-speed-independent.
+const SCREEN_TIMEOUT = 45000;
+
+/** Wait for the app to finish initial loading and render a real screen. */
 export async function waitForApp(page: Page): Promise<void> {
-  // Expo web renders into #root — wait for it to be populated
-  await page.waitForSelector('#root', { state: 'attached', timeout: 30000 });
-  // Give React time to hydrate and render
-  await page.waitForTimeout(2000);
+  await page.waitForSelector('#root', { state: 'attached', timeout: SCREEN_TIMEOUT });
+  // Wait until the app has actually rendered one of its entry screens (login,
+  // dashboard, or the onboarding wizard) — reactive, not a fixed hydration sleep.
+  await page
+    .locator(
+      '[data-testid="login-email-input"], [data-testid="dashboard-screen"], [data-testid="onboarding-next-button"]'
+    )
+    .first()
+    .waitFor({ state: 'visible', timeout: SCREEN_TIMEOUT });
 }
 
 /** Register a new account and return the email used. */
@@ -29,11 +40,14 @@ export async function registerAccount(page: Page, email?: string): Promise<strin
 
   // Navigate to register if not already there
   const registerLink = page.getByTestId('login-register-link');
-  if (await registerLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await registerLink.isVisible({ timeout: 10000 }).catch(() => false)) {
     await registerLink.click();
-    await page.waitForTimeout(500);
   }
 
+  // fill()/click() auto-wait for the element to be actionable.
+  await page
+    .getByTestId('register-email-input')
+    .waitFor({ state: 'visible', timeout: SCREEN_TIMEOUT });
   await page.getByTestId('register-email-input').fill(userEmail);
   await page.getByTestId('register-password-input').fill(TEST_PASSWORD);
   await page.getByTestId('register-confirm-password-input').fill(TEST_PASSWORD);
@@ -50,25 +64,36 @@ export async function registerAccount(page: Page, email?: string): Promise<strin
 /** Click through the post-registration OnboardingWizard if present. */
 export async function completeOnboarding(page: Page): Promise<void> {
   const next = page.getByTestId('onboarding-next-button');
-  for (let i = 0; i < 6; i++) {
-    if (!(await next.isVisible({ timeout: i === 0 ? 5000 : 1500 }).catch(() => false))) break;
+  // Wizard has 4 steps; click() auto-waits for the button to be actionable each
+  // iteration, so no fixed sleep between clicks. Loop until the button is gone.
+  for (let i = 0; i < 8; i++) {
+    if (!(await next.isVisible({ timeout: i === 0 ? 10000 : 5000 }).catch(() => false))) break;
     await next.click();
-    await page.waitForTimeout(400);
   }
+  // Onboarding finished → the dashboard should render. (Soft wait; the calling
+  // test asserts authentication via expectAuthenticated.)
+  await page
+    .getByTestId('dashboard-screen')
+    .waitFor({ state: 'visible', timeout: SCREEN_TIMEOUT })
+    .catch(() => {});
 }
 
 /** Log out via Settings → Sign Out. Returns to the login screen. */
 export async function logout(page: Page): Promise<void> {
   await page.goto('/settings');
   const signOut = page.getByTestId('settings-sign-out');
+  await signOut.waitFor({ state: 'visible', timeout: SCREEN_TIMEOUT });
   await signOut.scrollIntoViewIfNeeded().catch(() => {});
   await signOut.click();
   // Sign-out shows a confirmation modal — confirm it.
-  await page.getByTestId('modal-confirm').click({ timeout: 5000 });
-  await page.waitForTimeout(800);
+  await page.getByTestId('modal-confirm').click({ timeout: 15000 });
+  // After confirming we return to the login screen.
+  await page
+    .getByTestId('login-email-input')
+    .waitFor({ state: 'visible', timeout: SCREEN_TIMEOUT });
 }
 
-/** Log in with an existing account. */
+/** Log in with an existing account. The caller asserts the resulting screen. */
 export async function loginAccount(
   page: Page,
   email: string,
@@ -77,20 +102,19 @@ export async function loginAccount(
   await page.getByTestId('login-email-input').fill(email);
   await page.getByTestId('login-password-input').fill(password);
   await page.getByTestId('login-button').click();
-
-  // Wait for navigation to authenticated area
-  await page.waitForTimeout(2000);
+  // No fixed wait — callers assert the next screen (expectAuthenticated /
+  // expectLoginScreen) which poll reactively.
 }
 
 /** Assert we're on the authenticated dashboard. */
 export async function expectAuthenticated(page: Page): Promise<void> {
   // After auth (and the onboarding wizard on register) the dashboard renders.
-  await expect(page.getByTestId('dashboard-screen')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId('dashboard-screen')).toBeVisible({ timeout: SCREEN_TIMEOUT });
 }
 
 /** Assert we're on the login screen (unauthenticated). */
 export async function expectLoginScreen(page: Page): Promise<void> {
-  await expect(page.getByTestId('login-email-input')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('login-email-input')).toBeVisible({ timeout: SCREEN_TIMEOUT });
 }
 
 // ─── Additional shared utilities ────────────────────────────
