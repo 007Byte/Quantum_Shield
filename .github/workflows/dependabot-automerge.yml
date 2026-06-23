@@ -1,0 +1,62 @@
+name: Dependabot auto-merge
+
+# Auto-merges Dependabot PATCH/MINOR PRs once the blocking CI Pipeline passes.
+#
+# Why workflow_run (not the usual pull_request_target + `gh pr merge --auto`):
+# `--auto` only waits for checks when the branch has PROTECTION with required
+# status checks. This repo's CI Pipeline is PATH-FILTERED, so requiring it would
+# lock out PRs that don't touch those paths (e.g. action bumps to other
+# workflows). Triggering on `workflow_run` of "CI Pipeline" = completed/success
+# means a PR is merged ONLY after CI is green — validated by design, with no
+# branch protection and no lockout. Majors are held for human review.
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    # Only act when the CI Pipeline run was for a PR and concluded SUCCESS.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Merge green Dependabot patch/minor PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+
+          # Find the open PR for the branch whose CI just went green.
+          PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+                 --json number,author \
+                 -q '.[] | select(.author.login == "app/dependabot") | .number' | head -1)
+          if [ -z "${PR:-}" ]; then
+            echo "No open Dependabot PR for branch '$BRANCH' — nothing to do."
+            exit 0
+          fi
+
+          TITLE=$(gh pr view "$PR" --repo "$REPO" --json title -q .title)
+          echo "Dependabot PR #$PR: $TITLE"
+
+          # Best-effort major-version guard: Dependabot titles read
+          # "... from X.Y.Z to A.B.C". If the leading (major) number changes,
+          # hold the PR for a human — major bumps can carry behavioral changes
+          # that green CI won't necessarily catch.
+          FROM_MAJOR=$(printf '%s' "$TITLE" | grep -oiE 'from [0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          TO_MAJOR=$(printf '%s'   "$TITLE" | grep -oiE 'to [0-9]+'   | head -1 | grep -oE '[0-9]+' || true)
+          if [ -n "${FROM_MAJOR:-}" ] && [ -n "${TO_MAJOR:-}" ] && [ "$FROM_MAJOR" != "$TO_MAJOR" ]; then
+            echo "Major version bump ($FROM_MAJOR -> $TO_MAJOR) — holding #$PR for human review."
+            exit 0
+          fi
+
+          echo "Patch/minor bump with green CI — merging #$PR."
+          gh pr merge "$PR" --repo "$REPO" --merge --delete-branch
