@@ -37,6 +37,10 @@ paths = [
   '''.*_test\.go$''',
   # UI translation strings (e.g. "16-Byte-AEAD-Tag") trip entropy rules
   '''i18n/locales/.*\.json$''',
+  # Captured Go test output — contains ephemeral PUBLIC keys / token-shaped
+  # strings from test runs, not real secrets (path allowlist so every gitleaks
+  # version suppresses it, incl. the older one pinned in the pre-commit hook).
+  '''(^|/)test_results\.txt$''',
 ]
 regexes = [
   # Test/example JWT from IETF RFC 7519
@@ -56,4 +60,3 @@ regexes = [
   # GitHub Actions built-in token (not a secret)
   '''GITHUB_TOKEN''',
 ]
-

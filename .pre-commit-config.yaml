@@ -6,7 +6,7 @@ repos:
         name: gitleaks - detect secrets
         entry: gitleaks detect --no-color --exit-code 1
         language: golang
-        stages: [commit]
+        stages: [pre-commit]
         exclude: |
           (?x)^(
             \.env\.example|
@@ -23,7 +23,6 @@ repos:
         name: fix end of file
       - id: check-yaml
         name: check yaml
-        args: ['--safe']
       - id: check-json
         name: check json
         exclude: node_modules
@@ -43,7 +42,7 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
       - id: cargo-fmt
         name: cargo fmt
@@ -51,7 +50,7 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
       # PRE-PUSH GATE: run the CI-equivalent QA harness for the changed
       # components before the push leaves the machine. This is what stops
@@ -63,4 +62,4 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [push]
+        stages: [pre-push]
