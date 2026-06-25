@@ -438,6 +438,62 @@ func TestFileSizeEdgeCases(t *testing.T) {
 	})
 }
 
+// F3 (FIX A): enforceStorageQuota computes the per-tier MaxStorageMB ceiling and
+// compares it against S3-sourced usage. With no S3 client wired, CurrentStorageBytes
+// reports 0, so an upload under the tier cap is allowed and the returned limit
+// reflects the tier's MaxStorageMB.
+func TestEnforceStorageQuotaLimitMath(t *testing.T) {
+	ctx := context.Background()
+	// No s3Client/pool: CurrentStorageBytes returns 0 (usage unknown-zero).
+	ss := &StorageService{}
+
+	t.Run("free tier cap is 100MB and under-limit upload is allowed", func(t *testing.T) {
+		current, limit, ok, err := ss.enforceStorageQuota(ctx, "u1", "free", 1024)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !ok {
+			t.Errorf("expected under-limit upload to be allowed")
+		}
+		if current != 0 {
+			t.Errorf("expected current usage 0 with no S3, got %d", current)
+		}
+		if want := int64(100) * 1024 * 1024; limit != want {
+			t.Errorf("expected free limit %d, got %d", want, limit)
+		}
+	})
+
+	t.Run("unknown tier falls back to free cap", func(t *testing.T) {
+		_, limit, _, err := ss.enforceStorageQuota(ctx, "u1", "bogus", 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if want := int64(100) * 1024 * 1024; limit != want {
+			t.Errorf("expected fallback free limit %d, got %d", want, limit)
+		}
+	})
+
+	t.Run("higher tier yields larger cap", func(t *testing.T) {
+		_, freeLimit, _, _ := ss.enforceStorageQuota(ctx, "u1", "free", 1)
+		_, teamLimit, _, _ := ss.enforceStorageQuota(ctx, "u1", "team", 1)
+		if teamLimit <= freeLimit {
+			t.Errorf("team cap %d should exceed free cap %d", teamLimit, freeLimit)
+		}
+	})
+}
+
+// F3 (FIX A/B): a *StorageService satisfies the multipart StorageUsageChecker
+// interface, so the multipart finalize path can enforce the same S3-sourced quota.
+func TestStorageServiceSatisfiesStorageUsageChecker(t *testing.T) {
+	var _ StorageUsageChecker = (*StorageService)(nil)
+
+	ms := &MultipartService{uploads: make(map[string]*MultipartUpload)}
+	ms.SetStorageUsageChecker(&StorageService{})
+	if ms.storageUsage == nil {
+		t.Error("storage usage checker should be set on multipart service")
+	}
+}
+
 func TestGetMaxFileSizeForTierConsistency(t *testing.T) {
 	t.Run("getMaxFileSizeForTier returns consistent values", func(t *testing.T) {
 		tiers := []string{"free", "individual", "team", "enterprise"}

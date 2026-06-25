@@ -298,11 +298,22 @@ func (bs *BillingService) GetSubscription(ctx context.Context, userID string) (*
 		}, nil
 	}
 
-	// Query subscription from database
+	// Query subscription from database.
+	// DETERMINISM (FIX C): if a user transiently has multiple subscription rows,
+	// prefer an active one and then the highest tier so the resolved subscription
+	// is stable and mirrors vault.TierLimiter.ResolveTier.
 	var sub Subscription
 	err := bs.pool.QueryRow(ctx,
 		`SELECT stripe_subscription_id, user_id, tier, status, current_period_end, cancelled_at
-		FROM subscriptions WHERE user_id = $1`,
+		FROM subscriptions WHERE user_id = $1
+		ORDER BY (status = 'active') DESC,
+		         CASE tier::text
+		           WHEN 'enterprise' THEN 3
+		           WHEN 'team'       THEN 2
+		           WHEN 'individual' THEN 1
+		           ELSE 0
+		         END DESC
+		LIMIT 1`,
 		userID,
 	).Scan(&sub.SubscriptionID, &sub.UserID, &sub.Tier, &sub.Status, &sub.CurrentPeriod, &sub.CancelledAt)
 
@@ -328,6 +339,25 @@ func (bs *BillingService) CheckAccess(ctx context.Context, userID string) (strin
 
 	if sub.Status != "active" {
 		return "", ErrSubscriptionInactive
+	}
+
+	// F3 (FIX D): unify the tier source with vault.TierLimiter.ResolveTier so the
+	// storage/multipart/sharing enforcement paths (which read their tier from
+	// CheckAccess) agree with the vault path. ResolveTier treats
+	// users.subscription_tier as a non-default override applied when the
+	// subscription does not already grant a paid tier. Mirror that here: when the
+	// active subscription resolves to the default "free" tier, honor a non-default
+	// users.subscription_tier override (e.g. an admin/manual grant). A paid
+	// subscription tier always wins and is never downgraded by this.
+	if sub.Tier == "free" && bs.pool != nil {
+		var userTier string
+		uerr := bs.pool.QueryRow(ctx,
+			`SELECT COALESCE(subscription_tier::text, 'free') FROM users WHERE id = $1`,
+			userID,
+		).Scan(&userTier)
+		if uerr == nil && userTier != "free" && isValidTier(userTier) {
+			return userTier, nil
+		}
 	}
 
 	return sub.Tier, nil

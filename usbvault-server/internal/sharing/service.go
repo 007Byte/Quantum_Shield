@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/usbvault/usbvault-server/internal/config"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 	"github.com/usbvault/usbvault-server/internal/database"
+	"github.com/usbvault/usbvault-server/internal/middleware"
 )
 
 // Minimum sealed-box size: ephemeral_pk(32) + nonce(24) + min_ciphertext(1) + tag(16) = 73 bytes
@@ -24,23 +27,107 @@ const maxSealedBoxSize = 4096 // Maximum sealed box size (key + overhead should 
 const shareDefaultTTL = 30 * 24 * time.Hour // 30 days
 
 type ShareRecord struct {
-	ID           uuid.UUID `json:"id"`
-	SenderID     uuid.UUID `json:"sender_id"`
-	RecipientID  uuid.UUID `json:"recipient_id"`
-	BlobID       uuid.UUID `json:"blob_id"`
-	EncryptedKey []byte    `json:"-"` // Never expose plaintext
-	CreatedAt    time.Time `json:"created_at"`
+	ID           uuid.UUID  `json:"id"`
+	SenderID     uuid.UUID  `json:"sender_id"`
+	RecipientID  uuid.UUID  `json:"recipient_id"`
+	BlobID       uuid.UUID  `json:"blob_id"`
+	EncryptedKey []byte     `json:"-"` // Never expose plaintext
+	CreatedAt    time.Time  `json:"created_at"`
 	ExpiresAt    *time.Time `json:"expires_at"`
 }
+
+// BillingChecker resolves a user's authoritative subscription tier. Mirrors
+// storage.BillingChecker and billing.BillingService.CheckAccess so every
+// enforcement path agrees on the same tier source.
+type BillingChecker interface {
+	CheckAccess(ctx context.Context, userID string) (tier string, err error)
+}
+
+// ErrSharingNotAllowed is returned when the sender's tier does not include the
+// sharing feature. Callers translate this into HTTP 403 Forbidden.
+var ErrSharingNotAllowed = errors.New("sharing is not available on your subscription tier")
+
+// ErrShareLimitReached is returned when the sender has reached the maximum number
+// of outstanding shares permitted. Callers translate this into HTTP 402.
+var ErrShareLimitReached = errors.New("share limit reached for subscription tier")
 
 // SharingService manages secure file sharing with encrypted key exchange.
 type SharingService struct {
 	repo database.ShareRepository
+	// F3: optional tier source for gating share creation by the sharing feature
+	// and a per-tier maximum share count. When nil, share creation is unrestricted
+	// (preserves prior behavior and keeps handler unit tests that pass a nil repo
+	// working — those tests exercise validation paths that return before this gate).
+	billingChecker BillingChecker
 }
 
 // NewSharingService creates a new sharing service for managing encrypted file shares.
 func NewSharingService(repo database.ShareRepository) *SharingService {
 	return &SharingService{repo: repo}
+}
+
+// SetBillingChecker installs the F3 tier source used to gate share creation by
+// the sharing feature/tier and the per-tier maximum share count.
+func (ss *SharingService) SetBillingChecker(bc BillingChecker) {
+	ss.billingChecker = bc
+}
+
+// checkCanCreateShare enforces, against the sender's authoritative tier:
+//  1. the sharing feature is enabled for the tier (TierLimitsMap[tier].Sharing)
+//  2. the sender is below the per-tier maximum outstanding share count
+//
+// It is a no-op (returns nil) when no billing checker is configured. Returns
+// ErrSharingNotAllowed (403) or ErrShareLimitReached (402) on denial.
+func (ss *SharingService) checkCanCreateShare(ctx context.Context, senderID string) error {
+	if ss.billingChecker == nil {
+		return nil
+	}
+
+	tier, err := ss.billingChecker.CheckAccess(ctx, senderID)
+	if err != nil {
+		// Fail closed to the free tier on lookup error.
+		log.Warn().Err(err).Str("sender_id", senderID).Msg("F3: failed to resolve tier for share gate; treating as free")
+		tier = "free"
+	}
+
+	limits, ok := middleware.TierLimitsMap[tier]
+	if !ok {
+		limits = middleware.TierLimitsMap["free"]
+	}
+
+	// 1. Feature gate: tier must include sharing.
+	// PRODUCT QUESTION (DOCUMENTED, F3 FIX D): middleware.TierLimitsMap currently
+	// sets Sharing=false for both "free" AND "individual" (only "team"/"enterprise"
+	// enable it). This must be confirmed against the client-side featureGates /
+	// TIER_FEATURES so the server and client agree on whether individual-tier users
+	// may share; if the client advertises sharing to individual users, either this
+	// map or the client gate is wrong. The server is the authoritative enforcer here
+	// — it will 403 individual-tier shares until the product decision aligns the two.
+	if !limits.Sharing {
+		log.Info().Str("sender_id", senderID).Str("tier", tier).Msg("F3: share creation denied — sharing not in tier")
+		return ErrSharingNotAllowed
+	}
+
+	// 2. Per-tier maximum outstanding share count. The single source of truth has
+	//    no per-tier share-count field, so we apply the documented global cap
+	//    (config.MaxSharesPerVault, previously dead) as the per-sender ceiling.
+	count, err := ss.repo.CountActiveSentShares(ctx, senderID)
+	if err != nil {
+		// Fail closed: cannot count -> deny.
+		log.Warn().Err(err).Str("sender_id", senderID).Msg("F3: failed to count active shares; denying create")
+		return ErrShareLimitReached
+	}
+	if count >= config.MaxSharesPerVault {
+		log.Info().
+			Str("sender_id", senderID).
+			Str("tier", tier).
+			Int("current_shares", count).
+			Int("max_shares", config.MaxSharesPerVault).
+			Msg("F3: share creation denied — share count limit reached")
+		return ErrShareLimitReached
+	}
+
+	return nil
 }
 
 // BlobOwnedBy reports whether the blob is owned by the given user (sender).
@@ -250,6 +337,21 @@ encryptedKey, err := decodeFromBase64(req.EncryptedKey)
 		if !owned {
 			log.Warn().Str("sender_id", senderID).Str("blob_id", blobID.String()).Msg("rejected share: sender does not own blob")
 			http.Error(w, "blob not found or access denied", http.StatusForbidden)
+			return
+		}
+
+		// F3: gate share creation by the sender's authoritative tier — the sharing
+		// feature must be enabled (403) and the sender must be under the per-tier
+		// maximum outstanding share count (402).
+		if err := ss.checkCanCreateShare(r.Context(), senderID); err != nil {
+			switch {
+			case errors.Is(err, ErrSharingNotAllowed):
+				http.Error(w, "sharing is not available on your subscription tier; upgrade required", http.StatusForbidden)
+			case errors.Is(err, ErrShareLimitReached):
+				http.Error(w, "share limit reached for your subscription tier; upgrade required", http.StatusPaymentRequired)
+			default:
+				http.Error(w, "failed to create share", http.StatusInternalServerError)
+			}
 			return
 		}
 

@@ -79,6 +79,9 @@ type ShareRepository interface {
 	// prevent share-creation IDOR — a sender must own the blob being shared.
 	BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error)
 	CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error)
+	// CountActiveSentShares returns the number of non-expired shares the sender
+	// currently has outstanding. F3: used to enforce a per-tier maximum share count.
+	CountActiveSentShares(ctx context.Context, senderID string) (int, error)
 	ListReceivedShares(ctx context.Context, recipientID string) ([]ShareRecord, error)
 	ListSentShares(ctx context.Context, senderID string) ([]ShareRecord, error)
 	RevokeShare(ctx context.Context, senderID, shareID string) error

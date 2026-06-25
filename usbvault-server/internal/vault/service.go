@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -63,11 +64,22 @@ type VaultSummary struct {
 // All methods perform ownership or membership verification before returning vault data.
 type VaultService struct {
 	repo database.VaultRepository
+	// F3: optional per-tier limit enforcement. When nil, vault creation is
+	// unrestricted (preserves prior behavior and keeps unit tests that construct
+	// the service without a pool working).
+	tierLimiter *TierLimiter
 }
 
 // NewVaultService creates a new vault service with the given vault repository.
 func NewVaultService(repo database.VaultRepository) *VaultService {
 	return &VaultService{repo: repo}
+}
+
+// SetTierLimiter installs the F3 server-side tier-limit enforcer. The limiter
+// resolves the user's authoritative tier from trusted server state and enforces
+// the per-tier MaxVaults cap on creation.
+func (vs *VaultService) SetTierLimiter(tl *TierLimiter) {
+	vs.tierLimiter = tl
 }
 
 // CreateVault creates a new vault owned by the given user with encrypted metadata.
@@ -87,7 +99,18 @@ func (vs *VaultService) CreateVault(ctx context.Context, userID string, encrypte
 		return uuid.Nil, fmt.Errorf("encrypted metadata exceeds 64KB limit")
 	}
 
-	vaultID, err := vs.repo.CreateVault(ctx, userID, encryptedMetadata)
+	// F3: authoritative server-side tier enforcement. When a tier limiter is
+	// configured we perform the cap check and the insert atomically inside one
+	// transaction (under a per-user advisory lock) so concurrent creates cannot
+	// race past MaxVaults (TOCTOU fix). When no limiter is configured (e.g. unit
+	// tests with a mock repo), fall back to the plain repository insert.
+	var vaultID string
+	var err error
+	if vs.tierLimiter != nil {
+		vaultID, err = vs.tierLimiter.CreateVaultAtomic(ctx, userID, encryptedMetadata)
+	} else {
+		vaultID, err = vs.repo.CreateVault(ctx, userID, encryptedMetadata)
+	}
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -236,6 +259,11 @@ func HandleCreateVault(vs *VaultService, auditSvc interface {
 
 		vaultID, err := vs.CreateVault(r.Context(), userID, metadata)
 		if err != nil {
+			// F3: tier limit reached -> 402 Payment Required (upgrade needed).
+			if errors.Is(err, ErrVaultLimitReached) {
+				http.Error(w, "vault limit reached for your subscription tier; upgrade required", http.StatusPaymentRequired)
+				return
+			}
 			http.Error(w, "failed to create vault", http.StatusInternalServerError)
 			return
 		}

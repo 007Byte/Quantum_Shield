@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -38,6 +39,14 @@ func HandleInitiateMultipart(ms *MultipartService) http.HandlerFunc {
 
 		upload, err := ms.InitiateUpload(r.Context(), userID, vaultID, fileID, req.TotalSize)
 		if err != nil {
+			// F3: tier file-size limit reached -> 402 Payment Required, matching the
+			// single-shot upload path (HandleGenerateUploadURL).
+			if errors.Is(err, ErrFileSizeExceedsTier) {
+				http.Error(w, "file size exceeds your subscription tier limit; upgrade required", http.StatusPaymentRequired)
+				log.Warn().Str("user_id", userID).Str("file_id", fileID).Int64("total_size", req.TotalSize).
+					Msg("F3: multipart initiate rejected due to tier file-size limit")
+				return
+			}
 			log.Error().Err(err).Msg("failed to initiate multipart upload")
 			http.Error(w, "failed to initiate upload", http.StatusInternalServerError)
 			return
@@ -168,6 +177,15 @@ func HandleFinalizeUpload(ms *MultipartService) http.HandlerFunc {
 		uploadID := chi.URLParam(r, "uploadID")
 
 		if err := ms.FinalizeUpload(r.Context(), userID, vaultID, uploadID); err != nil {
+			// F3 (FIX B): the assembled object's REAL size (HeadObject) exceeded the
+			// per-tier file-size limit or the S3-sourced cumulative storage quota -> 402.
+			// The just-assembled object has already been deleted server-side.
+			if errors.Is(err, ErrFileSizeExceedsTier) {
+				http.Error(w, "uploaded size exceeds your subscription tier limit; upgrade required", http.StatusPaymentRequired)
+				log.Warn().Str("user_id", userID).Str("upload_id", uploadID).
+					Msg("F3: multipart finalize rejected due to tier file-size limit")
+				return
+			}
 			log.Error().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to finalize multipart upload")
 			http.Error(w, "failed to finalize upload", http.StatusInternalServerError)
 			return
