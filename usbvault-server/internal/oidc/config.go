@@ -32,10 +32,9 @@ type ProviderConfig struct {
 	// verbatim from the client; it must match one of these entries exactly to
 	// prevent authorization-code interception / open redirect.
 	//
-	// FLAG: there is no oidc_providers.allowed_redirect_uris column in the
-	// schema yet, so this field is currently populated only from the global
-	// OIDCConfig.CallbackBaseURL fallback in the service. A migration adding a
-	// per-provider column plus LoadProviders scanning is the proper fix.
+	// Populated from the oidc_providers.allowed_redirect_uris column
+	// (added in migration 015). When empty, redirectURIAllowed falls back to
+	// the global OIDCConfig.CallbackBaseURL.
 	AllowedRedirectURIs []string `json:"allowed_redirect_uris"`
 }
 
@@ -135,7 +134,7 @@ func DecryptSecret(ciphertext []byte, key []byte) (string, error) {
 func LoadProviders(ctx context.Context, pool *pgxpool.Pool) ([]ProviderConfig, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT id, slug, display_name, issuer_url, client_id, client_secret_encrypted,
-		        allowed_domains, scopes, enabled, created_at
+		        allowed_domains, scopes, allowed_redirect_uris, enabled, created_at
 		 FROM oidc_providers WHERE enabled = true
 		 ORDER BY display_name`)
 	if err != nil {
@@ -148,7 +147,7 @@ func LoadProviders(ctx context.Context, pool *pgxpool.Pool) ([]ProviderConfig, e
 		var p ProviderConfig
 		if err := rows.Scan(&p.ID, &p.Slug, &p.DisplayName, &p.IssuerURL,
 			&p.ClientID, &p.ClientSecretEncrypted, &p.AllowedDomains,
-			&p.Scopes, &p.Enabled, &p.CreatedAt); err != nil {
+			&p.Scopes, &p.AllowedRedirectURIs, &p.Enabled, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan provider row: %w", err)
 		}
 		providers = append(providers, p)

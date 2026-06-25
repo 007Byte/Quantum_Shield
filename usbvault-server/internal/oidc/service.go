@@ -374,14 +374,14 @@ func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name stri
 		// email_hash already exists (e.g. an SRP account), the insert fails and
 		// we deliberately refuse rather than silently linking into that account.
 		//
-		// FLAG: the users table requires NOT NULL srp_verifier/srp_salt with no
-		// default and has no email/auth_method columns (see migration 001).
-		// OIDC-only users have no SRP credentials, so empty byte slices are
-		// inserted as placeholders. This needs schema input — see report.
+		// OIDC-only users have no SRP credentials: migration 014 made
+		// srp_verifier/srp_salt NULLABLE and added the auth_method
+		// discriminator, so we store NULL SRP fields and auth_method='oidc'
+		// rather than empty-byte placeholders.
 		_, err = tx.Exec(ctx,
-			`INSERT INTO users (id, email_hash, srp_verifier, srp_salt, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-			userID, emailHash, []byte{}, []byte{},
+			`INSERT INTO users (id, email_hash, srp_verifier, srp_salt, auth_method, created_at, updated_at)
+			 VALUES ($1, $2, NULL, NULL, 'oidc', NOW(), NOW())`,
+			userID, emailHash,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrUserCreation, err)
