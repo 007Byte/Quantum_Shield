@@ -41,6 +41,8 @@ declare global {
       isElectron: true;
       getCompanionPort: () => Promise<number | null>;
       getCompanionStatus: () => Promise<string>;
+      /** Bearer token for the companion's /usb/* routes (CRIT-1 / F5). */
+      getCompanionToken: () => Promise<string>;
       onCompanionStatusChanged: (callback: (status: string, detail?: string) => void) => () => void;
       onUsbEjectRequested: (callback: () => void) => () => void;
       restartCompanion: () => Promise<void>;

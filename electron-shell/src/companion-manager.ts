@@ -17,6 +17,7 @@ import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
+import { randomBytes } from 'node:crypto';
 import http from 'node:http';
 import { app } from 'electron';
 
@@ -44,9 +45,15 @@ export class CompanionManager extends EventEmitter {
   private stopping = false;
   private companionDir: string;
   private portFilePath: string;
+  // CRIT-1 (F5): bearer token shared with the companion out-of-band via env.
+  // Generated once per app run; passed to every spawn (incl. restarts) so the
+  // token is stable for the lifetime of the renderer. NEVER logged.
+  private readonly authToken: string;
 
   constructor() {
     super();
+    // Strong random token, URL-safe so it can travel as a Bearer credential.
+    this.authToken = randomBytes(32).toString('base64url');
     // In packaged app: resources are in app.getPath('exe')/../Resources/companion
     // In dev: resources are at ../usb-companion relative to the electron-shell
     if (app.isPackaged) {
@@ -62,6 +69,13 @@ export class CompanionManager extends EventEmitter {
   getPort(): number | null { return this.port; }
   getStatus(): CompanionStatus { return this.status; }
   getRestartCount(): number { return this.restartCount; }
+
+  /**
+   * The bearer token the companion expects on every /usb/* request.
+   * Exposed to the renderer (via IPC) so the HTTP client can authenticate.
+   * SECURITY: the value is never written to logs.
+   */
+  getAuthToken(): string { return this.authToken; }
 
   async start(): Promise<void> {
     if (this.status === 'running' || this.status === 'starting') return;
@@ -188,6 +202,9 @@ export class CompanionManager extends EventEmitter {
         USB_COMPANION_PORT: String(this.port),
         USB_STANDALONE_MODE: 'true',
         NODE_ENV: 'production',
+        // CRIT-1 (F5): hand the companion the bearer token out-of-band so it
+        // skips token-file generation and trusts only this value. Never logged.
+        USBVAULT_COMPANION_TOKEN: this.authToken,
       },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       silent: true,
