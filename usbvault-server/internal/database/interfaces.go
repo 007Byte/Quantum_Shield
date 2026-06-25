@@ -74,6 +74,10 @@ type VaultRecord struct {
 // ShareRepository defines data access operations for share records.
 // PH4-FIX: Repository pattern for share operations with interface-based abstraction.
 type ShareRepository interface {
+	// BlobOwnedBy reports whether the given blob exists and is owned by the
+	// supplied user (i.e. lives in a vault whose owner_id is userID). Used to
+	// prevent share-creation IDOR — a sender must own the blob being shared.
+	BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error)
 	CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error)
 	ListReceivedShares(ctx context.Context, recipientID string) ([]ShareRecord, error)
 	ListSentShares(ctx context.Context, senderID string) ([]ShareRecord, error)

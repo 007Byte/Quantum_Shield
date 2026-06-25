@@ -43,6 +43,11 @@ func NewSharingService(repo database.ShareRepository) *SharingService {
 	return &SharingService{repo: repo}
 }
 
+// BlobOwnedBy reports whether the blob is owned by the given user (sender).
+func (ss *SharingService) BlobOwnedBy(ctx context.Context, userID, blobID uuid.UUID) (bool, error) {
+	return ss.repo.BlobOwnedBy(ctx, userID.String(), blobID.String())
+}
+
 // CreateShare creates a new share record with a 30-day expiration by default.
 func (ss *SharingService) CreateShare(ctx context.Context, senderID, recipientID, blobID uuid.UUID, encryptedKey []byte) (uuid.UUID, error) {
 	shareID, err := ss.repo.CreateShare(ctx, senderID.String(), recipientID.String(), blobID.String(), encryptedKey)
@@ -230,6 +235,21 @@ encryptedKey, err := decodeFromBase64(req.EncryptedKey)
 		if err := validateSealedBox(encryptedKey); err != nil {
 			log.Warn().Err(err).Str("sender_id", senderID).Msg("rejected invalid sealed box")
 			http.Error(w, "encrypted key does not meet sealed-box format requirements", http.StatusBadRequest)
+			return
+		}
+
+		// SECURITY (IDOR): the sender must own the blob being shared. Without
+		// this check any authenticated user who learns/guesses another user's
+		// blob_id could create share rows referencing it.
+		owned, err := ss.BlobOwnedBy(r.Context(), senderUUID, blobID)
+		if err != nil {
+			log.Error().Err(err).Str("sender_id", senderID).Msg("failed to verify blob ownership for share")
+			http.Error(w, "failed to create share", http.StatusInternalServerError)
+			return
+		}
+		if !owned {
+			log.Warn().Str("sender_id", senderID).Str("blob_id", blobID.String()).Msg("rejected share: sender does not own blob")
+			http.Error(w, "blob not found or access denied", http.StatusForbidden)
 			return
 		}
 

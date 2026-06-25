@@ -155,16 +155,39 @@ func (ms *MultipartService) InitiateUpload(ctx context.Context, userID, vaultID,
 	return upload, nil
 }
 
+// ErrUploadNotFound is returned when an upload does not exist or the caller is
+// not authorized to access it. The same error is used for both cases so callers
+// cannot distinguish "exists but not yours" from "does not exist" (avoids
+// cross-tenant enumeration).
+var ErrUploadNotFound = fmt.Errorf("upload not found")
+
+// authorizedUpload looks up an upload and verifies it belongs to the caller.
+// SECURITY (cross-tenant IDOR): every operation keyed by uploadID must confirm
+// the stored upload's UserID and VaultID match the authenticated caller before
+// acting on it; otherwise a user could supply another tenant's uploadID.
+// Caller must hold ms.mu (read or write) for the duration of using the result,
+// or copy what it needs while still holding the lock.
+func (ms *MultipartService) authorizedUpload(uploadID, userID, vaultID string) (*MultipartUpload, error) {
+	upload, ok := ms.uploads[uploadID]
+	if !ok {
+		return nil, ErrUploadNotFound
+	}
+	if upload.UserID != userID || upload.VaultID != vaultID {
+		return nil, ErrUploadNotFound
+	}
+	return upload, nil
+}
+
 // GeneratePresignedPartURL generates a time-limited presigned URL for a specific part.
 // Client uses this URL to upload the part directly to S3 (15-minute expiry).
-// Returns error if upload not found or not in progress.
-func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, uploadID string, partNumber int) (string, error) {
+// Returns error if upload not found, not owned by the caller, or not in progress.
+func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, userID, vaultID, uploadID string, partNumber int) (string, error) {
 	ms.mu.RLock()
-	upload, ok := ms.uploads[uploadID]
+	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
 	ms.mu.RUnlock()
 
-	if !ok {
-		return "", fmt.Errorf("upload not found: %s", uploadID)
+	if err != nil {
+		return "", err
 	}
 	if upload.Status != "in_progress" {
 		return "", fmt.Errorf("upload is not in progress: %s", upload.Status)
@@ -187,13 +210,13 @@ func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, upload
 
 // CompletePart records a successfully uploaded part and updates progress state.
 // Called after client uploads a part and receives the ETag from S3.
-func (ms *MultipartService) CompletePart(ctx context.Context, uploadID string, partNumber int, etag string, size int64) error {
+func (ms *MultipartService) CompletePart(ctx context.Context, userID, vaultID, uploadID string, partNumber int, etag string, size int64) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	upload, ok := ms.uploads[uploadID]
-	if !ok {
-		return fmt.Errorf("upload not found: %s", uploadID)
+	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
+	if err != nil {
+		return err
 	}
 
 	upload.CompleteParts = append(upload.CompleteParts, CompletedPart{
@@ -215,13 +238,13 @@ func (ms *MultipartService) CompletePart(ctx context.Context, uploadID string, p
 
 // FinalizeUpload completes the S3 multipart upload after all parts are uploaded.
 // Tells S3 to assemble parts into final object. Returns error if S3 operation fails.
-func (ms *MultipartService) FinalizeUpload(ctx context.Context, uploadID string) error {
+func (ms *MultipartService) FinalizeUpload(ctx context.Context, userID, vaultID, uploadID string) error {
 	ms.mu.Lock()
-	upload, ok := ms.uploads[uploadID]
+	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
 	ms.mu.Unlock()
 
-	if !ok {
-		return fmt.Errorf("upload not found: %s", uploadID)
+	if err != nil {
+		return err
 	}
 
 	// Build completed parts list for S3
@@ -234,7 +257,7 @@ func (ms *MultipartService) FinalizeUpload(ctx context.Context, uploadID string)
 		}
 	}
 
-	_, err := ms.s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+	_, err = ms.s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(upload.Bucket),
 		Key:      aws.String(upload.Key),
 		UploadId: aws.String(upload.UploadID),
@@ -257,16 +280,16 @@ func (ms *MultipartService) FinalizeUpload(ctx context.Context, uploadID string)
 
 // AbortUpload cancels an in-progress multipart upload and cleans up S3 resources.
 // Use when upload is abandoned or times out. Removes local tracking state.
-func (ms *MultipartService) AbortUpload(ctx context.Context, uploadID string) error {
+func (ms *MultipartService) AbortUpload(ctx context.Context, userID, vaultID, uploadID string) error {
 	ms.mu.Lock()
-	upload, ok := ms.uploads[uploadID]
+	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
 	ms.mu.Unlock()
 
-	if !ok {
-		return fmt.Errorf("upload not found: %s", uploadID)
+	if err != nil {
+		return err
 	}
 
-	_, err := ms.s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+	_, err = ms.s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String(upload.Bucket),
 		Key:      aws.String(upload.Key),
 		UploadId: aws.String(upload.UploadID),
@@ -286,15 +309,12 @@ func (ms *MultipartService) AbortUpload(ctx context.Context, uploadID string) er
 }
 
 // GetUploadProgress returns current upload state including completed parts and progress percentage.
-func (ms *MultipartService) GetUploadProgress(uploadID string) (*MultipartUpload, error) {
+// The caller must own the upload (matching UserID and VaultID).
+func (ms *MultipartService) GetUploadProgress(userID, vaultID, uploadID string) (*MultipartUpload, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	upload, ok := ms.uploads[uploadID]
-	if !ok {
-		return nil, fmt.Errorf("upload not found: %s", uploadID)
-	}
-	return upload, nil
+	return ms.authorizedUpload(uploadID, userID, vaultID)
 }
 
 // cleanupExpiredUploads periodically aborts expired uploads

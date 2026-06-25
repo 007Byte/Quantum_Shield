@@ -26,6 +26,17 @@ type ProviderConfig struct {
 	Scopes                []string  `json:"scopes"`
 	Enabled               bool      `json:"enabled"`
 	CreatedAt             time.Time `json:"created_at"`
+
+	// AllowedRedirectURIs is the exact-match allowlist of redirect_uri values
+	// accepted for this provider. SECURITY: redirect_uri must never be used
+	// verbatim from the client; it must match one of these entries exactly to
+	// prevent authorization-code interception / open redirect.
+	//
+	// FLAG: there is no oidc_providers.allowed_redirect_uris column in the
+	// schema yet, so this field is currently populated only from the global
+	// OIDCConfig.CallbackBaseURL fallback in the service. A migration adding a
+	// per-provider column plus LoadProviders scanning is the proper fix.
+	AllowedRedirectURIs []string `json:"allowed_redirect_uris"`
 }
 
 // OIDCConfig holds the global OIDC configuration.

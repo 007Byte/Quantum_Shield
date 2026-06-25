@@ -69,6 +69,7 @@ func HandleGetPartURL(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
+		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 		partNumberStr := chi.URLParam(r, "partNumber")
 
@@ -78,7 +79,7 @@ func HandleGetPartURL(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
-		url, err := ms.GeneratePresignedPartURL(r.Context(), uploadID, partNumber)
+		url, err := ms.GeneratePresignedPartURL(r.Context(), userID, vaultID, uploadID, partNumber)
 		if err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to generate presigned part URL")
 			http.Error(w, "upload not found", http.StatusNotFound)
@@ -108,6 +109,7 @@ func HandleCompletePart(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
+		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 
 		var req struct {
@@ -135,7 +137,7 @@ func HandleCompletePart(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
-		if err := ms.CompletePart(r.Context(), uploadID, req.PartNumber, req.ETag, req.Size); err != nil {
+		if err := ms.CompletePart(r.Context(), userID, vaultID, uploadID, req.PartNumber, req.ETag, req.Size); err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to record part completion")
 			http.Error(w, "upload not found or part invalid", http.StatusNotFound)
 			return
@@ -162,9 +164,10 @@ func HandleFinalizeUpload(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
+		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 
-		if err := ms.FinalizeUpload(r.Context(), uploadID); err != nil {
+		if err := ms.FinalizeUpload(r.Context(), userID, vaultID, uploadID); err != nil {
 			log.Error().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to finalize multipart upload")
 			http.Error(w, "failed to finalize upload", http.StatusInternalServerError)
 			return
@@ -190,9 +193,10 @@ func HandleAbortUpload(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
+		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 
-		if err := ms.AbortUpload(r.Context(), uploadID); err != nil {
+		if err := ms.AbortUpload(r.Context(), userID, vaultID, uploadID); err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("failed to abort multipart upload")
 			http.Error(w, "upload not found", http.StatusNotFound)
 			return
@@ -218,9 +222,10 @@ func HandleGetProgress(ms *MultipartService) http.HandlerFunc {
 			return
 		}
 
+		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 
-		upload, err := ms.GetUploadProgress(uploadID)
+		upload, err := ms.GetUploadProgress(userID, vaultID, uploadID)
 		if err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("upload not found for progress check")
 			http.Error(w, "upload not found", http.StatusNotFound)

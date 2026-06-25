@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -172,45 +173,77 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 			return
 		}
 
-		// 3. Look up user and credentials from session's UserID
-		userIDBytes := sessionData.UserID
-		userID := string(userIDBytes)
+		// 3. SECURITY: this is a client-side discoverable login. We must NOT
+		// trust sessionData.UserID (which is empty for discoverable login and
+		// not bound to any credential). Instead, the authenticating identity is
+		// derived from the assertion itself: the resolver below looks up the
+		// user by the asserted user handle AND verifies that the user actually
+		// owns a credential whose ID equals the asserted credential ID. This
+		// binds verification to the owning user of the presented credential.
+		var (
+			userID      string
+			credentials []webauthn.Credential
+			resolverErr error
+		)
+		resolver := func(rawID, userHandle []byte) (webauthn.User, error) {
+			// userHandle is the WebAuthnID we set at registration: []byte(userID).
+			resolvedUserID := string(userHandle)
+			if resolvedUserID == "" {
+				return nil, fmt.Errorf("empty user handle in assertion")
+			}
 
-		var credentialsJSON []byte
-		var displayName string
-		err = pool.QueryRow(ctx,
-			`SELECT webauthn_credentials, email_hash FROM users WHERE id = $1`,
-			userID,
-		).Scan(&credentialsJSON, &displayName)
+			var credentialsJSON []byte
+			var displayName string
+			if dbErr := pool.QueryRow(ctx,
+				`SELECT webauthn_credentials, email_hash FROM users WHERE id = $1`,
+				resolvedUserID,
+			).Scan(&credentialsJSON, &displayName); dbErr != nil {
+				resolverErr = dbErr
+				return nil, fmt.Errorf("user not found for asserted handle")
+			}
+			if credentialsJSON == nil {
+				return nil, fmt.Errorf("no credentials registered")
+			}
+
+			var creds []webauthn.Credential
+			if jsonErr := json.Unmarshal(credentialsJSON, &creds); jsonErr != nil {
+				resolverErr = jsonErr
+				return nil, fmt.Errorf("corrupted credentials")
+			}
+
+			// Bind to the asserted credential: the user MUST own a credential
+			// whose ID matches the presented rawID.
+			ownsCredential := false
+			for _, c := range creds {
+				if string(c.ID) == string(rawID) {
+					ownsCredential = true
+					break
+				}
+			}
+			if !ownsCredential {
+				return nil, fmt.Errorf("asserted credential not owned by resolved user")
+			}
+
+			userID = resolvedUserID
+			credentials = creds
+			return &fido2User{
+				id:          userHandle,
+				name:        displayName,
+				credentials: creds,
+			}, nil
+		}
+
+		// 4 & 5. Validate the assertion response (signature verification) and
+		// resolve/bind the user via the discoverable-login resolver above.
+		updatedCredential, err := wau.FinishDiscoverableLogin(resolver, sessionData, r)
 		if err != nil {
-			log.Warn().Str("user_id", userID).Msg("user not found during FIDO2 verify")
-			http.Error(w, "authentication failed", http.StatusUnauthorized)
-			return
-		}
-
-		if credentialsJSON == nil {
-			http.Error(w, "no credentials registered", http.StatusUnauthorized)
-			return
-		}
-
-		var credentials []webauthn.Credential
-		if err := json.Unmarshal(credentialsJSON, &credentials); err != nil {
-			http.Error(w, "corrupted credentials", http.StatusInternalServerError)
-			return
-		}
-
-		// 4. Create a WebAuthn user wrapper for validation
-		waUser := &fido2User{
-			id:          userIDBytes,
-			name:        displayName,
-			credentials: credentials,
-		}
-
-		// 5. Validate the assertion response (signature verification)
-		updatedCredential, err := wau.FinishLogin(waUser, sessionData, r)
-		if err != nil {
-			log.Warn().Err(err).Str("user_id", userID).Msg("FIDO2 assertion verification failed")
-			auditSvc.LogAction(ctx, userID, "FIDO2_VERIFY_FAILED", nil)
+			if resolverErr != nil {
+				log.Warn().Err(resolverErr).Msg("FIDO2 user resolution failed during verify")
+			}
+			log.Warn().Err(err).Msg("FIDO2 assertion verification failed")
+			if userID != "" {
+				auditSvc.LogAction(ctx, userID, "FIDO2_VERIFY_FAILED", nil)
+			}
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}

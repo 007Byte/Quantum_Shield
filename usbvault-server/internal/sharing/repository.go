@@ -24,6 +24,30 @@ func NewPostgresSharingRepository(pool *pgxpool.Pool) *PostgresSharingRepository
 	return &PostgresSharingRepository{pool: pool}
 }
 
+// BlobOwnedBy reports whether the blob exists (not soft-deleted) and lives in a
+// vault owned by userID. Used to enforce that a share sender owns the blob being
+// shared (prevents share-creation IDOR).
+func (r *PostgresSharingRepository) BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error) {
+	var exists int
+	err := r.pool.QueryRow(ctx,
+		`SELECT 1
+		   FROM blobs b
+		   JOIN vaults v ON v.id = b.vault_id
+		  WHERE b.id = $1
+		    AND b.deleted_at IS NULL
+		    AND v.deleted_at IS NULL
+		    AND v.owner_id = $2`,
+		blobID, userID,
+	).Scan(&exists)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // CreateShare creates a new share record with a 30-day expiration by default.
 func (r *PostgresSharingRepository) CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error) {
 	shareID := uuid.New().String()

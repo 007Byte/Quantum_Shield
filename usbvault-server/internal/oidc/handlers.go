@@ -54,6 +54,8 @@ func HandleAuthorize(svc *Service) http.HandlerFunc {
 				http.Error(w, "unknown provider", http.StatusNotFound)
 			case ErrProviderDisabled:
 				http.Error(w, "provider is disabled", http.StatusForbidden)
+			case ErrRedirectURI:
+				http.Error(w, "redirect_uri is not allowed for this provider", http.StatusBadRequest)
 			default:
 				log.Error().Err(err).Str("slug", slug).Msg("failed to generate OIDC authorization URL")
 				http.Error(w, "authorization failed", http.StatusInternalServerError)
@@ -106,6 +108,8 @@ func HandleCallback(svc *Service, auditSvc AuditLogger) http.HandlerFunc {
 				http.Error(w, "unknown provider", http.StatusNotFound)
 			case err == ErrMissingEmail:
 				http.Error(w, "identity provider did not return an email", http.StatusUnprocessableEntity)
+			case err == ErrEmailNotVerified:
+				http.Error(w, "identity provider did not assert a verified email", http.StatusForbidden)
 			default:
 				log.Error().Err(err).Str("slug", slug).Msg("OIDC callback failed")
 				http.Error(w, "authentication failed", http.StatusInternalServerError)
