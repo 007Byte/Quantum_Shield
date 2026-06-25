@@ -1,10 +1,8 @@
 title = "Quantum Armor Vault (QAV) Gitleaks Configuration"
 
 [extend]
-# Use gitleaks default rules as base
 useDefault = true
 
-# Global allowlist — paths and patterns to never flag
 [allowlist]
 description = "QAV global allowlist for test fixtures, docs, and known-safe patterns"
 paths = [
@@ -23,37 +21,29 @@ paths = [
   '''\.env\.example''',
   '''\.env\.sample''',
   '''\.md$''',
-  '''README''',
-  '''EXAMPLE''',
-  '''docs?/''',
-  '''test.*\.key''',
-  '''tests?/.*\.key''',
-  '''__tests__/.*\.key''',
-  '''fixtures/''',
-  '''testdata/''',
-  # Test sources contain only fake/sample credentials, not real secrets
-  '''__tests__/''',
+  '''(^|/)README''',
+  '''(^|/)EXAMPLE''',
+  '''(^|/)docs?/''',
+  '''(^|/)tests?/.*\.key$''',
+  '''(^|/)__tests__/.*\.key$''',
+  '''(^|/)fixtures/''',
+  '''(^|/)testdata/''',
+  '''(^|/)__tests__/''',
   '''.*\.test\.(ts|tsx|js|jsx)$''',
   '''.*_test\.go$''',
-  # UI translation strings (e.g. "16-Byte-AEAD-Tag") trip entropy rules
   '''i18n/locales/.*\.json$''',
+  # Captured Go test output — ephemeral PUBLIC keys / token-shaped strings, not real secrets
+  '''(^|/)test_results\.txt$''',
 ]
 regexes = [
-  # Test/example JWT from IETF RFC 7519
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9''',
-  # Placeholder/fake keys in test files
   '''test.*api.*key''',
   '''example.*secret''',
   '''dummy.*password''',
   '''fake.*token''',
-  # Any literal placeholder value (e.g. STRIPE_SECRET_KEY=sk_test_placeholder)
   '''placeholder''',
-  # RFC 6455 §1.3 canonical sample WebSocket key ("the sample nonce")
   '''dGhlIHNhbXBsZSBub25jZQ==''',
-  # Stripe test keys (non-live)
   '''sk_test_[0-9a-z]{24}''',
   '''pk_test_[0-9a-z]{24}''',
-  # GitHub Actions built-in token (not a secret)
   '''GITHUB_TOKEN''',
 ]
-

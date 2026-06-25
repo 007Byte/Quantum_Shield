@@ -123,3 +123,7 @@ docs/enterprise/*.docx
 # Claude AI config
 CLAUDE.md
 **/CLAUDE.md
+
+# Captured Go test output (build artifact — contains ephemeral keys/token-shaped strings, not real secrets)
+usbvault-server/test_results.txt
+test_results.txt
