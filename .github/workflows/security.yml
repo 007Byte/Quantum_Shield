@@ -317,7 +317,8 @@ jobs:
 
       - name: Run Trivy config scanner
         if: steps.dockerfile-check.outputs.exists == 'true'
-        uses: aquasecurity/trivy-action@master
+        # FLAG: confirm exact commit SHA for trivy-action v0.28.0 before merge.
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'config'
           scan-ref: 'usbvault-server/Dockerfile'

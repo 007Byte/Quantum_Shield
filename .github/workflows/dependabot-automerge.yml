@@ -9,54 +9,102 @@ name: Dependabot auto-merge
 # workflows). Triggering on `workflow_run` of "CI Pipeline" = completed/success
 # means a PR is merged ONLY after CI is green — validated by design, with no
 # branch protection and no lockout. Majors are held for human review.
+#
+# SAFETY HARDENING (security/remediation-2026-06-25):
+#  - Author is verified to be literally `dependabot[bot]` via the PR API, not a
+#    title or branch-name heuristic.
+#  - The CI run's head_sha MUST equal the PR head SHA, so a green run from a
+#    different/stale commit cannot authorize the merge.
+#  - The major-version guard reads Dependabot's own metadata (update-type),
+#    not a regex over the (untrusted) PR title.
+#  - permissions are minimized to exactly what the merge needs.
 
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
 
+# Least privilege: only what `gh pr merge` requires.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write          # merge the PR + delete the branch
+  pull-requests: write     # mark/merge the PR
 
 jobs:
   automerge:
     runs-on: ubuntu-latest
-    # Only act when the CI Pipeline run was for a PR and concluded SUCCESS.
+    # Only act when the CI Pipeline run was for a PR, concluded SUCCESS, and the
+    # run was actually triggered by Dependabot (first cheap gate; authoritative
+    # author + head_sha checks happen below against the PR API).
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     steps:
-      - name: Merge green Dependabot patch/minor PR
+      - name: Resolve, verify, and merge green Dependabot patch/minor PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
 
-          # Find the open PR for the branch whose CI just went green.
-          PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
-                 --json number,author \
-                 -q '.[] | select(.author.login == "app/dependabot") | .number' | head -1)
-          if [ -z "${PR:-}" ]; then
-            echo "No open Dependabot PR for branch '$BRANCH' — nothing to do."
+          # Find the open PR for the branch whose CI just went green, and capture
+          # the fields needed to authenticate the merge (author + head SHA).
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+                      --json number,author,headRefOid \
+                      -q '.[0]')
+          if [ -z "${PR_JSON:-}" ] || [ "$PR_JSON" = "null" ]; then
+            echo "No open PR for branch '$BRANCH' — nothing to do."
             exit 0
           fi
 
-          TITLE=$(gh pr view "$PR" --repo "$REPO" --json title -q .title)
-          echo "Dependabot PR #$PR: $TITLE"
+          PR=$(printf '%s' "$PR_JSON" | jq -r '.number')
+          AUTHOR=$(printf '%s' "$PR_JSON" | jq -r '.author.login')
+          PR_HEAD_SHA=$(printf '%s' "$PR_JSON" | jq -r '.headRefOid')
 
-          # Best-effort major-version guard: Dependabot titles read
-          # "... from X.Y.Z to A.B.C". If the leading (major) number changes,
-          # hold the PR for a human — major bumps can carry behavioral changes
-          # that green CI won't necessarily catch.
-          FROM_MAJOR=$(printf '%s' "$TITLE" | grep -oiE 'from [0-9]+' | head -1 | grep -oE '[0-9]+' || true)
-          TO_MAJOR=$(printf '%s'   "$TITLE" | grep -oiE 'to [0-9]+'   | head -1 | grep -oE '[0-9]+' || true)
-          if [ -n "${FROM_MAJOR:-}" ] && [ -n "${TO_MAJOR:-}" ] && [ "$FROM_MAJOR" != "$TO_MAJOR" ]; then
-            echo "Major version bump ($FROM_MAJOR -> $TO_MAJOR) — holding #$PR for human review."
+          # 1) Authoritative author check: must be the Dependabot bot itself.
+          #    (gh reports the bot login as "app/dependabot".)
+          if [ "$AUTHOR" != "app/dependabot" ] && [ "$AUTHOR" != "dependabot[bot]" ]; then
+            echo "PR #$PR author is '$AUTHOR', not Dependabot — refusing to auto-merge."
             exit 0
           fi
 
-          echo "Patch/minor bump with green CI — merging #$PR."
-          gh pr merge "$PR" --repo "$REPO" --merge --delete-branch
+          # 2) Provenance: the CI run that authorized this merge MUST be for the
+          #    exact commit currently at the PR head. Otherwise a green run from
+          #    an older/replaced commit could be replayed to merge new code.
+          if [ "$RUN_HEAD_SHA" != "$PR_HEAD_SHA" ]; then
+            echo "CI run head_sha ($RUN_HEAD_SHA) != PR head ($PR_HEAD_SHA) — stale/forged run, refusing."
+            exit 0
+          fi
+
+          # 3) Major-version guard from Dependabot METADATA, not the PR title.
+          #    Dependabot stamps a machine-readable trailer onto every PR commit
+          #    body, e.g.:
+          #        update-type: version-update:semver-minor
+          #    We read that trailer from the PR's commits (authored by Dependabot
+          #    itself, not user-editable like the title) and only merge
+          #    patch/minor. Anything else fails safe (no auto-merge).
+          UPDATE_TYPE=$(gh pr view "$PR" --repo "$REPO" --json commits \
+            -q '[.commits[].messageBody] | join("\n")' 2>/dev/null \
+            | grep -oiE 'update-type:[[:space:]]*version-update:semver-(patch|minor|major)' \
+            | grep -oiE 'semver-(patch|minor|major)' \
+            | head -1 || true)
+
+          echo "Dependabot PR #$PR update-type: '${UPDATE_TYPE:-unknown}'"
+
+          case "${UPDATE_TYPE:-}" in
+            *patch|*minor)
+              echo "Patch/minor bump with green CI on matching SHA — merging #$PR."
+              gh pr merge "$PR" --repo "$REPO" --merge --delete-branch
+              ;;
+            *major)
+              echo "Major version update — holding #$PR for human review."
+              exit 0
+              ;;
+            *)
+              # Unknown/unparseable update-type → fail safe: do NOT auto-merge.
+              echo "Could not determine update-type for #$PR — holding for human review."
+              exit 0
+              ;;
+          esac
