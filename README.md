@@ -8,7 +8,7 @@
 
 Quantum Armor Vault (QAV) is a cross-platform encrypted storage system for sensitive files. All cryptography runs **client-side**: the backend stores only ciphertext and never sees your password, keys, or plaintext. Files are protected with **hybrid post-quantum encryption** (X25519 + ML-KEM-1024), so data stays confidential even against a future quantum adversary.
 
-> **A note on naming:** the product is **Quantum Armor Vault (QAV)** (used consistently across the component READMEs and the Rust crate). This GitHub repository is named `Quantum_Shield`, and the mobile app currently ships under the display name *"USBVault Enterprise."* These are aliases of the same project — see [Status & known gaps](#status--known-gaps).
+> **A note on naming:** the product is **Quantum Armor Vault (QAV)** (used consistently across the component READMEs and the Rust crate). This GitHub repository is named `Quantum_Shield`, and the mobile app currently ships under the display name *"USBVault Enterprise."* These are aliases of the same project — see [`NAMING.md`](NAMING.md) and [Status & known gaps](#status--known-gaps).
 
 ---
 
@@ -127,6 +127,7 @@ make test                       # run all component test suites
 |---|---|
 | Component guides | [crypto](usbvault-crypto/README.md) · [server](usbvault-server/README.md) · [app](usbvault-app/README.md) |
 | Security policy & disclosure | [`SECURITY.md`](SECURITY.md) |
+| Project naming (QAV / Quantum_Shield / USBVault) | [`NAMING.md`](NAMING.md) |
 | Contributing | [`usbvault-app/CONTRIBUTING.md`](usbvault-app/CONTRIBUTING.md) |
 | QA/QC process | [`docs/QA_QC.md`](docs/QA_QC.md) |
 | Deployment & operations | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) · [`docs/INCIDENT_RESPONSE.md`](docs/INCIDENT_RESPONSE.md) · [`runbooks/`](runbooks/) |
@@ -139,7 +140,7 @@ make test                       # run all component test suites
 This README is intentionally honest about the project's current state:
 
 - **Active development, pre-1.0.** Every component is at `0.1.0`; treat this as a work in progress, not a released product.
-- **Inconsistent branding.** The product is named *Quantum Armor Vault (QAV)* in the component READMEs and the Rust crate, but the repo is `Quantum_Shield` and the app's display name is *"USBVault Enterprise."* These should be canonicalized to a single name.
+- **Inconsistent branding.** The product is named *Quantum Armor Vault (QAV)* in the component READMEs and the Rust crate, but the repo is `Quantum_Shield` and the app's display name is *"USBVault Enterprise."* These should be canonicalized to a single name; see [`NAMING.md`](NAMING.md) for the mapping (a full rename is out of scope for now).
 - **No `LICENSE` file.** The code is **proprietary** (`usbvault-crypto/Cargo.toml` declares `license = "Proprietary"`), but no top-level license/copyright notice is committed yet.
 
 ---

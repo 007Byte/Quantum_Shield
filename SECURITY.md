@@ -108,17 +108,30 @@ To qualify for safe harbor and bounty rewards:
 
 ## Supported Versions
 
+USBVault is **pre-release**. Every component is currently at `0.1.0` and there is no
+`1.0` or later release. Security reports against the current `0.x` development line are
+in scope and welcome.
+
 | Version | Supported |
 |---------|-----------|
-| 2.x.x | Yes |
-| 1.x.x | Security patches only |
-| < 1.0 | No |
+| 0.1.x (current development) | Yes — actively supported |
+| < 0.1.0 | No |
+
+> There are no `1.x`/`2.x` releases yet. Once a stable `1.0` ships, this table will be
+> updated with the corresponding support policy.
 
 ## Security Architecture
+
+USBVault is a **zero-knowledge** system: all cryptography runs **client-side**, and the
+backend stores only ciphertext and wrapped keys — it never sees your password, keys, or
+plaintext. Key exchange and sharing use **hybrid post-quantum** encryption combining
+**X25519** (classical ECDH) with **ML-KEM-1024** (FIPS 203, post-quantum KEM), so shared
+data remains confidential even against a future quantum adversary.
 
 USBVault employs defense-in-depth security:
 
 - **Encryption**: XChaCha20-Poly1305 / AES-256-GCM-SIV with Rust FFI core
+- **Post-Quantum Key Exchange**: hybrid X25519 + ML-KEM-1024 (FIPS 203)
 - **Key Derivation**: Argon2id (memory-hard, GPU-resistant)
 - **Key Exchange**: X25519 ECDH
 - **Signing**: Ed25519
