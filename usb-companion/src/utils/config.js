@@ -9,8 +9,11 @@ export const config = {
   host: process.env.USB_COMPANION_HOST || '127.0.0.1',
   port: parseInt(process.env.USB_COMPANION_PORT || '3001', 10),
 
-  // CORS — only allow the Expo dev server and production origins
-  allowedOrigins: (process.env.USB_COMPANION_ORIGINS || 'http://localhost:8081,http://localhost:8082,http://localhost:8083,http://localhost:19006,http://localhost:3000,https://app.usbvault.io').split(','),
+  // CORS — loopback origins ONLY. A loopback privileged service must never
+  // trust a remote public origin (CRIT-1): a remote site / XSS on it would be
+  // CORS-authorized to drive destructive local USB operations. Remote origins
+  // (e.g. https://app.usbvault.io) are intentionally removed.
+  allowedOrigins: (process.env.USB_COMPANION_ORIGINS || 'http://localhost:8081,http://localhost:8082,http://localhost:8083,http://localhost:19006,http://localhost:3000').split(','),
 
   // Logging
   logLevel: process.env.USB_COMPANION_LOG_LEVEL || 'info',
