@@ -69,8 +69,13 @@ ffi = []  # FFI exports for mobile/desktop
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(guard_page_tests)'] }
 
+# NOTE: `panic = "abort"` was intentionally removed. The FFI layer
+# (src/ffi/mod.rs) wraps every export in `panic::catch_unwind` to stop a
+# Rust panic from unwinding across the C ABI boundary (UB). Under
+# `panic = "abort"` those guards are dead code — any panic aborts the host
+# process. Unwinding must remain enabled for the catch_unwind safety net to
+# function. (Crypto review C-1.)
 [profile.release]
 opt-level = 3
 lto = true
 strip = true
-panic = "abort"

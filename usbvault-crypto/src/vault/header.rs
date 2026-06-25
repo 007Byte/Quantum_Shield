@@ -56,16 +56,61 @@ pub struct VaultHeader {
 }
 
 impl VaultHeader {
-    /// Parse header from bytes
+    /// Upper bound on the verify-marker ciphertext length. The verify marker is
+    /// a fixed ~23-byte plaintext sealed with XChaCha20-Poly1305 (16-byte tag),
+    /// so the ciphertext is small. Reject anything larger up front rather than
+    /// trusting the on-disk u16 length (which can be up to 65535).
+    const MAX_VERIFY_CT_LEN: usize = 256;
+
+    /// Parse header from bytes.
+    ///
+    /// Every read is bounds-checked against `data.len()` BEFORE indexing, so a
+    /// crafted or truncated VAULT.bin yields a clean `Err(InvalidHeader)`
+    /// instead of an out-of-bounds panic (crypto review C-2).
     pub fn read(data: &[u8]) -> Result<Self> {
         if data.len() < 128 {
             return Err(CryptoError::InvalidHeader);
         }
 
-        let mut offset = 0;
+        let mut offset = 0usize;
+
+        // Checked fixed-width readers. Each verifies `offset + N <= data.len()`
+        // and returns `InvalidHeader` on overrun (never panics).
+        macro_rules! take {
+            ($n:expr) => {{
+                let n = $n;
+                let end = offset.checked_add(n).ok_or(CryptoError::InvalidHeader)?;
+                let slice = data.get(offset..end).ok_or(CryptoError::InvalidHeader)?;
+                offset = end;
+                slice
+            }};
+        }
+        macro_rules! read_u8 {
+            () => {{
+                take!(1)[0]
+            }};
+        }
+        macro_rules! read_u16_le {
+            () => {{
+                let b = take!(2);
+                u16::from_le_bytes([b[0], b[1]])
+            }};
+        }
+        macro_rules! read_u32_le {
+            () => {{
+                let b = take!(4);
+                u32::from_le_bytes([b[0], b[1], b[2], b[3]])
+            }};
+        }
+        macro_rules! read_u64_le {
+            () => {{
+                let b = take!(8);
+                u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
+            }};
+        }
 
         // Magic (8 bytes)
-        let magic = &data[offset..offset + 8];
+        let magic = take!(8);
         let version = if magic == MAGIC_V2 {
             2
         } else if magic == MAGIC_V3 {
@@ -75,165 +120,110 @@ impl VaultHeader {
         } else {
             return Err(CryptoError::InvalidMagic);
         };
-        offset += 8;
 
         // KDF hash ID (1 byte)
-        let kdf_hash_id = data[offset];
-        offset += 1;
+        let kdf_hash_id = read_u8!();
 
         // Cipher ID (1 byte)
-        let cipher_id = data[offset];
+        let cipher_id = read_u8!();
         let _ = CipherId::from_byte(cipher_id)?; // Validate
-        offset += 1;
 
         // Salt (32 bytes)
         let mut salt = [0u8; 32];
-        salt.copy_from_slice(&data[offset..offset + 32]);
-        offset += 32;
+        salt.copy_from_slice(take!(32));
 
         // Verify IV (24 bytes)
         let mut verify_iv = [0u8; 24];
-        verify_iv.copy_from_slice(&data[offset..offset + 24]);
-        offset += 24;
+        verify_iv.copy_from_slice(take!(24));
 
-        // Verify ciphertext length (2 bytes)
-        let verify_ct_len = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
-        offset += 2;
+        // Verify ciphertext length (2 bytes) — bound it before slicing so a
+        // crafted length (up to 65535) cannot drive an out-of-range read.
+        let verify_ct_len = read_u16_le!() as usize;
+        if verify_ct_len > Self::MAX_VERIFY_CT_LEN {
+            return Err(CryptoError::InvalidHeader);
+        }
 
-        // Verify ciphertext (variable)
-        let verify_ciphertext = data[offset..offset + verify_ct_len].to_vec();
-        offset += verify_ct_len;
+        // Verify ciphertext (variable, bounds-checked)
+        let verify_ciphertext = take!(verify_ct_len).to_vec();
 
         // Header HMAC (32 bytes)
         let mut header_hmac = [0u8; 32];
-        header_hmac.copy_from_slice(&data[offset..offset + 32]);
-        offset += 32;
+        header_hmac.copy_from_slice(take!(32));
 
         // Active index slot (1 byte)
-        let active_index_slot = data[offset];
-        offset += 1;
+        let active_index_slot = read_u8!();
 
         // Index 1 offset (4 bytes)
-        let index1_offset = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
-
+        let index1_offset = read_u32_le!();
         // Index 1 length (4 bytes)
-        let index1_length = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
-
+        let index1_length = read_u32_le!();
         // Index 2 offset (4 bytes)
-        let index2_offset = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
-
+        let index2_offset = read_u32_le!();
         // Index 2 length (4 bytes)
-        let index2_length = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
+        let index2_length = read_u32_le!();
 
         // Commit counter (8 bytes)
-        let commit_counter = u64::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-            data[offset + 4],
-            data[offset + 5],
-            data[offset + 6],
-            data[offset + 7],
-        ]);
-        offset += 8;
+        let commit_counter = read_u64_le!();
 
         // Argon2 parameters
-        let argon2_memory = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
+        let argon2_memory = read_u32_le!();
+        let argon2_time = read_u32_le!();
+        let argon2_parallelism = read_u8!();
 
-        let argon2_time = u32::from_le_bytes([
-            data[offset],
-            data[offset + 1],
-            data[offset + 2],
-            data[offset + 3],
-        ]);
-        offset += 4;
-
-        let argon2_parallelism = data[offset];
-        offset += 1;
-
-        // Optional blocks (V3 and V4)
+        // Optional blocks (V3 and V4). These are best-effort: a missing/short
+        // optional block is tolerated (returns None), but any length that runs
+        // past the buffer also degrades to None rather than panicking.
         let (identity_block, tfa_block, fail_counter_block) =
             if version >= 3 && offset + 12 <= data.len() {
                 // Identity block length (4 bytes)
-                let identity_len = u32::from_le_bytes([
-                    data[offset],
-                    data[offset + 1],
-                    data[offset + 2],
-                    data[offset + 3],
-                ]) as usize;
-                offset += 4;
+                let identity_len = read_u32_le!() as usize;
 
-                let identity_block = if identity_len > 0 && offset + identity_len <= data.len() {
-                    let block = Some(data[offset..offset + identity_len].to_vec());
-                    offset += identity_len;
-                    block
+                let identity_block = match identity_len {
+                    0 => None,
+                    _ => match data.get(offset..offset + identity_len) {
+                        Some(block) => {
+                            let v = Some(block.to_vec());
+                            offset += identity_len;
+                            v
+                        }
+                        None => None,
+                    },
+                };
+
+                // TFA block length (4 bytes) — only present if there is room.
+                let tfa_block = if offset + 4 <= data.len() {
+                    let tfa_len = read_u32_le!() as usize;
+                    match tfa_len {
+                        0 => None,
+                        _ => match data.get(offset..offset + tfa_len) {
+                            Some(block) => {
+                                let v = Some(block.to_vec());
+                                offset += tfa_len;
+                                v
+                            }
+                            None => None,
+                        },
+                    }
                 } else {
                     None
                 };
 
-                // TFA block length (4 bytes)
-                let tfa_len = u32::from_le_bytes([
-                    data[offset],
-                    data[offset + 1],
-                    data[offset + 2],
-                    data[offset + 3],
-                ]) as usize;
-                offset += 4;
-
-                let tfa_block = if tfa_len > 0 && offset + tfa_len <= data.len() {
-                    let block = Some(data[offset..offset + tfa_len].to_vec());
-                    offset += tfa_len;
-                    block
+                // Fail counter block length (4 bytes) — only present if room.
+                let fail_counter_block = if offset + 4 <= data.len() {
+                    let fail_counter_len = read_u32_le!() as usize;
+                    match fail_counter_len {
+                        0 => None,
+                        _ => data
+                            .get(offset..offset + fail_counter_len)
+                            .map(|block| {
+                                let v = block.to_vec();
+                                offset += fail_counter_len;
+                                v
+                            }),
+                    }
                 } else {
                     None
                 };
-
-                // Fail counter block length (4 bytes)
-                let fail_counter_len = u32::from_le_bytes([
-                    data[offset],
-                    data[offset + 1],
-                    data[offset + 2],
-                    data[offset + 3],
-                ]) as usize;
-                offset += 4;
-
-                let fail_counter_block =
-                    if fail_counter_len > 0 && offset + fail_counter_len <= data.len() {
-                        Some(data[offset..offset + fail_counter_len].to_vec())
-                    } else {
-                        None
-                    };
 
                 (identity_block, tfa_block, fail_counter_block)
             } else {
@@ -242,48 +232,34 @@ impl VaultHeader {
 
         // V4 extended fields
         let (wrapped_mek, state_version, index_encrypted) =
-            if version == 4 && offset + 8 <= data.len() {
+            if version == 4 && offset + 4 <= data.len() {
                 // Wrapped MEK length (4 bytes)
-                let wmek_len = u32::from_le_bytes([
-                    data[offset],
-                    data[offset + 1],
-                    data[offset + 2],
-                    data[offset + 3],
-                ]) as usize;
-                offset += 4;
+                let wmek_len = read_u32_le!() as usize;
 
-                let wrapped_mek = if wmek_len > 0 && offset + wmek_len <= data.len() {
-                    let blob = Some(data[offset..offset + wmek_len].to_vec());
-                    offset += wmek_len;
-                    blob
-                } else {
-                    None
+                let wrapped_mek = match wmek_len {
+                    0 => None,
+                    _ => match data.get(offset..offset + wmek_len) {
+                        Some(blob) => {
+                            let v = Some(blob.to_vec());
+                            offset += wmek_len;
+                            v
+                        }
+                        None => None,
+                    },
                 };
 
                 // State version (8 bytes)
                 let sv = if offset + 8 <= data.len() {
-                    let v = u64::from_le_bytes([
-                        data[offset],
-                        data[offset + 1],
-                        data[offset + 2],
-                        data[offset + 3],
-                        data[offset + 4],
-                        data[offset + 5],
-                        data[offset + 6],
-                        data[offset + 7],
-                    ]);
-                    offset += 8;
-                    v
+                    read_u64_le!()
                 } else {
                     0
                 };
 
                 // Index encrypted flag (1 byte)
-                let ie = if offset < data.len() {
+                let ie = match data.get(offset) {
                     // Last field parsed; no further reads, so `offset` is not advanced.
-                    data[offset] != 0
-                } else {
-                    false
+                    Some(b) => *b != 0,
+                    None => false,
                 };
 
                 (wrapped_mek, sv, ie)
@@ -451,17 +427,61 @@ impl VaultHeader {
         Ok(computed_hmac.ct_eq(&self.header_hmac).unwrap_u8() != 0)
     }
 
-    /// Compute HMAC-SHA256 of header content
+    /// Domain separator for the widened V4 header HMAC. Distinguishes the new
+    /// wide-coverage MAC from the legacy narrow MAC so the two can never be
+    /// confused even if an attacker downgrades the version byte.
+    const HEADER_HMAC_DOMAIN_V4: &'static [u8] = b"USBVault-HeaderHMAC-v4:";
+
+    /// Compute HMAC-SHA256 over the security-relevant header content.
+    ///
+    /// V2/V3 (legacy): authenticates only `salt || verify_iv || verify_ct_len ||
+    /// verify_ct`. Preserved verbatim for on-disk compatibility.
+    ///
+    /// V4: authenticates the FULL security-relevant header — the wrapped MEK,
+    /// the dual-index offsets/lengths, the active slot, commit/state counters,
+    /// the Argon2 params, cipher/kdf ids, and the verify marker — closing the
+    /// index-pointer / wrapped-MEK / state-version / Argon2-downgrade tampering
+    /// gaps (crypto review M-4). Domain-separated and version-gated so legacy
+    /// vaults keep validating with the narrow MAC.
     pub fn compute_hmac(&self, hmac_key: &[u8; 32]) -> [u8; 32] {
         type HmacSha256 = Hmac<Sha256>;
 
         let mut mac = HmacSha256::new_from_slice(hmac_key).unwrap();
 
-        // HMAC the non-signature part of header
-        mac.update(&self.salt);
-        mac.update(&self.verify_iv);
-        mac.update(&(self.verify_ciphertext.len() as u16).to_le_bytes());
-        mac.update(&self.verify_ciphertext);
+        if self.version >= 4 {
+            // Widened, length-prefixed, domain-separated MAC for V4+.
+            mac.update(Self::HEADER_HMAC_DOMAIN_V4);
+            mac.update(&[self.version, self.kdf_hash_id, self.cipher_id]);
+            mac.update(&self.salt);
+            mac.update(&self.verify_iv);
+            mac.update(&(self.verify_ciphertext.len() as u32).to_le_bytes());
+            mac.update(&self.verify_ciphertext);
+            mac.update(&[self.active_index_slot]);
+            mac.update(&self.index1_offset.to_le_bytes());
+            mac.update(&self.index1_length.to_le_bytes());
+            mac.update(&self.index2_offset.to_le_bytes());
+            mac.update(&self.index2_length.to_le_bytes());
+            mac.update(&self.commit_counter.to_le_bytes());
+            mac.update(&self.state_version.to_le_bytes());
+            mac.update(&self.argon2_memory.to_le_bytes());
+            mac.update(&self.argon2_time.to_le_bytes());
+            mac.update(&[self.argon2_parallelism]);
+            mac.update(&[self.index_encrypted as u8]);
+            // Wrapped MEK (length-prefixed; 0xFFFFFFFF length sentinel = absent).
+            match self.wrapped_mek.as_ref() {
+                Some(w) => {
+                    mac.update(&(w.len() as u32).to_le_bytes());
+                    mac.update(w);
+                }
+                None => mac.update(&u32::MAX.to_le_bytes()),
+            }
+        } else {
+            // Legacy V2/V3 MAC — unchanged for on-disk compatibility.
+            mac.update(&self.salt);
+            mac.update(&self.verify_iv);
+            mac.update(&(self.verify_ciphertext.len() as u16).to_le_bytes());
+            mac.update(&self.verify_ciphertext);
+        }
 
         let result = mac.finalize();
         let mut out = [0u8; 32];
