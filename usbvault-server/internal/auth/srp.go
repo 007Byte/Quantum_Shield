@@ -353,8 +353,9 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		Avu.Mod(Avu, N)
 		S := new(big.Int).Exp(Avu, b, N)
 
-		// Compute K = H(S)
-		K := sha256.Sum256(S.Bytes())
+		// Compute K = H(PAD(S)) — canonical convention (PAD to srpPadLen),
+		// matching the Rust client so the derived session key is byte-identical.
+		K := sha256.Sum256(padBigInt(S))
 
 		// Verify client proof M1 = H(A, B, K) per RFC 5054
 		M1Computed := computeSRPProofM1(A, state.B, K[:])
@@ -431,60 +432,59 @@ func randomBigInt(bits int) (*big.Int, error) {
 	return new(big.Int).SetBytes(b), nil
 }
 
-// computeSRPk computes k = H(PAD(N) | PAD(g)) per RFC 5054
+// srpPadLen is the canonical PAD width for all SRP hash inputs: the byte length
+// of N (RFC 7919 ffdhe3072 => 3072 bits => 384 bytes). Per the canonical
+// SRP-6a convention shared with the Rust client (usbvault-crypto/src/srp_client.rs),
+// EVERY big-integer operand fed into a hash (N, g, A, B, S) is left-zero-padded,
+// big-endian, to exactly this width before hashing. Hashing variable-width
+// big.Int.Bytes() output (which strips leading zero bytes) was the root cause of
+// the Go<->Rust interop break: the same numeric value could hash differently
+// depending on its high byte.
+const srpPadLen = 384
+
+// padBigInt left-zero-pads x's big-endian byte representation to srpPadLen
+// bytes. This is the canonical PAD(x) used on BOTH the Go server and the Rust
+// client so that k, u, K, M1 and M2 are byte-identical across implementations.
+func padBigInt(x *big.Int) []byte {
+	xb := x.Bytes()
+	out := make([]byte, srpPadLen)
+	// Right-align; if xb somehow exceeds srpPadLen, copy keeps the low bytes.
+	if len(xb) <= srpPadLen {
+		copy(out[srpPadLen-len(xb):], xb)
+	} else {
+		copy(out, xb[len(xb)-srpPadLen:])
+	}
+	return out
+}
+
+// computeSRPk computes k = H(PAD(N) || PAD(g)) per RFC 5054, canonical convention.
 func computeSRPk(N, g *big.Int) *big.Int {
-	// Pad N and g to same length (length of N in bytes)
-	nLen := len(N.Bytes())
-	nBytes := make([]byte, nLen)
-	copy(nBytes[nLen-len(N.Bytes()):], N.Bytes())
-
-	gBytes := make([]byte, nLen)
-	copy(gBytes[nLen-len(g.Bytes()):], g.Bytes())
-
-	// Hash the concatenation
-	h := sha256.Sum256(bytes.Join([][]byte{nBytes, gBytes}, nil))
+	h := sha256.Sum256(bytes.Join([][]byte{padBigInt(N), padBigInt(g)}, nil))
 	k := new(big.Int)
 	k.SetBytes(h[:])
 	return k
 }
 
-// computeSRPu computes u = H(PAD(A) | PAD(B)) per RFC 5054
+// computeSRPu computes u = H(PAD(A) || PAD(B)) per RFC 5054, canonical convention.
 func computeSRPu(A *big.Int, bStr string) *big.Int {
 	B := new(big.Int)
 	B.SetString(bStr, 10)
 
-	// Pad A and B to same length (length of N in bytes)
-	N := new(big.Int)
-	N.SetString(srpN, 16)
-	nLen := len(N.Bytes())
-
-	aBytes := make([]byte, nLen)
-	copy(aBytes[nLen-len(A.Bytes()):], A.Bytes())
-
-	bBytes := make([]byte, nLen)
-	copy(bBytes[nLen-len(B.Bytes()):], B.Bytes())
-
-	// Hash the concatenation
-	h := sha256.Sum256(bytes.Join([][]byte{aBytes, bBytes}, nil))
+	h := sha256.Sum256(bytes.Join([][]byte{padBigInt(A), padBigInt(B)}, nil))
 	u := new(big.Int)
 	u.SetBytes(h[:])
 	return u
 }
 
-// computeSRPProofM1 computes M1 = H(A, B, K) per RFC 5054
+// computeSRPProofM1 computes M1 = H(PAD(A) || PAD(B) || K), canonical convention.
+// A and B are padded to srpPadLen; K is the raw 32-byte session-key hash.
 func computeSRPProofM1(A *big.Int, bStr string, K []byte) [32]byte {
-	// Use raw bytes for A and B in hash
-	aBytes := A.Bytes()
-
-	// Convert B string back to big.Int for proper byte representation
 	B := new(big.Int)
 	B.SetString(bStr, 10)
-	bRaw := B.Bytes()
 
-	// M1 = H(A, B, K) - concatenate raw bytes
 	h := sha256.New()
-	h.Write(aBytes)
-	h.Write(bRaw)
+	h.Write(padBigInt(A))
+	h.Write(padBigInt(B))
 	h.Write(K)
 
 	var m1 [32]byte
@@ -492,10 +492,11 @@ func computeSRPProofM1(A *big.Int, bStr string, K []byte) [32]byte {
 	return m1
 }
 
-// computeSRPProofM2 computes M2 = H(A, M1, K) per RFC 5054
+// computeSRPProofM2 computes M2 = H(PAD(A) || M1 || K), canonical convention.
+// A is padded to srpPadLen; M1 (32 bytes) and K (32 bytes) are raw.
 func computeSRPProofM2(A *big.Int, M1, K []byte) [32]byte {
 	h := sha256.New()
-	h.Write(A.Bytes())
+	h.Write(padBigInt(A))
 	h.Write(M1)
 	h.Write(K)
 

@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "F6 SRP-6a cross-implementation known-answer test (KAT).",
+    "FIXED inputs shared by the Go server test (usbvault-server/internal/auth/srp_test.go,",
+    "TestSRPInteropKAT) and the Rust client test (usbvault-crypto/src/srp_client.rs,",
+    "tests::srp_interop_kat). Both implementations MUST independently reproduce the",
+    "identical expected_* values below using the ONE canonical RFC 5054-style convention:",
+    "  Group  = RFC 7919 ffdhe3072, g = 2, len(N) = 384 bytes.",
+    "  PAD(x) = left-zero-pad big-endian to 384 bytes.",
+    "  Hash   = SHA-256.",
+    "  k  = H(PAD(N) || PAD(g))",
+    "  A  = g^a mod N            (client public ephemeral)",
+    "  B  = (k*v + g^b) mod N    (server public ephemeral)",
+    "  v  = g^x mod N            (verifier; x is injected directly here, NOT password-derived,",
+    "                             so the KAT does not depend on the Argon2id x-derivation)",
+    "  u  = H(PAD(A) || PAD(B))",
+    "  S_client = (B - k*g^x)^(a + u*x) mod N",
+    "  S_server = (A * v^u)^b mod N   (MUST equal S_client)",
+    "  K  = H(PAD(S))",
+    "  M1 = H(PAD(A) || PAD(B) || K)",
+    "  M2 = H(PAD(A) || M1 || K)",
+    "All inputs/outputs are lowercase hex, big-endian, NO 0x prefix.",
+    "The expected_* fields are the locked contract: any divergence between Go and Rust",
+    "(or a regression) makes both KAT tests fail."
+  ],
+
+  "inputs": {
+    "username": "alice",
+    "salt_hex": "0000000000000000000000000000000000000000000000000000000000000042",
+    "x_hex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007",
+    "a_hex": "0000000000000000000000000000000000000000000000000000000000000003",
+    "b_hex": "0000000000000000000000000000000000000000000000000000000000000005"
+  },
+
+  "_inputs_note": [
+    "x_hex is a 384-byte (768 hex char) value 0x...07 (i.e. the integer 7), padded only for",
+    "readability; tests parse it as a big integer so leading zeros are irrelevant.",
+    "a = 3, b = 5, x = 7 are tiny FIXED scalars chosen so the KAT is fully deterministic with",
+    "NO RNG. They exercise the full modular-exponentiation + padded-hash pipeline against the",
+    "real 3072-bit N. (Tiny exponents are fine for a KAT: it tests byte-level interop of the",
+    "hashing/padding convention, not ephemeral-key entropy, which is enforced elsewhere.)"
+  ],
+
+  "expected": {
+    "_fill_on_first_green_run": [
+      "These are the locked cross-language outputs. They are derived purely by deterministic",
+      "math (modpow + SHA-256 over 384-byte padded buffers) from the fixed inputs above, so",
+      "the Go and Rust runs MUST produce byte-identical values. Populate each field with the",
+      "hex emitted by the first passing run (the Go and Rust tests print them); thereafter both",
+      "tests assert against these constants. Until populated, both tests fall back to asserting",
+      "Go-path == Rust-path equivalence via the shared-secret/M1/M2 round-trip (see test code)."
+    ],
+    "k_hex": "1c030432002aa938dce6575dd2d419e3e748fec526bdbba8a28c849952370428",
+    "A_hex": "08",
+    "B_hex": "0e0182190015549c6e732baee96a0cf1f3a47f62935eddd45146424ca91b821420",
+    "u_hex": "cfe9baafb3a51933680e31f7a49b4364d6ad89142fd0c4bb734e75308d0e6f55",
+    "S_hex": "159b7594cebaa2ca9e5132c172c9d534d004534b456802b2c06f27762b9f43aac1ae8e475af4503e11d6b6e1253b1a5454711b1e4695235858f2c250b4a3a07b1b1f4e17a0b8dcd35e9be669b97f98070d9ac1a7b813438311a77ed3de13699ae6b401700f9f442b0751702ede4f6bf2672cedfc3c6b04b176eb8de344a46456afb13b1589dfdc9e7fcd3112615dfd053c6209dc5ac4cb60b9c966a8db48107aa5b4fd098b7d21a2b7c92b11240fdd3ce01025647512e49b06c3bf055fdd132754aee2cdffe5cfdf71e07a5294c5887e3695010c1ee5f5f409e235588b3023cdf96393f675c561b173676c8fb62c89617f7336d8ca08da3fdbfedc5072c69875612a57a7f0d9f42ba143b3c782898057e8de87994725a1341df065a8cc59ae804ee7d7749dba90d37a187f3e90a4145672226bc4f158786c4cfc53d222de6e0d7334997ec8d0213f26143f87d6b71ee4cd5a8d3854a6ebe96b63fb79aea3c559fc3d5698cfb5cd3ad65d6855f7f96433b33278858f1fdaf5cb50c1d467dedecd",
+    "K_hex": "58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568",
+    "M1_hex": "350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b",
+    "M2_hex": "c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c"
+  }
+}
