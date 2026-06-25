@@ -31,9 +31,33 @@ interface StoredAuth {
   createdAt: string;
 }
 
+/**
+ * SECURITY FIX (WEB-PWD): The web-local auth path hashes passwords with a single
+ * unsalted SHA-256 (and an even weaker non-crypto fallback). This is NOT acceptable for
+ * real credentials — it provides no work factor, no salt, and no SRP mutual auth. It
+ * exists only as a local stand-in for development/testing while the real implementation
+ * is wired up.
+ *
+ * This function now refuses to run outside development builds. It MUST throw in
+ * production so insecure web credentials can never be created or verified against a
+ * shipped build.
+ *
+ * FLAG (real fix required): Wire the usbvault-crypto WASM module to derive keys with
+ * Argon2id and authenticate via SRP-6a on web, matching the native path
+ * (services/auth.ts). Until that parity exists, web auth must remain dev-only.
+ */
 async function hashPassword(password: string): Promise<string> {
+  // Refuse to run in production builds. __DEV__ is injected by the React Native /
+  // Metro/Expo bundler and is `false` in release builds.
+  if (typeof __DEV__ === 'undefined' || !__DEV__) {
+    throw new Error(
+      'Web-local password hashing is disabled in production. ' +
+        'Secure web authentication (Argon2id + SRP via usbvault-crypto WASM) is required.'
+    );
+  }
+
   if (typeof crypto === 'undefined' || !crypto.subtle) {
-    // Fallback for environments without WebCrypto
+    // Fallback for environments without WebCrypto (dev only — see guard above).
     let hash = 0;
     for (let i = 0; i < password.length; i++) {
       hash = ((hash << 5) - hash + password.charCodeAt(i)) | 0;

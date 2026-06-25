@@ -225,7 +225,8 @@ export async function register(email: string, password: string): Promise<void> {
 
     // Step 5: Send registration data to server
     const response = await fetch(
-      `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/auth/register`,
+      // RM-002 FIX: Default host must match the pinned host (api.usbvault.io).
+      `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.io'}/auth/register`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -461,7 +462,11 @@ export function getMasterKey(): Uint8Array | null {
 export async function isAuthenticated(): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
-      const token = localStorage.getItem('usbvault_access_token');
+      // SECURITY FIX (JWT-WEB): Never read JWTs from localStorage. Access tokens on web
+      // live in the in-memory store inside api.ts (via SecureStore shim) and are gone
+      // after a reload. Authentication state on web is governed by the in-memory master
+      // key and the (also in-memory) access token retrieved through the api module.
+      const token = await api.getAccessToken();
       return token !== null && masterKey !== null;
     }
     const token = await SecureStore?.getItemAsync('usbvault_access_token', SECURE_STORE_OPTIONS);

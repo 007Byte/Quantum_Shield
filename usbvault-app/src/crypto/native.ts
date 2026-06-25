@@ -795,20 +795,6 @@ const webCryptoFallback: USBVaultCryptoModule = {
     header.set(wrappedMek, offset);
     offset += wrappedMek.length;
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[PROVISION-DIAG] Salt hex:', toHex(salt));
-    console.warn('[PROVISION-DIAG] KEK hex:', kekHex);
-    console.warn('[PROVISION-DIAG] wrappedMek length:', wrappedMek.length);
-    console.warn('[PROVISION-DIAG] wrappedMek first 16 bytes:', toHex(wrappedMek.slice(0, 16)));
-    console.warn('[PROVISION-DIAG] wrappedMek written at offset:', offset - wrappedMek.length);
-    console.warn(
-      '[PROVISION-DIAG] Password length:',
-      password.length,
-      'first3chars:',
-      password.substring(0, 3)
-    );
-    // ────────────────────────────────────────────────────────────────
-
     // state_version = 1 (u64 LE)
     writeU64LE(header, offset, 1);
     offset += 8;
@@ -920,28 +906,6 @@ const webCryptoFallback: USBVaultCryptoModule = {
     off += 4;
     const argon2Parallelism = header[off];
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[UNLOCK-DIAG] Header size:', header.length);
-    console.warn('[UNLOCK-DIAG] KDF byte @8:', header[8], '(expect 2=Argon2id)');
-    console.warn('[UNLOCK-DIAG] Cipher byte @9:', header[9]);
-    console.warn('[UNLOCK-DIAG] Salt hex:', toHex(salt));
-    console.warn('[UNLOCK-DIAG] metaOffset:', metaOffset);
-    console.warn(
-      '[UNLOCK-DIAG] Argon2 params: memory=',
-      argon2Memory,
-      'time=',
-      argon2Time,
-      'parallelism=',
-      argon2Parallelism
-    );
-    console.warn(
-      '[UNLOCK-DIAG] Password length:',
-      password.length,
-      'first3chars:',
-      password.substring(0, 3)
-    );
-    // ────────────────────────────────────────────────────────────────
-
     // Derive KEK from password + salt using header's Argon2 params
     const kekHex = await argon2id({
       password,
@@ -963,27 +927,8 @@ const webCryptoFallback: USBVaultCryptoModule = {
     wrappedOffset += 4;
     const wrappedMek = header.slice(wrappedOffset, wrappedOffset + wrappedMekLen);
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[UNLOCK-DIAG] KEK hex:', kekHex);
-    console.warn('[UNLOCK-DIAG] fcBlockOffset:', fcBlockOffset, 'fcBlockLen:', fcBlockLen);
-    console.warn('[UNLOCK-DIAG] wrappedMek offset:', wrappedOffset, 'len:', wrappedMekLen);
-    console.warn('[UNLOCK-DIAG] wrappedMek first 16 bytes:', toHex(wrappedMek.slice(0, 16)));
-    console.warn('[UNLOCK-DIAG] wrappedMek last 16 bytes:', toHex(wrappedMek.slice(-16)));
-    // ────────────────────────────────────────────────────────────────
-
     // Decrypt wrapped MEK with KEK
-    let mek: Uint8Array;
-    try {
-      mek = await aesGcmDecryptRaw(kek, wrappedMek);
-    } catch (unwrapErr) {
-      console.error('[UNLOCK-DIAG] MEK unwrap FAILED!', unwrapErr);
-      console.error(
-        '[UNLOCK-DIAG] This means KEK does not match the one used to wrap MEK during provision.'
-      );
-      console.error('[UNLOCK-DIAG] Full KEK:', kekHex);
-      console.error('[UNLOCK-DIAG] Full wrappedMek hex:', toHex(wrappedMek));
-      throw unwrapErr;
-    }
+    const mek = await aesGcmDecryptRaw(kek, wrappedMek);
     if (mek.length !== 64) {
       throw new Error('Invalid MEK length after unwrap');
     }

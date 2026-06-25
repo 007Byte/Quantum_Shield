@@ -78,17 +78,20 @@ export function configurePinning(configs: PinConfig[]): void {
  * @returns true if the certificate fingerprint matches a pinned value
  */
 export function validatePin(hostname: string, certificate: ArrayBuffer): boolean {
-  // If pins aren't properly configured (TODO placeholders), fail open with warning
-  // This ensures development environments still work while logging the issue
+  // SECURITY FIX (RM-002): Fail-CLOSED. If pins are not properly configured, reject
+  // the connection rather than silently allowing it. Previously this returned true
+  // (fail-open), which defeated the purpose of pinning whenever pins were missing.
   if (!arePinsConfigured()) {
-    logger.debug('Certificate pinning: pins not configured, skipping validation');
-    return true;
+    logger.error('Certificate pinning: pins not configured — failing closed');
+    return false;
   }
 
   const activePins = getActivePins(hostname);
   if (activePins.length === 0) {
-    // No pins for this hostname — allow (only pinned hosts are enforced)
-    return true;
+    // SECURITY FIX (RM-002): No pins for this hostname while pinning is enabled —
+    // fail closed. A host that should be pinned but has no active pins must not connect.
+    logger.error(`Certificate pinning: no active pins for ${hostname} — failing closed`);
+    return false;
   }
 
   // Compute SHA-256 fingerprint of the certificate
@@ -285,8 +288,10 @@ export function initializeCertificatePinning(): {
     logger.debug('Certificate pinning initialized successfully');
   }
 
+  // SECURITY FIX (RM-002): Reflect the actual validation result so callers fail closed
+  // when pins are invalid. Previously this hardcoded initialized: true.
   return {
-    initialized: true,
+    initialized: validationResult.valid,
     validationResult,
   };
 }

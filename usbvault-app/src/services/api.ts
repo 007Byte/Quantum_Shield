@@ -4,26 +4,33 @@ import { logger } from '@/utils/logger';
 import { arePinsConfigured, initializeCertificatePinning } from './security/certificatePinning';
 import { auditService } from './auditService';
 
-// Web-compatible SecureStore shim
+// SECURITY FIX (JWT-WEB): On web, JWTs must NEVER be persisted to localStorage,
+// where any XSS can exfiltrate them. We keep all token values in an in-memory store
+// (module-scoped Map) that is cleared on page reload. This means web sessions do not
+// survive a refresh from the client side alone.
+//
+// FLAG (backend decision required): Durable web sessions should be restored via an
+// httpOnly, Secure, SameSite refresh cookie set by the backend on the /auth/srp/verify
+// and /auth/refresh responses. The browser attaches that cookie automatically (axios
+// `withCredentials: true`), so the refresh token is never readable by JS. Until that
+// backend support is confirmed, web sessions are in-memory only and end on reload.
+const inMemoryTokenStore = new Map<string, string>();
+
+// Web-compatible SecureStore shim.
+// SECURITY: This shim is intentionally backed by in-memory storage only, NOT
+// localStorage. Do not map any key to localStorage here — secret tokens (access /
+// refresh JWTs) are the primary consumers of this shim on web.
 const SecureStore =
   Platform.OS === 'web'
     ? {
         getItemAsync: async (key: string) => {
-          try {
-            return localStorage.getItem(key);
-          } catch {
-            return null;
-          }
+          return inMemoryTokenStore.has(key) ? inMemoryTokenStore.get(key)! : null;
         },
         setItemAsync: async (key: string, value: string) => {
-          try {
-            localStorage.setItem(key, value);
-          } catch {}
+          inMemoryTokenStore.set(key, value);
         },
         deleteItemAsync: async (key: string) => {
-          try {
-            localStorage.removeItem(key);
-          } catch {}
+          inMemoryTokenStore.delete(key);
         },
       }
     : require('expo-secure-store');
@@ -38,7 +45,9 @@ function generateRequestId(): string {
 }
 
 // Configuration
-const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.com'}/api/v1`;
+// RM-002 FIX: Default host MUST match the certificate-pinned host (api.usbvault.io),
+// otherwise pinning never applies. Was previously api.usbvault.com (mismatch).
+const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL || 'https://api.usbvault.io'}/api/v1`;
 const TOKEN_KEY = 'usbvault_access_token';
 const REFRESH_TOKEN_KEY = 'usbvault_refresh_token';
 
@@ -362,6 +371,19 @@ async function refreshAccessToken(): Promise<void> {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
     throw error;
+  }
+}
+
+/**
+ * Retrieve the current access token.
+ * On web this reads the in-memory store (never localStorage); on native it reads
+ * the OS secure store. Returns null if no token is present (e.g. after a web reload).
+ */
+export async function getAccessToken(): Promise<string | null> {
+  try {
+    return await SecureStore.getItemAsync(TOKEN_KEY);
+  } catch {
+    return null;
   }
 }
 

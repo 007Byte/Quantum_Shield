@@ -260,15 +260,36 @@ class TierServiceImpl {
     };
   }
 
+  /**
+   * Resolve the current subscription tier.
+   *
+   * SECURITY FIX (TIER-TRUST): The authoritative tier is the one supplied by the caller,
+   * which MUST originate from the server (validated JWT claim / GET /user/profile) — see
+   * `subscriptionTier` on the auth store / UserInfo. The localStorage value
+   * (`usbvault_subscription_tier`) is attacker-writable on web and is therefore treated as
+   * an ADVISORY, UI-ONLY hint, used only when no server-sourced tier is available (e.g.
+   * rendering before profile load). It must never be the deciding input for a
+   * security-relevant gate.
+   *
+   * FLAG: All security-relevant entitlement checks (feature access that affects what the
+   * server will actually do, storage/share limits, etc.) MUST be enforced server-side. The
+   * client gates here are advisory/UX only and can be bypassed by editing localStorage.
+   */
   getCurrentTier(subscriptionTier?: SubscriptionTier): SubscriptionTier {
     try {
-      if (isTierWeb) {
-        const stored = localStorage.getItem(TIER_STORAGE_KEY);
-        if (stored && ['free', 'pro', 'enterprise'].includes(stored))
-          return stored as SubscriptionTier;
-      }
+      // Server-sourced tier is authoritative and takes precedence.
       if (subscriptionTier && ['free', 'pro', 'enterprise'].includes(subscriptionTier)) {
         return subscriptionTier as SubscriptionTier;
+      }
+      // Advisory UI fallback only: client-controlled, NOT trusted for security decisions.
+      if (isTierWeb) {
+        const stored = localStorage.getItem(TIER_STORAGE_KEY);
+        if (stored && ['free', 'pro', 'enterprise'].includes(stored)) {
+          logger.debug(
+            '[TierService] Using advisory client-cached tier (UI only, not authoritative)'
+          );
+          return stored as SubscriptionTier;
+        }
       }
     } catch (error) {
       logger.error('[TierService] Error reading current tier:', error);
