@@ -46,13 +46,26 @@ Allowed:
 
 ## Certificate Pinning
 
-Handled by `src/services/security/certificatePinning.ts` — pins the API server's
-public key (SHA-256 SPKI hash) and rejects connections with mismatched certificates.
+**Native pinning (F8): SCAFFOLDED but DISABLED.** Real native SPKI pinning for
+`api.usbvault.io` is wired on both platforms but ships with placeholder pins that
+are commented out / inert, because native pinning is fail-closed and fake pins
+would break all TLS. See `usbvault-app/PINNING.md` for the wiring, the exact
+`openssl` commands to generate the real primary + backup SPKI pins, and the
+enablement + device-testing gate.
+
+- Android: `android/app/src/main/res/xml/network_security_config.xml` (and the
+  prebuild source `native/android/...`) — `<domain-config>` with a disabled
+  `<pin-set>`; referenced via `android:networkSecurityConfig` in the manifest.
+- iOS: `ios/USBVaultEnterprise/Info.plist` + `app.json` — `NSPinnedDomains`
+  staged under `NSAppTransportSecurity`, disabled.
+
+Application-layer pinning logic may also exist in
+`src/services/security/certificatePinning.ts`.
 
 ## Summary
 
-| Platform | TLS Minimum | Cleartext Blocked | ATS/NSC Enforced | Cert Pinning |
-|----------|-------------|-------------------|-------------------|--------------|
-| iOS      | 1.2         | Yes               | Yes               | Yes          |
-| Android  | 1.2         | Yes               | Yes               | Yes          |
-| Web      | Browser     | N/A (HTTPS only)  | N/A               | N/A          |
+| Platform | TLS Minimum | Cleartext Blocked | ATS/NSC Enforced | Native Cert Pinning      |
+|----------|-------------|-------------------|-------------------|--------------------------|
+| iOS      | 1.2         | Yes               | Yes               | Scaffolded (disabled)    |
+| Android  | 1.2         | Yes               | Yes               | Scaffolded (disabled)    |
+| Web      | Browser     | N/A (HTTPS only)  | N/A               | N/A                      |

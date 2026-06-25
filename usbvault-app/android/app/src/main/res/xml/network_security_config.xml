@@ -2,11 +2,6 @@
 <!--
   F8 — Native TLS Certificate Pinning Scaffold (Android)
 
-  SOURCE FOR EXPO PREBUILD. This file is referenced by app.json
-  (expo.android.networkSecurityConfig) and is copied into
-  android/app/src/main/res/xml/network_security_config.xml during `expo prebuild`.
-  Keep it in sync with the committed native copy of the same name.
-
   This Network Security Configuration:
     - Blocks all cleartext (HTTP) traffic by default (CWE-319).
     - Trusts only the system certificate authorities for TLS.
@@ -21,20 +16,21 @@
   is rejected. Shipping placeholder ("AAAA...=") pins would therefore break ALL
   HTTPS traffic to api.usbvault.io on every device.
 
-  The secure base-config (system anchors, no cleartext) is ACTIVE today. The
-  pin-set below is staged but commented out so the placeholder state is
-  non-breaking.
+  This reference is wired into AndroidManifest.xml
+  (android:networkSecurityConfig="@xml/network_security_config") so the secure
+  base-config (system anchors, no cleartext) is ACTIVE today. The pin-set below
+  is staged but commented out so the placeholder state is non-breaking.
 
   HOW TO ENABLE (see usbvault-app/PINNING.md for exact commands)
   ==============================================================
     1. Generate the real primary SPKI SHA-256 base64 pin from the live cert.
     2. Generate a real backup pin (next/rotation cert or pinned intermediate CA).
     3. Replace BOTH placeholder digests below with the real values.
-    4. Set a realistic <pin-set expiration="..."> so pinning soft-fails open
-       instead of bricking clients if rotation is missed.
+    4. Set a realistic <pin-set expiration="..."> (e.g. shortly before the
+       backup cert expires) so pinning soft-fails open instead of bricking
+       clients if rotation is missed.
     5. Uncomment the <pin-set> block.
-    6. Run `expo prebuild` (so this file is copied into android/) and
-       device-test against staging AND production before release.
+    6. Device-test against staging AND production before release.
 
   DO NOT uncomment with placeholder values. DO NOT enable in production until
   real primary + backup pins are filled in and tested on real devices.

@@ -52,6 +52,55 @@
           <false/>
         </dict>
       </dict>
+      <!--
+        F8 — Native TLS Certificate Pinning Scaffold (iOS)
+
+        iOS uses Apple's native ATS pinning via NSPinnedDomains (iOS 14+; the key
+        is ignored on older iOS, where ATS still enforces TLS 1.2+). Pins are SPKI
+        SHA-256 hashes, base64-encoded, under the "SPKI-SHA256-BASE64" key.
+
+        WHY THIS IS DISABLED
+        ====================
+        ATS pinning is FAIL-CLOSED: if NSPinnedDomains is active and the server's
+        certificate chain matches NONE of the listed SPKI hashes, every TLS
+        connection to that domain fails. Shipping placeholder ("AAAA...=") pins
+        would break ALL HTTPS traffic to api.usbvault.io. The block below is
+        therefore staged as a comment and is INERT until real pins are filled in.
+
+        HOW TO ENABLE (see usbvault-app/PINNING.md for exact commands)
+        =============================================================
+          1. Generate the real primary SPKI SHA-256 base64 pin from the live cert.
+          2. Generate a real backup pin (next/rotation cert or intermediate CA).
+          3. Replace BOTH placeholder hashes below with the real values.
+          4. Uncomment this <key>NSPinnedDomains</key> + <dict> block.
+          5. Mirror the same change in app.json (expo.ios.infoPlist) so it
+             survives `expo prebuild`, then device-test on real iOS hardware.
+
+        DO NOT uncomment with placeholder values. DO NOT enable in production
+        until real primary + backup pins are filled in and tested on a device.
+
+      <key>NSPinnedDomains</key>
+      <dict>
+        <key>api.usbvault.io</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSPinnedLeafIdentities</key>
+          <array>
+            PLACEHOLDER — primary pin (current leaf SPKI SHA-256 / base64).
+            <dict>
+              <key>SPKI-SHA256-BASE64</key>
+              <string>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</string>
+            </dict>
+            PLACEHOLDER — backup pin (next/rotation leaf cert).
+            <dict>
+              <key>SPKI-SHA256-BASE64</key>
+              <string>BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</string>
+            </dict>
+          </array>
+        </dict>
+      </dict>
+      -->
     </dict>
     <key>NSBonjourServiceTypes</key>
     <array>
