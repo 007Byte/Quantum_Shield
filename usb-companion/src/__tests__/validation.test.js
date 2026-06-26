@@ -69,6 +69,9 @@ describe('validateProvisionParams', () => {
       formatType: 'quick',
       fileSystem: 'exfat',
       masterPassword: 'secureP@ss1',
+      // validateProvisionParams also returns vault/partition naming (defaults).
+      vaultName: 'USBVault',
+      partitionName: undefined,
     });
   });
 

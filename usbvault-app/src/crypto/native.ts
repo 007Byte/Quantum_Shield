@@ -408,7 +408,12 @@ const webCryptoFallback: USBVaultCryptoModule = {
   },
 
   async generateShareKeypair(): Promise<{ public: string; private: string }> {
-    // SECURITY FIX: Generate mathematically related X25519 keypair using ECDH P-256
+    // KNOWN BUG (web public-key sharing is broken — tracked in PR #64): this
+    // returns an ECDH P-256 SPKI public key (~91 bytes), but the bridge contract
+    // and native Rust path use 32-byte X25519 (bridge.sealToPublicKey/openSealed
+    // reject non-32-byte keys), so web sharing does not work. Reimplement with
+    // X25519 (e.g. tweetnacl/@noble crypto_box: ephemeral_pub(32)||nonce(24)||
+    // ct||tag(16), which also interops with the native sealed-box format).
     // Web fallback: Use Web Crypto API to generate proper key pairs
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
