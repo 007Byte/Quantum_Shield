@@ -40,15 +40,48 @@ module.exports = {
     '!src/app/**',
     '!src/components/**',
     '!src/theme/**',
+    // SECURITY-CRITICAL: explicitly KEEP crypto + services in coverage
+    // collection. The zero-knowledge design performs all cryptography on the
+    // client, so these directories must never be silently dropped from the
+    // coverage denominator (which would let the global gate be gamed by
+    // excluding the untested security surface).
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   maxWorkers: '50%',
-  // Coverage is ADVISORY during development — the CI "Check TypeScript coverage
-  // threshold (70%)" step reports it as a non-blocking ::warning:: by design.
-  // A hard `coverageThreshold` here contradicted that (jest --coverage exits 1
-  // when below target; current coverage ~34%, all 1369 tests passing). Re-enable
-  // a hard threshold once coverage approaches the 70% target.
-  // coverageThreshold: {
-  //   global: { branches: 70, functions: 70, lines: 70, statements: 70 },
-  // },
+  // FIX 5 (TS coverage gate): a RATCHET threshold is now enforced. Previously
+  // the threshold was commented out so `jest --coverage` could never fail and
+  // coverage regressions went uncaught. The global floor is set conservatively
+  // below the measured baseline (~34%) so it can only move up over time, while
+  // the security-critical src/crypto and src/services directories — where all
+  // client-side cryptography lives — carry a substantially higher bar.
+  //
+  // Ratchet policy: raise these numbers as coverage climbs; never lower them.
+  // jest --coverage exits non-zero if ANY of these is not met, so the CI
+  // "Check TypeScript coverage threshold" step now gates real regressions
+  // instead of merely warning.
+  coverageThreshold: {
+    global: {
+      branches: 30,
+      functions: 30,
+      lines: 33,
+      statements: 33,
+    },
+    // Security-critical: client crypto primitives and bridge. Higher bar than
+    // the global floor. NOTE: these per-directory numbers are conservative
+    // starting points — if a CI run reports actual coverage above them, RATCHET
+    // them up toward parity with the real figure; never lower them.
+    './src/crypto/': {
+      branches: 45,
+      functions: 50,
+      lines: 50,
+      statements: 50,
+    },
+    // Security-critical: key hierarchy, session, SRP, recovery-phrase services.
+    './src/services/': {
+      branches: 35,
+      functions: 40,
+      lines: 40,
+      statements: 40,
+    },
+  },
 };
