@@ -50,12 +50,14 @@ var (
 
 // CallbackResult is returned after a successful OIDC callback exchange.
 type CallbackResult struct {
-	UserID       string `json:"user_id"`
-	Email        string `json:"email"`
-	IsNewUser    bool   `json:"is_new_user"`
-	AuthMethod   string `json:"auth_method"`
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	IsNewUser   bool   `json:"is_new_user"`
+	AuthMethod  string `json:"auth_method"`
+	AccessToken string `json:"access_token"`
+	// F4: omitempty — populated only for native clients; web/SSO clients receive
+	// the refresh token in the HttpOnly cookie instead of the JSON body.
+	RefreshToken string `json:"refresh_token,omitempty"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 

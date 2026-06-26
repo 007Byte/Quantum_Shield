@@ -30,8 +30,10 @@ type FIDO2VerifyRequest struct {
 }
 
 type FIDO2VerifyResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken string `json:"access_token"`
+	// F4: omitempty — populated only for native clients; web clients receive the
+	// refresh token in the HttpOnly cookie instead of the JSON body.
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.Client) http.HandlerFunc {
@@ -64,7 +66,7 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 
 		// Initialize WebAuthn
 		wau, err := webauthn.New(&webauthn.Config{
-			RPID:     config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
+			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
 			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
 			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
@@ -107,8 +109,8 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-	// DV-018 FIX: Reduce FIDO2 challenge TTL from 10 minutes to 2 minutes for tighter security
-	if err := redisClient.Set(ctx, "fido2:"+sessionID, sessionJSON, 2*time.Minute).Err(); err != nil {
+		// DV-018 FIX: Reduce FIDO2 challenge TTL from 10 minutes to 2 minutes for tighter security
+		if err := redisClient.Set(ctx, "fido2:"+sessionID, sessionJSON, 2*time.Minute).Err(); err != nil {
 			log.Error().Err(err).Msg("failed to store FIDO2 session in Redis")
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -281,11 +283,21 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 		auditSvc.LogAction(ctx, userID, "FIDO2_LOGIN", nil)
 		log.Info().Str("user_id", userID).Msg("FIDO2 authentication successful")
 
+		// F4 (cookie coverage): mirror the SRP web flow — set the refresh token as
+		// an HttpOnly, Secure, SameSite=Strict cookie so web/passkey clients keep
+		// the long-lived credential out of JS reach (XSS cannot exfiltrate it).
+		setRefreshCookie(w, refreshToken)
+
+		// F4 (no refresh token in web responses): include the refresh token in the
+		// JSON body ONLY for native clients (no browser Origin/Referer/cookie).
+		// Web clients rely on the cookie set above.
+		resp := FIDO2VerifyResponse{AccessToken: accessToken}
+		if !IsWebRequest(r) {
+			resp.RefreshToken = refreshToken
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(FIDO2VerifyResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }
 

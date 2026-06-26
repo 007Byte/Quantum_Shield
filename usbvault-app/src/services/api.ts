@@ -342,19 +342,49 @@ async function getDeviceFingerprint(): Promise<string> {
 }
 
 /**
- * Refresh access token using refresh token.
- * Stores new tokens in secure store.
- * DV-008 FIX: Includes device fingerprint for device binding
+ * Refresh access token.
+ *
+ * F4 (httpOnly refresh-cookie session flow): the refresh token is handled
+ * differently per platform.
+ *
+ *  - Web: the refresh token is NEVER stored in JS. It lives in an HttpOnly,
+ *    Secure, SameSite=Strict cookie set by the server on /auth/srp/verify and
+ *    rotated on /auth/refresh. We call /auth/refresh with credentials included
+ *    (withCredentials: true) so the browser attaches the cookie automatically;
+ *    we read only the new access token from the JSON body and keep it in the
+ *    in-memory store. We do NOT send a refreshToken in the body on web.
+ *
+ *  - Native: the refresh token is read from the OS keychain/secure-store and
+ *    sent in the JSON body. The server rotates it and returns a new one, which
+ *    we persist. Cookies are not used on native.
+ *
+ * DV-008 FIX: Includes device fingerprint for device binding (both platforms).
  */
 async function refreshAccessToken(): Promise<void> {
   try {
+    // DV-008 FIX: Generate and include device fingerprint
+    const deviceFingerprint = await getDeviceFingerprint();
+
+    if (Platform.OS === 'web') {
+      // F4: rely on the httpOnly refresh cookie; send no refresh token in JS.
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/refresh`,
+        { deviceFingerprint },
+        { withCredentials: true } // attach + receive the httpOnly refresh cookie
+      );
+
+      const { accessToken } = response.data;
+      // Only the access token is held in memory on web; the rotated refresh
+      // token stays in the httpOnly cookie and is never touched by JS.
+      await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+      return;
+    }
+
+    // Native: read refresh token from secure store and send it in the body.
     const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
-
-    // DV-008 FIX: Generate and include device fingerprint
-    const deviceFingerprint = await getDeviceFingerprint();
 
     const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
       refreshToken,
@@ -369,6 +399,7 @@ async function refreshAccessToken(): Promise<void> {
     }
   } catch (error) {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // On web there is no refresh token in JS; this is a no-op there.
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
     throw error;
   }
@@ -389,11 +420,18 @@ export async function getAccessToken(): Promise<string | null> {
 
 /**
  * Store tokens securely.
+ *
+ * F4: On web the refresh token is NEVER stored in JS — the server sets it as an
+ * HttpOnly cookie, so we only keep the access token in the in-memory store. On
+ * native both tokens are stored in the OS secure store. The `refreshToken`
+ * argument is therefore ignored on web (it may be an empty string).
  */
 export async function storeTokens(accessToken: string, refreshToken: string): Promise<void> {
   try {
     await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+    if (Platform.OS !== 'web') {
+      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+    }
   } catch (error) {
     logger.error('Failed to store tokens:', error);
     throw new Error('Failed to store authentication tokens');
@@ -402,9 +440,30 @@ export async function storeTokens(accessToken: string, refreshToken: string): Pr
 
 /**
  * Clear stored tokens.
+ *
+ * F4: On web this also calls the credentialed /auth/logout endpoint so the
+ * server clears the HttpOnly refresh cookie (Max-Age=0) and revokes the refresh
+ * token server-side — JS cannot delete an HttpOnly cookie itself. On native we
+ * just clear the secure store (callers may revoke server-side separately).
  */
 export async function clearTokens(): Promise<void> {
   try {
+    if (Platform.OS === 'web') {
+      try {
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        await axios.post(
+          `${API_BASE_URL}/auth/logout`,
+          {},
+          {
+            withCredentials: true, // send the httpOnly refresh cookie to be cleared
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }
+        );
+      } catch (logoutErr) {
+        // Best effort: even if the network call fails, still clear local state.
+        logger.warn('Server logout (cookie clear) failed:', logoutErr);
+      }
+    }
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
   } catch (error) {
@@ -444,7 +503,13 @@ export interface SrpVerifyResponse {
 
 export async function srpVerify(request: SrpVerifyRequest): Promise<SrpVerifyResponse> {
   const client = getApiClient();
-  const response = await client.post('/auth/srp/verify', request);
+  // F4: On web, send credentials so the browser stores the HttpOnly refresh
+  // cookie the server sets on a successful verify. The access token comes back
+  // in the JSON body and is kept in the in-memory store; the refresh token in
+  // the body is ignored on web (the cookie is authoritative).
+  const response = await client.post('/auth/srp/verify', request, {
+    withCredentials: Platform.OS === 'web',
+  });
   return response.data;
 }
 

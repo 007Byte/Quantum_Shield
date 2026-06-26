@@ -14,19 +14,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 
+	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
 	"github.com/usbvault/usbvault-server/internal/errortracking"
+	"github.com/usbvault/usbvault-server/internal/gc"
 	"github.com/usbvault/usbvault-server/internal/metrics"
 	mw "github.com/usbvault/usbvault-server/internal/middleware"
 	"github.com/usbvault/usbvault-server/internal/notify"
 	oidcpkg "github.com/usbvault/usbvault-server/internal/oidc"
+	recoverypkg "github.com/usbvault/usbvault-server/internal/recovery"
 	sharing "github.com/usbvault/usbvault-server/internal/sharing"
 	storagepkg "github.com/usbvault/usbvault-server/internal/storage"
 	"github.com/usbvault/usbvault-server/internal/sync"
-	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
-	recoverypkg "github.com/usbvault/usbvault-server/internal/recovery"
-	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
-	"github.com/usbvault/usbvault-server/internal/gc"
 	"github.com/usbvault/usbvault-server/internal/vault"
 )
 
@@ -52,7 +52,13 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 		AuthEndpoints: 10,
 	}))
 
-	// CORS with explicit allowed origins (no wildcards for https://)
+	// CORS with explicit allowed origins (no wildcards for https://).
+	// F4: AllowCredentials is required so the browser will attach/accept the
+	// HttpOnly refresh cookie on /auth/srp/verify, /auth/refresh and
+	// /auth/logout. go-chi/cors reflects the SPECIFIC matched origin (never "*"
+	// when credentials are on) and automatically adds "Vary: Origin", which is
+	// exactly what a credentialed cross-origin cookie flow needs. Origins come
+	// from CORS_ALLOWED_ORIGINS (see getAllowedOrigins) — no wildcard.
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   getAllowedOrigins(),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -116,8 +122,12 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 			r.Post("/fido2/challenge", auth.HandleFIDO2Challenge(a.dbPool, a.redisClient))
 			r.Post("/fido2/verify", auth.HandleFIDO2Verify(a.dbPool, a.redisClient, a.auditService))
 			r.Post("/register", auth.HandleRegister(a.dbPool, a.auditService))
-			r.Post("/refresh", auth.HandleRefreshToken(a.redisClient, a.auditService))
-			r.Post("/logout", auth.HandleLogout(a.redisClient, a.auditService))
+			// F4 CSRF defense-in-depth: pass the same Origin allowlist used for
+			// CORS (getAllowedOrigins) so these state-changing cookie endpoints
+			// reject forged cross-site Origin/Referer requests with 403,
+			// independently of SameSite/CORS.
+			r.Post("/refresh", auth.HandleRefreshToken(a.redisClient, a.auditService, getAllowedOrigins()...))
+			r.Post("/logout", auth.HandleLogout(a.redisClient, a.auditService, getAllowedOrigins()...))
 
 			// OIDC routes (enterprise SSO)
 			if a.oidcService != nil {

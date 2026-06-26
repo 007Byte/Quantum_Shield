@@ -82,9 +82,11 @@ type SRPVerifyRequest struct {
 }
 
 type SRPVerifyResponse struct {
-	M2           string `json:"M2"`
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	M2          string `json:"M2"`
+	AccessToken string `json:"access_token"`
+	// F4: omitempty — populated only for native clients; web clients receive the
+	// refresh token in the HttpOnly cookie instead of the JSON body.
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 type srpServerState struct {
@@ -409,12 +411,26 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// Log successful authentication
 		auditSvc.LogAction(ctx, state.UserID, "AUTH_LOGIN", []byte("SRP"))
 
+		// F4: Set the refresh token as an HttpOnly, Secure, SameSite=Strict
+		// cookie for web clients so JS never holds the long-lived refresh
+		// credential (XSS cannot exfiltrate it). Native clients ignore the
+		// cookie and read the refresh token from the JSON body below, storing
+		// it in the OS keychain/secure-store.
+		setRefreshCookie(w, refreshToken)
+
+		// F4 (no refresh token in web responses): include the refresh token in the
+		// JSON body ONLY for native clients (no browser Origin/Referer/cookie).
+		// Web clients rely on the cookie set above.
+		resp := SRPVerifyResponse{
+			M2:          hex.EncodeToString(M2Computed[:]),
+			AccessToken: accessToken,
+		}
+		if !IsWebRequest(r) {
+			resp.RefreshToken = refreshToken
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(SRPVerifyResponse{
-			M2:           hex.EncodeToString(M2Computed[:]),
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }
 
