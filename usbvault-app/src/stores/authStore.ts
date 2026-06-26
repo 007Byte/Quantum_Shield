@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 import * as authService from '@/services/auth';
 import * as api from '@/services/api';
+import * as srp from '@/crypto/srpClient';
 import { auditService } from '@/services/auditService';
 import { fido2Service } from '@/services/fido2Service';
 import type { Fido2Device } from '@/services/fido2Service';
@@ -11,7 +12,7 @@ import { cleanupStoreSubscriptions } from '@/stores/storeCleanup';
 
 const isWeb = Platform.OS === 'web';
 
-// ── Web-local auth helpers (SHA-256 via WebCrypto) ─────────────
+// ── Web-local auth helpers (real Argon2id + SRP-6a verifier) ───
 
 const WEB_SESSION_KEY = 'usbvault:session';
 
@@ -25,50 +26,53 @@ const WEB_AUTH_KEY = 'usbvault:auth';
 
 interface StoredAuth {
   email: string;
-  passwordHashHex: string;
+  /**
+   * SRP-6a salt (32-byte hex) used to derive the verifier. Random per-account.
+   */
+  srpSaltHex: string;
+  /**
+   * SRP-6a verifier v = g^x mod N (hex), where x is derived from
+   * (salt, email, password) via Argon2id — the SAME memory-hard derivation used
+   * by the native/server path (crypto/srpClient.ts, usbvault-crypto/src/srp_client.rs).
+   * The password itself is never stored.
+   */
+  srpVerifierHex: string;
   userId: string;
   subscriptionTier: 'free' | 'pro' | 'enterprise';
   createdAt: string;
 }
 
 /**
- * SECURITY FIX (WEB-PWD): The web-local auth path hashes passwords with a single
- * unsalted SHA-256 (and an even weaker non-crypto fallback). This is NOT acceptable for
- * real credentials — it provides no work factor, no salt, and no SRP mutual auth. It
- * exists only as a local stand-in for development/testing while the real implementation
- * is wired up.
+ * SECURITY FIX (WEB-PWD): The web-local auth path previously hashed passwords with a
+ * single unsalted SHA-256 (plus an even weaker non-crypto fallback) — no work factor,
+ * no salt, no mutual auth. That insecure path has been REMOVED entirely.
  *
- * This function now refuses to run outside development builds. It MUST throw in
- * production so insecure web credentials can never be created or verified against a
- * shipped build.
+ * F7: Web-local credentials now use the REAL SRP-6a verifier. We derive the SRP
+ * private key x from (salt, email, password) with Argon2id (memory-hard, identical
+ * params to the native path) and store only the verifier v = g^x mod N. On login we
+ * re-derive the verifier and compare in constant time. No password and no SHA-256
+ * password digest is ever persisted, in dev or production.
  *
- * FLAG (real fix required): Wire the usbvault-crypto WASM module to derive keys with
- * Argon2id and authenticate via SRP-6a on web, matching the native path
- * (services/auth.ts). Until that parity exists, web auth must remain dev-only.
+ * @returns the SRP-6a verifier (hex) for the given salt/email/password.
  */
-async function hashPassword(password: string): Promise<string> {
-  // Refuse to run in production builds. __DEV__ is injected by the React Native /
-  // Metro/Expo bundler and is `false` in release builds.
-  if (typeof __DEV__ === 'undefined' || !__DEV__) {
-    throw new Error(
-      'Web-local password hashing is disabled in production. ' +
-        'Secure web authentication (Argon2id + SRP via usbvault-crypto WASM) is required.'
-    );
-  }
+async function computeWebVerifier(
+  email: string,
+  password: string,
+  saltBytes: Uint8Array
+): Promise<string> {
+  const x = await srp.deriveSrpX(saltBytes, email, password);
+  const v = srp.deriveVerifier(x);
+  return Buffer.from(srp.bigIntToBytes(v)).toString('hex');
+}
 
-  if (typeof crypto === 'undefined' || !crypto.subtle) {
-    // Fallback for environments without WebCrypto (dev only — see guard above).
-    let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-      hash = ((hash << 5) - hash + password.charCodeAt(i)) | 0;
-    }
-    return Math.abs(hash).toString(16).padStart(8, '0');
+/** Constant-time-ish comparison of two equal-length hex strings. */
+function verifierMatches(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return diff === 0;
 }
 
 function getStoredAuth(): StoredAuth | null {
@@ -186,8 +190,10 @@ export const useAuthStore = create<AuthState>(set => ({
           throw new Error('No account found. Please register first.');
         }
 
-        const hash = await hashPassword(password);
-        if (stored.email !== email || stored.passwordHashHex !== hash) {
+        // F7: Re-derive the SRP-6a verifier from the stored salt and compare.
+        const saltBytes = Uint8Array.from(Buffer.from(stored.srpSaltHex, 'hex'));
+        const verifier = await computeWebVerifier(email, password, saltBytes);
+        if (stored.email !== email || !verifierMatches(stored.srpVerifierHex, verifier)) {
           auditService
             .log('failed_login', email, { reason: 'invalid_credentials' }, 'error')
             .catch(() => {});
@@ -277,11 +283,16 @@ export const useAuthStore = create<AuthState>(set => ({
           throw new Error('An account with this email already exists. Please login instead.');
         }
 
-        const hash = await hashPassword(password);
+        // F7: Generate a random SRP salt and store the REAL Argon2id-derived
+        // verifier (v = g^x mod N). The password is never persisted.
+        const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+        const srpSaltHex = Buffer.from(saltBytes).toString('hex');
+        const srpVerifierHex = await computeWebVerifier(email, password, saltBytes);
         const userId = `user-${Date.now().toString(36)}`;
         const auth: StoredAuth = {
           email,
-          passwordHashHex: hash,
+          srpSaltHex,
+          srpVerifierHex,
           userId,
           subscriptionTier: 'enterprise',
           createdAt: new Date().toISOString(),

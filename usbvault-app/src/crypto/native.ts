@@ -577,27 +577,21 @@ const webCryptoFallback: USBVaultCryptoModule = {
   async srpDeriveSession(
     _clientPrivateHex: string,
     _serverPublicHex: string,
-    saltHex: string,
+    _saltHex: string,
     _username: string,
-    password: string
+    _password: string
   ): Promise<{ proof: string; key: string }> {
-    // Argon2id-based SRP session derivation matching native Rust implementation (SG-008)
-    // Derives 512 bits: first 256 bits = proof, second 256 bits = session key
-    const salt = fromHex(saltHex);
-    const hash = await argon2id({
-      password,
-      salt,
-      parallelism: 4,
-      iterations: 3,
-      memorySize: 65536, // 64 MiB — matches native Argon2id parameters
-      hashLength: 64, // 512 bits: 32 bytes proof + 32 bytes key
-      outputType: 'hex',
-    });
-
-    return {
-      proof: hash.slice(0, 64), // First 32 bytes (64 hex chars)
-      key: hash.slice(64, 128), // Second 32 bytes (64 hex chars)
-    };
+    // F7: The previous web implementation here was a FAKE — it merely Argon2id-
+    // hashed the password into "proof"+"key" with NO modular exponentiation, so it
+    // could never complete a real SRP-6a handshake with the Go server. The real,
+    // byte-for-byte interoperable SRP-6a client now lives in crypto/srpClient.ts
+    // and is wired directly into services/auth.ts on every platform. Nothing in the
+    // app should call this web-fallback method anymore; fail loudly if it does so a
+    // fake SRP path can never silently come back.
+    throw new Error(
+      'srpDeriveSession (web fallback) is removed. Use the real SRP-6a client in ' +
+        'crypto/srpClient.ts (wired through services/auth.ts).'
+    );
   },
 
   async hashSha256(dataHex: string): Promise<string> {

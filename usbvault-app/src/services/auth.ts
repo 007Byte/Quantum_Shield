@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as crypto from '@/crypto/bridge';
+import * as srp from '@/crypto/srpClient';
 import * as api from './api';
 import { logger } from '@/utils/logger';
 
@@ -113,14 +114,10 @@ let masterKey: Uint8Array | null = null;
  * 8. Store tokens, keep master key in memory
  */
 export async function login(email: string, password: string): Promise<void> {
-  // SECURITY FIX: Web authentication requires proper server integration
-  // No dev bypasses allowed - fail closed for security
-  if (Platform.OS === 'web') {
-    throw new Error(
-      'Web authentication requires server integration. Please use the native app or configure the web auth endpoint.'
-    );
-  }
-
+  // F7: The SRP-6a handshake now runs in pure TS (crypto/srpClient.ts) and is
+  // byte-for-byte interoperable with the Go server on every platform, including
+  // web. The previous `Platform.OS === 'web'` hard throw is therefore removed —
+  // web logs in via the same real SRP-6a path as native.
   try {
     // Step 1: Get SRP parameters from server
     const srpInitResp = await api.srpInit(email);
@@ -129,7 +126,7 @@ export async function login(email: string, password: string): Promise<void> {
     const sessionId = srpInitResp.sessionId;
 
     // Step 2-4: Compute SRP proof (M1) and session key
-    const { A, M1, sessionKey } = await computeSrpProof(
+    const { A, M1, sessionKey, APub } = await computeSrpProof(
       email, // TD-003 FIX: Use actual email instead of hardcoded 'client'
       password,
       srpSalt,
@@ -145,7 +142,7 @@ export async function login(email: string, password: string): Promise<void> {
 
     // TD-002 FIX: Verify server proof M2 (mutual authentication)
     // This ensures we're talking to the real server, not a MITM
-    const expectedM2 = await computeExpectedM2(A, M1, sessionKey);
+    const expectedM2 = await computeExpectedM2(APub, M1, sessionKey);
     const serverM2 = Buffer.from(srpVerify.M2, 'hex');
     if (!expectedM2.equals(serverM2)) {
       throw new Error('Server authentication failed: M2 proof mismatch. Possible MITM attack.');
@@ -184,32 +181,18 @@ export async function login(email: string, password: string): Promise<void> {
  */
 // TD-001 CLIENT FIX: Complete registration with SRP verifier and key generation
 export async function register(email: string, password: string): Promise<void> {
-  // SECURITY FIX: Web authentication requires server integration
-  // No dev bypasses allowed - fail closed for security
-  if (Platform.OS === 'web') {
-    throw new Error(
-      'Web authentication requires server integration. Please use the native app or configure the web auth endpoint.'
-    );
-  }
+  // F7: Registration now derives a REAL SRP-6a verifier in pure TS, so it works
+  // on web and native alike. The previous `Platform.OS === 'web'` hard throw is
+  // removed.
   try {
-    // Step 1: Generate random SRP salt (32 bytes)
-    const saltHex = await crypto.hashSha256(
-      new Uint8Array(Buffer.from(email + Date.now().toString()))
-    );
-    const srpSalt = new Uint8Array(Buffer.from(saltHex.substring(0, 64), 'hex'));
+    // Step 1: Generate a random 32-byte SRP salt via the CSPRNG.
+    const srpSalt = await crypto.randomBytes(32);
 
-    // Step 2: Generate SRP verifier using native SRP implementation
-    // The verifier is computed as v = g^(H(salt || H(email || ":" || password))) mod N
-    const srpSession = await crypto.srpDeriveSession(
-      (await crypto.srpGenerateClientEphemeral()).private,
-      new Uint8Array(32), // dummy B - we just need the verifier derivation path
-      srpSalt,
-      email,
-      password
-    );
-    // Use the session proof as a proxy for the verifier (the actual verifier
-    // would be computed server-side from the password during a proper SRP enrollment)
-    const srpVerifier = Buffer.from(srpSession.proof).toString('hex');
+    // Step 2: Compute the REAL SRP-6a verifier v = g^x mod N, where x is derived
+    // from (salt, email, password) with Argon2id exactly as the Rust client / Go
+    // server expect. This is what the server stores and later authenticates
+    // against — proven interoperable by the F6/F7 cross-implementation KAT.
+    const srpVerifier = await computeSrpVerifierHex(email, password, srpSalt);
 
     // Step 3: Generate X25519 keypair for encrypted file sharing
     const shareKeypair = await crypto.generateShareKeypair();
@@ -245,8 +228,11 @@ export async function register(email: string, password: string): Promise<void> {
       throw new Error(`Registration failed: ${errorText}`);
     }
 
-    // Step 5b: Store secret keys securely on device (native only — web throws above)
-    // These are needed for decrypting shared files and signing messages
+    // Step 5b: Store secret keys securely on device when SecureStore is available
+    // (native iOS Keychain / Android EncryptedSharedPreferences). On web there is
+    // no SecureStore, so this block is skipped — share/signing secret persistence
+    // on web is handled elsewhere by the web key-storage layer.
+    // These keys are needed for decrypting shared files and signing messages.
     if (SecureStore) {
       await SecureStore.setItemAsync(
         'usbvault_share_secret_key',
@@ -489,49 +475,66 @@ export function clearMasterKey(): void {
 // ============================================================================
 
 /**
- * Compute SRP proof using proper SRP-6a protocol via Rust bridge.
- * Uses the native SRP implementation for cryptographic correctness.
+ * Compute the SRP-6a client proof using the REAL SRP-6a client
+ * (crypto/srpClient.ts). This performs genuine modular exponentiation over the
+ * ffdhe3072 group and is byte-for-byte interoperable with the Go server and the
+ * Rust client (proven by the F6/F7 cross-implementation KAT).
+ *
+ * Works identically on web and native — the client is pure TS/BigInt + Argon2id
+ * (hash-wasm) for the x-derivation, so no platform-specific SRP path is needed.
+ *
+ * TD-003: the actual email is used as the SRP identity (must match registration).
+ *
+ * @returns A (client public, as big-endian bytes), M1 (proof), the shared
+ *   session key K, and the client public A as a BigInt for M2 verification.
  */
-// TD-003 FIX: Use actual email as SRP username instead of hardcoded 'client'
 async function computeSrpProof(
   email: string,
   password: string,
   salt: Uint8Array,
   B: Uint8Array
-): Promise<{ A: Buffer; M1: Buffer; sessionKey: Buffer }> {
-  // Generate client ephemeral keypair using native SRP function
-  const ephemeralKeyPair = await crypto.srpGenerateClientEphemeral();
-  const A = ephemeralKeyPair.public;
+): Promise<{ A: Buffer; M1: Buffer; sessionKey: Buffer; APub: bigint }> {
+  // Generate the client ephemeral (a, A = g^a mod N) with a CSPRNG.
+  const { a, A } = srp.generateEphemeral();
 
-  // TD-003 FIX: Use actual email as the SRP identity, not a hardcoded string
-  // The username in SRP must match what the server used during registration
-  const srpSession = await crypto.srpDeriveSession(
-    ephemeralKeyPair.private,
-    B,
-    salt,
-    email, // Use actual email as SRP identity
-    password
-  );
+  // Derive the SRP private key x from (salt, email, password) the SAME way the
+  // Rust client does (Argon2id with domain-separated salt).
+  const x = await srp.deriveSrpX(salt, email, password);
+
+  // Process the server challenge B -> { S, K, M1 } via real SRP-6a math.
+  const { K, M1 } = await srp.processChallenge(a, x, srp.bytesToBigInt(B));
 
   return {
-    A: Buffer.from(A),
-    M1: Buffer.from(srpSession.proof),
-    sessionKey: Buffer.from(srpSession.key),
+    A: Buffer.from(srp.bigIntToBytes(A)),
+    M1: Buffer.from(M1),
+    sessionKey: Buffer.from(K),
+    APub: A,
   };
 }
 
-// TD-002 FIX: Compute expected M2 = H(A, M1, K) for mutual authentication
-async function computeExpectedM2(A: Buffer, M1: Buffer, sessionKey: Buffer): Promise<Buffer> {
-  // M2 = SHA256(A || M1 || K) - must match server's computation in srp.go
-  const combined = Buffer.concat([A, M1, sessionKey]);
-  const m2Hex = await crypto.hashSha256(new Uint8Array(combined));
-  return Buffer.from(m2Hex, 'hex');
+// TD-002: Compute expected M2 = H(PAD(A) || M1 || K) for mutual authentication,
+// matching the server's computation (srp.go) and the Rust client (verify_server).
+async function computeExpectedM2(APub: bigint, M1: Buffer, sessionKey: Buffer): Promise<Buffer> {
+  const m2 = await srp.computeM2(APub, new Uint8Array(M1), new Uint8Array(sessionKey));
+  return Buffer.from(m2);
 }
 
-// hashSha256 is now accessed directly via crypto.hashSha256() from the bridge module
+/**
+ * Compute the SRP-6a verifier v = g^x mod N for registration, where x is derived
+ * from (salt, email, password) exactly as the Rust client / Go server expect.
+ * Returns the verifier as a big-endian hex string.
+ */
+async function computeSrpVerifierHex(
+  email: string,
+  password: string,
+  salt: Uint8Array
+): Promise<string> {
+  const x = await srp.deriveSrpX(salt, email, password);
+  const v = srp.deriveVerifier(x);
+  return Buffer.from(srp.bigIntToBytes(v)).toString('hex');
+}
 
 // ============================================================================
-// Note: Random bytes generation is handled by crypto.bridge module
+// Note: Random bytes generation is handled by crypto.bridge module.
+// The SRP-6a handshake runs in pure TS (crypto/srpClient.ts) on every platform.
 // ============================================================================
-// All cryptographic operations require the native Rust module.
-// No fallback JavaScript implementations are available.
