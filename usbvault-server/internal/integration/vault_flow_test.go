@@ -53,7 +53,16 @@ func TestVaultFullFlow(t *testing.T) {
 	if err := client.PutCiphertext(uploadURL, ciphertext); err != nil {
 		t.Fatalf("failed to PUT ciphertext to storage: %v", err)
 	}
-	t.Logf("Uploaded blob %s (%d ciphertext bytes)", blobID, len(ciphertext))
+	// #67: confirm the upload so the server binds the REAL stored size to the tier
+	// limit (HeadObject post-PUT). It must report the actual ciphertext length.
+	confirmedSize, err := client.ConfirmUpload(user, vault.ID, blobID)
+	if err != nil {
+		t.Fatalf("failed to confirm upload: %v", err)
+	}
+	if confirmedSize != int64(len(ciphertext)) {
+		t.Fatalf("confirm size mismatch: got %d, want %d", confirmedSize, len(ciphertext))
+	}
+	t.Logf("Uploaded blob %s (%d ciphertext bytes), confirmed %d", blobID, len(ciphertext), confirmedSize)
 
 	// ─── Step 4: List vaults and verify it appears ─────────────────────
 	vaults, err := client.ListVaults(user)
@@ -141,12 +150,16 @@ func TestZeroKnowledgeRoundTrip(t *testing.T) {
 	}
 
 	// Upload ONLY ciphertext via the presigned URL.
-	uploadURL, _, err := client.GetUploadURL(user, vault.ID, "zk.enc", len(ciphertext))
+	uploadURL, zkBlobID, err := client.GetUploadURL(user, vault.ID, "zk.enc", len(ciphertext))
 	if err != nil {
 		t.Fatalf("failed to get presigned upload URL: %v", err)
 	}
 	if err := client.PutCiphertext(uploadURL, ciphertext); err != nil {
 		t.Fatalf("failed to PUT ciphertext: %v", err)
+	}
+	// #67: confirm binds the real stored size to the tier limit.
+	if _, err := client.ConfirmUpload(user, vault.ID, zkBlobID); err != nil {
+		t.Fatalf("failed to confirm upload: %v", err)
 	}
 
 	// Invariant 2: the server still only ever held ciphertext — re-decrypt the

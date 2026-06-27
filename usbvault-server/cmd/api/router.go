@@ -170,6 +170,8 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 			// Blobs (files) in vault
 			r.Route("/{vaultID}/blobs", func(r chi.Router) {
 				r.With(mw.RequireVaultPermission(a.rbacService, auth.PermUpdate)).Post("/upload-url", storagepkg.HandleGenerateUploadURL(a.storageService))
+				// #67: bind the REAL uploaded size to the tier limit after a single-shot PUT.
+				r.With(mw.RequireVaultPermission(a.rbacService, auth.PermUpdate)).Post("/confirm", storagepkg.HandleConfirmUpload(a.storageService))
 				r.With(mw.RequireVaultPermission(a.rbacService, auth.PermRead)).Post("/download-url", storagepkg.HandleGenerateDownloadURL(a.storageService))
 				r.With(mw.RequireVaultPermission(a.rbacService, auth.PermRead)).Get("/", storagepkg.HandleListBlobs(a.storageService))
 				r.With(mw.RequireVaultPermission(a.rbacService, auth.PermDelete)).Delete("/{blobID}", storagepkg.HandleDeleteBlob(a.storageService, a.auditService))

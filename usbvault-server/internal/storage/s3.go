@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,11 +30,11 @@ func validateS3KeyComponent(component string) error {
 
 // File size and security constants
 const (
-	MaxFileSizeBytes      = 5 * 1024 * 1024 * 1024  // 5 GB max
-	MaxFileSizeFree       = 100 * 1024 * 1024       // 100 MB for free tier
-	MaxFileSizeIndividual = 1 * 1024 * 1024 * 1024  // 1 GB for individual tier
-	MaxFileSizeTeam       = 5 * 1024 * 1024 * 1024  // 5 GB for team tier
-	MaxFileSizeEnterprise = 5 * 1024 * 1024 * 1024  // 5 GB for enterprise tier
+	MaxFileSizeBytes      = 5 * 1024 * 1024 * 1024 // 5 GB max
+	MaxFileSizeFree       = 100 * 1024 * 1024      // 100 MB for free tier
+	MaxFileSizeIndividual = 1 * 1024 * 1024 * 1024 // 1 GB for individual tier
+	MaxFileSizeTeam       = 5 * 1024 * 1024 * 1024 // 5 GB for team tier
+	MaxFileSizeEnterprise = 5 * 1024 * 1024 * 1024 // 5 GB for enterprise tier
 	PresignedURLExpiry    = 15 * time.Minute
 )
 
@@ -108,7 +109,6 @@ func getMaxFileSizeForTier(tier string) int64 {
 		return MaxFileSizeFree // Default to free tier for safety
 	}
 }
-
 
 // F3 (FIX A): CurrentStorageBytes returns the cumulative size (in bytes) of all
 // objects the user actually stores in S3, across all of their non-deleted vaults.
@@ -498,18 +498,18 @@ func HandleGenerateUploadURL(ss *StorageService) http.HandlerFunc {
 			return
 		}
 
-	// DE-011 FIX: Validate encrypted payload has reasonable minimum size
-	if req.FileSize < 48 { // Minimum: 24-byte nonce + 16-byte tag + 1-byte content + header
-		http.Error(w, "file size too small for encrypted payload", http.StatusBadRequest)
-		return
-	}
+		// DE-011 FIX: Validate encrypted payload has reasonable minimum size
+		if req.FileSize < 48 { // Minimum: 24-byte nonce + 16-byte tag + 1-byte content + header
+			http.Error(w, "file size too small for encrypted payload", http.StatusBadRequest)
+			return
+		}
 
-	// F3: pass the declared FileSize to the presigned PUT as a best-effort
-	// ContentLength hint. NOTE: this is NOT an authoritative size enforcement for
-	// single-shot uploads — SigV4 query presigning may not bind Content-Length at
-	// S3 (see GenerateUploadURL). The authoritative backstop is the S3-sourced
-	// cumulative storage quota enforced above.
-	uploadURL, err := ss.GenerateUploadURL(r.Context(), vaultID, blobID, req.FileSize)
+		// F3: pass the declared FileSize to the presigned PUT as a best-effort
+		// ContentLength hint. NOTE: this is NOT an authoritative size enforcement for
+		// single-shot uploads — SigV4 query presigning may not bind Content-Length at
+		// S3 (see GenerateUploadURL). The authoritative backstop is the S3-sourced
+		// cumulative storage quota enforced above.
+		uploadURL, err := ss.GenerateUploadURL(r.Context(), vaultID, blobID, req.FileSize)
 		if err != nil {
 			http.Error(w, "failed to generate upload URL", http.StatusInternalServerError)
 			return
@@ -533,6 +533,119 @@ func HandleGenerateUploadURL(ss *StorageService) http.HandlerFunc {
 		})
 
 		log.Debug().Str("user_id", userID).Str("blob_id", req.BlobID).Str("detail", auditDetail).Msg("upload URL generated")
+	}
+}
+
+// ErrFileTooLarge is returned by ConfirmUpload when the real stored size of a
+// single-shot upload exceeds the sender's per-tier limit. The oversized object is
+// deleted before this is returned.
+var ErrFileTooLarge = errors.New("uploaded file exceeds tier size limit")
+
+// ConfirmUpload authoritatively enforces the per-file size limit AFTER a single-shot
+// presigned PUT (#67). SigV4 query presigning does not reliably bind Content-Length,
+// so the pre-upload gate in HandleGenerateUploadURL trusts the client-declared size
+// (declare small, PUT large). The client calls this after the PUT; we HeadObject the
+// REAL stored size (never trusting any client value) and, if it exceeds the user's
+// tier limit, DELETE the object (fail-closed) and return ErrFileTooLarge. This
+// mirrors the proven multipart post-assembly enforcement in FinalizeUpload (FIX B).
+func (ss *StorageService) ConfirmUpload(ctx context.Context, userID string, vaultID, blobID uuid.UUID) (int64, error) {
+	s3Key := "vaults/" + vaultID.String() + "/" + blobID.String()
+
+	head, err := ss.s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(ss.bucket),
+		Key:    aws.String(s3Key),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to HeadObject for upload confirm: %w", err)
+	}
+	var realSize int64
+	if head.ContentLength != nil {
+		realSize = *head.ContentLength
+	}
+
+	// Resolve the user's authoritative tier limit (mirrors HandleGenerateUploadURL,
+	// fail-closed to free on a billing lookup error).
+	maxFileSize := int64(MaxFileSizeBytes)
+	tierName := "free"
+	if ss.billingChecker != nil {
+		tier, terr := ss.billingChecker.CheckAccess(ctx, userID)
+		if terr != nil {
+			maxFileSize = MaxFileSizeFree
+		} else {
+			tierName = tier
+			maxFileSize = getMaxFileSizeForTier(tier)
+		}
+	}
+
+	if realSize > maxFileSize {
+		// Fail-closed: remove the oversized object so it cannot be referenced or
+		// counted toward the storage quota.
+		if _, derr := ss.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String(ss.bucket),
+			Key:    aws.String(s3Key),
+		}); derr != nil {
+			log.Error().Err(derr).Str("key", s3Key).Msg("#67: failed to delete oversized confirmed upload")
+		}
+		log.Warn().Str("user_id", userID).Str("tier", tierName).
+			Int64("limit", maxFileSize).Int64("real_size", realSize).
+			Msg("#67: single-shot upload rejected at confirm — exceeds tier file-size limit; object deleted")
+		return realSize, ErrFileTooLarge
+	}
+
+	return realSize, nil
+}
+
+// ConfirmUploadRequest is the body for POST /vaults/{vaultID}/blobs/confirm.
+type ConfirmUploadRequest struct {
+	BlobID string `json:"blob_id"`
+}
+
+// ConfirmUploadResponse is returned on a successful confirm.
+type ConfirmUploadResponse struct {
+	Confirmed bool  `json:"confirmed"`
+	Size      int64 `json:"size"`
+}
+
+// HandleConfirmUpload binds the real uploaded size to the tier limit after a
+// single-shot presigned PUT (#67). The client MUST call this once the PUT
+// completes; an oversized object is deleted and rejected with 413.
+func HandleConfirmUpload(ss *StorageService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req ConfirmUploadRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		vaultID, err := uuid.Parse(r.PathValue("vaultID"))
+		if err != nil {
+			http.Error(w, "invalid vault id", http.StatusBadRequest)
+			return
+		}
+		blobID, err := uuid.Parse(req.BlobID)
+		if err != nil {
+			http.Error(w, "invalid blob id", http.StatusBadRequest)
+			return
+		}
+
+		size, err := ss.ConfirmUpload(r.Context(), userID, vaultID, blobID)
+		if err != nil {
+			if errors.Is(err, ErrFileTooLarge) {
+				http.Error(w, "uploaded file exceeds your tier's per-file size limit; it has been removed", http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "failed to confirm upload", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ConfirmUploadResponse{Confirmed: true, Size: size})
 	}
 }
 
@@ -691,4 +804,3 @@ func HandleDeleteBlob(ss *StorageService, auditSvc interface {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
-
