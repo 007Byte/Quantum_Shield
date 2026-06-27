@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	auth "github.com/usbvault/usbvault-server/internal/auth"
-	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	auth "github.com/usbvault/usbvault-server/internal/auth"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // UserIDFromContext extracts the authenticated user ID from request context.
@@ -57,12 +57,16 @@ func AuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
 					log.Debug().Err(err).Msg("invalid or revoked token")
 					// Continue without auth context - let RequireAuth handle it
 				} else {
-					// Check device fingerprint if present in token
+					// SECURITY (fail-closed): a device-bound token (claims.DeviceFingerprint
+					// set) MUST present a matching X-Device-Fingerprint header. The prior
+					// check only enforced when the header was ALSO non-empty, so simply
+					// OMITTING the header bypassed the binding entirely — a stolen
+					// device-bound token then worked from any device. A missing OR
+					// mismatched header is now rejected.
 					deviceFingerprint := r.Header.Get("X-Device-Fingerprint")
-					if claims.DeviceFingerprint != "" && deviceFingerprint != "" {
-						if claims.DeviceFingerprint != deviceFingerprint {
-							log.Warn().Str("user_id", claims.UserID).Msg("device fingerprint mismatch - rejecting request")
-							// Device fingerprint binding is enforced - reject with 401
+					if claims.DeviceFingerprint != "" {
+						if deviceFingerprint == "" || claims.DeviceFingerprint != deviceFingerprint {
+							log.Warn().Str("user_id", claims.UserID).Msg("device fingerprint missing or mismatched - rejecting request")
 							http.Error(w, "unauthorized", http.StatusUnauthorized)
 							return
 						}
@@ -157,12 +161,12 @@ func hasRole(userRole, requiredRole string) bool {
 
 // PH8-FIX: TierLimits defines resource limits for each subscription tier
 type TierLimits struct {
-	MaxVaults        int    `json:"max_vaults"`
-	MaxStorageMB     int    `json:"max_storage_mb"`
-	Algorithms       []string `json:"algorithms"`
-	Sharing          bool   `json:"sharing"`
-	AuditLogs        bool   `json:"audit_logs"`
-	PrioritySupport  bool   `json:"priority_support"`
+	MaxVaults       int      `json:"max_vaults"`
+	MaxStorageMB    int      `json:"max_storage_mb"`
+	Algorithms      []string `json:"algorithms"`
+	Sharing         bool     `json:"sharing"`
+	AuditLogs       bool     `json:"audit_logs"`
+	PrioritySupport bool     `json:"priority_support"`
 }
 
 // PH8-FIX: TierLimitsMap defines resource limits per tier for server-side enforcement
