@@ -4,9 +4,15 @@ version = "0.0.0"
 publish = false
 edition = "2021"
 
+# Required marker — without it modern cargo-fuzz refuses the manifest with
+# "does not look like a cargo-fuzz manifest", which (under the old
+# continue-on-error) silently turned every nightly fuzz run into a no-op.
+[package.metadata]
+cargo-fuzz = true
+
 [dependencies]
 libfuzzer-sys = "0.4"
-usbvault_crypto = { path = ".." }
+usbvault-crypto = { path = ".." }
 arbitrary = { version = "1", features = ["derive"] }
 
 [[bin]]

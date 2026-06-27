@@ -1193,4 +1193,100 @@ mod tests {
                 != 0
         );
     }
+
+    // ── C-2 regression: VaultHeader::read must never panic on malformed input ──
+    // The parser is handed fully attacker-controlled bytes (the first 24 KiB of a
+    // VAULT.bin on an untrusted USB stick). Every field read is bounds-checked, so
+    // malformed / short / oversized input returns Err — never an out-of-bounds
+    // panic. These are the deterministic companion to fuzz_vault_header.
+
+    fn valid_v5_header_bytes() -> Vec<u8> {
+        let hmac_key = [0x22u8; 32];
+        let mut header = VaultHeader {
+            version: 5,
+            kdf_hash_id: 2,
+            cipher_id: 2,
+            salt: [0x55u8; 32],
+            verify_iv: [0x66u8; 24],
+            verify_ciphertext: b"v5_verify_ct".to_vec(),
+            header_hmac: [0u8; 32],
+            active_index_slot: 0,
+            index1_offset: HEADER_SIZE_V5 as u32,
+            index1_length: 0,
+            index2_offset: HEADER_SIZE_V5 as u32,
+            index2_length: 0,
+            commit_counter: 0,
+            argon2_memory: 65536,
+            argon2_time: 3,
+            argon2_parallelism: 4,
+            identity_block: None,
+            tfa_block: None,
+            fail_counter_block: None,
+            wrapped_mek: Some(vec![0xCD; 104]),
+            state_version: 1,
+            index_encrypted: true,
+        };
+        header.header_hmac = header.compute_hmac(&hmac_key);
+        header.write()
+    }
+
+    #[test]
+    fn test_read_rejects_empty_and_short_buffers_without_panic() {
+        for len in [
+            0usize,
+            1,
+            7,
+            8,
+            9,
+            16,
+            64,
+            220,
+            221,
+            256,
+            1024,
+            HEADER_SIZE_V4 - 1,
+        ] {
+            let buf = vec![0u8; len];
+            assert!(
+                VaultHeader::read(&buf).is_err(),
+                "all-zero buffer of len {len} must be rejected, not parsed/panicked"
+            );
+        }
+    }
+
+    #[test]
+    fn test_read_rejects_garbage_and_oversized_without_panic() {
+        for len in [
+            HEADER_SIZE_V4,
+            HEADER_SIZE_V5,
+            HEADER_SIZE_V5 + 1,
+            64 * 1024,
+            256 * 1024,
+        ] {
+            let buf: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();
+            assert!(
+                VaultHeader::read(&buf).is_err(),
+                "magic-less garbage of len {len} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_every_truncation_of_a_valid_header_never_panics() {
+        let bytes = valid_v5_header_bytes();
+        assert!(
+            VaultHeader::read(&bytes).is_ok(),
+            "the full valid header must still parse"
+        );
+        // The C-2 property is NO PANIC for any prefix of a real header — the
+        // bounds checks must turn an off-the-end read into Err, never an OOB
+        // index. (read() may legitimately accept a short prefix when every parsed
+        // field still fits and the rest is padding, so we assert no-panic, not
+        // is_err.) A heavily-truncated prefix that drops a required field must Err.
+        for cut in 0..bytes.len() {
+            let _ = VaultHeader::read(&bytes[..cut]);
+        }
+        // Dropping the fixed prefix (magic + core fields) must be rejected.
+        assert!(VaultHeader::read(&bytes[..64]).is_err());
+    }
 }

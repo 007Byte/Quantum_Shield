@@ -29,6 +29,11 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
 
+      # NOTE: this step intentionally does NOT use `continue-on-error`. cargo-fuzz
+      # exits non-zero both when libFuzzer finds a crash AND when a target fails to
+      # build, so a non-zero exit must FAIL the job. The previous `continue-on-error:
+      # true` swallowed both — a crashing input (or, as happened, a target that never
+      # even compiled) reported the run as green and never fuzzed anything.
       - name: Run fuzzer (${{ matrix.target }})
         run: |
           cd usbvault-crypto && \
@@ -36,14 +41,15 @@ jobs:
             -max_total_time=300 \
             -max_len=8192 \
             -timeout=10
-        continue-on-error: true
 
-      - name: Check for crashes
+      - name: Report crash artifacts
         if: failure()
         run: |
           if [ -d "usbvault-crypto/fuzz/artifacts/${{ matrix.target }}" ]; then
-            echo "Crash found in ${{ matrix.target }}"
-            ls -la usbvault-crypto/fuzz/artifacts/${{ matrix.target }}/
+            echo "::error::Crash artifacts found for ${{ matrix.target }}"
+            ls -la "usbvault-crypto/fuzz/artifacts/${{ matrix.target }}/"
+          else
+            echo "Fuzzer step failed without crash artifacts (likely a build failure) — see the run log above."
           fi
 
       - name: Upload crash artifacts
