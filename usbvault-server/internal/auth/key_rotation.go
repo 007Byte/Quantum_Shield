@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -20,14 +19,14 @@ import (
 // Fields:
 //   - KID: Key ID generated from SHA256 hash of public key (16-char hex)
 //   - PublicKey: Ed25519 public key for verification
-//   - PrivateKey: Ed25519 private key for signing (stored base64-encoded in DB)
+//   - PrivateKey: Ed25519 private key for signing (envelope-encrypted at rest in DB)
 //   - Status: Key lifecycle state (active, rotated, revoked)
 //   - ActivatedAt: When this key became active
 type SigningKey struct {
-	KID        string
-	PublicKey  ed25519.PublicKey
-	PrivateKey ed25519.PrivateKey
-	Status     string // active, rotated, revoked
+	KID         string
+	PublicKey   ed25519.PublicKey
+	PrivateKey  ed25519.PrivateKey
+	Status      string // active, rotated, revoked
 	ActivatedAt time.Time
 }
 
@@ -41,12 +40,13 @@ type SigningKey struct {
 //   - Thread-safe with RWMutex
 //
 // PH2-FIX: JWT signing key rotation with kid header support.
-// Production deployment should use KMS for private key storage instead of base64 encoding.
+// Signing private keys are envelope-encrypted at rest (AES-256-GCM under the KEK
+// from JWT_KEY_ENCRYPTION_KEY; see key_at_rest.go), not stored as plaintext.
 type KeyRotationService struct {
-	pool       *pgxpool.Pool
-	mu         sync.RWMutex
-	activeKey  *SigningKey            // Current signing key
-	keyCache   map[string]*SigningKey // kid -> key for verification
+	pool      *pgxpool.Pool
+	mu        sync.RWMutex
+	activeKey *SigningKey            // Current signing key
+	keyCache  map[string]*SigningKey // kid -> key for verification
 }
 
 // NewKeyRotationService creates a new key rotation service for managing JWT key versions.
@@ -61,11 +61,11 @@ func NewKeyRotationService(pool *pgxpool.Pool) *KeyRotationService {
 // Should be called once during application startup.
 //
 // Process:
-//   1. Query database for active and rotated keys
-//   2. Load keys into memory cache
-//   3. Set most recently activated key as active
-//   4. If no active key exists, generate and store new initial key
-//   5. Update global jwtPrivateKey/jwtPublicKey for backward compatibility
+//  1. Query database for active and rotated keys
+//  2. Load keys into memory cache
+//  3. Set most recently activated key as active
+//  4. If no active key exists, generate and store new initial key
+//  5. Update global jwtPrivateKey/jwtPublicKey for backward compatibility
 //
 // Returns error if database queries or key parsing fails.
 func (krs *KeyRotationService) Initialize(ctx context.Context) error {
@@ -92,10 +92,11 @@ func (krs *KeyRotationService) Initialize(ctx context.Context) error {
 			return fmt.Errorf("failed to scan signing key: %w", err)
 		}
 
-		// For now, private key is base64-encoded (production should use KMS)
-		privKeyBytes, err := base64.StdEncoding.DecodeString(string(privKeyEncrypted))
+		// Envelope-decrypt the signing key (or read a legacy base64 row). See
+		// key_at_rest.go; the KEK comes from JWT_KEY_ENCRYPTION_KEY.
+		privKeyBytes, err := openSigningKey(privKeyEncrypted)
 		if err != nil {
-			log.Warn().Str("kid", kid).Msg("PH2-FIX: skipping key with invalid private key encoding")
+			log.Warn().Err(err).Str("kid", kid).Msg("skipping signing key that failed to decrypt/decode")
 			continue
 		}
 
@@ -135,7 +136,7 @@ func (krs *KeyRotationService) Initialize(ctx context.Context) error {
 // stores it in the database with active status, and updates the in-memory cache.
 //
 // KID generation: First 8 bytes of SHA256(public_key) encoded as 16-char hex string.
-// Private key: Stored as base64-encoded string (production should use KMS envelope encryption).
+// Private key: envelope-encrypted at rest via sealSigningKey (key_at_rest.go).
 //
 // Returns error if key generation or database insertion fails.
 func (krs *KeyRotationService) generateAndStoreKey(ctx context.Context) error {
@@ -148,23 +149,28 @@ func (krs *KeyRotationService) generateAndStoreKey(ctx context.Context) error {
 	hash := sha256.Sum256(pubKey)
 	kid := hex.EncodeToString(hash[:8]) // 16-char hex KID
 
-	// Store private key (base64-encoded; production should use envelope encryption via KMS)
-	privKeyEncoded := base64.StdEncoding.EncodeToString(privKey)
+	// Envelope-encrypt the private key at rest (AES-256-GCM under the KEK from
+	// JWT_KEY_ENCRYPTION_KEY; see key_at_rest.go). Falls back to legacy base64 only
+	// when no KEK is configured (non-production).
+	sealed, err := sealSigningKey(privKey)
+	if err != nil {
+		return fmt.Errorf("failed to seal signing key: %w", err)
+	}
 
 	_, err = krs.pool.Exec(ctx,
 		`INSERT INTO jwt_signing_keys (kid, public_key, private_key_encrypted, algorithm, status, activated_at)
 		 VALUES ($1, $2, $3, 'EdDSA', 'active', NOW())`,
-		kid, []byte(pubKey), []byte(privKeyEncoded))
+		kid, []byte(pubKey), sealed)
 	if err != nil {
 		return fmt.Errorf("failed to store signing key: %w", err)
 	}
 
 	key := &SigningKey{
 		KID:         kid,
-		PublicKey:    pubKey,
-		PrivateKey:   privKey,
-		Status:       "active",
-		ActivatedAt:  time.Now(),
+		PublicKey:   pubKey,
+		PrivateKey:  privKey,
+		Status:      "active",
+		ActivatedAt: time.Now(),
 	}
 
 	krs.activeKey = key
@@ -182,9 +188,9 @@ func (krs *KeyRotationService) generateAndStoreKey(ctx context.Context) error {
 // Called on schedule (e.g., every 90 days) for key management.
 //
 // Process:
-//   1. Mark current active key as rotated with timestamp
-//   2. Generate and store new key as active
-//   3. Update in-memory active key reference
+//  1. Mark current active key as rotated with timestamp
+//  2. Generate and store new key as active
+//  3. Update in-memory active key reference
 //
 // Old rotated keys remain in database for verification of previously-signed tokens.
 // Returns error if key rotation fails.
