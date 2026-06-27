@@ -238,14 +238,35 @@ gate_electron() {
   run "electron: npm ci"   "$ELECTRON" npm ci
   run "electron: npm test" "$ELECTRON" npm test
 }
+# docker-compose.test.yml lives at the repo ROOT (build context is root-relative).
+fullstack_down() { ( cd "$ROOT" && docker compose -f docker-compose.test.yml down -v --remove-orphans >/dev/null 2>&1 ) || true; }
+gate_fullstack() {
+  # CI ci.yml integration-tests job, "Run full-stack integration suite" step
+  # (BLOCKING): brings up the WHOLE stack (API + Postgres + Redis + MinIO) from the
+  # repo root and runs internal/integration with INTEGRATION=1 against the live API
+  # on :8090. gate_go's `go test -tags=integration ./...` does NOT cover this —
+  # without INTEGRATION=1 + a live stack those tests t.Skip(). This is exactly the
+  # parity hole that let the full-stack suite reach CI red unseen.
+  section "Full-stack integration (docker-compose.test.yml — live API + PG + Redis + MinIO)"
+  if ! ( cd "$ROOT" && docker compose -f docker-compose.test.yml up -d --wait --build ); then
+    record "fullstack: stack up (docker-compose)" 1
+    ( cd "$ROOT" && docker compose -f docker-compose.test.yml logs --tail=40 api 2>&1 | tail -40 )
+    fullstack_down
+    return
+  fi
+  for _ in $(seq 1 30); do curl -sf http://localhost:8090/health >/dev/null 2>&1 && break; sleep 2; done
+  run "fullstack: integration (INTEGRATION=1, live API)" "$SERVER" \
+    env INTEGRATION=1 API_URL=http://localhost:8090 go test -tags=integration -timeout=300s ./internal/integration/...
+  fullstack_down
+}
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 MODE="full"; NO_SERVICES="0"; E2E_CI_SIM="0"; declare -a ONLY=()
 for arg in "$@"; do case "$arg" in
   --full) MODE="full";; --changed) MODE="changed";; --no-services) NO_SERVICES="1";;
   --e2e-ci-sim) E2E_CI_SIM="1";;
-  --rust|--go|--migrations|--rn|--companion|--electron|--e2e|--security|--env) ONLY+=("${arg#--}"); MODE="only";;
-  --list) echo "Gates: rust go migrations rn companion electron e2e security env  | CI-only: ffi-build EAS DAST Trivy SBOM"; exit 0;;
+  --rust|--go|--migrations|--rn|--companion|--electron|--fullstack|--e2e|--security|--env) ONLY+=("${arg#--}"); MODE="only";;
+  --list) echo "Gates: rust go migrations rn companion electron fullstack e2e security env  | CI-only: ffi-build EAS DAST Trivy SBOM"; exit 0;;
   *) echo "Unknown arg: $arg"; exit 2;;
 esac; done
 
@@ -261,6 +282,7 @@ want() { # want <domain>
     rn|e2e)      echo "$diff" | grep -q "^usbvault-app/";;
     companion)   echo "$diff" | grep -q "^usb-companion/";;
     electron)    echo "$diff" | grep -q "^electron-shell/";;
+    fullstack)   echo "$diff" | grep -qE "^usbvault-server/|^docker-compose.test.yml";;
     security|env) return 0;; # always
   esac
 }
@@ -268,13 +290,15 @@ want() { # want <domain>
 echo -e "${BOLD}preflight.sh — mode=$MODE  e2e-ci-sim=$E2E_CI_SIM${NC}"
 NEED_DB=0
 if want go || want migrations; then NEED_DB=1; fi
+NEED_DOCKER="$NEED_DB"
+want fullstack && NEED_DOCKER=1
+[ "$NEED_DOCKER" = "1" ] && require_docker   # fail-fast & loud if the daemon is down — never mistaken for code
 if [ "$NEED_DB" = "1" ]; then
-  require_docker   # fail-fast & loud if the daemon is down — never mistaken for code
   section "Starting Postgres ($PG_IMAGE on :$PG_PORT) + Redis (redis:7-alpine on :$REDIS_PORT)"
   start_pg
   start_redis
 fi
-trap 'stop_pg; stop_redis' EXIT
+trap 'stop_pg; stop_redis; fullstack_down' EXIT
 
 want rust       && gate_rust
 want go         && gate_go
@@ -282,6 +306,7 @@ want migrations && gate_migrations
 want rn         && gate_rn
 want companion  && gate_companion
 want electron   && gate_electron
+want fullstack  && gate_fullstack
 want e2e        && gate_e2e
 want security   && gate_security
 want env        && gate_env

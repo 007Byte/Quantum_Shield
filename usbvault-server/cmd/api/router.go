@@ -72,13 +72,26 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 	r.Use(mw.SecurityHeaders(mw.DefaultSecurityHeadersConfig(isProduction)))
 	r.Use(mw.HTTPSRedirect(mw.DefaultHTTPSRedirectConfig(isProduction)))
 
-	// RFC 9116: Serve security.txt at well-known path (public, no auth required)
+	// Auth middleware (extracts JWT if present, doesn't require it)
+	r.Use(mw.AuthMiddleware(a.redisClient))
+
+	// Phase 1 Security Fix: Audit middleware logs all mutating requests as security events.
+	// This ensures SOC 2 compliance even if handlers forget to call auditService.LogAction().
+	r.Use(mw.AuditMiddleware(a.auditService, mw.DefaultAuditMiddlewareConfig()))
+
+	// Public well-known routes. chi requires EVERY r.Use() on a mux to be declared
+	// BEFORE the first route registered on it, so these come after all mux-level
+	// middleware above — registering them earlier (the prior ordering) panics chi
+	// at startup: "all middlewares must be defined before routes on a mux". They
+	// stay effectively public: AuthMiddleware only extracts a JWT if one is present
+	// and AuditMiddleware only logs mutating requests, so neither blocks these GETs.
+	// RFC 9116: security.txt at the well-known path.
 	r.Get("/.well-known/security.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		http.ServeFile(w, r, "static/.well-known/security.txt")
 	})
 
-	// Apple Universal Links — AASA (must be served without redirects, Content-Type application/json)
+	// Apple Universal Links — AASA (served with Content-Type application/json)
 	r.Get("/.well-known/apple-app-site-association", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		http.ServeFile(w, r, "static/.well-known/apple-app-site-association")
@@ -89,13 +102,6 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 		w.Header().Set("Content-Type", "application/json")
 		http.ServeFile(w, r, "static/.well-known/assetlinks.json")
 	})
-
-	// Auth middleware (extracts JWT if present, doesn't require it)
-	r.Use(mw.AuthMiddleware(a.redisClient))
-
-	// Phase 1 Security Fix: Audit middleware logs all mutating requests as security events.
-	// This ensures SOC 2 compliance even if handlers forget to call auditService.LogAction().
-	r.Use(mw.AuditMiddleware(a.auditService, mw.DefaultAuditMiddlewareConfig()))
 
 	// MEDIUM-FIX: Health check with enhanced deep checks for all critical dependencies
 	r.Get("/health", a.handleHealth())

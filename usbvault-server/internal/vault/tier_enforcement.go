@@ -252,6 +252,22 @@ func (tl *TierLimiter) CreateVaultAtomic(ctx context.Context, userID string, enc
 		return "", err
 	}
 
+	// Grant the creator the 'owner' role on the new vault in the SAME transaction.
+	// The RBAC layer (RequireVaultPermission -> RBACService.CheckPermission ->
+	// GetUserRole) resolves every permission from a vault_members row; without this
+	// the creator would be denied update/share/manage on their own vault (the cause
+	// of the 403 on the blob upload-url path). granted_by is the creator itself
+	// (self-granted at creation).
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO vault_members (vault_id, user_id, role, granted_at, granted_by)
+		 VALUES ($1, $2, 'owner', NOW(), $2)
+		 ON CONFLICT (vault_id, user_id) DO UPDATE SET role = 'owner'`,
+		vaultID, userID,
+	); err != nil {
+		log.Error().Err(err).Str("user_id", userID).Str("vault_id", vaultID).Msg("F3: failed to grant owner role in tx")
+		return "", err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		log.Error().Err(err).Str("user_id", userID).Msg("F3: failed to commit vault-create tx")
 		return "", err

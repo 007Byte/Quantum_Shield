@@ -641,6 +641,10 @@ jobs:
       # presigned-S3 upload + zero-knowledge round-trip tests — a green result
       # here can no longer hide an empty integration run.
       - name: Run full-stack integration suite (docker-compose)
+        # Runs from the repo ROOT (no working-directory override): docker-compose.test.yml
+        # lives at the root and its build context (./usbvault-server) is root-relative,
+        # so `docker compose -f docker-compose.test.yml` MUST resolve from here. The Go
+        # suite is then run inside the server module via a subshell.
         run: |
           # Bring up API + Postgres + Redis + MinIO and wait for healthchecks.
           docker compose -f docker-compose.test.yml up -d --wait
@@ -652,9 +656,8 @@ jobs:
           # Run the loud-failing full-stack suite on the RUNNER host (which has the
           # Go toolchain) against the live API published on :8090. INTEGRATION=1
           # makes a missing/unreachable stack a HARD failure rather than a skip.
-          INTEGRATION=1 API_URL=http://localhost:8090 \
-            go test -v -tags=integration -timeout=300s ./internal/integration/...
-        working-directory: usbvault-server
+          ( cd usbvault-server && INTEGRATION=1 API_URL=http://localhost:8090 \
+              go test -v -tags=integration -timeout=300s ./internal/integration/... )
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
