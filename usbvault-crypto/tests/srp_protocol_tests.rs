@@ -360,11 +360,18 @@ fn test_m2_verification_succeeds_with_correct_m2() {
         .process_challenge(&salt, password, &server_b)
         .expect("Challenge failed");
 
-    // In real scenario, server would compute M2 = H(client_a || M1 || session_key)
-    // For testing, we simulate it (in real scenario this would come from server)
+    // In real scenario, server would compute M2 = H(PAD(A) || M1 || session_key)
+    // For testing, we simulate it (in real scenario this would come from server).
+    // PAD-384: A is left-padded to the 384-byte (3072-bit) modulus width, exactly as
+    // verify_server does. The previous `BigUint::to_bytes_be()` STRIPPED leading zero
+    // bytes, so when the random ephemeral A had a leading zero (~0.4% of runs) the
+    // simulated M2 diverged from the server's and this test flaked intermittently.
     use sha2::{Digest, Sha256};
+    let a_be = BigUint::from_bytes_be(&client_a).to_bytes_be();
+    let mut padded_a = [0u8; 384];
+    padded_a[384 - a_be.len()..].copy_from_slice(&a_be);
     let mut hasher = Sha256::new();
-    hasher.update(BigUint::from_bytes_be(&client_a).to_bytes_be());
+    hasher.update(padded_a);
     hasher.update(session.client_proof_m1());
     hasher.update(session.session_key());
     let simulated_m2 = hasher.finalize();
