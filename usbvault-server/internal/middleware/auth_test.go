@@ -62,6 +62,70 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	}
 }
 
+// Device-fingerprint binding must FAIL CLOSED: a device-bound token MUST present a
+// matching X-Device-Fingerprint header. Omitting the header previously bypassed the
+// binding entirely (a stolen device-bound token then worked from any device).
+func TestAuthMiddleware_DeviceFingerprintFailClosed(t *testing.T) {
+	const fp = "device-fingerprint-abc123"
+	token, _, err := auth.GenerateTokenPairWithFingerprint("fp-user", "fp-device", fp)
+	if err != nil {
+		t.Fatalf("failed to generate device-bound token: %v", err)
+	}
+
+	run := func(setHeader bool, headerVal string) (int, bool) {
+		called := false
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusOK)
+		})
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		if setHeader {
+			req.Header.Set("X-Device-Fingerprint", headerVal)
+		}
+		w := httptest.NewRecorder()
+		AuthMiddleware(nil)(next).ServeHTTP(w, req)
+		return w.Code, called
+	}
+
+	t.Run("missing header is rejected (the fail-open fix)", func(t *testing.T) {
+		if code, called := run(false, ""); code != http.StatusUnauthorized || called {
+			t.Errorf("expected 401 and handler NOT called, got %d called=%v", code, called)
+		}
+	})
+	t.Run("matching header is allowed", func(t *testing.T) {
+		if code, called := run(true, fp); code != http.StatusOK || !called {
+			t.Errorf("expected 200 and handler called, got %d called=%v", code, called)
+		}
+	})
+	t.Run("mismatched header is rejected", func(t *testing.T) {
+		if code, called := run(true, "wrong-fingerprint"); code != http.StatusUnauthorized || called {
+			t.Errorf("expected 401 and handler NOT called, got %d called=%v", code, called)
+		}
+	})
+}
+
+// A token WITHOUT a device-fingerprint claim has no binding, so a missing header
+// must NOT block the request (only bound tokens require the header).
+func TestAuthMiddleware_NoFingerprintBindingAllowsMissingHeader(t *testing.T) {
+	token, _, err := auth.GenerateTokenPair("nofp-user", "nofp-device")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	AuthMiddleware(nil)(next).ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !called {
+		t.Errorf("expected 200 and handler called for unbound token, got %d called=%v", w.Code, called)
+	}
+}
+
 func TestAuthMiddleware_MissingAuthorizationHeader(t *testing.T) {
 	nextHandlerCalled := false
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,9 +193,9 @@ func TestAuthMiddleware_MalformedAuthHeader(t *testing.T) {
 	handler := middleware(nextHandler)
 
 	testCases := []string{
-		"Bearer",                    // Missing token
-		"Bearer  ",                  // Only spaces
-		"NotBearer token123",        // Wrong scheme
+		"Bearer",                     // Missing token
+		"Bearer  ",                   // Only spaces
+		"NotBearer token123",         // Wrong scheme
 		"Bearer token1 token2 extra", // Extra tokens
 	}
 

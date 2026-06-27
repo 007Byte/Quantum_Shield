@@ -486,10 +486,12 @@ func (f fakeBillingChecker) CheckAccess(ctx context.Context, userID string) (str
 type fakeShareRepo struct {
 	activeShares int
 	countErr     error
+	notOwned     bool  // when true, BlobOwnedBy reports the blob is NOT owned
+	ownedErr     error // when set, BlobOwnedBy returns this error
 }
 
 func (r *fakeShareRepo) BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error) {
-	return true, nil
+	return !r.notOwned, r.ownedErr
 }
 func (r *fakeShareRepo) CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error) {
 	return uuid.New().String(), nil
@@ -515,6 +517,27 @@ func (r *fakeShareRepo) AcceptShare(ctx context.Context, recipientID, shareID st
 }
 func (r *fakeShareRepo) RejectShare(ctx context.Context, recipientID, shareID string) error {
 	return nil
+}
+
+// IDOR backstop: the service layer must refuse to create a share for a blob the
+// sender does not own, independent of any handler-level check.
+func TestCreateShare_RejectsBlobNotOwned(t *testing.T) {
+	svc := NewSharingService(&fakeShareRepo{notOwned: true})
+	_, err := svc.CreateShare(context.Background(), uuid.New(), uuid.New(), uuid.New(), []byte("ek"))
+	if err != ErrBlobNotOwned {
+		t.Fatalf("expected ErrBlobNotOwned, got %v", err)
+	}
+}
+
+func TestCreateShare_AllowsOwnedBlob(t *testing.T) {
+	svc := NewSharingService(&fakeShareRepo{}) // notOwned=false -> blob is owned
+	id, err := svc.CreateShare(context.Background(), uuid.New(), uuid.New(), uuid.New(), []byte("ek"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id == uuid.Nil {
+		t.Fatal("expected a non-nil share id")
+	}
 }
 
 func TestCheckCanCreateShare(t *testing.T) {

@@ -51,6 +51,10 @@ var ErrSharingNotAllowed = errors.New("sharing is not available on your subscrip
 // of outstanding shares permitted. Callers translate this into HTTP 402.
 var ErrShareLimitReached = errors.New("share limit reached for subscription tier")
 
+// ErrBlobNotOwned is returned when a share is requested for a blob the sender does
+// not own. Callers translate this into HTTP 403/404 (IDOR protection).
+var ErrBlobNotOwned = errors.New("blob not found or not owned by sender")
+
 // SharingService manages secure file sharing with encrypted key exchange.
 type SharingService struct {
 	repo database.ShareRepository
@@ -137,6 +141,18 @@ func (ss *SharingService) BlobOwnedBy(ctx context.Context, userID, blobID uuid.U
 
 // CreateShare creates a new share record with a 30-day expiration by default.
 func (ss *SharingService) CreateShare(ctx context.Context, senderID, recipientID, blobID uuid.UUID, encryptedKey []byte) (uuid.UUID, error) {
+	// Defense in depth (IDOR): enforce blob ownership at the service boundary, not
+	// only in HandleCreateShare. This guarantees no caller (current or future) can
+	// persist a share row for a blob the sender does not own, even if a handler
+	// forgets the check or a new entry point is added.
+	owned, err := ss.repo.BlobOwnedBy(ctx, senderID.String(), blobID.String())
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if !owned {
+		return uuid.Nil, ErrBlobNotOwned
+	}
+
 	shareID, err := ss.repo.CreateShare(ctx, senderID.String(), recipientID.String(), blobID.String(), encryptedKey)
 	if err != nil {
 		return uuid.Nil, err
@@ -293,26 +309,26 @@ func HandleCreateShare(ss *SharingService, auditSvc interface {
 			return
 		}
 
-	// MEDIUM-FIX: Validate expiration date is in the future
-	if req.ExpiresAt != nil {
-		expiresTime, err := time.Parse(time.RFC3339, *req.ExpiresAt)
-		if err != nil {
-			http.Error(w, "invalid expiration date format (must be RFC3339)", http.StatusBadRequest)
+		// MEDIUM-FIX: Validate expiration date is in the future
+		if req.ExpiresAt != nil {
+			expiresTime, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+			if err != nil {
+				http.Error(w, "invalid expiration date format (must be RFC3339)", http.StatusBadRequest)
+				return
+			}
+			if expiresTime.Before(time.Now()) {
+				http.Error(w, "expiration date must be in the future", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// MEDIUM-FIX: Validate permissions field is one of 'read' or 'read-decrypt'
+		if req.Permissions != "" && req.Permissions != "read" && req.Permissions != "read-decrypt" {
+			http.Error(w, "permissions must be 'read' or 'read-decrypt'", http.StatusBadRequest)
 			return
 		}
-		if expiresTime.Before(time.Now()) {
-			http.Error(w, "expiration date must be in the future", http.StatusBadRequest)
-			return
-		}
-	}
 
-	// MEDIUM-FIX: Validate permissions field is one of 'read' or 'read-decrypt'
-	if req.Permissions != "" && req.Permissions != "read" && req.Permissions != "read-decrypt" {
-		http.Error(w, "permissions must be 'read' or 'read-decrypt'", http.StatusBadRequest)
-		return
-	}
-
-encryptedKey, err := decodeFromBase64(req.EncryptedKey)
+		encryptedKey, err := decodeFromBase64(req.EncryptedKey)
 		if err != nil {
 			http.Error(w, "invalid base64 encrypted key", http.StatusBadRequest)
 			return
@@ -357,6 +373,11 @@ encryptedKey, err := decodeFromBase64(req.EncryptedKey)
 
 		shareID, err := ss.CreateShare(r.Context(), senderUUID, recipientID, blobID, encryptedKey)
 		if err != nil {
+			// Backstop: the service layer also enforces blob ownership (IDOR).
+			if errors.Is(err, ErrBlobNotOwned) {
+				http.Error(w, "blob not found or access denied", http.StatusForbidden)
+				return
+			}
 			http.Error(w, "failed to create share", http.StatusInternalServerError)
 			return
 		}
