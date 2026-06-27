@@ -644,7 +644,7 @@ func (bs *BillingService) handleSubscriptionUpdated(ctx context.Context, event m
 	// Look up user_id from customer_id
 	var userID string
 	err := bs.pool.QueryRow(ctx,
-		`SELECT user_id FROM customers WHERE stripe_customer_id = $1`,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
 		customerID,
 	).Scan(&userID)
 
@@ -716,7 +716,7 @@ func (bs *BillingService) handleSubscriptionDeleted(ctx context.Context, event m
 	// Look up user_id from customer_id
 	var userID string
 	err := bs.pool.QueryRow(ctx,
-		`SELECT user_id FROM customers WHERE stripe_customer_id = $1`,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
 		customerID,
 	).Scan(&userID)
 
@@ -768,7 +768,7 @@ func (bs *BillingService) handlePaymentSucceeded(ctx context.Context, event map[
 	// Look up user_id from customer_id
 	var userID string
 	err := bs.pool.QueryRow(ctx,
-		`SELECT user_id FROM customers WHERE stripe_customer_id = $1`,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
 		customerID,
 	).Scan(&userID)
 
@@ -817,7 +817,7 @@ func (bs *BillingService) handlePaymentFailed(ctx context.Context, event map[str
 	// Look up user_id from customer_id
 	var userID string
 	err := bs.pool.QueryRow(ctx,
-		`SELECT user_id FROM customers WHERE stripe_customer_id = $1`,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
 		customerID,
 	).Scan(&userID)
 
@@ -1040,15 +1040,31 @@ func HandleUpgradeSubscription(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		// Update subscription in database
-		_, err = bs.pool.Exec(ctx,
-			`UPDATE subscriptions SET tier = $1, updated_at = NOW() WHERE user_id = $2`,
-			req.Tier, userID,
-		)
-
-		if err != nil {
-			log.Error().Err(err).Str("user_id", userID).Str("tier", req.Tier).Msg("failed to upgrade subscription")
-			http.Error(w, "failed to upgrade subscription", http.StatusInternalServerError)
+		// SECURITY (CRIT-4 / P0): never write the tier directly on request. The previous
+		// implementation ran `UPDATE subscriptions SET tier` here, letting any authenticated
+		// user self-grant enterprise with ZERO payment. The authoritative tier must only be
+		// set through a payment-verified path. Delegate to CreateSubscription: in live-Stripe
+		// mode it requires an existing Stripe customer and a Stripe-accepted subscription
+		// before any tier is persisted (the signature-verified webhook —
+		// handleSubscriptionCreated/Updated — is the source of truth); in local/dev mode it
+		// uses the same local path as /subscribe. On any failure the tier is left unchanged.
+		// NOTE (tracked follow-up): when the user already has a live Stripe subscription, an
+		// upgrade should MODIFY that subscription's price rather than create a second one;
+		// /subscribe still permits local-mode provisioning for dev — same parity item.
+		//
+		// Fail closed when there is no live Stripe configuration: in local/dev mode there is
+		// NO payment source, so granting a paid tier here would be exactly the free self-grant
+		// we are removing (this also protects a production box misconfigured without a key).
+		if !isLiveStripeKey(bs.apiKey) {
+			log.Warn().Str("user_id", userID).Str("tier", req.Tier).
+				Msg("CRIT-4: upgrade refused — no live Stripe configuration (no self-grant)")
+			http.Error(w, "upgrades require an active billing configuration; complete checkout to upgrade", http.StatusPaymentRequired)
+			return
+		}
+		if _, err = bs.CreateSubscription(ctx, userID, req.Tier); err != nil {
+			log.Warn().Err(err).Str("user_id", userID).Str("tier", req.Tier).
+				Msg("CRIT-4: upgrade rejected — payment-verified path failed (no self-grant)")
+			http.Error(w, "upgrade requires an active payment method; complete checkout to upgrade", http.StatusPaymentRequired)
 			return
 		}
 

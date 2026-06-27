@@ -365,6 +365,29 @@ func TestHandleWebhook(t *testing.T) {
 // Test HandleCreateCustomer Handler
 // ============================================================================
 
+// CRIT-4 / P0 regression: a tier upgrade must NEVER be granted without a live,
+// payment-verified Stripe configuration. Before the fix, HandleUpgradeSubscription
+// ran a direct `UPDATE subscriptions SET tier`, letting any authenticated user
+// self-grant enterprise for free. It must now fail closed with 402 and write nothing.
+func TestHandleUpgradeSubscription_NoSelfGrantWithoutLiveStripe(t *testing.T) {
+	t.Parallel()
+
+	// Non-live key ("placeholder") + nil pool: GetSubscription returns the free tier
+	// (nil-pool path), the higher-tier check passes, and the handler must refuse at the
+	// live-Stripe gate BEFORE reaching any tier write (no pool.Exec is hit).
+	svc := NewBillingService("sk_test_placeholder", nil)
+
+	body, _ := json.Marshal(UpgradeSubscriptionRequest{Tier: "enterprise"})
+	req := httptest.NewRequest("POST", "/billing/upgrade", bytes.NewReader(body))
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.UserID, "user-123"))
+	w := httptest.NewRecorder()
+
+	HandleUpgradeSubscription(svc)(w, req)
+
+	assert.Equal(t, http.StatusPaymentRequired, w.Code,
+		"free user must not be able to self-grant a paid tier; expected 402, body=%s", w.Body.String())
+}
+
 func TestHandleCreateCustomer(t *testing.T) {
 	t.Parallel()
 
