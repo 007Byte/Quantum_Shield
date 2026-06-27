@@ -144,18 +144,6 @@ export async function readVaultHeader(mountPoint) {
       throw new Error('Invalid VAULT.bin: magic bytes mismatch');
     }
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    logger.info('[READ-HEADER-DIAG] Reading header', {
-      mountPoint,
-      bytesRead,
-      kdfByte: buf[8],
-      cipherByte: buf[9],
-      saltFirst8: buf.subarray(10, 18).toString('hex'),
-      wrappedMekLenAt221: buf.readUInt32LE(221),
-      wrappedMekFirst8At225: buf.subarray(225, 233).toString('hex'),
-    });
-    // ────────────────────────────────────────────────────────────────
-
     return buf;
   } finally {
     await fd.close();
@@ -173,22 +161,13 @@ export async function writeVaultHeader(mountPoint, headerBytes) {
   if (!Buffer.isBuffer(headerBytes) || headerBytes.length !== HEADER_SIZE) {
     throw new Error(`Header must be exactly ${HEADER_SIZE} bytes`);
   }
-
-  // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-  const saltHex = headerBytes.subarray(10, 42).toString('hex');
-  const kdfByte = headerBytes[8];
-  const cipherByte = headerBytes[9];
-  logger.info('[WRITE-HEADER-DIAG] Writing header', {
-    mountPoint,
-    size: headerBytes.length,
-    magic: headerBytes.subarray(0, 8).toString('utf8'),
-    kdfByte,
-    cipherByte,
-    saltFirst8: saltHex.substring(0, 16),
-    wrappedMekLenAt221: headerBytes.readUInt32LE(221),
-    wrappedMekFirst8At225: headerBytes.subarray(225, 233).toString('hex'),
-  });
-  // ────────────────────────────────────────────────────────────────
+  // HIGH-1: refuse to overwrite the header region with bytes that do not carry the
+  // VAULT magic. The read path already enforces the magic; without the same check
+  // here an unauthenticated raw write could clobber VAULT.bin's header with
+  // arbitrary data.
+  if (!headerBytes.subarray(0, 8).equals(VAULT_MAGIC)) {
+    throw new Error('Refusing to write header: VAULT magic bytes mismatch');
+  }
 
   const path = vaultBinPath(mountPoint);
   const fd = await open(path, 'r+');
@@ -199,25 +178,19 @@ export async function writeVaultHeader(mountPoint, headerBytes) {
     await fd.close();
   }
 
-  // ── POST-WRITE VERIFICATION ─────────────────────────────────────
+  // Post-write integrity verification (USB durability). MED-1: this deliberately
+  // does NOT log salt / wrapped-MEK / KDF bytes — the previous DIAG logging leaked
+  // key material at info level.
   const verifyFd = await open(path, 'r');
   try {
     const verifyBuf = Buffer.alloc(HEADER_SIZE);
     await verifyFd.read(verifyBuf, 0, HEADER_SIZE, 0);
-    const wroteMatch = headerBytes.equals(verifyBuf);
-    logger.info('[WRITE-HEADER-DIAG] Post-write verify', {
-      match: wroteMatch,
-      readbackMagic: verifyBuf.subarray(0, 8).toString('utf8'),
-      readbackSaltFirst8: verifyBuf.subarray(10, 18).toString('hex'),
-      readbackWrappedMekFirst8At225: verifyBuf.subarray(225, 233).toString('hex'),
-    });
-    if (!wroteMatch) {
-      logger.error('[WRITE-HEADER-DIAG] HEADER MISMATCH AFTER WRITE! Data on disk differs from what was sent.');
+    if (!headerBytes.equals(verifyBuf)) {
+      logger.error('[writeVaultHeader] post-write verification failed: on-disk header differs from what was written', { mountPoint });
     }
   } finally {
     await verifyFd.close();
   }
-  // ────────────────────────────────────────────────────────────────
 
   audit.log('vault_header_written', { mountPoint });
 }
@@ -396,7 +369,10 @@ export async function compactVault(mountPoint, activeFiles) {
     spaceSaved: oldSize - newSize,
   });
 
-  audit('vault_compacted', { mountPoint, oldSize, newSize, spaceSaved: oldSize - newSize });
+  // MED-9: `audit` is an object with a `.log` method (see utils/logger.js); calling
+  // it as a function threw a TypeError, silently losing the compaction audit record
+  // (and surfacing as a 500 to the caller). Use audit.log, matching every other site.
+  audit.log('vault_compacted', { mountPoint, oldSize, newSize, spaceSaved: oldSize - newSize });
 
   return { newOffsets, oldSize, newSize };
 }

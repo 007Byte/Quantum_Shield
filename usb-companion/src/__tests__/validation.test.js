@@ -146,6 +146,34 @@ describe('validateProvisionParams', () => {
     const result = validateProvisionParams({});
     assert.ok(result.errors.length > 1);
   });
+
+  // LOW-4: disk/partition labels are character-sanitized (they flow into OS
+  // labeling commands).
+  it('accepts clean vault_name and partition_name', () => {
+    const body = { ...validBody, vault_name: 'My Vault-01', partition_name: 'USB_DRIVE' };
+    const result = validateProvisionParams(body);
+    assert.equal(result.valid, true);
+    assert.equal(result.params.vaultName, 'My Vault-01');
+  });
+
+  it('rejects vault_name with shell/path metacharacters', () => {
+    for (const bad of ['vault; rm -rf /', 'a`whoami`', 'name$(id)', 'x|y', 'a/b']) {
+      const result = validateProvisionParams({ ...validBody, vault_name: bad });
+      assert.equal(result.valid, false, `expected ${bad} to be rejected`);
+      assert.ok(result.errors.some(e => /vault_name/i.test(e)));
+    }
+  });
+
+  it('rejects partition_name with disallowed characters', () => {
+    const result = validateProvisionParams({ ...validBody, partition_name: 'p@rt$' });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some(e => /partition_name/i.test(e)));
+  });
+
+  it('still accepts when labels are omitted (defaults apply)', () => {
+    const result = validateProvisionParams(validBody);
+    assert.equal(result.valid, true);
+  });
 });
 
 // ---------------------------------------------------------------------------

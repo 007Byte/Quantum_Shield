@@ -65,6 +65,17 @@ export function validateProvisionParams(body) {
     errors.push('confirm must be true to execute destructive operations');
   }
 
+  // LOW-4: character-sanitize the optional disk/partition labels. They flow into OS
+  // labeling commands (diskpart / PowerShell / mkfs label), so restrict to a
+  // conservative allowlist instead of trusting arbitrary input.
+  const LABEL_CHARS = /^[A-Za-z0-9 _-]+$/;
+  if (typeof body?.vault_name === 'string' && body.vault_name.trim() && !LABEL_CHARS.test(body.vault_name.trim())) {
+    errors.push('vault_name may only contain letters, digits, spaces, hyphens and underscores');
+  }
+  if (typeof body?.partition_name === 'string' && body.partition_name.trim() && !LABEL_CHARS.test(body.partition_name.trim())) {
+    errors.push('partition_name may only contain letters, digits, spaces, hyphens and underscores');
+  }
+
   return {
     valid: errors.length === 0,
     errors,

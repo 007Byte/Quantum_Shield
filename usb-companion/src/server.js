@@ -26,6 +26,7 @@ import rateLimit from 'express-rate-limit';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { usbRouter } from './routes/usb.js';
 import { healthRouter } from './routes/health.js';
 import { requestLogger, errorHandler, notFoundHandler } from './middleware/handlers.js';
@@ -97,27 +98,41 @@ app.use(cors({
   maxAge: 86400, // Cache preflight for 24h
 }));
 
-// Rate limiting: prevent abuse even on localhost
+// Rate limiting: prevent abuse even on localhost. CRIT-1 residual: key the limit by
+// a hash of the presented bearer token so it is tied to the authenticated session
+// rather than a single hardcoded constant (and the raw token never lands in the
+// rate-limit store). Pre-auth requests (e.g. /health) share one 'anon' bucket.
+function rateLimitKey(req) {
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) {
+    return 'tok:' + createHash('sha256').update(auth.slice(7)).digest('hex');
+  }
+  return 'anon';
+}
+
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 300,            // 300 requests per minute (was 60 — too low for SPA page loads)
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: () => 'localhost', // Single key since localhost-only
+  keyGenerator: rateLimitKey,
 });
 app.use(limiter);
 
-// Stricter rate limit for destructive USB operations
+// Stricter rate limit for destructive USB operations (separate store; same per-token key)
 const destructiveLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
   message: { error: 'Too many USB write operations. Please wait before retrying.' },
-  keyGenerator: () => 'localhost-destructive',
+  keyGenerator: rateLimitKey,
 });
 
 // Body parsing with size limits
-app.use(express.json({ limit: '50mb' })); // Must handle encrypted file payloads (was 2kb — broke file uploads)
+// MED-5: was '50mb' (loopback memory-exhaustion DoS). Binary file payloads use the
+// scoped express.raw parser on /usb/vault/:id/files (100mb), so the JSON parser only
+// needs headroom for small control bodies + base64 vault headers (~32KB) — 1mb is ample.
+app.use(express.json({ limit: '1mb' }));
 
 // Request logging
 app.use(requestLogger);
