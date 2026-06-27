@@ -196,6 +196,21 @@ func HandleVerifyBackupCode(pool *pgxpool.Pool, redisClient *redis.Client, audit
 			return
 		}
 
+		// #65: a flagged account must re-register before ANY login path issues tokens,
+		// backup-code recovery included. This handler is not currently routed, but the
+		// gate belongs here so the policy can never be bypassed if it is ever wired.
+		// Fail closed on a lookup error.
+		if needs, ferr := userNeedsReRegistration(ctx, pool, userID); ferr != nil || needs {
+			if ferr != nil {
+				log.Error().Err(ferr).Str("user_id", userID).Msg("#65: re-registration flag lookup failed on backup-code verify — denying")
+				http.Error(w, "authentication failed", http.StatusUnauthorized)
+				return
+			}
+			log.Info().Str("user_id", userID).Msg("#65: backup-code login blocked — account must re-register after SRP modulus fix")
+			writeReRegistrationRequired(w)
+			return
+		}
+
 		// MEDIUM-FIX: Check if backup codes have expired (24-hour window)
 		// Backup codes must be generated within the last 24 hours to be valid.
 		// This prevents reuse of old codes and enforces users to generate fresh codes periodically.

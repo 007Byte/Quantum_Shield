@@ -29,6 +29,10 @@ paths = [
   '''(^|/)fixtures/''',
   '''(^|/)testdata/''',
   '''(^|/)__tests__/''',
+  # Jest transform cache — build artifacts (hashed copies of transformed test files,
+  # NOT real secrets). The hashed filenames don't match the .test.ts rule below, so
+  # the cache copies were flagged while the real source was not. Also gitignored.
+  '''(^|/)\.jest-cache/''',
   '''.*\.test\.(ts|tsx|js|jsx)$''',
   '''.*_test\.go$''',
   '''i18n/locales/.*\.json$''',

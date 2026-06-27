@@ -169,12 +169,13 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		var userID string
 		var srpSalt, srpVerifier []byte
 		var verifierHashAlgo string
+		var needsReReg bool
 
 		// PHASE 2.1: Read verifier hash algorithm; default to "sha256" for backwards compatibility
 		err = pool.QueryRow(ctx,
-			`SELECT id, srp_salt, srp_verifier, COALESCE(srp_verifier_hash_algorithm, 'sha256') FROM users WHERE email_hash = $1`,
+			`SELECT id, srp_salt, srp_verifier, COALESCE(srp_verifier_hash_algorithm, 'sha256'), srp_needs_reregistration FROM users WHERE email_hash = $1 AND deleted_at IS NULL`,
 			emailHash,
-		).Scan(&userID, &srpSalt, &srpVerifier, &verifierHashAlgo)
+		).Scan(&userID, &srpSalt, &srpVerifier, &verifierHashAlgo, &needsReReg)
 
 		if err != nil {
 			// User not found - perform constant-time dummy computation to prevent timing attacks
@@ -184,6 +185,17 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 			time.Sleep(time.Duration(randomDelayMS()) * time.Millisecond)
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			_ = dummyB // prevent optimization
+			return
+		}
+
+		// #65: accounts that predate the ffdhe3072 SRP modulus fix may carry a verifier
+		// computed against the OLD modulus, which can never validate under the new one
+		// (and x is unrecoverable server-side). Rather than letting login fail as a
+		// confusing "invalid credentials", signal the client to re-register. This is
+		// returned only for an already-enumerable account and exposes no secret material.
+		if needsReReg {
+			log.Info().Str("email_hash", emailHash).Msg("#65: login blocked — account must re-register after SRP modulus fix")
+			writeReRegistrationRequired(w)
 			return
 		}
 

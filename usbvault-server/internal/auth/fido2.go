@@ -250,6 +250,22 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 			return
 		}
 
+		// #65: enforce forced re-registration on the passkey path too. The account is
+		// resolved and cryptographically verified above, but a flagged account must NOT
+		// receive tokens — doing so would silently bypass the SRP-modulus re-registration
+		// policy. Fail closed: if the flag lookup errors, deny rather than mint tokens.
+		if needs, ferr := userNeedsReRegistration(ctx, pool, userID); ferr != nil || needs {
+			if ferr != nil {
+				log.Error().Err(ferr).Str("user_id", userID).Msg("#65: re-registration flag lookup failed on FIDO2 verify — denying")
+				http.Error(w, "authentication failed", http.StatusUnauthorized)
+				return
+			}
+			log.Info().Str("user_id", userID).Msg("#65: FIDO2 login blocked — account must re-register after SRP modulus fix")
+			auditSvc.LogAction(ctx, userID, "FIDO2_LOGIN_BLOCKED_REREGISTRATION", nil)
+			writeReRegistrationRequired(w)
+			return
+		}
+
 		// 6. Update sign count on the credential to detect cloned keys
 		if updatedCredential != nil {
 			for i, c := range credentials {

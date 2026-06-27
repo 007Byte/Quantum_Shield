@@ -163,6 +163,13 @@ export async function login(email: string, password: string): Promise<void> {
 
     logger.log('Login successful:', srpVerify.userId, srpVerify.email);
   } catch (error) {
+    // #65: do NOT mask the forced-re-registration signal as a generic credential
+    // error — the UI must be able to detect it and route the user to re-registration
+    // (re-enter the same password to recompute a valid post-modulus-fix verifier).
+    if (error instanceof api.ReRegistrationRequiredError) {
+      logger.log('Login requires re-registration after SRP modulus fix (#65):', email);
+      throw error;
+    }
     logger.error('Login failed:', error);
     throw new Error('Failed to login. Please check your credentials.');
   }
