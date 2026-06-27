@@ -22,6 +22,11 @@ dist/
 *.json.bak
 /coverage/
 .scannerwork/
+# Generated security-audit artifacts (preflight consolidated audit) — regenerable
+# build output, not source. Keep them out of git so they can't be swept into a
+# `git stash -u` and later trip the gitleaks gate (the test-fixture leaks fix).
+docs/security/AUDIT_REPORT.html
+docs/security/reports/
 
 # IDE and editor files
 .vscode/

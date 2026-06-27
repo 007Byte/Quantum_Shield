@@ -255,8 +255,14 @@ gate_fullstack() {
     return
   fi
   for _ in $(seq 1 30); do curl -sf http://localhost:8090/health >/dev/null 2>&1 && break; sleep 2; done
+  # INTEGRATION_DATABASE_URL lets the #65 re-registration test reach the same
+  # Postgres the live API uses (compose publishes postgres:5432 -> host 5433) so it
+  # can flag an account directly — there is intentionally no HTTP endpoint for that.
+  # Without it that test would skip; passing it keeps the gate honest (it RUNS).
   run "fullstack: integration (INTEGRATION=1, live API)" "$SERVER" \
-    env INTEGRATION=1 API_URL=http://localhost:8090 go test -tags=integration -timeout=300s ./internal/integration/...
+    env INTEGRATION=1 API_URL=http://localhost:8090 \
+    INTEGRATION_DATABASE_URL="postgres://usbvault:test_password_change_me@localhost:5433/usbvault_test?sslmode=disable" \
+    go test -tags=integration -timeout=300s ./internal/integration/...
   fullstack_down
 }
 

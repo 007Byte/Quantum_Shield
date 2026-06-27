@@ -114,29 +114,29 @@ func (c *APIClient) do(method, path string, body interface{}) (*http.Response, e
 	return c.client.Do(req)
 }
 
-// CreateTestUser registers a new test user via the REAL SRP registration flow:
-// it derives an SRP salt + verifier locally (Argon2id(password) -> x, v = g^x)
-// and generates X25519/Ed25519 public keys, then POSTs ONLY the salt, verifier
-// and public keys — never the password. It then logs in via SRP to obtain a
-// token.
-func (c *APIClient) CreateTestUser(password string) (*TestUser, error) {
-	email := fmt.Sprintf("test-%d@usbvault.local", time.Now().UnixNano())
-
-	// Derive SRP salt + verifier locally (zero-knowledge).
+// Register performs ONLY the REAL SRP registration POST for the given email and
+// password: it derives an SRP salt + verifier locally (Argon2id(password) -> x,
+// v = g^x) and fresh X25519/Ed25519 public keys, then POSTs the salt, verifier
+// and public keys — never the password. It returns the raw HTTP status and the
+// user_id from the body (empty if the body has none), without logging in. This is
+// reused both for first-time registration and for #65 re-registration (a second
+// POST for an already-existing, flagged email), where the caller asserts on the
+// status code directly.
+func (c *APIClient) Register(email, password string) (statusCode int, userID string, err error) {
 	creds, err := ComputeSRPRegistration(email, password)
 	if err != nil {
-		return nil, fmt.Errorf("compute SRP registration: %w", err)
+		return 0, "", fmt.Errorf("compute SRP registration: %w", err)
 	}
 
 	// The server requires 32-byte X25519 and Ed25519 public keys (base64). The
-	// SRP handshake does not use them, so deterministic test keys suffice.
+	// SRP handshake does not use them, so random test keys suffice.
 	x25519Pub := make([]byte, 32)
 	if _, err := rand.Read(x25519Pub); err != nil {
-		return nil, fmt.Errorf("generate x25519 test key: %w", err)
+		return 0, "", fmt.Errorf("generate x25519 test key: %w", err)
 	}
 	ed25519Pub, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("generate ed25519 test key: %w", err)
+		return 0, "", fmt.Errorf("generate ed25519 test key: %w", err)
 	}
 
 	payload := map[string]string{
@@ -149,20 +149,29 @@ func (c *APIClient) CreateTestUser(password string) (*TestUser, error) {
 
 	resp, err := c.do(http.MethodPost, apiPrefix+"/auth/register", payload)
 	if err != nil {
-		return nil, fmt.Errorf("register request: %w", err)
+		return 0, "", fmt.Errorf("register request: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("register failed with status %d: %s", resp.StatusCode, respBody)
-	}
 
 	var regResult struct {
 		UserID string `json:"user_id"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&regResult); err != nil {
-		return nil, fmt.Errorf("decode register response: %w", err)
+	// Body is JSON only on success; ignore decode errors for non-2xx error bodies.
+	_ = json.NewDecoder(resp.Body).Decode(&regResult)
+	return resp.StatusCode, regResult.UserID, nil
+}
+
+// CreateTestUser registers a new test user (random email) via the REAL SRP flow
+// and then logs in via SRP to obtain a token.
+func (c *APIClient) CreateTestUser(password string) (*TestUser, error) {
+	email := fmt.Sprintf("test-%d@usbvault.local", time.Now().UnixNano())
+
+	status, userID, err := c.Register(email, password)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK && status != http.StatusCreated {
+		return nil, fmt.Errorf("register failed with status %d", status)
 	}
 
 	// Complete a real SRP login to obtain an access token.
@@ -170,10 +179,27 @@ func (c *APIClient) CreateTestUser(password string) (*TestUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("post-registration SRP login: %w", err)
 	}
-	if regResult.UserID != "" {
-		user.UserID = regResult.UserID
+	if userID != "" {
+		user.UserID = userID
 	}
 	return user, nil
+}
+
+// SRPInitStatus performs only the /auth/srp/init step and returns the raw HTTP
+// status plus the JSON "code" field (if any). It lets tests assert on the #65
+// 409 SRP_REREGISTRATION_REQUIRED signal without completing a handshake.
+func (c *APIClient) SRPInitStatus(email string) (statusCode int, code string, err error) {
+	resp, err := c.do(http.MethodPost, apiPrefix+"/auth/srp/init", map[string]string{"email": email})
+	if err != nil {
+		return 0, "", fmt.Errorf("srp init request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	return resp.StatusCode, body.Code, nil
 }
 
 // LoginTestUser performs a full SRP-6a handshake (init + verify) and returns a

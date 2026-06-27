@@ -481,10 +481,44 @@ export interface SrpInitResponse {
   sessionId: string; // session identifier
 }
 
+/**
+ * Error code the server returns (HTTP 409) when an account predates the ffdhe3072
+ * SRP modulus fix (#65) and must register a fresh verifier before it can sign in.
+ */
+export const SRP_REREGISTRATION_REQUIRED = 'SRP_REREGISTRATION_REQUIRED';
+
+/**
+ * Thrown by srpInit() when login is rejected with SRP_REREGISTRATION_REQUIRED.
+ * The UI should route the user to the re-registration flow (re-enter the same
+ * password to recompute a valid verifier). The zero-knowledge vault data is
+ * unaffected — its MEK is wrapped to the original password's KEK, so a fresh
+ * credential restores login without ever exposing vault contents.
+ */
+export class ReRegistrationRequiredError extends Error {
+  readonly code = SRP_REREGISTRATION_REQUIRED;
+  constructor(message = 'This account must be re-registered before you can sign in.') {
+    super(message);
+    this.name = 'ReRegistrationRequiredError';
+  }
+}
+
 export async function srpInit(email: string): Promise<SrpInitResponse> {
   const client = getApiClient();
-  const response = await client.post('/auth/srp/init', { email });
-  return response.data;
+  try {
+    const response = await client.post('/auth/srp/init', { email });
+    return response.data;
+  } catch (error) {
+    // #65: surface the forced-re-registration signal as a typed error so callers
+    // can distinguish it from a wrong-password 401 and route accordingly.
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 409 &&
+      (error.response.data as { code?: string } | undefined)?.code === SRP_REREGISTRATION_REQUIRED
+    ) {
+      throw new ReRegistrationRequiredError();
+    }
+    throw error;
+  }
 }
 
 export interface SrpVerifyRequest {
