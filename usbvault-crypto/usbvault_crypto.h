@@ -23,6 +23,16 @@ constexpr static const uintptr_t DEFAULT_TOTAL_SHARES = 5;
 // g = generator (always 2 for RFC 7919)
 constexpr static const uint32_t G = 2;
 
+// PAD_LEN is the canonical PAD width for all SRP hash inputs: the byte
+// length of N (3072-bit ffdhe3072 => 384 bytes). Per the canonical SRP-6a
+// convention shared with the Go server
+// (usbvault-server/internal/auth/srp.go, srpPadLen), EVERY big-integer
+// operand fed into a hash (N, g, A, B, S) is left-zero-padded, big-endian,
+// to exactly this width before hashing. Hashing variable-width
+// `BigUint::to_bytes_be()` output (which strips leading zero bytes) was the
+// root cause of the Go<->Rust interop break.
+constexpr static const uintptr_t PAD_LEN = 384;
+
 // Minimum chunk size for streaming encryption (4 KB)
 constexpr static const uintptr_t MIN_CHUNK_SIZE = 4096;
 
@@ -40,6 +50,9 @@ constexpr static const uintptr_t HEADER_SIZE_V3 = 16384;
 
 // V4 header size (24576 bytes = 24KB for wrapped MEK + encrypted index)
 constexpr static const uintptr_t HEADER_SIZE_V4 = 24576;
+
+// V5 header size — identical layout to V4 (24576 bytes).
+constexpr static const uintptr_t HEADER_SIZE_V5 = 24576;
 
 // ML-KEM-1024 public key size in bytes
 constexpr static const uintptr_t PUBLIC_KEY_SIZE = 1568;

@@ -4,6 +4,8 @@ import * as apiService from '@/services/api';
 import * as cryptoBridge from '@/crypto/bridge';
 import * as SecureStore from 'expo-secure-store';
 
+import * as srpClient from '@/crypto/srpClient';
+
 // Mock dependencies
 jest.mock('react-native');
 jest.mock('@/services/api');
@@ -13,8 +15,6 @@ jest.mock('@/crypto/bridge');
 // the auth-flow tests stay deterministic and fast, and so the mocked server M2
 // matches the client-computed M2 (computeM2 returns the same fixed bytes).
 jest.mock('@/crypto/srpClient');
-
-import * as srpClient from '@/crypto/srpClient';
 
 // The fixed M2 returned by both the server mock (srpVerify) and the client mock
 // (srpClient.computeM2), so the mutual-auth M2 check passes.
@@ -34,7 +34,9 @@ function setupCryptoMocks() {
   });
   (srpClient.computeM2 as jest.Mock).mockResolvedValue(MOCK_M2_BYTES);
   (srpClient.bigIntToBytes as jest.Mock).mockImplementation((v: bigint) =>
-    v === 0n ? new Uint8Array([0]) : Uint8Array.from(Buffer.from(v.toString(16).padStart(2, '0'), 'hex'))
+    v === 0n
+      ? new Uint8Array([0])
+      : Uint8Array.from(Buffer.from(v.toString(16).padStart(2, '0'), 'hex'))
   );
   (srpClient.bytesToBigInt as jest.Mock).mockImplementation((b: Uint8Array) =>
     b.length === 0 ? 0n : BigInt('0x' + Buffer.from(b).toString('hex'))

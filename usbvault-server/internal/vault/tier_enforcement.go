@@ -186,7 +186,10 @@ func advisoryLockKey(userID string) int64 {
 	// Domain tag in the top byte ("vault-create" namespace) to avoid collisions
 	// with any other advisory-lock users in this codebase.
 	h = (h & 0x00FFFFFFFFFFFFFF) | (0x5A << 56)
-	return int64(h) //nolint:gosec // intentional bit-reinterpret for pg_advisory_xact_lock
+	// #nosec G115 -- intentional bit-reinterpret of a 64-bit FNV-1a hash into a
+	// Postgres bigint for pg_advisory_xact_lock; wraparound to a negative value is
+	// harmless and deterministic for a lock key.
+	return int64(h) //nolint:gosec // G115: intentional reinterpret, see #nosec annotation above
 }
 
 // CreateVaultAtomic enforces the per-tier MaxVaults cap and inserts the new vault

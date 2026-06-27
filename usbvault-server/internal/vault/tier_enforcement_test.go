@@ -87,8 +87,10 @@ func TestAdvisoryLockKeyDeterministic(t *testing.T) {
 		t.Error("advisoryLockKey collided for distinct users")
 	}
 
-	// Empty string must not panic and must be stable.
-	if advisoryLockKey("") != advisoryLockKey("") {
+	// Empty string must not panic and must be stable (deterministic across calls).
+	emptyKey1 := advisoryLockKey("")
+	emptyKey2 := advisoryLockKey("")
+	if emptyKey1 != emptyKey2 {
 		t.Error("advisoryLockKey for empty string not stable")
 	}
 }

@@ -525,14 +525,20 @@ mod tests {
     // SRP_KAT_EXPECTED_* mirror srp_interop_vector.json; empty until the first
     // green run, after which the test asserts against them. Regardless, the test
     // always asserts client-path == server-path (S, K) and an M1/M2 round-trip.
-    const SRP_KAT_EXPECTED_K: &str = "1c030432002aa938dce6575dd2d419e3e748fec526bdbba8a28c849952370428"; // k  = H(PAD(N)||PAD(g))
+    const SRP_KAT_EXPECTED_K: &str =
+        "1c030432002aa938dce6575dd2d419e3e748fec526bdbba8a28c849952370428"; // k  = H(PAD(N)||PAD(g))
     const SRP_KAT_EXPECTED_A: &str = "08"; // A  = g^a mod N
-    const SRP_KAT_EXPECTED_B: &str = "0e0182190015549c6e732baee96a0cf1f3a47f62935eddd45146424ca91b821420"; // B  = (k*v + g^b) mod N
-    const SRP_KAT_EXPECTED_U: &str = "cfe9baafb3a51933680e31f7a49b4364d6ad89142fd0c4bb734e75308d0e6f55"; // u  = H(PAD(A)||PAD(B))
+    const SRP_KAT_EXPECTED_B: &str =
+        "0e0182190015549c6e732baee96a0cf1f3a47f62935eddd45146424ca91b821420"; // B  = (k*v + g^b) mod N
+    const SRP_KAT_EXPECTED_U: &str =
+        "cfe9baafb3a51933680e31f7a49b4364d6ad89142fd0c4bb734e75308d0e6f55"; // u  = H(PAD(A)||PAD(B))
     const SRP_KAT_EXPECTED_S: &str = "159b7594cebaa2ca9e5132c172c9d534d004534b456802b2c06f27762b9f43aac1ae8e475af4503e11d6b6e1253b1a5454711b1e4695235858f2c250b4a3a07b1b1f4e17a0b8dcd35e9be669b97f98070d9ac1a7b813438311a77ed3de13699ae6b401700f9f442b0751702ede4f6bf2672cedfc3c6b04b176eb8de344a46456afb13b1589dfdc9e7fcd3112615dfd053c6209dc5ac4cb60b9c966a8db48107aa5b4fd098b7d21a2b7c92b11240fdd3ce01025647512e49b06c3bf055fdd132754aee2cdffe5cfdf71e07a5294c5887e3695010c1ee5f5f409e235588b3023cdf96393f675c561b173676c8fb62c89617f7336d8ca08da3fdbfedc5072c69875612a57a7f0d9f42ba143b3c782898057e8de87994725a1341df065a8cc59ae804ee7d7749dba90d37a187f3e90a4145672226bc4f158786c4cfc53d222de6e0d7334997ec8d0213f26143f87d6b71ee4cd5a8d3854a6ebe96b63fb79aea3c559fc3d5698cfb5cd3ad65d6855f7f96433b33278858f1fdaf5cb50c1d467dedecd"; // shared secret S
-    const SRP_KAT_EXPECTED_KK: &str = "58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568"; // K  = H(PAD(S))
-    const SRP_KAT_EXPECTED_M1: &str = "350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b"; // M1 = H(PAD(A)||PAD(B)||K)
-    const SRP_KAT_EXPECTED_M2: &str = "c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c"; // M2 = H(PAD(A)||M1||K)
+    const SRP_KAT_EXPECTED_KK: &str =
+        "58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568"; // K  = H(PAD(S))
+    const SRP_KAT_EXPECTED_M1: &str =
+        "350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b"; // M1 = H(PAD(A)||PAD(B)||K)
+    const SRP_KAT_EXPECTED_M2: &str =
+        "c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c"; // M2 = H(PAD(A)||M1||K)
 
     fn h_sha256(parts: &[&[u8]]) -> Vec<u8> {
         let mut hasher = Sha256::new();
@@ -586,10 +592,7 @@ mod tests {
         let exp = &a + (&u * &x);
         let s_client = base.modpow(&exp, &n);
 
-        assert_eq!(
-            s_server, s_client,
-            "client/server shared secret S diverged"
-        );
+        assert_eq!(s_server, s_client, "client/server shared secret S diverged");
         let s = s_server;
 
         // K = H(PAD(S))

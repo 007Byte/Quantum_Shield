@@ -75,7 +75,7 @@ function getCompanionClient(): AxiosInstance {
     // token here (rather than at client-creation) means it is fetched lazily on
     // the first call and reused thereafter. If no token is available the header
     // is simply omitted and the companion responds 401.
-    companionClient.interceptors.request.use(async (config) => {
+    companionClient.interceptors.request.use(async config => {
       const token = await fetchCompanionToken();
       if (token) {
         // config.headers is always an AxiosHeaders on InternalAxiosRequestConfig

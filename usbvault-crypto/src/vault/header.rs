@@ -228,13 +228,11 @@ impl VaultHeader {
                     let fail_counter_len = read_u32_le!() as usize;
                     match fail_counter_len {
                         0 => None,
-                        _ => data
-                            .get(offset..offset + fail_counter_len)
-                            .map(|block| {
-                                let v = block.to_vec();
-                                offset += fail_counter_len;
-                                v
-                            }),
+                        _ => data.get(offset..offset + fail_counter_len).map(|block| {
+                            let v = block.to_vec();
+                            offset += fail_counter_len;
+                            v
+                        }),
                     }
                 } else {
                     None
@@ -1026,11 +1024,13 @@ mod tests {
         let parsed = VaultHeader::read(&bytes).expect("Failed to parse V4");
         assert_eq!(parsed.version, 4);
         assert_eq!(parsed.compute_hmac(&hmac_key), narrow);
-        assert!(parsed
-            .compute_hmac(&hmac_key)
-            .ct_eq(&parsed.header_hmac)
-            .unwrap_u8()
-            != 0);
+        assert!(
+            parsed
+                .compute_hmac(&hmac_key)
+                .ct_eq(&parsed.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
     }
 
     /// V5 headers round-trip and validate with the wide MAC; the wide MAC
@@ -1075,11 +1075,13 @@ mod tests {
         assert!(parsed.index_encrypted);
         assert_eq!(parsed.wrapped_mek.as_ref().unwrap().len(), 104);
         // Wide MAC validates.
-        assert!(parsed
-            .compute_hmac(&hmac_key)
-            .ct_eq(&parsed.header_hmac)
-            .unwrap_u8()
-            != 0);
+        assert!(
+            parsed
+                .compute_hmac(&hmac_key)
+                .ct_eq(&parsed.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
 
         // Wide MAC must NOT equal the narrow MAC over the same content.
         let narrow = {
@@ -1138,11 +1140,13 @@ mod tests {
         assert_eq!(forged.version, 4);
         // V4 branch recomputes the NARROW MAC, which cannot match the stored
         // wide V5 MAC -> verification fails.
-        assert!(forged
-            .compute_hmac(&hmac_key)
-            .ct_eq(&forged.header_hmac)
-            .unwrap_u8()
-            == 0);
+        assert!(
+            forged
+                .compute_hmac(&hmac_key)
+                .ct_eq(&forged.header_hmac)
+                .unwrap_u8()
+                == 0
+        );
     }
 
     /// A legacy V4 vault upgrades to V5 on the next re-save (commit).
@@ -1181,10 +1185,12 @@ mod tests {
         assert_eq!(&bytes[0..8], MAGIC_V5);
         let parsed = VaultHeader::read(&bytes).expect("parse upgraded V5");
         assert_eq!(parsed.version, 5);
-        assert!(parsed
-            .compute_hmac(&hmac_key)
-            .ct_eq(&parsed.header_hmac)
-            .unwrap_u8()
-            != 0);
+        assert!(
+            parsed
+                .compute_hmac(&hmac_key)
+                .ct_eq(&parsed.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
     }
 }
