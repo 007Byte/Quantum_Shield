@@ -18,9 +18,14 @@ module.exports = {
         diagnostics: false,
       },
     ],
+    // Transform ESM-only JS dependencies (e.g. @noble/* v2, which ships pure ESM)
+    // into CJS so they load under jsdom. babel-jest uses the repo babel.config.js
+    // (babel-preset-expo), which converts ESM->CJS in the CommonJS test env. Only
+    // applied to plain .js deps (the @noble crypto libs), not app JSX.
+    '^.+\\.(js|jsx|mjs|cjs)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@sentry/react-native|@sentry/core|@sentry/types|@sentry/utils|@sentry/browser|expo-.*|@expo/.*|react-native|@react-native|posthog-react-native|react-native-purchases)/)',
+    'node_modules/(?!(@noble/.*|@sentry/react-native|@sentry/core|@sentry/types|@sentry/utils|@sentry/browser|expo-.*|@expo/.*|react-native|@react-native|posthog-react-native|react-native-purchases)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

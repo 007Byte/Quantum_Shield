@@ -18,6 +18,18 @@
 import { Platform } from 'react-native';
 import { logger } from '@/utils/logger';
 import { argon2id } from 'hash-wasm';
+// X25519 sealed-box primitives for the web sharing fallback. These match the
+// native Rust path (usbvault-crypto/src/sharing.rs) byte-for-byte: X25519 ECDH
+// -> HKDF-SHA256(info="seal") -> XChaCha20-Poly1305, layout
+// ephemeral_public(32) || nonce(24) || ciphertext||tag(16). Verified by a
+// cross-impl interop KAT. Replaces the broken ECDH P-256 fallback (issue #71).
+import { x25519 } from '@noble/curves/ed25519.js';
+import { hkdf } from '@noble/hashes/hkdf.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
+
+// HKDF info string for the sealing subkey (must equal Rust derive_subkey(..,"seal")).
+const SHARE_SEAL_INFO = new TextEncoder().encode('seal');
 
 /**
  * Represents the native USBVault crypto module interface.
@@ -408,89 +420,46 @@ const webCryptoFallback: USBVaultCryptoModule = {
   },
 
   async generateShareKeypair(): Promise<{ public: string; private: string }> {
-    // KNOWN BUG (web public-key sharing is broken — tracked in PR #64): this
-    // returns an ECDH P-256 SPKI public key (~91 bytes), but the bridge contract
-    // and native Rust path use 32-byte X25519 (bridge.sealToPublicKey/openSealed
-    // reject non-32-byte keys), so web sharing does not work. Reimplement with
-    // X25519 (e.g. tweetnacl/@noble crypto_box: ephemeral_pub(32)||nonce(24)||
-    // ct||tag(16), which also interops with the native sealed-box format).
-    // Web fallback: Use Web Crypto API to generate proper key pairs
-    const keyPair = await crypto.subtle.generateKey(
-      { name: 'ECDH', namedCurve: 'P-256' },
-      true, // extractable
-      ['deriveBits', 'deriveKey']
-    );
-
-    // Export the private key
-    const privateKeyData = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-    const privateKeyBytes = new Uint8Array(privateKeyData);
-
-    // Export the public key
-    const publicKeyData = await crypto.subtle.exportKey('spki', keyPair.publicKey);
-    const publicKeyBytes = new Uint8Array(publicKeyData);
-
+    // 32-byte X25519 keypair matching the native Rust sharing contract
+    // (usbvault-crypto sharing::generate_keypair). The bridge and native path
+    // reject non-32-byte keys, so this MUST be raw X25519, not ECDH P-256 SPKI.
+    const secret = x25519.utils.randomSecretKey();
+    const publicKey = x25519.getPublicKey(secret);
     return {
-      public: toHex(publicKeyBytes),
-      private: toHex(privateKeyBytes),
+      public: toHex(publicKey),
+      private: toHex(secret),
     };
   },
 
   async sealToPublicKey(recipientPublicHex: string, plaintextHex: string): Promise<string> {
-    // SECURITY FIX: Use ECDH key exchange to derive shared secret, then AES-GCM encryption
-    // This provides proper public-key encryption semantics
-
+    // X25519 sealed box, byte-identical to Rust sharing::seal:
+    //   ephemeral X25519 -> ECDH -> HKDF-SHA256(info="seal", 32B) ->
+    //   XChaCha20-Poly1305(24B nonce); output ephemeral_public(32) || nonce(24) ||
+    //   ciphertext||tag(16). Interoperable with the native/Rust recipients.
     try {
-      // Import recipient's public key (P-256 format)
-      const recipientPublicBytes = fromHex(recipientPublicHex);
-      const recipientPublicKey = await crypto.subtle.importKey(
-        'spki',
-        recipientPublicBytes.buffer as ArrayBuffer,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        []
-      );
+      const recipientPublic = fromHex(recipientPublicHex);
+      if (recipientPublic.length !== 32) {
+        throw new Error('Recipient public key must be 32 bytes');
+      }
 
-      // Generate ephemeral keypair
-      const ephemeralKeyPair = await crypto.subtle.generateKey(
-        { name: 'ECDH', namedCurve: 'P-256' },
-        true,
-        ['deriveBits']
-      );
+      const ephemeralSecret = x25519.utils.randomSecretKey();
+      const ephemeralPublic = x25519.getPublicKey(ephemeralSecret);
+      const shared = x25519.getSharedSecret(ephemeralSecret, recipientPublic);
+      // Reject an all-zero shared secret (low-order recipient key) — matches the
+      // Rust CR-5 low-order-point check; a zero shared secret breaks encryption.
+      if (shared.every(b => b === 0)) {
+        throw new Error('Invalid recipient public key (low-order point)');
+      }
 
-      // Derive shared secret via ECDH
-      const sharedSecretBits = await crypto.subtle.deriveBits(
-        { name: 'ECDH', public: recipientPublicKey },
-        ephemeralKeyPair.privateKey,
-        256 // 256 bits = 32 bytes for AES-256
-      );
+      const key = hkdf(sha256, shared, undefined, SHARE_SEAL_INFO, 32);
+      const nonce = crypto.getRandomValues(new Uint8Array(24));
+      const ciphertext = xchacha20poly1305(key, nonce).encrypt(fromHex(plaintextHex));
 
-      // Import derived shared secret as AES-GCM key
-      const sharedKey = await crypto.subtle.importKey('raw', sharedSecretBits, 'AES-GCM', false, [
-        'encrypt',
-      ]);
-
-      // Generate IV and encrypt plaintext
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const plaintext = fromHex(plaintextHex);
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        sharedKey,
-        plaintext.buffer as ArrayBuffer
-      );
-
-      // Export ephemeral public key
-      const ephemeralPublicData = await crypto.subtle.exportKey('spki', ephemeralKeyPair.publicKey);
-      const ephemeralPublicBytes = new Uint8Array(ephemeralPublicData);
-
-      // Format: ephemeral_public_key || iv || ciphertext+tag
-      const result = new Uint8Array(
-        ephemeralPublicBytes.length + iv.length + ciphertext.byteLength
-      );
-      result.set(ephemeralPublicBytes, 0);
-      result.set(iv, ephemeralPublicBytes.length);
-      result.set(new Uint8Array(ciphertext), ephemeralPublicBytes.length + iv.length);
-
-      return toHex(result);
+      const sealed = new Uint8Array(32 + 24 + ciphertext.length);
+      sealed.set(ephemeralPublic, 0);
+      sealed.set(nonce, 32);
+      sealed.set(ciphertext, 56);
+      return toHex(sealed);
     } catch (error) {
       logger.error('Error in sealToPublicKey:', error);
       throw new Error('Failed to seal plaintext to public key');
@@ -498,57 +467,29 @@ const webCryptoFallback: USBVaultCryptoModule = {
   },
 
   async openSealed(secretKeyHex: string, sealedHex: string): Promise<string> {
-    // SECURITY FIX (C-1): Perform ECDH with recipient's secret key to derive shared secret.
-    // Previously used ephemeral public key bytes directly as AES key, breaking E2E encryption.
+    // Inverse of sealToPublicKey; also opens native/Rust-sealed boxes since the
+    // construction is identical (X25519 ECDH -> HKDF-SHA256("seal") ->
+    // XChaCha20-Poly1305 over ephemeral_public(32) || nonce(24) || ct||tag).
     try {
-      const data = fromHex(sealedHex);
-      const secretKeyBytes = fromHex(secretKeyHex);
+      const secret = fromHex(secretKeyHex);
+      if (secret.length !== 32) {
+        throw new Error('Secret key must be 32 bytes');
+      }
+      const sealed = fromHex(sealedHex);
+      if (sealed.length < 32 + 24 + 16) {
+        throw new Error('Sealed ciphertext too short');
+      }
 
-      // The ephemeral public key length depends on SPKI-encoded P-256 format (typically 91 bytes).
-      // sealToPublicKey writes: ephemeral_spki_public_key || iv(12) || ciphertext+tag
-      // We need to detect the boundary. SPKI P-256 keys are 91 bytes.
-      const SPKI_P256_LEN = 91;
-      const IV_LEN = 12;
+      const ephemeralPublic = sealed.slice(0, 32);
+      const nonce = sealed.slice(32, 56);
+      const ciphertext = sealed.slice(56);
 
-      const ephemeralPublicBytes = data.slice(0, SPKI_P256_LEN);
-      const iv = data.slice(SPKI_P256_LEN, SPKI_P256_LEN + IV_LEN);
-      const ciphertext = data.slice(SPKI_P256_LEN + IV_LEN);
-
-      // Import the recipient's private key (PKCS8 format from generateShareKeypair)
-      const recipientPrivateKey = await crypto.subtle.importKey(
-        'pkcs8',
-        secretKeyBytes.buffer as ArrayBuffer,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        ['deriveBits']
-      );
-
-      // Import the ephemeral public key (SPKI format from sealToPublicKey)
-      const ephemeralPublicKey = await crypto.subtle.importKey(
-        'spki',
-        ephemeralPublicBytes.buffer as ArrayBuffer,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        []
-      );
-
-      // Perform ECDH to derive the same shared secret used during sealing
-      const sharedSecretBits = await crypto.subtle.deriveBits(
-        { name: 'ECDH', public: ephemeralPublicKey },
-        recipientPrivateKey,
-        256
-      );
-
-      // Import shared secret as AES-GCM key for decryption
-      const sharedKey = await crypto.subtle.importKey('raw', sharedSecretBits, 'AES-GCM', false, [
-        'decrypt',
-      ]);
-
-      const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        sharedKey,
-        ciphertext.buffer as ArrayBuffer
-      );
+      const shared = x25519.getSharedSecret(secret, ephemeralPublic);
+      if (shared.every(b => b === 0)) {
+        throw new Error('Invalid ephemeral public key (low-order point)');
+      }
+      const key = hkdf(sha256, shared, undefined, SHARE_SEAL_INFO, 32);
+      const plaintext = xchacha20poly1305(key, nonce).decrypt(ciphertext);
 
       return toHex(plaintext);
     } catch (error) {
