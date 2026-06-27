@@ -613,6 +613,127 @@ func TestSRP_ConstantTimeComparison(t *testing.T) {
 	}
 }
 
+// --- F6: SRP-6a cross-implementation known-answer test (KAT) ---------------
+//
+// This KAT pins the ONE canonical RFC 5054-style convention (see srp.go: PAD to
+// srpPadLen=384, k=H(PAD(N)||PAD(g)), u=H(PAD(A)||PAD(B)), K=H(PAD(S)),
+// M1=H(PAD(A)||PAD(B)||K), M2=H(PAD(A)||M1||K)) with FIXED, RNG-free inputs.
+//
+// The matching Rust test lives in
+// usbvault-crypto/src/srp_client.rs (tests::srp_interop_kat) and uses the SAME
+// fixed inputs. Because every value below is produced by deterministic modular
+// arithmetic over the real ffdhe3072 N plus SHA-256 over identically-padded
+// 384-byte buffers, BOTH languages MUST emit byte-identical k/A/B/u/S/K/M1/M2.
+// The shared input/expected contract is documented in /srp_interop_vector.json.
+//
+// Fixed inputs (no RNG): a=3, b=5, x=7, salt=0x..42, username="alice".
+// (Tiny scalars are intentional: the KAT proves byte-level hashing/padding
+// interop, not ephemeral entropy, which is enforced by start_auth/randomBigInt.)
+//
+// srpKATExpected* mirror the constants in srp_interop_vector.json. They are left
+// empty until the first green run; when populated the test asserts against them.
+// Regardless of population, the test always asserts client-path == server-path
+// (S, K) and a full M1/M2 round-trip, which is the real interop guarantee.
+var (
+	srpKATExpectedK  = "1c030432002aa938dce6575dd2d419e3e748fec526bdbba8a28c849952370428"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // k = H(PAD(N)||PAD(g))
+	srpKATExpectedA  = "08"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               // A = g^a mod N
+	srpKATExpectedB  = "0e0182190015549c6e732baee96a0cf1f3a47f62935eddd45146424ca91b821420"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               // B = (k*v + g^b) mod N
+	srpKATExpectedU  = "cfe9baafb3a51933680e31f7a49b4364d6ad89142fd0c4bb734e75308d0e6f55"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // u = H(PAD(A)||PAD(B))
+	srpKATExpectedS  = "159b7594cebaa2ca9e5132c172c9d534d004534b456802b2c06f27762b9f43aac1ae8e475af4503e11d6b6e1253b1a5454711b1e4695235858f2c250b4a3a07b1b1f4e17a0b8dcd35e9be669b97f98070d9ac1a7b813438311a77ed3de13699ae6b401700f9f442b0751702ede4f6bf2672cedfc3c6b04b176eb8de344a46456afb13b1589dfdc9e7fcd3112615dfd053c6209dc5ac4cb60b9c966a8db48107aa5b4fd098b7d21a2b7c92b11240fdd3ce01025647512e49b06c3bf055fdd132754aee2cdffe5cfdf71e07a5294c5887e3695010c1ee5f5f409e235588b3023cdf96393f675c561b173676c8fb62c89617f7336d8ca08da3fdbfedc5072c69875612a57a7f0d9f42ba143b3c782898057e8de87994725a1341df065a8cc59ae804ee7d7749dba90d37a187f3e90a4145672226bc4f158786c4cfc53d222de6e0d7334997ec8d0213f26143f87d6b71ee4cd5a8d3854a6ebe96b63fb79aea3c559fc3d5698cfb5cd3ad65d6855f7f96433b33278858f1fdaf5cb50c1d467dedecd" // shared secret S
+	srpKATExpectedKK = "58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // K = H(PAD(S))
+	srpKATExpectedM1 = "350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // M1 = H(PAD(A)||PAD(B)||K)
+	srpKATExpectedM2 = "c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // M2 = H(PAD(A)||M1||K)
+)
+
+// TestSRPInteropKAT reproduces the shared cross-language SRP vector.
+func TestSRPInteropKAT(t *testing.T) {
+	N := new(big.Int)
+	N.SetString(srpN, 16)
+	g := big.NewInt(srpG)
+
+	// Fixed scalars (no RNG) — must match srp_interop_vector.json / the Rust KAT.
+	a := big.NewInt(3)
+	b := big.NewInt(5)
+	x := big.NewInt(7)
+
+	// k = H(PAD(N) || PAD(g))
+	k := computeSRPk(N, g)
+
+	// Verifier v = g^x mod N (x injected directly; not password-derived).
+	v := new(big.Int).Exp(g, x, N)
+
+	// Client public A = g^a mod N
+	A := new(big.Int).Exp(g, a, N)
+
+	// Server public B = (k*v + g^b) mod N
+	gb := new(big.Int).Exp(g, b, N)
+	kv := new(big.Int).Mul(k, v)
+	kv.Mod(kv, N)
+	B := new(big.Int).Add(kv, gb)
+	B.Mod(B, N)
+
+	// u = H(PAD(A) || PAD(B))
+	u := computeSRPu(A, B.String())
+
+	// Server shared secret: S = (A * v^u)^b mod N
+	vu := new(big.Int).Exp(v, u, N)
+	Avu := new(big.Int).Mul(A, vu)
+	Avu.Mod(Avu, N)
+	Sserver := new(big.Int).Exp(Avu, b, N)
+
+	// Client shared secret: S = (B - k*g^x)^(a + u*x) mod N
+	gx := new(big.Int).Exp(g, x, N)
+	kgx := new(big.Int).Mul(k, gx)
+	kgx.Mod(kgx, N)
+	base := new(big.Int).Sub(B, kgx)
+	base.Mod(base, N) // big.Int Mod returns non-negative result for positive N
+	ux := new(big.Int).Mul(u, x)
+	exp := new(big.Int).Add(a, ux)
+	Sclient := new(big.Int).Exp(base, exp, N)
+
+	if Sserver.Cmp(Sclient) != 0 {
+		t.Fatalf("client/server shared secret S diverged:\n server=%s\n client=%s",
+			Sserver.Text(16), Sclient.Text(16))
+	}
+	S := Sserver
+
+	// K = H(PAD(S))
+	K := sha256.Sum256(padBigInt(S))
+
+	// M1 = H(PAD(A) || PAD(B) || K); M2 = H(PAD(A) || M1 || K)
+	M1 := computeSRPProofM1(A, B.String(), K[:])
+	M2 := computeSRPProofM2(A, M1[:], K[:])
+
+	// Emit the vector so the shared JSON expected_* constants can be populated.
+	t.Logf("SRP interop KAT (Go) vector:")
+	t.Logf("  k  = %s", hex.EncodeToString(k.Bytes()))
+	t.Logf("  A  = %s", hex.EncodeToString(A.Bytes()))
+	t.Logf("  B  = %s", hex.EncodeToString(B.Bytes()))
+	t.Logf("  u  = %s", hex.EncodeToString(u.Bytes()))
+	t.Logf("  S  = %s", hex.EncodeToString(S.Bytes()))
+	t.Logf("  K  = %s", hex.EncodeToString(K[:]))
+	t.Logf("  M1 = %s", hex.EncodeToString(M1[:]))
+	t.Logf("  M2 = %s", hex.EncodeToString(M2[:]))
+
+	// Assert against locked constants when populated (cross-language contract).
+	assertKAT := func(name, expected string, got []byte) {
+		if expected == "" {
+			return
+		}
+		if h := hex.EncodeToString(got); h != expected {
+			t.Errorf("KAT %s mismatch:\n expected %s\n got      %s", name, expected, h)
+		}
+	}
+	assertKAT("k", srpKATExpectedK, k.Bytes())
+	assertKAT("A", srpKATExpectedA, A.Bytes())
+	assertKAT("B", srpKATExpectedB, B.Bytes())
+	assertKAT("u", srpKATExpectedU, u.Bytes())
+	assertKAT("S", srpKATExpectedS, S.Bytes())
+	assertKAT("K", srpKATExpectedKK, K[:])
+	assertKAT("M1", srpKATExpectedM1, M1[:])
+	assertKAT("M2", srpKATExpectedM2, M2[:])
+}
+
 // TestSRP_TimingAttackMitigation verifies user-not-found takes similar time
 func TestSRP_TimingAttackMitigation(t *testing.T) {
 	// Test that dummy computation is performed

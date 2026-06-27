@@ -4,24 +4,46 @@ import * as apiService from '@/services/api';
 import * as cryptoBridge from '@/crypto/bridge';
 import * as SecureStore from 'expo-secure-store';
 
+import * as srpClient from '@/crypto/srpClient';
+
 // Mock dependencies
 jest.mock('react-native');
 jest.mock('@/services/api');
 jest.mock('@/crypto/bridge');
+// F7: the real SRP-6a client (crypto/srpClient.ts) is exercised byte-for-byte by
+// the dedicated KAT (crypto/__tests__/srpClient.kat.test.ts). Here it is mocked so
+// the auth-flow tests stay deterministic and fast, and so the mocked server M2
+// matches the client-computed M2 (computeM2 returns the same fixed bytes).
+jest.mock('@/crypto/srpClient');
+
+// The fixed M2 returned by both the server mock (srpVerify) and the client mock
+// (srpClient.computeM2), so the mutual-auth M2 check passes.
+const MOCK_M2_HEX = '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20';
+const MOCK_M2_BYTES = Uint8Array.from(Buffer.from(MOCK_M2_HEX, 'hex'));
 
 // Helper to setup common crypto mocks
 function setupCryptoMocks() {
-  (cryptoBridge.srpGenerateClientEphemeral as jest.Mock).mockResolvedValue({
-    public: new Uint8Array(32),
-    private: new Uint8Array(32),
+  // SRP-6a client (real module under test in srpClient.kat.test.ts; mocked here).
+  (srpClient.generateEphemeral as jest.Mock).mockReturnValue({ a: 3n, A: 8n });
+  (srpClient.deriveSrpX as jest.Mock).mockResolvedValue(7n);
+  (srpClient.deriveVerifier as jest.Mock).mockReturnValue(9n);
+  (srpClient.processChallenge as jest.Mock).mockResolvedValue({
+    S: 5n,
+    K: new Uint8Array(32).fill(0x11),
+    M1: new Uint8Array(32).fill(0x22),
   });
-  (cryptoBridge.srpDeriveSession as jest.Mock).mockResolvedValue({
-    proof: new Uint8Array(32),
-    key: new Uint8Array(32),
-  });
-  (cryptoBridge.hashSha256 as jest.Mock).mockResolvedValue(
-    '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20'
+  (srpClient.computeM2 as jest.Mock).mockResolvedValue(MOCK_M2_BYTES);
+  (srpClient.bigIntToBytes as jest.Mock).mockImplementation((v: bigint) =>
+    v === 0n
+      ? new Uint8Array([0])
+      : Uint8Array.from(Buffer.from(v.toString(16).padStart(2, '0'), 'hex'))
   );
+  (srpClient.bytesToBigInt as jest.Mock).mockImplementation((b: Uint8Array) =>
+    b.length === 0 ? 0n : BigInt('0x' + Buffer.from(b).toString('hex'))
+  );
+
+  (cryptoBridge.randomBytes as jest.Mock).mockResolvedValue(new Uint8Array(32).fill(0x42));
+  (cryptoBridge.hashSha256 as jest.Mock).mockResolvedValue(MOCK_M2_HEX);
   (cryptoBridge.generateShareKeypair as jest.Mock).mockResolvedValue({
     publicKey: new Uint8Array(32),
     secretKey: new Uint8Array(32),

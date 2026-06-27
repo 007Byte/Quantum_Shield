@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -168,6 +169,16 @@ func RateLimiter(redisClient *redis.Client, requestsPerMinute int) func(http.Han
 // AuthRateLimiter creates a stricter rate limiter for authentication endpoints.
 // Limit: 10 requests per minute per IP (prevents brute force attacks).
 func AuthRateLimiter(redisClient *redis.Client) func(http.Handler) http.Handler {
+	// Per-IP auth attempts allowed per minute. Configurable via
+	// AUTH_RATE_LIMIT_PER_MIN (default 10) so test / full-stack-integration
+	// environments — which legitimately drive many register/login calls from one
+	// host — can raise the ceiling WITHOUT weakening the production default.
+	authLimit := 10
+	if v := os.Getenv("AUTH_RATE_LIMIT_PER_MIN"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			authLimit = n
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -175,7 +186,6 @@ func AuthRateLimiter(redisClient *redis.Client) func(http.Handler) http.Handler 
 
 			ip := getClientIP(r)
 			key := "ratelimit:auth:" + ip
-			authLimit := 10
 			window := time.Minute
 
 			if !checkRateLimit(ctx, redisClient, key, authLimit, window) {

@@ -207,6 +207,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle('companion:get-port', () => companion.getPort());
   ipcMain.handle('companion:get-status', () => companion.getStatus());
 
+  // CRIT-1 (F5): hand the renderer the bearer token so the HTTP client can
+  // authenticate to the companion. Token value is never logged.
+  ipcMain.handle('companion:get-token', () => companion.getAuthToken());
+
   /** Combined status query — returns status, port, and URL in one call. */
   ipcMain.handle('companion:status', () => {
     const port = companion.getPort();

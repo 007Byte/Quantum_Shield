@@ -1277,6 +1277,10 @@ pub extern "C" fn usbvault_vault_fail_counter_reset(
             Err(e) => return crypto_error_to_code(&e),
         };
 
+        // Fail-counter reset is the natural post-unlock re-save point: migrate a
+        // legacy V4 vault to the wide, downgrade-resistant V5 header MAC here.
+        header.upgrade_to_v5_if_eligible();
+
         header.write_fail_counter(&hmac_key, 0);
         header.increment_state_version();
         header.header_hmac = header.compute_hmac(&hmac_key);

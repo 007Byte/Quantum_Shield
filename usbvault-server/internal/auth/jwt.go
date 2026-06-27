@@ -37,18 +37,18 @@ import (
 const (
 	// LOW-FIX: Extracted magic numbers to named constants
 	accessTokenTTL         = 15 * time.Minute
-	refreshTokenTTL        = 30 * 24 * time.Hour    // 30 days
-	revokedTokenTTL        = 30 * 24 * time.Hour    // 30 days
-	securityEventsTTL      = 90 * 24 * time.Hour    // 90 days
+	refreshTokenTTL        = 30 * 24 * time.Hour // 30 days
+	revokedTokenTTL        = 30 * 24 * time.Hour // 30 days
+	securityEventsTTL      = 90 * 24 * time.Hour // 90 days
 	tokenContextTimeout    = 5 * time.Second
 	contextTimeoutDuration = 5 * time.Second
 )
 
 var (
 	// CR-3 FIX: Mutex protects JWT key globals during key rotation
-	jwtKeyMu       sync.RWMutex
-	jwtPrivateKey  ed25519.PrivateKey
-	jwtPublicKey   ed25519.PublicKey
+	jwtKeyMu      sync.RWMutex
+	jwtPrivateKey ed25519.PrivateKey
+	jwtPublicKey  ed25519.PublicKey
 	// PH2-FIX: Key rotation service instance
 	keyRotationSvc *KeyRotationService
 )
@@ -69,9 +69,9 @@ func SetKeyRotationService(svc *KeyRotationService) {
 }
 
 // loadOrGenerateKeys initializes JWT signing keys with priority order:
-//   1. Key files (JWT_ED25519_PRIVATE_KEY_FILE, JWT_ED25519_PUBLIC_KEY_FILE) - RECOMMENDED for production
-//   2. Environment variables (JWT_ED25519_PRIVATE_KEY, JWT_ED25519_PUBLIC_KEY) - Legacy, less secure
-//   3. Generated ephemeral keys (development only, fails in production)
+//  1. Key files (JWT_ED25519_PRIVATE_KEY_FILE, JWT_ED25519_PUBLIC_KEY_FILE) - RECOMMENDED for production
+//  2. Environment variables (JWT_ED25519_PRIVATE_KEY, JWT_ED25519_PUBLIC_KEY) - Legacy, less secure
+//  3. Generated ephemeral keys (development only, fails in production)
 //
 // SD-004 FIX: Support loading JWT keys from files (more secure than plaintext env vars).
 // Called automatically during init() to set global jwtPrivateKey and jwtPublicKey.
@@ -181,9 +181,9 @@ func loadOrGenerateKeys() {
 type Claims struct {
 	UserID            string `json:"user_id"`
 	DeviceID          string `json:"device_id"`
-	Type              string `json:"type"` // "access" or "refresh"
-	JTI               string `json:"jti"`  // JWT ID for unique token identification
-	FamilyID          string `json:"family_id"`  // For refresh token rotation tracking
+	Type              string `json:"type"`                         // "access" or "refresh"
+	JTI               string `json:"jti"`                          // JWT ID for unique token identification
+	FamilyID          string `json:"family_id"`                    // For refresh token rotation tracking
 	DeviceFingerprint string `json:"device_fingerprint,omitempty"` // Optional device binding
 	jwt.RegisteredClaims
 }
@@ -370,8 +370,8 @@ func ValidateToken(tokenString string) (*Claims, error) {
 // and revocation status checking via Redis.
 //
 // Process:
-//   1. Verify token signature using ValidateToken
-//   2. Check if token JTI is in revoked set (revoked:jti key)
+//  1. Verify token signature using ValidateToken
+//  2. Check if token JTI is in revoked set (revoked:jti key)
 //
 // Returns error if token is revoked or if revocation check fails.
 func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) (*Claims, error) {
@@ -397,11 +397,11 @@ func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) 
 // RefreshAccessToken performs secure token refresh with rotation and theft detection.
 //
 // Process:
-//   1. Validate refresh token signature and type
-//   2. Check if already revoked using atomic Redis Lua script
-//   3. If concurrent reuse detected, revoke entire token family
-//   4. Issue new token pair with preserved family ID for theft detection chain
-//   5. Store new tokens in user's active token set
+//  1. Validate refresh token signature and type
+//  2. Check if already revoked using atomic Redis Lua script
+//  3. If concurrent reuse detected, revoke entire token family
+//  4. Issue new token pair with preserved family ID for theft detection chain
+//  5. Store new tokens in user's active token set
 //
 // SD-006 FIX: Atomic check-and-revoke using Redis Lua script prevents race conditions.
 // TD-004 FIX: New function to preserve family ID during token rotation for theft detection.
@@ -516,10 +516,10 @@ func RefreshAccessToken(redisClient *redis.Client, refreshToken string) (newAcce
 // Called when token theft or suspicious concurrent reuse is detected.
 //
 // Operations:
-//   1. Get all active tokens for the user
-//   2. Revoke each token with theft reason
-//   3. Log security event with family ID and revocation count
-//   4. Keep 90-day history for security analysis
+//  1. Get all active tokens for the user
+//  2. Revoke each token with theft reason
+//  3. Log security event with family ID and revocation count
+//  4. Keep 90-day history for security analysis
 //
 // SD-013 FIX: Enhanced token family revocation with device context tracking.
 func revokeTokenFamily(ctx context.Context, redisClient *redis.Client, familyID, userID string) {
@@ -554,29 +554,85 @@ func revokeTokenFamily(ctx context.Context, redisClient *redis.Client, familyID,
 }
 
 // RefreshTokenResponse is the response body returned after successful token refresh.
+//
+// F4: RefreshToken is omitempty — it is populated ONLY for native (non-web)
+// clients. Web requests receive the rotated refresh token in the HttpOnly
+// cookie and the field is omitted from the body so JS never sees it.
 type RefreshTokenResponse struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 // HandleRefreshToken returns an HTTP handler for the token refresh endpoint (/auth/refresh).
-// Accepts POST requests with RefreshTokenRequest body.
-// On success, returns new access and refresh tokens with audit logging.
+//
+// F4: The refresh token is sourced from two places, in priority order:
+//  1. The HttpOnly "usbvault_refresh" cookie (web clients — withCredentials).
+//  2. The JSON request body refresh_token field (native clients — keychain).
+//
+// On success the handler ROTATES the token pair (RefreshAccessToken revokes the
+// old refresh JTI and issues a new family-linked pair). When the request was
+// cookie-based, the NEW refresh token is written back into a rotated HttpOnly
+// cookie. The access token is always returned in the JSON body; the refresh
+// token is ALSO returned in the body for native clients (web ignores it and
+// relies on the cookie). On failure the cookie is cleared so a stale/rotated
+// token is not left in the browser.
+// allowedOrigins (variadic, F4 CSRF defense-in-depth): the caller passes the
+// CORS allowlist (getAllowedOrigins()). State-changing cookie requests carrying
+// a foreign Origin/Referer are rejected with 403 before any token processing.
+// This does NOT depend on SameSite/CORS — CORS only sets response headers and
+// does not gate request handling. When empty, the Origin check is skipped
+// (e.g. unit tests that exercise pure token logic).
 func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
-}) http.HandlerFunc {
+}, allowedOrigins ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req RefreshTokenRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request", http.StatusBadRequest)
+		// F4 CSRF: reject forged cross-site requests by Origin/Referer allowlist.
+		if len(allowedOrigins) > 0 && !checkRequestOrigin(r, allowedOrigins) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
 			return
 		}
 
-		// Token rotation: issue new access and refresh tokens
-		accessToken, refreshToken, err := RefreshAccessToken(redisClient, req.RefreshToken)
+		// Prefer the httpOnly cookie (web). Track whether the cookie was the
+		// source so we know to rotate it on success / clear it on failure.
+		var presentedRefreshToken string
+		fromCookie := false
+		if c, err := r.Cookie(RefreshCookieName); err == nil && c.Value != "" {
+			presentedRefreshToken = c.Value
+			fromCookie = true
+		} else {
+			// Fall back to JSON body for native clients.
+			var req RefreshTokenRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "invalid request", http.StatusBadRequest)
+				return
+			}
+			presentedRefreshToken = req.RefreshToken
+		}
+
+		if presentedRefreshToken == "" {
+			if fromCookie {
+				clearRefreshCookie(w)
+			}
+			http.Error(w, "missing refresh token", http.StatusUnauthorized)
+			return
+		}
+
+		// Token rotation: issue new access and refresh tokens. This revokes the
+		// presented refresh token; reuse triggers family revocation (theft).
+		accessToken, refreshToken, err := RefreshAccessToken(redisClient, presentedRefreshToken)
 		if err != nil {
+			// Clear the cookie on failure so the browser doesn't keep retrying
+			// with a revoked/rotated token.
+			if fromCookie {
+				clearRefreshCookie(w)
+			}
 			http.Error(w, "token refresh failed", http.StatusUnauthorized)
 			return
+		}
+
+		// F4: rotate the httpOnly cookie with the freshly issued refresh token.
+		if fromCookie {
+			setRefreshCookie(w, refreshToken)
 		}
 
 		// Extract user ID from new access token for audit logging
@@ -585,11 +641,17 @@ func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
 			auditSvc.LogAction(r.Context(), newClaims.UserID, "TOKEN_REFRESH", nil)
 		}
 
+		// F4 (no refresh token in web responses): include the rotated refresh
+		// token in the JSON body ONLY for native clients (the request did NOT use
+		// the cookie). Web clients (cookie-based) get the rotated cookie above and
+		// the body omits the token so JS never holds the long-lived credential.
+		resp := RefreshTokenResponse{AccessToken: accessToken}
+		if !fromCookie {
+			resp.RefreshToken = refreshToken
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(RefreshTokenResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }
 
@@ -598,19 +660,52 @@ func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
 // Logs audit event and returns success message.
 //
 // Process:
-//   1. Extract user ID from context (set by AuthMiddleware)
-//   2. Revoke current token from Authorization header
-//   3. Revoke all user tokens from active token set
-//   4. Delete user token set
-//   5. Log LOGOUT audit event
+//  1. Extract user ID from context (set by AuthMiddleware)
+//  2. Revoke current token from Authorization header
+//  3. Revoke all user tokens from active token set
+//  4. Delete user token set
+//  5. Log LOGOUT audit event
+//
+// allowedOrigins (variadic, F4 CSRF defense-in-depth): see HandleRefreshToken.
+// Logout is state-changing (revokes tokens) so it is also guarded by the
+// Origin/Referer allowlist. When empty, the check is skipped (unit tests).
 func HandleLogout(redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
-}) http.HandlerFunc {
+}, allowedOrigins ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract user_id from context (set by AuthMiddleware)
-		userID, ok := r.Context().Value(ctxkeys.UserID).(string)
-		if !ok || userID == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		// F4 CSRF: reject forged cross-site logout requests by Origin/Referer
+		// allowlist before mutating any server state.
+		if len(allowedOrigins) > 0 && !checkRequestOrigin(r, allowedOrigins) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
+		}
+
+		// F4: Always clear the refresh cookie on logout (Max-Age=0), regardless
+		// of whether an access token is present. A web session may have an
+		// expired/absent in-memory access token but still hold a valid refresh
+		// cookie; clearing it terminates the session in the browser.
+		clearRefreshCookie(w)
+
+		// Extract user_id from context (set by AuthMiddleware).
+		userID, _ := r.Context().Value(ctxkeys.UserID).(string)
+
+		// F4: If the access token didn't identify the user (web reload with an
+		// expired access token), fall back to the refresh cookie to recover the
+		// user ID and revoke the refresh token's JTI.
+		if userID == "" {
+			if c, err := r.Cookie(RefreshCookieName); err == nil && c.Value != "" {
+				if rc, verr := ValidateToken(c.Value); verr == nil {
+					userID = rc.UserID
+				}
+			}
+		}
+
+		if userID == "" {
+			// Nothing to revoke server-side, but the cookie has been cleared.
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "logged out successfully",
+			})
 			return
 		}
 
@@ -635,6 +730,19 @@ func HandleLogout(redisClient *redis.Client, auditSvc interface {
 				remainingTTL := time.Until(expiresAt)
 				if remainingTTL > 0 {
 					redisClient.Set(ctx, "revoked:"+claims.JTI, "1", remainingTTL)
+				}
+			}
+		}
+
+		// F4: Explicitly revoke the refresh token carried in the cookie. The
+		// SRP-issued refresh token's JTI is not tracked in the user_tokens set,
+		// so revoke it directly to ensure the cookie cannot be replayed.
+		if c, cerr := r.Cookie(RefreshCookieName); cerr == nil && c.Value != "" {
+			if rc, verr := ValidateToken(c.Value); verr == nil {
+				if rc.ExpiresAt != nil {
+					if remainingTTL := time.Until(rc.ExpiresAt.Time); remainingTTL > 0 {
+						redisClient.Set(ctx, "revoked:"+rc.JTI, "1", remainingTTL)
+					}
 				}
 			}
 		}

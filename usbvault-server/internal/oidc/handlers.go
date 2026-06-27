@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+
+	"github.com/usbvault/usbvault-server/internal/auth"
 )
 
 // AuditLogger is the minimal interface required for audit logging.
@@ -54,6 +56,8 @@ func HandleAuthorize(svc *Service) http.HandlerFunc {
 				http.Error(w, "unknown provider", http.StatusNotFound)
 			case ErrProviderDisabled:
 				http.Error(w, "provider is disabled", http.StatusForbidden)
+			case ErrRedirectURI:
+				http.Error(w, "redirect_uri is not allowed for this provider", http.StatusBadRequest)
 			default:
 				log.Error().Err(err).Str("slug", slug).Msg("failed to generate OIDC authorization URL")
 				http.Error(w, "authorization failed", http.StatusInternalServerError)
@@ -106,6 +110,8 @@ func HandleCallback(svc *Service, auditSvc AuditLogger) http.HandlerFunc {
 				http.Error(w, "unknown provider", http.StatusNotFound)
 			case err == ErrMissingEmail:
 				http.Error(w, "identity provider did not return an email", http.StatusUnprocessableEntity)
+			case err == ErrEmailNotVerified:
+				http.Error(w, "identity provider did not assert a verified email", http.StatusForbidden)
 			default:
 				log.Error().Err(err).Str("slug", slug).Msg("OIDC callback failed")
 				http.Error(w, "authentication failed", http.StatusInternalServerError)
@@ -122,6 +128,20 @@ func HandleCallback(svc *Service, auditSvc AuditLogger) http.HandlerFunc {
 			if err := auditSvc.LogAction(r.Context(), result.UserID, "OIDC_LOGIN", auditDetail); err != nil {
 				log.Warn().Err(err).Str("user_id", result.UserID).Msg("failed to log OIDC audit event")
 			}
+		}
+
+		// F4 (cookie coverage): mirror the SRP/FIDO2 web flow — set the refresh
+		// token as an HttpOnly, Secure, SameSite=Strict cookie so web/SSO clients
+		// keep the long-lived credential out of JS reach (XSS cannot exfiltrate
+		// it). The OIDC callback is invoked by the browser SPA, so this is a web
+		// flow; the cookie is always set here.
+		auth.SetRefreshCookie(w, result.RefreshToken)
+
+		// F4 (no refresh token in web responses): omit the refresh token from the
+		// JSON body for web requests (the cookie above carries it). Native clients
+		// driving the OIDC flow without a browser context still receive it.
+		if auth.IsWebRequest(r) {
+			result.RefreshToken = ""
 		}
 
 		w.Header().Set("Content-Type", "application/json")

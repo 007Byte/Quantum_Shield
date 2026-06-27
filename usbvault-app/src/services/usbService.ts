@@ -34,12 +34,55 @@ const USB_COMPANION_URL = process.env.EXPO_PUBLIC_USB_COMPANION_URL || 'http://l
 
 let companionClient: AxiosInstance | null = null;
 
+// ── Companion Bearer Token (CRIT-1 / F5) ─────────────────────────────
+// The companion requires `Authorization: Bearer <token>` on every /usb/*
+// route. Inside the Electron desktop shell the token is delivered out-of-band
+// through the preload bridge (window.electronBridge.getCompanionToken). We
+// fetch it once and cache it; the request interceptor below attaches it to
+// every companion call. In a standalone web context the bridge is absent, so
+// no token is available and the companion will (correctly) answer 401.
+let companionTokenPromise: Promise<string | null> | null = null;
+
+function fetchCompanionToken(): Promise<string | null> {
+  if (!companionTokenPromise) {
+    companionTokenPromise = (async () => {
+      const bridge = getElectronBridge();
+      if (bridge && typeof bridge.getCompanionToken === 'function') {
+        try {
+          const token = await bridge.getCompanionToken();
+          return token || null;
+        } catch {
+          // Bridge present but token unavailable — fall through to no-token.
+          return null;
+        }
+      }
+      // Non-Electron (standalone web): no token source available.
+      return null;
+    })();
+  }
+  return companionTokenPromise;
+}
+
 function getCompanionClient(): AxiosInstance {
   if (!companionClient) {
     companionClient = axios.create({
       baseURL: USB_COMPANION_URL,
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
+    });
+
+    // Attach the bearer token to EVERY request to the companion. Resolving the
+    // token here (rather than at client-creation) means it is fetched lazily on
+    // the first call and reused thereafter. If no token is available the header
+    // is simply omitted and the companion responds 401.
+    companionClient.interceptors.request.use(async config => {
+      const token = await fetchCompanionToken();
+      if (token) {
+        // config.headers is always an AxiosHeaders on InternalAxiosRequestConfig
+        // (axios 1.x); assign directly rather than reassigning the property.
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
     });
   }
   return companionClient;

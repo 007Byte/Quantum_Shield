@@ -19,8 +19,8 @@ jest.mock('axios', () => {
   (global as any).__axiosMock = { get, post };
   return {
     __esModule: true,
-    default: { create: () => ({ get, post }) },
-    create: () => ({ get, post }),
+    default: { create: () => ({ get, post, interceptors: { request: { use: () => 0 } } }) },
+    create: () => ({ get, post, interceptors: { request: { use: () => 0 } } }),
   };
 });
 

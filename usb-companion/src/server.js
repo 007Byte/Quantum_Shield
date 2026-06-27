@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { usbRouter } from './routes/usb.js';
 import { healthRouter } from './routes/health.js';
 import { requestLogger, errorHandler, notFoundHandler } from './middleware/handlers.js';
+import { requireAuth, validateHost, getCompanionToken } from './middleware/auth.js';
 import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
 
@@ -36,12 +37,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// ── Auth Token Bootstrap ──────────────────────────────────────────────
+// Establish the bearer token before any route is registered. Reads
+// USBVAULT_COMPANION_TOKEN if set, otherwise generates one and persists it to
+// a user-only (0600) file. Never logs the token value, only its location.
+// Fails closed (throws) if the token cannot be established/persisted.
+getCompanionToken();
+
 // ── Standalone Mode Detection ─────────────────────────────────────────
 // Detect early so Helmet CSP can adapt
 const staticDir = join(__dirname, '..', 'static');
 const isStandaloneMode = existsSync(staticDir) || process.env.USB_STANDALONE_MODE === 'true';
 
 // ── Security Middleware ────────────────────────────────────────────────
+
+// Host-header allowlist FIRST: reject any request whose Host is not loopback.
+// This defeats DNS rebinding even for requests CORS does not cover, and runs
+// before any handler so rebound state-changing requests never execute.
+app.use(validateHost(config.port));
 
 // Helmet: sets secure HTTP headers (CSP, HSTS, X-Content-Type-Options, etc.)
 // In standalone mode, relax CSP to allow Expo's inline scripts and blob: URLs
@@ -113,7 +126,11 @@ app.use(requestLogger);
 
 app.use('/health', healthRouter);
 app.use('/', healthRouter);          // mount at root so /companion/health and /companion/version resolve
-app.use('/usb', usbRouter(destructiveLimiter));
+
+// Bearer-token auth gate on ALL privileged /usb/* routes. /health and
+// /companion/{health,version} are intentionally left unauthenticated so the
+// frontend can probe availability/version negotiation before it has the token.
+app.use('/usb', requireAuth, usbRouter(destructiveLimiter));
 
 // ── USB-Only Standalone Mode (Self-Hosted Web App) ──────────────────────
 // When a static/ directory exists (from `npm run export:usb`), serve the

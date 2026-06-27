@@ -24,6 +24,30 @@ func NewPostgresSharingRepository(pool *pgxpool.Pool) *PostgresSharingRepository
 	return &PostgresSharingRepository{pool: pool}
 }
 
+// BlobOwnedBy reports whether the blob exists (not soft-deleted) and lives in a
+// vault owned by userID. Used to enforce that a share sender owns the blob being
+// shared (prevents share-creation IDOR).
+func (r *PostgresSharingRepository) BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error) {
+	var exists int
+	err := r.pool.QueryRow(ctx,
+		`SELECT 1
+		   FROM blobs b
+		   JOIN vaults v ON v.id = b.vault_id
+		  WHERE b.id = $1
+		    AND b.deleted_at IS NULL
+		    AND v.deleted_at IS NULL
+		    AND v.owner_id = $2`,
+		blobID, userID,
+	).Scan(&exists)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // CreateShare creates a new share record with a 30-day expiration by default.
 func (r *PostgresSharingRepository) CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error) {
 	shareID := uuid.New().String()
@@ -43,6 +67,24 @@ func (r *PostgresSharingRepository) CreateShare(ctx context.Context, senderID, r
 
 	log.Info().Str("share_id", shareID).Str("sender_id", senderID).Str("recipient_id", recipientID).Msg("share created")
 	return shareID, nil
+}
+
+// CountActiveSentShares returns the number of non-expired shares the sender
+// currently has outstanding. F3: used to enforce a per-tier maximum share count.
+func (r *PostgresSharingRepository) CountActiveSentShares(ctx context.Context, senderID string) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM share_records
+		  WHERE sender_id = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+		senderID,
+	).Scan(&count)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return count, nil
 }
 
 // ListReceivedShares lists all shares received by a user that haven't expired.

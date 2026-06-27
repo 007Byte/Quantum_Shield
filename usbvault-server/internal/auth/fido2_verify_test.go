@@ -2,8 +2,10 @@ package auth
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -35,5 +37,22 @@ func TestFIDO2ChallengeExpiry_Reasonable(t *testing.T) {
 	challengeExpirySeconds := 300
 	if challengeExpirySeconds < 60 || challengeExpirySeconds > 600 {
 		t.Errorf("FIDO2 challenge expiry %d seconds is outside safe range", challengeExpirySeconds)
+	}
+}
+
+// TestFIDO2VerifyResponse_OmitsRefreshTokenForWeb verifies F4: the web FIDO2
+// response omits refresh_token from the JSON body (it is carried in the
+// HttpOnly cookie), while native responses include it.
+func TestFIDO2VerifyResponse_OmitsRefreshTokenForWeb(t *testing.T) {
+	web := FIDO2VerifyResponse{AccessToken: "a", RefreshToken: ""}
+	b, _ := json.Marshal(web)
+	if strings.Contains(string(b), "refresh_token") {
+		t.Errorf("web FIDO2 response must omit refresh_token, got %s", b)
+	}
+
+	native := FIDO2VerifyResponse{AccessToken: "a", RefreshToken: "r"}
+	b, _ = json.Marshal(native)
+	if !strings.Contains(string(b), "refresh_token") {
+		t.Errorf("native FIDO2 response must include refresh_token, got %s", b)
 	}
 }

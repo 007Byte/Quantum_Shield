@@ -74,6 +74,9 @@ const (
 
 // Sharing
 const (
-	DefaultShareTTL     = 7 * 24 * time.Hour
-	MaxSharesPerVault   = 100
+	DefaultShareTTL = 7 * 24 * time.Hour
+	// MaxSharesPerVault is the maximum number of outstanding (non-expired) shares
+	// a sender may have. F3: now wired into sharing.SharingService.checkCanCreateShare
+	// as the per-sender share-count ceiling (previously this constant was unused).
+	MaxSharesPerVault = 100
 )

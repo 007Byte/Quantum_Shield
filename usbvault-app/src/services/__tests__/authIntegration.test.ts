@@ -17,6 +17,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as authService from '@/services/auth';
 import * as apiService from '@/services/api';
 import * as cryptoBridge from '@/crypto/bridge';
+import * as srpClient from '@/crypto/srpClient';
 import { useAuthStore } from '@/stores/authStore';
 import { stopVaultPolling } from '@/stores/vaultPolling';
 import { stopIdleTimer } from '@/stores/vaultIdleTimer';
@@ -27,6 +28,10 @@ import { cleanupStoreSubscriptions } from '@/stores/storeCleanup';
 // Mock API layer — the network boundary. Everything above this runs for real.
 jest.mock('@/services/api');
 jest.mock('@/crypto/bridge');
+// F7: real SRP-6a client is covered byte-for-byte by srpClient.kat.test.ts.
+// Mocked here so the auth-flow integration stays deterministic and the mocked
+// server M2 matches the client-computed M2.
+jest.mock('@/crypto/srpClient');
 jest.mock('@/services/auditService', () => ({
   auditService: {
     log: jest.fn().mockResolvedValue(undefined),
@@ -58,16 +63,31 @@ const TEST_PASSWORD = 'Str0ngP@ssw0rd!';
 const MOCK_SALT_HEX = '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20';
 const MOCK_B_HEX = '2102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20';
 const MOCK_M2_HEX = '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20';
+const MOCK_M2_BYTES = Uint8Array.from(Buffer.from(MOCK_M2_HEX, 'hex'));
 
 function setupCryptoMocks(): void {
-  (cryptoBridge.srpGenerateClientEphemeral as jest.Mock).mockResolvedValue({
-    public: new Uint8Array(32),
-    private: new Uint8Array(32),
+  // SRP-6a client (real module covered by srpClient.kat.test.ts; mocked here).
+  // computeM2 returns the SAME bytes the server mock sends as M2, so the
+  // mutual-auth M2 check in login() passes.
+  (srpClient.generateEphemeral as jest.Mock).mockReturnValue({ a: 3n, A: 8n });
+  (srpClient.deriveSrpX as jest.Mock).mockResolvedValue(7n);
+  (srpClient.deriveVerifier as jest.Mock).mockReturnValue(9n);
+  (srpClient.processChallenge as jest.Mock).mockResolvedValue({
+    S: 5n,
+    K: new Uint8Array(32).fill(0x11),
+    M1: new Uint8Array(32).fill(0x22),
   });
-  (cryptoBridge.srpDeriveSession as jest.Mock).mockResolvedValue({
-    proof: new Uint8Array(32),
-    key: new Uint8Array(32),
-  });
+  (srpClient.computeM2 as jest.Mock).mockResolvedValue(MOCK_M2_BYTES);
+  (srpClient.bigIntToBytes as jest.Mock).mockImplementation((v: bigint) =>
+    v === 0n
+      ? new Uint8Array([0])
+      : Uint8Array.from(Buffer.from(v.toString(16).padStart(2, '0'), 'hex'))
+  );
+  (srpClient.bytesToBigInt as jest.Mock).mockImplementation((b: Uint8Array) =>
+    b.length === 0 ? 0n : BigInt('0x' + Buffer.from(b).toString('hex'))
+  );
+
+  (cryptoBridge.randomBytes as jest.Mock).mockResolvedValue(new Uint8Array(32).fill(0x42));
   (cryptoBridge.hashSha256 as jest.Mock).mockResolvedValue(MOCK_M2_HEX);
   (cryptoBridge.deriveKey as jest.Mock).mockResolvedValue(new Uint8Array(32).fill(0xaa));
   (cryptoBridge.generateShareKeypair as jest.Mock).mockResolvedValue({
@@ -183,9 +203,10 @@ describe('Auth Integration Tests', () => {
       const store = useAuthStore.getState();
       await store.login(TEST_EMAIL, TEST_PASSWORD);
 
-      // hashSha256 is called to compute expected M2 = SHA256(A || M1 || K)
-      // If M2 doesn't match, login would throw — success here implies M2 matched
-      expect(cryptoBridge.hashSha256).toHaveBeenCalled();
+      // F7: expected M2 = H(PAD(A) || M1 || K) is computed by the real SRP-6a
+      // client (srpClient.computeM2). If M2 doesn't match the server's M2 login
+      // throws — success here implies the M2 mutual-auth check passed.
+      expect(srpClient.computeM2).toHaveBeenCalled();
     });
 
     it('should set loading state during login', async () => {

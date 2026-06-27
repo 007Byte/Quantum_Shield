@@ -4,6 +4,13 @@
  * Defines resource limits and feature access per subscription tier.
  * Must stay in sync with the server-side TierLimitsMap in middleware/auth.go.
  *
+ * SECURITY (TIER-TRUST): These helpers are pure functions of the `tier` argument and are
+ * for CLIENT-SIDE UX gating only. Callers MUST pass a tier that originates from the server
+ * (validated JWT claim / GET /user/profile), never one derived solely from
+ * attacker-writable client storage (e.g. localStorage `usbvault_subscription_tier`).
+ * Any gate that controls a security-relevant capability MUST also be enforced server-side
+ * (mirrors TierLimitsMap in middleware/auth.go); the client check here can be bypassed.
+ *
  * @module utils/featureGates
  */
 

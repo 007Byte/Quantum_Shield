@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -29,8 +30,10 @@ type FIDO2VerifyRequest struct {
 }
 
 type FIDO2VerifyResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken string `json:"access_token"`
+	// F4: omitempty — populated only for native clients; web clients receive the
+	// refresh token in the HttpOnly cookie instead of the JSON body.
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.Client) http.HandlerFunc {
@@ -63,7 +66,7 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 
 		// Initialize WebAuthn
 		wau, err := webauthn.New(&webauthn.Config{
-			RPID:     config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
+			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
 			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
 			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
@@ -106,8 +109,8 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-	// DV-018 FIX: Reduce FIDO2 challenge TTL from 10 minutes to 2 minutes for tighter security
-	if err := redisClient.Set(ctx, "fido2:"+sessionID, sessionJSON, 2*time.Minute).Err(); err != nil {
+		// DV-018 FIX: Reduce FIDO2 challenge TTL from 10 minutes to 2 minutes for tighter security
+		if err := redisClient.Set(ctx, "fido2:"+sessionID, sessionJSON, 2*time.Minute).Err(); err != nil {
 			log.Error().Err(err).Msg("failed to store FIDO2 session in Redis")
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -172,45 +175,77 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 			return
 		}
 
-		// 3. Look up user and credentials from session's UserID
-		userIDBytes := sessionData.UserID
-		userID := string(userIDBytes)
+		// 3. SECURITY: this is a client-side discoverable login. We must NOT
+		// trust sessionData.UserID (which is empty for discoverable login and
+		// not bound to any credential). Instead, the authenticating identity is
+		// derived from the assertion itself: the resolver below looks up the
+		// user by the asserted user handle AND verifies that the user actually
+		// owns a credential whose ID equals the asserted credential ID. This
+		// binds verification to the owning user of the presented credential.
+		var (
+			userID      string
+			credentials []webauthn.Credential
+			resolverErr error
+		)
+		resolver := func(rawID, userHandle []byte) (webauthn.User, error) {
+			// userHandle is the WebAuthnID we set at registration: []byte(userID).
+			resolvedUserID := string(userHandle)
+			if resolvedUserID == "" {
+				return nil, fmt.Errorf("empty user handle in assertion")
+			}
 
-		var credentialsJSON []byte
-		var displayName string
-		err = pool.QueryRow(ctx,
-			`SELECT webauthn_credentials, email_hash FROM users WHERE id = $1`,
-			userID,
-		).Scan(&credentialsJSON, &displayName)
+			var credentialsJSON []byte
+			var displayName string
+			if dbErr := pool.QueryRow(ctx,
+				`SELECT webauthn_credentials, email_hash FROM users WHERE id = $1`,
+				resolvedUserID,
+			).Scan(&credentialsJSON, &displayName); dbErr != nil {
+				resolverErr = dbErr
+				return nil, fmt.Errorf("user not found for asserted handle")
+			}
+			if credentialsJSON == nil {
+				return nil, fmt.Errorf("no credentials registered")
+			}
+
+			var creds []webauthn.Credential
+			if jsonErr := json.Unmarshal(credentialsJSON, &creds); jsonErr != nil {
+				resolverErr = jsonErr
+				return nil, fmt.Errorf("corrupted credentials")
+			}
+
+			// Bind to the asserted credential: the user MUST own a credential
+			// whose ID matches the presented rawID.
+			ownsCredential := false
+			for _, c := range creds {
+				if string(c.ID) == string(rawID) {
+					ownsCredential = true
+					break
+				}
+			}
+			if !ownsCredential {
+				return nil, fmt.Errorf("asserted credential not owned by resolved user")
+			}
+
+			userID = resolvedUserID
+			credentials = creds
+			return &fido2User{
+				id:          userHandle,
+				name:        displayName,
+				credentials: creds,
+			}, nil
+		}
+
+		// 4 & 5. Validate the assertion response (signature verification) and
+		// resolve/bind the user via the discoverable-login resolver above.
+		updatedCredential, err := wau.FinishDiscoverableLogin(resolver, sessionData, r)
 		if err != nil {
-			log.Warn().Str("user_id", userID).Msg("user not found during FIDO2 verify")
-			http.Error(w, "authentication failed", http.StatusUnauthorized)
-			return
-		}
-
-		if credentialsJSON == nil {
-			http.Error(w, "no credentials registered", http.StatusUnauthorized)
-			return
-		}
-
-		var credentials []webauthn.Credential
-		if err := json.Unmarshal(credentialsJSON, &credentials); err != nil {
-			http.Error(w, "corrupted credentials", http.StatusInternalServerError)
-			return
-		}
-
-		// 4. Create a WebAuthn user wrapper for validation
-		waUser := &fido2User{
-			id:          userIDBytes,
-			name:        displayName,
-			credentials: credentials,
-		}
-
-		// 5. Validate the assertion response (signature verification)
-		updatedCredential, err := wau.FinishLogin(waUser, sessionData, r)
-		if err != nil {
-			log.Warn().Err(err).Str("user_id", userID).Msg("FIDO2 assertion verification failed")
-			auditSvc.LogAction(ctx, userID, "FIDO2_VERIFY_FAILED", nil)
+			if resolverErr != nil {
+				log.Warn().Err(resolverErr).Msg("FIDO2 user resolution failed during verify")
+			}
+			log.Warn().Err(err).Msg("FIDO2 assertion verification failed")
+			if userID != "" {
+				auditSvc.LogAction(ctx, userID, "FIDO2_VERIFY_FAILED", nil)
+			}
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -248,11 +283,21 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 		auditSvc.LogAction(ctx, userID, "FIDO2_LOGIN", nil)
 		log.Info().Str("user_id", userID).Msg("FIDO2 authentication successful")
 
+		// F4 (cookie coverage): mirror the SRP web flow — set the refresh token as
+		// an HttpOnly, Secure, SameSite=Strict cookie so web/passkey clients keep
+		// the long-lived credential out of JS reach (XSS cannot exfiltrate it).
+		setRefreshCookie(w, refreshToken)
+
+		// F4 (no refresh token in web responses): include the refresh token in the
+		// JSON body ONLY for native clients (no browser Origin/Referer/cookie).
+		// Web clients rely on the cookie set above.
+		resp := FIDO2VerifyResponse{AccessToken: accessToken}
+		if !IsWebRequest(r) {
+			resp.RefreshToken = refreshToken
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(FIDO2VerifyResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }
 

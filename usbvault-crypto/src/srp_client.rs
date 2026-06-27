@@ -39,16 +39,40 @@ mod srp_params {
     /// g = generator (always 2 for RFC 7919)
     pub const G: u32 = 2;
 
-    /// k = H(N || g) used in SRP-6a
+    /// PAD_LEN is the canonical PAD width for all SRP hash inputs: the byte
+    /// length of N (3072-bit ffdhe3072 => 384 bytes). Per the canonical SRP-6a
+    /// convention shared with the Go server
+    /// (usbvault-server/internal/auth/srp.go, srpPadLen), EVERY big-integer
+    /// operand fed into a hash (N, g, A, B, S) is left-zero-padded, big-endian,
+    /// to exactly this width before hashing. Hashing variable-width
+    /// `BigUint::to_bytes_be()` output (which strips leading zero bytes) was the
+    /// root cause of the Go<->Rust interop break.
+    pub const PAD_LEN: usize = 384;
+
+    /// pad left-zero-pads a big-endian byte slice to PAD_LEN bytes. This is the
+    /// canonical PAD(x) used on BOTH the Rust client and the Go server so that
+    /// k, u, K, M1 and M2 are byte-identical across implementations.
+    pub fn pad(bytes: &[u8]) -> Vec<u8> {
+        let mut out = vec![0u8; PAD_LEN];
+        if bytes.len() <= PAD_LEN {
+            out[PAD_LEN - bytes.len()..].copy_from_slice(bytes);
+        } else {
+            // Defensive: keep the low PAD_LEN bytes if oversized.
+            out.copy_from_slice(&bytes[bytes.len() - PAD_LEN..]);
+        }
+        out
+    }
+
+    /// k = H(PAD(N) || PAD(g)) used in SRP-6a (canonical convention).
     pub static K: Lazy<Vec<u8>> = Lazy::new(|| {
         use sha2::{Digest, Sha256};
         let n_bytes = hex::decode(N_HEX).expect("Valid N_HEX");
-        let g_bytes = vec![G as u8];
+        let g_bytes = BigUint::from(G).to_bytes_be();
 
         let mut hasher = Sha256::new();
-        // RFC 5054: k = H(pad(N) || pad(g))
-        hasher.update(&n_bytes);
-        hasher.update(&g_bytes);
+        // RFC 5054 canonical: k = H(PAD(N) || PAD(g))
+        hasher.update(pad(&n_bytes));
+        hasher.update(pad(&g_bytes));
         hasher.finalize().to_vec()
     });
 
@@ -247,10 +271,10 @@ impl SrpClientSession {
             ));
         }
 
-        // Compute u = H(PAD(A) || PAD(B))
+        // Compute u = H(PAD(A) || PAD(B)) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(self.public_key_a.to_bytes_be());
-        hasher.update(server_b);
+        hasher.update(srp_params::pad(&self.public_key_a.to_bytes_be()));
+        hasher.update(srp_params::pad(&b.to_bytes_be()));
         let u_hash = hasher.finalize();
         let u = BigUint::from_bytes_be(u_hash.as_ref());
 
@@ -286,17 +310,16 @@ impl SrpClientSession {
         // Step 6: compute S = (B - k*g^x)^exponent mod N
         let s = b_minus_kgx.modpow(&exponent, &n);
 
-        // Compute K = H(S)
-        let s_bytes = s.to_bytes_be();
+        // Compute K = H(PAD(S)) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(&s_bytes);
+        hasher.update(srp_params::pad(&s.to_bytes_be()));
         let k_session = hasher.finalize();
         let k_bytes = k_session.to_vec();
 
-        // Compute M1 = H(A, B, K)
+        // Compute M1 = H(PAD(A) || PAD(B) || K) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(self.public_key_a.to_bytes_be());
-        hasher.update(server_b);
+        hasher.update(srp_params::pad(&self.public_key_a.to_bytes_be()));
+        hasher.update(srp_params::pad(&b.to_bytes_be()));
         hasher.update(&k_bytes);
         let m1 = hasher.finalize().to_vec();
 
@@ -311,9 +334,9 @@ impl SrpClientSession {
     ///
     /// Computes expected M2 = H(A, M1, K) and compares with server's M2
     pub fn verify_server(&self, server_m2: &[u8]) -> Result<()> {
-        // Compute expected M2 = H(A, M1, K)
+        // Compute expected M2 = H(PAD(A) || M1 || K) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(self.public_key_a.to_bytes_be());
+        hasher.update(srp_params::pad(&self.public_key_a.to_bytes_be()));
         hasher.update(self.client_proof_m1.as_slice());
         hasher.update(self.session_key.as_slice());
         let expected_m2 = hasher.finalize();
@@ -425,10 +448,10 @@ mod tests {
         assert!(!session_key.is_empty());
         assert_eq!(session_key.len(), 32); // SHA256 output
 
-        // Server computes u = H(A || B)
+        // Server computes u = H(PAD(A) || PAD(B)) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(&client_a_bytes);
-        hasher.update(&server_b_bytes);
+        hasher.update(srp_params::pad(&client_a_bytes));
+        hasher.update(srp_params::pad(&server_b_bytes));
         let u_hash = hasher.finalize();
         let u = BigUint::from_bytes_be(u_hash.as_ref());
 
@@ -437,9 +460,9 @@ mod tests {
         let avu = (&client_a * &vu) % &n;
         let server_s = avu.modpow(&server_b_private, &n);
 
-        // Server computes K = H(S)
+        // Server computes K = H(PAD(S)) — canonical convention.
         let mut hasher = Sha256::new();
-        hasher.update(server_s.to_bytes_be());
+        hasher.update(srp_params::pad(&server_s.to_bytes_be()));
         let server_k = hasher.finalize().to_vec();
 
         // Both sides should derive the same session key
@@ -448,9 +471,9 @@ mod tests {
             "Client and server session keys must match"
         );
 
-        // Server computes M2 = H(A, M1, K) — matching verify_server expectation
+        // Server computes M2 = H(PAD(A) || M1 || K) — matching verify_server.
         let mut hasher = Sha256::new();
-        hasher.update(&client_a_bytes);
+        hasher.update(srp_params::pad(&client_a_bytes));
         hasher.update(&m1);
         hasher.update(&server_k);
         let server_m2 = hasher.finalize();
@@ -482,6 +505,132 @@ mod tests {
         let v2 = client2.compute_verifier(&salt).expect("Verifier 2 failed");
 
         assert_eq!(v1, v2);
+    }
+
+    // --- F6: SRP-6a cross-implementation known-answer test (KAT) -----------
+    //
+    // Pins the ONE canonical RFC 5054-style convention (PAD to 384 bytes,
+    // k=H(PAD(N)||PAD(g)), u=H(PAD(A)||PAD(B)), K=H(PAD(S)),
+    // M1=H(PAD(A)||PAD(B)||K), M2=H(PAD(A)||M1||K)) with FIXED, RNG-free inputs.
+    //
+    // The matching Go test lives in
+    // usbvault-server/internal/auth/srp_test.go (TestSRPInteropKAT) and uses the
+    // SAME fixed inputs. Both languages MUST emit byte-identical
+    // k/A/B/u/S/K/M1/M2. The shared contract is /srp_interop_vector.json.
+    //
+    // Fixed inputs (no RNG): a=3, b=5, x=7, salt=0x..42, username="alice".
+    // x is injected directly here (NOT via Argon2id) so the handshake KAT does
+    // not depend on the password->x derivation.
+    //
+    // SRP_KAT_EXPECTED_* mirror srp_interop_vector.json; empty until the first
+    // green run, after which the test asserts against them. Regardless, the test
+    // always asserts client-path == server-path (S, K) and an M1/M2 round-trip.
+    const SRP_KAT_EXPECTED_K: &str =
+        "1c030432002aa938dce6575dd2d419e3e748fec526bdbba8a28c849952370428"; // k  = H(PAD(N)||PAD(g))
+    const SRP_KAT_EXPECTED_A: &str = "08"; // A  = g^a mod N
+    const SRP_KAT_EXPECTED_B: &str =
+        "0e0182190015549c6e732baee96a0cf1f3a47f62935eddd45146424ca91b821420"; // B  = (k*v + g^b) mod N
+    const SRP_KAT_EXPECTED_U: &str =
+        "cfe9baafb3a51933680e31f7a49b4364d6ad89142fd0c4bb734e75308d0e6f55"; // u  = H(PAD(A)||PAD(B))
+    const SRP_KAT_EXPECTED_S: &str = "159b7594cebaa2ca9e5132c172c9d534d004534b456802b2c06f27762b9f43aac1ae8e475af4503e11d6b6e1253b1a5454711b1e4695235858f2c250b4a3a07b1b1f4e17a0b8dcd35e9be669b97f98070d9ac1a7b813438311a77ed3de13699ae6b401700f9f442b0751702ede4f6bf2672cedfc3c6b04b176eb8de344a46456afb13b1589dfdc9e7fcd3112615dfd053c6209dc5ac4cb60b9c966a8db48107aa5b4fd098b7d21a2b7c92b11240fdd3ce01025647512e49b06c3bf055fdd132754aee2cdffe5cfdf71e07a5294c5887e3695010c1ee5f5f409e235588b3023cdf96393f675c561b173676c8fb62c89617f7336d8ca08da3fdbfedc5072c69875612a57a7f0d9f42ba143b3c782898057e8de87994725a1341df065a8cc59ae804ee7d7749dba90d37a187f3e90a4145672226bc4f158786c4cfc53d222de6e0d7334997ec8d0213f26143f87d6b71ee4cd5a8d3854a6ebe96b63fb79aea3c559fc3d5698cfb5cd3ad65d6855f7f96433b33278858f1fdaf5cb50c1d467dedecd"; // shared secret S
+    const SRP_KAT_EXPECTED_KK: &str =
+        "58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568"; // K  = H(PAD(S))
+    const SRP_KAT_EXPECTED_M1: &str =
+        "350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b"; // M1 = H(PAD(A)||PAD(B)||K)
+    const SRP_KAT_EXPECTED_M2: &str =
+        "c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c"; // M2 = H(PAD(A)||M1||K)
+
+    fn h_sha256(parts: &[&[u8]]) -> Vec<u8> {
+        let mut hasher = Sha256::new();
+        for p in parts {
+            hasher.update(p);
+        }
+        hasher.finalize().to_vec()
+    }
+
+    #[test]
+    fn srp_interop_kat() {
+        let n = srp_params::get_n();
+        let g = srp_params::get_g();
+
+        // Fixed scalars (no RNG) — must match srp_interop_vector.json / Go KAT.
+        let a = BigUint::from(3u32);
+        let b = BigUint::from(5u32);
+        let x = BigUint::from(7u32);
+
+        // k = H(PAD(N) || PAD(g))  (srp_params::K already uses this convention)
+        let k = BigUint::from_bytes_be(&srp_params::K);
+
+        // Verifier v = g^x mod N (x injected directly; not password-derived).
+        let v = g.modpow(&x, &n);
+
+        // Client public A = g^a mod N
+        let a_pub = g.modpow(&a, &n);
+
+        // Server public B = (k*v + g^b) mod N
+        let gb = g.modpow(&b, &n);
+        let b_pub = ((&k * &v) % &n + &gb) % &n;
+
+        // u = H(PAD(A) || PAD(B))
+        let u = BigUint::from_bytes_be(&h_sha256(&[
+            &srp_params::pad(&a_pub.to_bytes_be()),
+            &srp_params::pad(&b_pub.to_bytes_be()),
+        ]));
+
+        // Server shared secret: S = (A * v^u)^b mod N
+        let vu = v.modpow(&u, &n);
+        let s_server = ((&a_pub * &vu) % &n).modpow(&b, &n);
+
+        // Client shared secret: S = (B - k*g^x)^(a + u*x) mod N
+        let gx = g.modpow(&x, &n);
+        let kgx = (&k * &gx) % &n;
+        let base = if b_pub >= kgx {
+            (&b_pub - &kgx) % &n
+        } else {
+            (&b_pub + &n - &kgx) % &n
+        };
+        let exp = &a + (&u * &x);
+        let s_client = base.modpow(&exp, &n);
+
+        assert_eq!(s_server, s_client, "client/server shared secret S diverged");
+        let s = s_server;
+
+        // K = H(PAD(S))
+        let kk = h_sha256(&[&srp_params::pad(&s.to_bytes_be())]);
+
+        // M1 = H(PAD(A) || PAD(B) || K); M2 = H(PAD(A) || M1 || K)
+        let m1 = h_sha256(&[
+            &srp_params::pad(&a_pub.to_bytes_be()),
+            &srp_params::pad(&b_pub.to_bytes_be()),
+            &kk,
+        ]);
+        let m2 = h_sha256(&[&srp_params::pad(&a_pub.to_bytes_be()), &m1, &kk]);
+
+        // Emit the vector so the shared JSON expected_* constants can be filled.
+        println!("SRP interop KAT (Rust) vector:");
+        println!("  k  = {}", hex::encode(k.to_bytes_be()));
+        println!("  A  = {}", hex::encode(a_pub.to_bytes_be()));
+        println!("  B  = {}", hex::encode(b_pub.to_bytes_be()));
+        println!("  u  = {}", hex::encode(u.to_bytes_be()));
+        println!("  S  = {}", hex::encode(s.to_bytes_be()));
+        println!("  K  = {}", hex::encode(&kk));
+        println!("  M1 = {}", hex::encode(&m1));
+        println!("  M2 = {}", hex::encode(&m2));
+
+        // Assert against locked constants when populated (cross-language contract).
+        let check = |name: &str, expected: &str, got: &[u8]| {
+            if !expected.is_empty() {
+                assert_eq!(hex::encode(got), expected, "KAT {} mismatch", name);
+            }
+        };
+        check("k", SRP_KAT_EXPECTED_K, &k.to_bytes_be());
+        check("A", SRP_KAT_EXPECTED_A, &a_pub.to_bytes_be());
+        check("B", SRP_KAT_EXPECTED_B, &b_pub.to_bytes_be());
+        check("u", SRP_KAT_EXPECTED_U, &u.to_bytes_be());
+        check("S", SRP_KAT_EXPECTED_S, &s.to_bytes_be());
+        check("K", SRP_KAT_EXPECTED_KK, &kk);
+        check("M1", SRP_KAT_EXPECTED_M1, &m1);
+        check("M2", SRP_KAT_EXPECTED_M2, &m2);
     }
 
     #[test]

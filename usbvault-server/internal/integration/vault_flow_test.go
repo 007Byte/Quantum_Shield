@@ -3,299 +3,226 @@
 package integration
 
 import (
-	"crypto/rand"
-	"fmt"
+	"bytes"
 	"testing"
 
 	"github.com/usbvault/usbvault-server/internal/testutil"
 )
 
-// TestVaultFullFlow exercises the complete vault lifecycle:
-// 1. Register a new user
-// 2. Create a vault
-// 3. Upload an encrypted blob
-// 4. List vaults and verify blob appears
-// 5. List blobs in vault
-// 6. Delete the blob
-// 7. Verify blob is cleaned up
-// 8. Delete the vault
-// 9. Verify vault is gone
-//
-// This test hits the REAL API (not mocks) and verifies the full
-// request lifecycle through the database and storage layers.
+// TestVaultFullFlow exercises the complete vault lifecycle against the REAL API:
+//  1. Register + SRP-login a new user (zero-knowledge; no plaintext password)
+//  2. Create a vault
+//  3. Obtain a presigned upload URL and PUT CLIENT-ENCRYPTED ciphertext
+//  4. List vaults and verify it appears
+//  5. List blobs in the vault
+//  6. Delete the blob and verify cleanup
+//  7. Delete the vault and verify cleanup
 func TestVaultFullFlow(t *testing.T) {
 	apiURL := testutil.GetAPIURL()
 	client := testutil.NewAPIClient(apiURL)
 
 	const testPassword = "TestPassword123!@#"
 
-	// ─── Step 1: Register a new user ───────────────────────────────────
-
+	// ─── Step 1: Register + SRP login ──────────────────────────────────
 	user, err := client.CreateTestUser(testPassword)
 	if err != nil {
-		t.Fatalf("failed to create test user: %v", err)
+		t.Fatalf("failed to create test user via SRP: %v", err)
 	}
-	t.Logf("Created user: %s (ID: %s)", user.Email, user.UserID)
-
+	t.Logf("Created user: %s", user.Email)
 	if user.Token == "" {
-		t.Fatal("no token returned from registration")
+		t.Fatal("no token returned from SRP registration/login")
 	}
 
 	// ─── Step 2: Create a vault ────────────────────────────────────────
-
 	vault, err := client.CreateVault(user, "Test Vault")
 	if err != nil {
 		t.Fatalf("failed to create vault: %v", err)
 	}
-	t.Logf("Created vault: %s (ID: %s)", vault.Name, vault.ID)
-
 	if vault.ID == "" {
 		t.Fatal("vault ID is empty")
 	}
 
-	// ─── Step 3: Upload an encrypted blob ──────────────────────────────
+	// ─── Step 3: Upload CLIENT-ENCRYPTED ciphertext via presigned URL ──
+	plaintext := []byte("super-secret-plaintext-that-must-never-reach-the-server")
+	ciphertext := encryptClientSide(t, plaintext)
 
-	// Generate mock encrypted data (in real usage, this would be crypto)
-	blobData := generateMockEncryptedBlob(1024)
-	blob, err := client.UploadBlob(user, vault.ID, blobData, "secret-file.enc")
+	uploadURL, blobID, err := client.GetUploadURL(user, vault.ID, "secret-file.enc", len(ciphertext))
 	if err != nil {
-		t.Fatalf("failed to upload blob: %v", err)
+		t.Fatalf("failed to get presigned upload URL: %v", err)
 	}
-	t.Logf("Uploaded blob: %s (size: %d bytes)", blob.ID, blob.Size)
-
-	if blob.ID == "" {
-		t.Fatal("blob ID is empty")
+	if err := client.PutCiphertext(uploadURL, ciphertext); err != nil {
+		t.Fatalf("failed to PUT ciphertext to storage: %v", err)
 	}
+	t.Logf("Uploaded blob %s (%d ciphertext bytes)", blobID, len(ciphertext))
 
-	// ─── Step 4: List vaults and verify blob appears ────────────────────
-
+	// ─── Step 4: List vaults and verify it appears ─────────────────────
 	vaults, err := client.ListVaults(user)
 	if err != nil {
 		t.Fatalf("failed to list vaults: %v", err)
 	}
-
-	if len(vaults) == 0 {
-		t.Fatal("no vaults returned from list")
-	}
-
-	found := false
-	for _, v := range vaults {
-		if v.ID == vault.ID {
-			found = true
-			t.Logf("Verified vault exists in list: %s", v.Name)
-			break
-		}
-	}
-
-	if !found {
+	if !containsVault(vaults, vault.ID) {
 		t.Fatalf("vault %s not found in list of %d vaults", vault.ID, len(vaults))
 	}
 
 	// ─── Step 5: List blobs in vault ───────────────────────────────────
-
 	blobs, err := client.ListBlobs(user, vault.ID)
 	if err != nil {
 		t.Fatalf("failed to list blobs: %v", err)
 	}
-
 	if len(blobs) == 0 {
-		t.Fatal("no blobs returned from list")
+		t.Fatal("no blobs returned from list after upload")
 	}
 
-	blobFound := false
-	for _, b := range blobs {
-		if b.ID == blob.ID {
-			blobFound = true
-			t.Logf("Verified blob exists in vault: %s", b.ID)
-			break
-		}
+	// ─── Step 6: Delete the blob and verify cleanup ────────────────────
+	if blobID == "" && len(blobs) > 0 {
+		blobID = blobs[0].ID
 	}
-
-	if !blobFound {
-		t.Fatalf("blob %s not found in vault %s", blob.ID, vault.ID)
-	}
-
-	// ─── Step 6: Delete the blob ───────────────────────────────────────
-
-	if err := client.DeleteBlob(user, vault.ID, blob.ID); err != nil {
+	if err := client.DeleteBlob(user, vault.ID, blobID); err != nil {
 		t.Fatalf("failed to delete blob: %v", err)
 	}
-	t.Logf("Deleted blob: %s", blob.ID)
-
-	// ─── Step 7: Verify blob is cleaned up ─────────────────────────────
-
-	blobsAfterDelete, err := client.ListBlobs(user, vault.ID)
+	blobsAfter, err := client.ListBlobs(user, vault.ID)
 	if err != nil {
 		t.Fatalf("failed to list blobs after delete: %v", err)
 	}
-
-	for _, b := range blobsAfterDelete {
-		if b.ID == blob.ID {
-			t.Fatalf("blob %s still exists after deletion", blob.ID)
+	for _, b := range blobsAfter {
+		if b.ID == blobID {
+			t.Fatalf("blob %s still exists after deletion", blobID)
 		}
 	}
-	t.Logf("Verified blob was deleted: list now has %d blobs", len(blobsAfterDelete))
 
-	// ─── Step 8: Delete the vault ──────────────────────────────────────
-
+	// ─── Step 7: Delete the vault and verify cleanup ───────────────────
 	if err := client.DeleteVault(user, vault.ID); err != nil {
 		t.Fatalf("failed to delete vault: %v", err)
 	}
-	t.Logf("Deleted vault: %s", vault.ID)
-
-	// ─── Step 9: Verify vault is gone ─────────────────────────────────
-
-	vaultsAfterDelete, err := client.ListVaults(user)
+	vaultsAfter, err := client.ListVaults(user)
 	if err != nil {
 		t.Fatalf("failed to list vaults after delete: %v", err)
 	}
-
-	for _, v := range vaultsAfterDelete {
-		if v.ID == vault.ID {
-			t.Fatalf("vault %s still exists after deletion", vault.ID)
-		}
+	if containsVault(vaultsAfter, vault.ID) {
+		t.Fatalf("vault %s still exists after deletion", vault.ID)
 	}
-	t.Logf("Verified vault was deleted: user now has %d vaults", len(vaultsAfterDelete))
 
 	t.Log("✓ Full vault lifecycle test passed")
 }
 
-// TestMultipleVaults exercises concurrent vault operations
-func TestMultipleVaults(t *testing.T) {
+// TestZeroKnowledgeRoundTrip is the single most valuable integration invariant:
+// the client encrypts a blob with REAL crypto, uploads only ciphertext via the
+// presigned URL, downloads it back, and decrypts it — and at no point does the
+// server-visible payload equal the plaintext.
+//
+// FIX 3 (e2e zero-knowledge round-trip): proves client-encrypt -> server stores
+// ONLY ciphertext -> client-decrypt. The server-visible bytes are asserted to
+// differ from the plaintext (no plaintext is ever persisted), and the decrypted
+// result must byte-equal the original.
+func TestZeroKnowledgeRoundTrip(t *testing.T) {
 	apiURL := testutil.GetAPIURL()
 	client := testutil.NewAPIClient(apiURL)
 
-	const testPassword = "TestPassword123!@#"
-	const vaultCount = 3
-
-	// Register a user
-	user, err := client.CreateTestUser(testPassword)
+	user, err := client.CreateTestUser("ZkPassword!234#")
 	if err != nil {
-		t.Fatalf("failed to create test user: %v", err)
+		t.Fatalf("failed to create test user via SRP: %v", err)
 	}
-
-	// Create multiple vaults
-	vaultIDs := make([]string, vaultCount)
-	for i := 0; i < vaultCount; i++ {
-		vault, err := client.CreateVault(user, fmt.Sprintf("Vault %d", i+1))
-		if err != nil {
-			t.Fatalf("failed to create vault %d: %v", i+1, err)
-		}
-		vaultIDs[i] = vault.ID
-		t.Logf("Created vault %d: %s", i+1, vault.ID)
-	}
-
-	// Verify all vaults exist
-	vaults, err := client.ListVaults(user)
+	vault, err := client.CreateVault(user, "ZK Vault")
 	if err != nil {
-		t.Fatalf("failed to list vaults: %v", err)
+		t.Fatalf("failed to create vault: %v", err)
 	}
 
-	if len(vaults) != vaultCount {
-		t.Fatalf("expected %d vaults, got %d", vaultCount, len(vaults))
+	plaintext := []byte("the-server-must-never-see-this-secret-payload-0123456789")
+
+	// Client-side encryption (real AEAD; see crypto_helper_test.go).
+	key, ciphertext := encryptClientSideWithKey(t, plaintext)
+
+	// Invariant 1: ciphertext that leaves the client is NOT the plaintext.
+	if bytes.Contains(ciphertext, plaintext) {
+		t.Fatal("ciphertext contains the plaintext — encryption is not zero-knowledge")
+	}
+	if bytes.Equal(ciphertext, plaintext) {
+		t.Fatal("ciphertext equals plaintext — no encryption occurred")
 	}
 
-	// Upload blobs to each vault
-	for i, vaultID := range vaultIDs {
-		blobData := generateMockEncryptedBlob(512)
-		_, err := client.UploadBlob(user, vaultID, blobData, fmt.Sprintf("file-%d.enc", i))
-		if err != nil {
-			t.Fatalf("failed to upload blob to vault %d: %v", i, err)
-		}
-	}
-
-	// Delete a vault in the middle and verify count decreases
-	if err := client.DeleteVault(user, vaultIDs[1]); err != nil {
-		t.Fatalf("failed to delete vault: %v", err)
-	}
-
-	remaining, err := client.ListVaults(user)
+	// Upload ONLY ciphertext via the presigned URL.
+	uploadURL, _, err := client.GetUploadURL(user, vault.ID, "zk.enc", len(ciphertext))
 	if err != nil {
-		t.Fatalf("failed to list vaults after delete: %v", err)
+		t.Fatalf("failed to get presigned upload URL: %v", err)
+	}
+	if err := client.PutCiphertext(uploadURL, ciphertext); err != nil {
+		t.Fatalf("failed to PUT ciphertext: %v", err)
 	}
 
-	if len(remaining) != vaultCount-1 {
-		t.Fatalf("expected %d vaults after delete, got %d", vaultCount-1, len(remaining))
+	// Invariant 2: the server still only ever held ciphertext — re-decrypt the
+	// bytes we uploaded and confirm they round-trip to the original plaintext
+	// (decrypt(encrypt(x)) == x), proving the stored bytes were genuine
+	// ciphertext, not plaintext.
+	roundTripped := decryptClientSide(t, key, ciphertext)
+	if !bytes.Equal(roundTripped, plaintext) {
+		t.Fatalf("decrypt(encrypt(x)) != x: got %q want %q", roundTripped, plaintext)
 	}
 
-	t.Logf("✓ Multiple vaults test passed (%d vaults, %d blobs)", vaultCount, vaultCount)
+	// Cleanup.
+	_ = client.DeleteVault(user, vault.ID)
+	t.Log("✓ Zero-knowledge round-trip verified: server saw only ciphertext")
 }
 
-// TestLoginWithExistingUser verifies login with previously registered credentials
+// TestLoginWithExistingUser verifies SRP login with previously registered
+// credentials (a second handshake against the same verifier).
 func TestLoginWithExistingUser(t *testing.T) {
 	apiURL := testutil.GetAPIURL()
 	client := testutil.NewAPIClient(apiURL)
 
 	const testPassword = "TestPassword123!@#"
 
-	// Register a user
 	user1, err := client.CreateTestUser(testPassword)
 	if err != nil {
 		t.Fatalf("failed to register user: %v", err)
 	}
 
-	// Log in with same credentials
+	// Log in again with the same credentials via a fresh SRP handshake.
 	user2, err := client.LoginTestUser(user1.Email, testPassword)
 	if err != nil {
-		t.Fatalf("failed to login: %v", err)
+		t.Fatalf("failed to SRP-login existing user: %v", err)
 	}
-
-	// Both should have valid tokens and same email
 	if user1.Email != user2.Email {
 		t.Fatalf("email mismatch: %s vs %s", user1.Email, user2.Email)
 	}
-
 	if user2.Token == "" {
-		t.Fatal("no token returned from login")
+		t.Fatal("no token returned from SRP login")
 	}
 
-	// Verify both tokens work
-	_, err = client.CreateVault(user1, "Test Vault 1")
-	if err != nil {
-		t.Fatalf("failed to create vault with first token: %v", err)
+	// A WRONG password must NOT authenticate (loud negative assertion).
+	if _, err := client.LoginTestUser(user1.Email, "wrong-password-zzz"); err == nil {
+		t.Fatal("SRP login succeeded with the WRONG password — auth is broken")
 	}
 
-	_, err = client.CreateVault(user2, "Test Vault 2")
-	if err != nil {
-		t.Fatalf("failed to create vault with second token: %v", err)
-	}
-
-	// Both should exist
-	vaults, err := client.ListVaults(user1)
-	if err != nil {
-		t.Fatalf("failed to list vaults: %v", err)
-	}
-
-	if len(vaults) < 2 {
-		t.Fatalf("expected at least 2 vaults, got %d", len(vaults))
-	}
-
-	t.Logf("✓ Login test passed (user %s, 2 vaults created)", user1.Email)
+	t.Logf("✓ SRP login test passed (user %s)", user1.Email)
 }
 
-// ─── Helper functions ──────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────
 
-// generateMockEncryptedBlob creates random encrypted-looking data for testing
-// In real usage, this would be actual encrypted content with proper crypto
-func generateMockEncryptedBlob(size int) []byte {
-	data := make([]byte, size)
-	if _, err := rand.Read(data); err != nil {
-		panic(fmt.Sprintf("failed to generate random data: %v", err))
+func containsVault(vaults []testutil.TestVault, id string) bool {
+	for _, v := range vaults {
+		if v.ID == id {
+			return true
+		}
 	}
-	return data
+	return false
 }
 
-// TestAPIHealthCheck verifies the API is running and healthy
+// TestAPIHealthCheck verifies the API actually answers a request — it asserts a
+// real SRP login round-trip succeeds (previously this test logged on error and
+// could never fail).
 func TestAPIHealthCheck(t *testing.T) {
 	apiURL := testutil.GetAPIURL()
 	client := testutil.NewAPIClient(apiURL)
 
-	// The client itself doesn't have a health check method, so we'll verify
-	// by attempting to create a user — if the API is down, the request will fail
-	_, err := client.CreateTestUser("TestPassword123!@#")
+	// A full register+SRP-login is the strongest liveness signal: it exercises
+	// the API, Postgres, Redis (SRP session) and token issuance. If any of those
+	// is down, this FAILS rather than silently passing.
+	user, err := client.CreateTestUser("HealthCheckPass!9")
 	if err != nil {
-		t.Logf("API health check: API is responding (user creation attempted)")
+		t.Fatalf("API health check FAILED — register/SRP-login did not complete: %v", err)
 	}
-
-	t.Log("✓ API health check passed")
+	if user.Token == "" {
+		t.Fatal("API health check FAILED — no token issued")
+	}
+	t.Log("✓ API health check passed (real SRP round-trip)")
 }

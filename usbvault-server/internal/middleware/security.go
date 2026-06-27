@@ -59,12 +59,12 @@ func RequestBodyLimit(config RequestBodyLimitConfig) func(http.Handler) http.Han
 
 // SecurityHeadersConfig holds configuration for security headers middleware
 type SecurityHeadersConfig struct {
-	EnableHSTS              bool
-	HSTSMaxAge              int
-	EnableFrameProtection   bool
-	EnableContentTypeGuard  bool
-	EnableCSP               bool
-	CSPDirective            string
+	EnableHSTS             bool
+	HSTSMaxAge             int
+	EnableFrameProtection  bool
+	EnableContentTypeGuard bool
+	EnableCSP              bool
+	CSPDirective           string
 }
 
 // DefaultSecurityHeadersConfig returns the default security headers configuration
@@ -111,31 +111,31 @@ func SecurityHeaders(config SecurityHeadersConfig) func(http.Handler) http.Handl
 
 			// Permissions-Policy: Restrict browser features
 			w.Header().Set("Permissions-Policy",
-				"accelerometer=(), " +
-					"ambient-light-sensor=(), " +
-					"autoplay=(), " +
-					"battery=(), " +
-					"camera=(), " +
-					"cross-origin-isolated=(), " +
-					"display-capture=(), " +
-					"document-domain=(), " +
-					"encrypted-media=(), " +
-					"execution-while-not-rendered=(), " +
-					"execution-while-out-of-viewport=(), " +
-					"fullscreen=(), " +
-					"geolocation=(), " +
-					"gyroscope=(), " +
-					"magnetometer=(), " +
-					"microphone=(), " +
-					"midi=(), " +
-					"navigation-override=(), " +
-					"payment=(), " +
-					"picture-in-picture=(), " +
-					"publickey-credentials-get=(), " +
-					"speaker-selection=(), " +
-					"sync-xhr=(), " +
-					"usb=(), " +
-					"vr=(), " +
+				"accelerometer=(), "+
+					"ambient-light-sensor=(), "+
+					"autoplay=(), "+
+					"battery=(), "+
+					"camera=(), "+
+					"cross-origin-isolated=(), "+
+					"display-capture=(), "+
+					"document-domain=(), "+
+					"encrypted-media=(), "+
+					"execution-while-not-rendered=(), "+
+					"execution-while-out-of-viewport=(), "+
+					"fullscreen=(), "+
+					"geolocation=(), "+
+					"gyroscope=(), "+
+					"magnetometer=(), "+
+					"microphone=(), "+
+					"midi=(), "+
+					"navigation-override=(), "+
+					"payment=(), "+
+					"picture-in-picture=(), "+
+					"publickey-credentials-get=(), "+
+					"speaker-selection=(), "+
+					"sync-xhr=(), "+
+					"usb=(), "+
+					"vr=(), "+
 					"xr-spatial-tracking=()",
 			)
 
@@ -285,17 +285,31 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 
-			// Check if origin is allowed
+			// F4: When credentials are allowed the response MUST echo a
+			// specific origin — never "*" — and MUST set Vary: Origin so caches
+			// don't serve one origin's CORS headers to another. A wildcard with
+			// credentials is rejected by browsers and is a security risk.
+			wildcard := false
 			isAllowed := false
 			for _, allowedOrigin := range config.AllowedOrigins {
-				if allowedOrigin == "*" || allowedOrigin == origin {
+				if allowedOrigin == "*" {
+					wildcard = true
+				}
+				if allowedOrigin == origin {
 					isAllowed = true
 					break
 				}
 			}
+			// Honor a wildcard only when credentials are NOT in use.
+			if wildcard && !config.AllowCredentials {
+				isAllowed = true
+			}
 
 			if isAllowed {
+				// Reflect the specific requesting origin (not "*") so the
+				// response is valid alongside Access-Control-Allow-Credentials.
 				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ", "))
 				w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.AllowedHeaders, ", "))
 				w.Header().Set("Access-Control-Expose-Headers", strings.Join(config.ExposedHeaders, ", "))
@@ -353,7 +367,7 @@ func DefaultRequestLoggingConfig() RequestLoggingConfig {
 		Enabled:         true,
 		LogRequestBody:  false, // Don't log request bodies by default for security
 		LogResponseBody: false,
-		MaxBodyLogSize:  1024,  // 1KB max
+		MaxBodyLogSize:  1024, // 1KB max
 	}
 }
 

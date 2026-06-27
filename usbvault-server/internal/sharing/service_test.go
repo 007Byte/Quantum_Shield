@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/usbvault/usbvault-server/internal/config"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 func TestEncodeToBase64_ValidData(t *testing.T) {
@@ -463,6 +466,104 @@ func TestShareNoExpirationAlwaysValid(t *testing.T) {
 
 		if isExpired {
 			t.Error("share without expiration should never expire")
+		}
+	})
+}
+
+// F3: focused tests for the per-tier share-creation gate (checkCanCreateShare).
+
+type fakeBillingChecker struct {
+	tier string
+	err  error
+}
+
+func (f fakeBillingChecker) CheckAccess(ctx context.Context, userID string) (string, error) {
+	return f.tier, f.err
+}
+
+// fakeShareRepo implements database.ShareRepository; only CountActiveSentShares is
+// exercised by the gate test. The rest return zero values.
+type fakeShareRepo struct {
+	activeShares int
+	countErr     error
+}
+
+func (r *fakeShareRepo) BlobOwnedBy(ctx context.Context, userID, blobID string) (bool, error) {
+	return true, nil
+}
+func (r *fakeShareRepo) CreateShare(ctx context.Context, senderID, recipientID, blobID string, encryptedKey []byte) (string, error) {
+	return uuid.New().String(), nil
+}
+func (r *fakeShareRepo) CountActiveSentShares(ctx context.Context, senderID string) (int, error) {
+	return r.activeShares, r.countErr
+}
+func (r *fakeShareRepo) ListReceivedShares(ctx context.Context, recipientID string) ([]database.ShareRecord, error) {
+	return nil, nil
+}
+func (r *fakeShareRepo) ListSentShares(ctx context.Context, senderID string) ([]database.ShareRecord, error) {
+	return nil, nil
+}
+func (r *fakeShareRepo) RevokeShare(ctx context.Context, senderID, shareID string) error { return nil }
+func (r *fakeShareRepo) GetPublicKey(ctx context.Context, userID string) ([]byte, error) {
+	return nil, nil
+}
+func (r *fakeShareRepo) PublishPublicKey(ctx context.Context, userID string, publicKeyBytes []byte) error {
+	return nil
+}
+func (r *fakeShareRepo) AcceptShare(ctx context.Context, recipientID, shareID string) error {
+	return nil
+}
+func (r *fakeShareRepo) RejectShare(ctx context.Context, recipientID, shareID string) error {
+	return nil
+}
+
+func TestCheckCanCreateShare(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("nil billing checker is permissive", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{activeShares: 1_000_000})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != nil {
+			t.Errorf("expected nil (permissive), got %v", err)
+		}
+	})
+
+	t.Run("free tier cannot share", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{})
+		svc.SetBillingChecker(fakeBillingChecker{tier: "free"})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != ErrSharingNotAllowed {
+			t.Errorf("expected ErrSharingNotAllowed, got %v", err)
+		}
+	})
+
+	t.Run("individual tier cannot share (sharing=false)", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{})
+		svc.SetBillingChecker(fakeBillingChecker{tier: "individual"})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != ErrSharingNotAllowed {
+			t.Errorf("expected ErrSharingNotAllowed for individual, got %v", err)
+		}
+	})
+
+	t.Run("team tier under cap is allowed", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{activeShares: 5})
+		svc.SetBillingChecker(fakeBillingChecker{tier: "team"})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != nil {
+			t.Errorf("expected allow for team under cap, got %v", err)
+		}
+	})
+
+	t.Run("team tier at cap is rejected", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{activeShares: config.MaxSharesPerVault})
+		svc.SetBillingChecker(fakeBillingChecker{tier: "team"})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != ErrShareLimitReached {
+			t.Errorf("expected ErrShareLimitReached at cap, got %v", err)
+		}
+	})
+
+	t.Run("count error fails closed", func(t *testing.T) {
+		svc := NewSharingService(&fakeShareRepo{countErr: errors.New("db down")})
+		svc.SetBillingChecker(fakeBillingChecker{tier: "enterprise"})
+		if err := svc.checkCanCreateShare(ctx, "u1"); err != ErrShareLimitReached {
+			t.Errorf("expected fail-closed ErrShareLimitReached, got %v", err)
 		}
 	})
 }

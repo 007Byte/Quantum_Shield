@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,17 +43,21 @@ var (
 	ErrTokenExchange    = errors.New("oidc: token exchange failed")
 	ErrIDTokenVerify    = errors.New("oidc: ID token verification failed")
 	ErrMissingEmail     = errors.New("oidc: ID token missing email claim")
+	ErrEmailNotVerified = errors.New("oidc: ID token email is not verified by the provider")
 	ErrUserCreation     = errors.New("oidc: failed to create user")
+	ErrRedirectURI      = errors.New("oidc: redirect_uri is not in the provider allowlist")
 )
 
 // CallbackResult is returned after a successful OIDC callback exchange.
 type CallbackResult struct {
-	UserID       string `json:"user_id"`
-	Email        string `json:"email"`
-	IsNewUser    bool   `json:"is_new_user"`
-	AuthMethod   string `json:"auth_method"`
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	IsNewUser   bool   `json:"is_new_user"`
+	AuthMethod  string `json:"auth_method"`
+	AccessToken string `json:"access_token"`
+	// F4: omitempty — populated only for native clients; web/SSO clients receive
+	// the refresh token in the HttpOnly cookie instead of the JSON body.
+	RefreshToken string `json:"refresh_token,omitempty"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 
@@ -161,6 +166,13 @@ func (s *Service) GetAuthorizationURL(ctx context.Context, slug, redirectURL str
 		return "", "", "", ErrProviderDisabled
 	}
 
+	// SECURITY: never use the client-supplied redirect_uri verbatim. It must
+	// exactly match an entry in the provider's allowlist (or the configured
+	// global callback URL) to prevent authorization-code interception.
+	if !s.redirectURIAllowed(rp.config, redirectURL) {
+		return "", "", "", ErrRedirectURI
+	}
+
 	// Generate cryptographic state token
 	stateBytes := make([]byte, 32)
 	if _, err := rand.Read(stateBytes); err != nil {
@@ -263,9 +275,10 @@ func (s *Service) HandleCallback(ctx context.Context, slug, code, state string) 
 
 	// Extract claims
 	var claims struct {
-		Sub   string `json:"sub"`
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Sub           string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"email_verified"`
+		Name          string `json:"name"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return nil, fmt.Errorf("oidc: failed to parse ID token claims: %w", err)
@@ -274,6 +287,15 @@ func (s *Service) HandleCallback(ctx context.Context, slug, code, state string) 
 	if claims.Email == "" {
 		return nil, ErrMissingEmail
 	}
+
+	// SECURITY (account-takeover hardening): the IdP MUST assert that it has
+	// verified ownership of this email before we use it for anything. An
+	// unverified email lets an attacker register an IdP account claiming a
+	// victim's address. Reject unverified-email logins outright.
+	if !claims.EmailVerified {
+		return nil, ErrEmailNotVerified
+	}
+
 	claims.Email = strings.ToLower(strings.TrimSpace(claims.Email))
 
 	// Enforce allowed domains if configured
@@ -314,22 +336,35 @@ func (s *Service) ListProviders(_ context.Context) ([]ProviderConfig, error) {
 	return providers, nil
 }
 
-// mapUser finds an existing user by OIDC identity or creates a new one.
+// mapUser finds an existing user by federated OIDC identity, or creates a new
+// dedicated user for that identity.
+//
+// SECURITY (account-takeover hardening): identities are linked ONLY by the
+// immutable, provider-asserted pair (provider_id, oidc_subject). We never
+// auto-attach an OIDC identity to a pre-existing account by email — doing so
+// would let anyone who can get an IdP to assert a victim's email take over the
+// victim's (e.g. SRP) account. Email is treated as non-authoritative metadata
+// and is persisted only as a salted-free SHA-256 hash (email_hash), consistent
+// with the SRP registration path; the plaintext address is never stored.
+//
 // It generates JWT tokens using the existing auth.GenerateTokenPair function.
 func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name string) (*CallbackResult, error) {
 	var userID string
 	var isNewUser bool
 
-	// Check for existing OIDC identity
+	// Check for an existing federated identity by (provider_id, oidc_subject) ONLY.
 	err := s.pool.QueryRow(ctx,
-		`SELECT user_id FROM oidc_identities WHERE provider_id = $1 AND sub = $2`,
+		`SELECT user_id FROM oidc_identities WHERE provider_id = $1 AND oidc_subject = $2`,
 		providerID, sub,
 	).Scan(&userID)
 
 	if err != nil {
-		// No existing identity — create user and link
+		// No existing identity — create a NEW user dedicated to this identity.
+		// We intentionally do NOT look up or merge into any account by email.
 		userID = uuid.New().String()
 		isNewUser = true
+
+		emailHash := hashEmail(email)
 
 		tx, err := s.pool.Begin(ctx)
 		if err != nil {
@@ -337,32 +372,31 @@ func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name stri
 		}
 		defer tx.Rollback(ctx)
 
-		// Create user (or update timestamp if email already exists from another auth method)
+		// Create a brand-new user row. email_hash is UNIQUE; if a row with this
+		// email_hash already exists (e.g. an SRP account), the insert fails and
+		// we deliberately refuse rather than silently linking into that account.
+		//
+		// OIDC-only users have no SRP credentials: migration 014 made
+		// srp_verifier/srp_salt NULLABLE and added the auth_method
+		// discriminator, so we store NULL SRP fields and auth_method='oidc'
+		// rather than empty-byte placeholders.
 		_, err = tx.Exec(ctx,
-			`INSERT INTO users (id, email, auth_method, created_at, updated_at)
-			 VALUES ($1, $2, 'oidc', NOW(), NOW())
-			 ON CONFLICT (email) DO UPDATE SET updated_at = NOW()
-			 RETURNING id`,
-			userID, email,
+			`INSERT INTO users (id, email_hash, srp_verifier, srp_salt, auth_method, created_at, updated_at)
+			 VALUES ($1, $2, NULL, NULL, 'oidc', NOW(), NOW())`,
+			userID, emailHash,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrUserCreation, err)
 		}
 
-		// If the user already existed (email conflict), get their actual ID
-		err = tx.QueryRow(ctx,
-			`SELECT id FROM users WHERE email = $1`, email,
-		).Scan(&userID)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to resolve user ID: %v", ErrUserCreation, err)
-		}
-
-		// Link OIDC identity
+		// Link the federated identity. Store only the plaintext email here if at
+		// all; oidc_email is the schema column. We persist the hash on the user
+		// row; oidc_email is left NULL to avoid storing plaintext PII.
 		_, err = tx.Exec(ctx,
-			`INSERT INTO oidc_identities (id, provider_id, sub, user_id, email, display_name, created_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, NOW())
-			 ON CONFLICT (provider_id, sub) DO UPDATE SET email = EXCLUDED.email, display_name = EXCLUDED.display_name`,
-			uuid.New().String(), providerID, sub, userID, email, name,
+			`INSERT INTO oidc_identities (id, provider_id, oidc_subject, user_id, linked_at, last_login_at)
+			 VALUES ($1, $2, $3, $4, NOW(), NOW())
+			 ON CONFLICT (provider_id, oidc_subject) DO UPDATE SET last_login_at = NOW()`,
+			uuid.New().String(), providerID, sub, userID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to create OIDC identity: %v", ErrUserCreation, err)
@@ -372,17 +406,21 @@ func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name stri
 			return nil, fmt.Errorf("%w: commit failed: %v", ErrUserCreation, err)
 		}
 
-		log.Info().Str("user_id", userID).Str("email", email).Msg("OIDC user created")
+		log.Info().Str("user_id", userID).Msg("OIDC user created (new federated identity)")
 	} else {
-		// Existing user — update last login
+		// Existing federated identity — update last login on both rows.
 		_, err := s.pool.Exec(ctx,
 			`UPDATE users SET updated_at = NOW() WHERE id = $1`, userID,
 		)
 		if err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("failed to update last login for OIDC user")
 		}
+		_, _ = s.pool.Exec(ctx,
+			`UPDATE oidc_identities SET last_login_at = NOW() WHERE provider_id = $1 AND oidc_subject = $2`,
+			providerID, sub,
+		)
 
-		log.Info().Str("user_id", userID).Str("email", email).Msg("OIDC user logged in")
+		log.Info().Str("user_id", userID).Msg("OIDC user logged in")
 	}
 
 	// Generate JWT tokens using existing auth infrastructure
@@ -400,6 +438,37 @@ func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name stri
 		RefreshToken: refreshToken,
 		ExpiresIn:    900, // 15 minutes in seconds (matches accessTokenTTL)
 	}, nil
+}
+
+// redirectURIAllowed reports whether the requested redirect_uri exactly matches
+// an allowed value for the provider. The per-provider AllowedRedirectURIs list
+// takes precedence; if it is empty we fall back to the configured global
+// CallbackBaseURL. Matching is exact (no prefix/wildcard) to avoid open-redirect
+// and code-interception bypasses.
+func (s *Service) redirectURIAllowed(pc ProviderConfig, redirectURL string) bool {
+	if redirectURL == "" {
+		return false
+	}
+	allowlist := pc.AllowedRedirectURIs
+	if len(allowlist) == 0 && s.config != nil && s.config.CallbackBaseURL != "" {
+		allowlist = []string{s.config.CallbackBaseURL}
+	}
+	for _, allowed := range allowlist {
+		if allowed == redirectURL {
+			return true
+		}
+	}
+	return false
+}
+
+// hashEmail returns the lowercase SHA-256 hex digest of an email address. This
+// mirrors the SRP registration path (auth.hashEmail) so OIDC users are stored
+// with the same email_hash representation and the plaintext email is never
+// persisted. Caller is expected to have already normalized (lowercased/trimmed)
+// the address.
+func hashEmail(email string) string {
+	h := sha256.Sum256([]byte(email))
+	return hex.EncodeToString(h[:])
 }
 
 // computeS256Challenge computes the S256 PKCE code challenge from a verifier.

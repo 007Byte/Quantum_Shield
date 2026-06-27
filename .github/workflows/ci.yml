@@ -7,6 +7,9 @@ on:
       - 'usbvault-crypto/**'
       - 'usbvault-server/**'
       - 'usbvault-app/**'
+      - 'usb-companion/**'
+      - 'electron-shell/**'
+      - 'docker-compose.test.yml'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
@@ -14,6 +17,9 @@ on:
       - 'usbvault-crypto/**'
       - 'usbvault-server/**'
       - 'usbvault-app/**'
+      - 'usb-companion/**'
+      - 'electron-shell/**'
+      - 'docker-compose.test.yml'
       - '.github/workflows/ci.yml'
 
 concurrency:
@@ -165,7 +171,7 @@ jobs:
         # golangci-lint is lower than the targeted Go version"). v2 + action v8
         # fixes that. Advisory during development, matching the gosec/coverage
         # gates above/below — surfaces findings without blocking the pipeline.
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: v2.12.2
           working-directory: usbvault-server
@@ -293,6 +299,71 @@ jobs:
           path: usbvault-app/eslint-report.json
           retention-days: 30
           if-no-files-found: ignore
+
+  # ============================================================
+  # USB COMPANION: Local Node bridge (USB + filesystem access)
+  # ============================================================
+  # BLOCKING. usb-companion has USB-device + filesystem access; its input-
+  # validation suites (path traversal, file-type checks — 62 cases across
+  # validation.test.js + fileValidation.test.js) are exactly the kind of
+  # security tests that must gate. They previously existed but no workflow ran
+  # them, so they could rot silently. Now wired into CI.
+  usb-companion:
+    name: USB Companion Tests (usb-companion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: usb-companion
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'usb-companion/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run usb-companion tests
+        # package.json: "test": "node --test src/**/*.test.js"
+        run: npm test
+
+  # ============================================================
+  # ELECTRON SHELL: Desktop shell smoke tests
+  # ============================================================
+  # BLOCKING. electron-shell's smoke suite (39 cases) existed but was never run
+  # by any workflow or preflight gate. Wired into CI so it cannot rot silently.
+  electron-shell:
+    name: Electron Shell Tests (electron-shell)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: electron-shell
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'electron-shell/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run electron-shell tests
+        # package.json: "test": "jest --config jest.config.js"
+        run: npm test
 
   # ============================================================
   # E2E Tests (Playwright)
@@ -484,7 +555,11 @@ jobs:
 
     # The Go integration tests (//go:build integration) connect to a real
     # Postgres at the hardcoded DSN postgres://postgres:postgres@localhost:5432/
-    # usbvault_test and self-provision their own schema.
+    # usbvault_test and self-provision their own schema. The full-stack SRP
+    # suite (internal/integration) additionally needs Redis (SRP session store)
+    # — provisioned below — and a live API server (see the "Run Go integration
+    # tests" step, which sets INTEGRATION=1 so the suite FAILS LOUDLY instead of
+    # silently skipping when its dependencies are absent).
     services:
       postgres:
         image: postgres:16-alpine
@@ -496,6 +571,15 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d usbvault_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -532,15 +616,55 @@ jobs:
         run: go mod tidy
         working-directory: usbvault-server
 
-      # BLOCKING. The //go:build integration suite was repaired and now passes
-      # against the Postgres service above: internal/audit (pgxmock), internal/
-      # auth (162 tests — BOLA/privilege/RBAC/SRP/FIDO2; a CRITICAL SRP login bug
-      # was found and fixed here), and internal/vault. internal/integration's
-      # full-stack tests skip when no live API server is reachable (they need a
-      # running stack + an SRP/presigned-S3 client rewrite — tracked separately).
-      - name: Run Go integration tests
+      # BLOCKING. The //go:build integration suite runs against the Postgres +
+      # Redis services above: internal/audit (pgxmock), internal/auth (162 tests
+      # — BOLA/privilege/RBAC/SRP/FIDO2 + the cross-impl Go SRP KAT
+      # TestSRPInteropKAT), and internal/vault.
+      #
+      # internal/integration is the FULL-STACK suite. Its TestMain now FAILS
+      # LOUDLY when requested (INTEGRATION=1 / API_URL set) but its live API is
+      # unreachable — it never silently passes by skipping again. In THIS step we
+      # do NOT request it (INTEGRATION/API_URL unset), so it prints a visible SKIP
+      # line; the live run happens in the dedicated full-stack step below.
+      - name: Run Go integration tests (Postgres + Redis)
         run: go test -v -tags=integration ./...
         working-directory: usbvault-server
+        env:
+          DATABASE_URL: "postgres://postgres:postgres@localhost:5432/usbvault_test?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
+
+      # BLOCKING. Full-stack zero-knowledge suite. Brings up the complete stack
+      # (API + Postgres + Redis + MinIO) via docker-compose.test.yml, then runs
+      # internal/integration with INTEGRATION=1 against the LIVE API on :8090.
+      # Because TestMain now fails loudly when INTEGRATION=1 and the API is not
+      # reachable, this step genuinely exercises the SRP register/login +
+      # presigned-S3 upload + zero-knowledge round-trip tests — a green result
+      # here can no longer hide an empty integration run.
+      - name: Run full-stack integration suite (docker-compose)
+        # Runs from the repo ROOT (no working-directory override): docker-compose.test.yml
+        # lives at the root and its build context (./usbvault-server) is root-relative,
+        # so `docker compose -f docker-compose.test.yml` MUST resolve from here. The Go
+        # suite is then run inside the server module via a subshell.
+        run: |
+          # Bring up API + Postgres + Redis + MinIO and wait for healthchecks.
+          docker compose -f docker-compose.test.yml up -d --wait
+          # Belt-and-suspenders: confirm the API answers before running the suite.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8090/health >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          # Run the loud-failing full-stack suite on the RUNNER host (which has the
+          # Go toolchain) against the live API published on :8090. INTEGRATION=1
+          # makes a missing/unreachable stack a HARD failure rather than a skip.
+          ( cd usbvault-server && INTEGRATION=1 API_URL=http://localhost:8090 \
+              go test -v -tags=integration -timeout=300s ./internal/integration/... )
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          DOCKER_BUILDKIT: 1
+
+      - name: Tear down full-stack integration stack
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v --remove-orphans
 
   # ============================================================
   # Security Tests
@@ -608,7 +732,7 @@ jobs:
   ci-summary:
     name: CI Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [usbvault-crypto, usbvault-server, usbvault-app, e2e-tests, migration-validation, integration-tests, security-tests, validate-env]
+    needs: [usbvault-crypto, usbvault-server, usbvault-app, usb-companion, electron-shell, e2e-tests, migration-validation, integration-tests, security-tests, validate-env]
     if: always()
 
     steps:
@@ -618,6 +742,8 @@ jobs:
           echo "usbvault-crypto:        ${{ needs.usbvault-crypto.result }}"
           echo "usbvault-server:        ${{ needs.usbvault-server.result }}"
           echo "usbvault-app:           ${{ needs.usbvault-app.result }}"
+          echo "usb-companion:          ${{ needs.usb-companion.result }}"
+          echo "electron-shell:         ${{ needs.electron-shell.result }}"
           echo "e2e-tests:              ${{ needs.e2e-tests.result }}"
           echo "migration-validation:   ${{ needs.migration-validation.result }}"
           echo "integration-tests: ${{ needs.integration-tests.result }}"
@@ -626,11 +752,13 @@ jobs:
           echo ""
 
           FAILED=0
-          for job in usbvault-crypto usbvault-server usbvault-app e2e-tests migration-validation integration-tests security-tests validate-env; do
+          for job in usbvault-crypto usbvault-server usbvault-app usb-companion electron-shell e2e-tests migration-validation integration-tests security-tests validate-env; do
             case "$job" in
               usbvault-crypto)        RESULT="${{ needs.usbvault-crypto.result }}" ;;
               usbvault-server)        RESULT="${{ needs.usbvault-server.result }}" ;;
               usbvault-app)           RESULT="${{ needs.usbvault-app.result }}" ;;
+              usb-companion)          RESULT="${{ needs.usb-companion.result }}" ;;
+              electron-shell)         RESULT="${{ needs.electron-shell.result }}" ;;
               e2e-tests)              RESULT="${{ needs.e2e-tests.result }}" ;;
               migration-validation)   RESULT="${{ needs.migration-validation.result }}" ;;
               integration-tests) RESULT="${{ needs.integration-tests.result }}" ;;

@@ -149,6 +149,44 @@ func TestMultipartUploadServiceCreation(t *testing.T) {
 	}
 }
 
+// F3: resolveMaxFileSize maps the billing-checker tier to the per-tier file-size
+// cap, and fails closed to the free-tier cap on error / no checker.
+func TestMultipartResolveMaxFileSize(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("no billing checker uses absolute max", func(t *testing.T) {
+		ms := &MultipartService{uploads: make(map[string]*MultipartUpload)}
+		got, tier := ms.resolveMaxFileSize(ctx, "u1")
+		if got != MaxFileSizeBytes {
+			t.Errorf("expected %d, got %d", MaxFileSizeBytes, got)
+		}
+		if tier != "" {
+			t.Errorf("expected empty tier, got %q", tier)
+		}
+	})
+
+	t.Run("individual tier maps to 1GB", func(t *testing.T) {
+		ms := &MultipartService{uploads: make(map[string]*MultipartUpload)}
+		ms.SetBillingChecker(&MockBillingChecker{tier: "individual"})
+		got, tier := ms.resolveMaxFileSize(ctx, "u1")
+		if got != MaxFileSizeIndividual {
+			t.Errorf("expected %d, got %d", MaxFileSizeIndividual, got)
+		}
+		if tier != "individual" {
+			t.Errorf("expected individual, got %q", tier)
+		}
+	})
+
+	t.Run("checker error fails closed to free cap", func(t *testing.T) {
+		ms := &MultipartService{uploads: make(map[string]*MultipartUpload)}
+		ms.SetBillingChecker(&MockBillingChecker{err: context.DeadlineExceeded})
+		got, _ := ms.resolveMaxFileSize(ctx, "u1")
+		if got != MaxFileSizeFree {
+			t.Errorf("expected free cap %d on error, got %d", MaxFileSizeFree, got)
+		}
+	})
+}
+
 // TestUploadExpiryValidation checks TTL configuration
 func TestUploadExpiryValidation(t *testing.T) {
 	if UploadExpiryTTL < 1*time.Hour {

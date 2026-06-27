@@ -25,6 +25,8 @@ jest.mock('axios', () => {
     post: (...args: any[]) => mockPost(...args),
     put: (...args: any[]) => mockPut(...args),
     delete: (...args: any[]) => mockDelete(...args),
+    // F5: getCompanionClient() registers a request interceptor (bearer token).
+    interceptors: { request: { use: jest.fn() } },
   };
   return {
     __esModule: true,

@@ -55,8 +55,10 @@ export function validateFileName(name) {
     return { valid: false, error: 'File name contains encoded path separators or null bytes' };
   }
 
-  // Use path.basename for robust cross-platform path stripping
-  const safeName = pathBasename(name);
+  // Normalize Windows backslashes to '/' first so path.basename strips them on
+  // POSIX hosts too (path.basename only treats '\' as a separator on win32),
+  // then take the basename for robust cross-platform path stripping.
+  const safeName = pathBasename(name.replace(/\\/g, '/'));
 
   if (!safeName || safeName.length === 0) {
     return { valid: false, error: 'File name cannot be empty' };

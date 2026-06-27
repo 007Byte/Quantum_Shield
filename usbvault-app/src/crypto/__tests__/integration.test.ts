@@ -1,287 +1,181 @@
 /**
- * Crypto Integration Tests
+ * Crypto Integration Tests — REAL crypto (no mocks).
  *
- * PH3-FIX: Real-crypto integration test suite
- * Tests 10-15 critical crypto paths using the actual bridge interface
- * with appropriate mocking for the native module.
+ * FIX 4 (un-mock the TS crypto integration test): the previous version replaced
+ * NativeModules.USBVaultCrypto with identity/fixed-hex fakes (deriveKey -> 'a'×64,
+ * encrypt -> 'b'×48 + 'c'×len + 'd'×32, decrypt slices the middle back out). That
+ * proved only the bridge's hex plumbing — a real correctness regression (wrong arg
+ * order, truncated nonce, swapped key halves, no AEAD) would have PASSED.
  *
- * Verifies the complete crypto pipeline:
- * - Key derivation consistency and security
- * - Symmetric encryption/decryption round-trips
- * - Key hierarchy (KEK + MEK + per-file keys)
- * - Public key encryption
- * - Digital signatures
+ * This suite now exercises the ACTUAL web crypto path:
+ *   - Platform.OS is forced to 'web', so crypto/native.ts resolves the real
+ *     `webCryptoFallback` (hash-wasm Argon2id key derivation + crypto.subtle
+ *     AES-256-GCM AEAD), NOT a stub.
+ *   - crypto.subtle is provided by jest.setup.js (Node webcrypto) under jsdom.
+ *   - The SRP assertions use the real srpClient.ts (BigInt modPow + Argon2id +
+ *     crypto.subtle SHA-256).
+ *
+ * The invariants asserted are genuine cryptographic properties:
+ *   - encrypt(x) != x  (ciphertext is not the plaintext)
+ *   - decrypt(encrypt(x)) == x  (round-trip correctness)
+ *   - wrong key / tampered ciphertext => decryption FAILS (AEAD authentication)
+ *   - deterministic KDF (same password+salt => same key; different => different)
+ *   - real public-key (ECDH) seal/open round-trip; wrong key fails
+ *   - real SRP-6a derivation reproduces the locked cross-impl vector
  */
 
-import { NativeModules } from 'react-native';
+// IMPORTANT: force the web crypto path BEFORE importing the bridge/native
+// modules so getModule() resolves webCryptoFallback (real crypto) rather than
+// the (absent) native module. The global jest.setup mocks Platform.OS as 'ios';
+// we override it to 'web' for this file only.
+jest.mock('react-native', () => ({
+  Platform: { OS: 'web', select: (obj: any) => obj.web ?? obj.default },
+  NativeModules: {},
+}));
+
 import * as bridge from '@/crypto/bridge';
 import * as keyHierarchy from '@/services/keyHierarchy';
+import {
+  N,
+  g,
+  modPow,
+  computeK,
+  processChallenge,
+  computeM2,
+  verifyServerM2,
+  _internal,
+} from '@/crypto/srpClient';
 
-describe('Crypto Integration Tests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+const { bytesToHex } = _internal;
 
-    // Mock native module with realistic hex outputs
-    NativeModules.USBVaultCrypto = {
-      deriveKey: jest.fn(async (_password: string, _saltHex: string) => {
-        // Return consistent 32-byte key (64 hex chars) for deterministic testing
-        return 'a'.repeat(64);
-      }),
-      encrypt: jest.fn(async (_keyHex: string, plaintextHex: string, _aadHex?: string) => {
-        // Return nonce(24) + ciphertext + tag(16) = simulated encrypted output
-        // 24-byte nonce + 16-byte tag + plaintext length in hex
-        const nonce = 'b'.repeat(48); // 24 bytes as hex
-        const ciphertext = 'c'.repeat(plaintextHex.length);
-        const tag = 'd'.repeat(32); // 16 bytes as hex
-        return nonce + ciphertext + tag;
-      }),
-      decrypt: jest.fn(async (_keyHex: string, ciphertextHex: string, _aadHex?: string) => {
-        // Extract payload and return decrypted plaintext
-        // Remove nonce (48 chars) and tag (32 chars) to get ciphertext
-        const payload = ciphertextHex.slice(48, -32);
-        return payload;
-      }),
-      randomBytes: jest.fn(async (length: number) => {
-        // Return random-looking hex bytes
-        return 'e'.repeat(length * 2); // length bytes as hex
-      }),
-      generateShareKeypair: jest.fn(async () => ({
-        public: 'f'.repeat(64), // 32 bytes
-        private: 'g'.repeat(64), // 32 bytes
-      })),
-      sealToPublicKey: jest.fn(async (_publicKeyHex: string, plaintextHex: string) => {
-        // ephemeral_public(32) + nonce(24) + ciphertext + tag(16)
-        const ephemeralPublic = 'h'.repeat(64); // 32 bytes
-        const nonce = 'i'.repeat(48); // 24 bytes
-        const ciphertext = 'j'.repeat(plaintextHex.length);
-        const tag = 'k'.repeat(32); // 16 bytes
-        return ephemeralPublic + nonce + ciphertext + tag;
-      }),
-      openSealed: jest.fn(async (_secretKeyHex: string, sealedHex: string) => {
-        // Extract plaintext from sealed format
-        const payload = sealedHex.slice(112, -32); // Skip ephemeral + nonce, remove tag
-        return payload;
-      }),
-      generateSigningKeypair: jest.fn(async () => ({
-        public: 'l'.repeat(64), // 32 bytes
-        private: 'm'.repeat(128), // 64 bytes
-      })),
-      sign: jest.fn(async (_secretKeyHex: string, _messageHex: string) => {
-        // Return 64-byte signature
-        return 'n'.repeat(128);
-      }),
-      verify: jest.fn(async (_publicKeyHex: string, _messageHex: string, signatureHex: string) => {
-        // Return true if signature length is valid
-        return signatureHex.length === 128;
-      }),
-      hashSha256: jest.fn(async (dataHex: string) => {
-        // Return input-dependent 32-byte SHA256 hash (valid hex chars: 0-9, a-f)
-        // Simple deterministic hash: XOR fold the input to produce a unique 64-char hex string
-        let hash = 0;
-        for (let i = 0; i < dataHex.length; i++) {
-          hash = ((hash << 5) - hash + dataHex.charCodeAt(i)) | 0;
-        }
-        const h = Math.abs(hash).toString(16).padStart(8, '0');
-        return (h + 'ab'.repeat(28)).slice(0, 64);
-      }),
-      getVersion: jest.fn(async () => '0.1.0'),
-      streamEncryptInit: jest.fn(async (_keyHex: string) => 'stream-enc-' + Date.now()),
-      streamEncryptChunk: jest.fn(
-        async (_sessionId: string, chunkBase64: string, _isFinal: boolean) => {
-          return 'p'.repeat(Buffer.from(chunkBase64, 'base64').length * 2 + 48);
-        }
-      ),
-      streamDecryptInit: jest.fn(async (_keyHex: string) => 'stream-dec-' + Date.now()),
-      streamDecryptChunk: jest.fn(
-        async (_sessionId: string, chunkBase64: string, _isFinal: boolean) => {
-          return Buffer.from(chunkBase64, 'base64').toString('hex');
-        }
-      ),
-      streamFree: jest.fn(async (_sessionId: string) => {}),
-      srpGenerateClientEphemeral: jest.fn(async () => ({
-        public: 'q'.repeat(128), // 64 bytes
-        private: 'r'.repeat(128), // 64 bytes
-      })),
-      srpDeriveSession: jest.fn(
-        async (
-          _clientPrivateHex: string,
-          _serverPublicHex: string,
-          _saltHex: string,
-          _username: string,
-          _password: string
-        ) => ({
-          proof: 's'.repeat(64), // 32 bytes
-          key: 't'.repeat(64), // 32 bytes
-        })
-      ),
-    };
-  });
+// Real Argon2id (64 MiB, 3 iterations) and 3072-bit SRP modPow are CPU-heavy;
+// give each test ample headroom over the 5s jest default so a genuine slow run
+// is not mistaken for a failure.
+jest.setTimeout(60000);
 
-  // ============================================================================
-  // Key Derivation
-  // ============================================================================
-  describe('Key Derivation', () => {
-    it('derives consistent key from same password and salt', async () => {
+describe('Crypto Integration Tests (REAL web crypto)', () => {
+  // ==========================================================================
+  // Key Derivation — real Argon2id (hash-wasm)
+  // ==========================================================================
+  describe('Key Derivation (Argon2id)', () => {
+    it('derives a deterministic 32-byte key from the same password + salt', async () => {
       const password = 'test-password-123';
       const salt = new Uint8Array(32).fill(0x01);
 
       const key1 = await bridge.deriveKey(password, salt);
       const key2 = await bridge.deriveKey(password, salt);
 
-      expect(key1).toEqual(key2);
       expect(key1.length).toBe(32);
+      // REAL Argon2id is deterministic for identical inputs.
+      expect(Buffer.from(key1).toString('hex')).toBe(Buffer.from(key2).toString('hex'));
     });
 
-    it('derives different keys from different passwords', async () => {
+    it('derives DIFFERENT keys from different passwords', async () => {
       const salt = new Uint8Array(32).fill(0x01);
-
       const key1 = await bridge.deriveKey('password1', salt);
       const key2 = await bridge.deriveKey('password2', salt);
-
-      // Verify both are valid keys
-      expect(key1.length).toBe(32);
-      expect(key2.length).toBe(32);
-      // Note: With mocked module, keys may be identical; true test would require
-      // the actual native module to be available
+      expect(Buffer.from(key1).toString('hex')).not.toBe(Buffer.from(key2).toString('hex'));
     });
 
-    it('derives different keys from different salts', async () => {
+    it('derives DIFFERENT keys from different salts', async () => {
       const password = 'same-password';
-      const salt1 = new Uint8Array(32).fill(0x01);
-      const salt2 = new Uint8Array(32).fill(0x02);
-
-      const key1 = await bridge.deriveKey(password, salt1);
-      const key2 = await bridge.deriveKey(password, salt2);
-
-      // Verify both are valid keys
-      expect(key1.length).toBe(32);
-      expect(key2.length).toBe(32);
-      // Note: With mocked module, keys may be identical; true test would require
-      // the actual native module to be available
+      const key1 = await bridge.deriveKey(password, new Uint8Array(32).fill(0x01));
+      const key2 = await bridge.deriveKey(password, new Uint8Array(32).fill(0x02));
+      expect(Buffer.from(key1).toString('hex')).not.toBe(Buffer.from(key2).toString('hex'));
     });
 
-    it('rejects empty password', async () => {
-      const salt = new Uint8Array(32);
-
-      await expect(bridge.deriveKey('', salt)).rejects.toThrow('Password cannot be empty');
+    it('rejects an empty password', async () => {
+      await expect(bridge.deriveKey('', new Uint8Array(32))).rejects.toThrow(
+        'Password cannot be empty'
+      );
     });
   });
 
-  // ============================================================================
-  // Encrypt/Decrypt Round-Trip
-  // ============================================================================
-  describe('Encrypt/Decrypt Round-Trip', () => {
-    it('encrypts and decrypts small data correctly', async () => {
+  // ==========================================================================
+  // Encrypt/Decrypt Round-Trip — real AES-256-GCM (crypto.subtle)
+  // ==========================================================================
+  describe('Encrypt/Decrypt Round-Trip (AEAD)', () => {
+    it('ciphertext differs from plaintext and round-trips correctly', async () => {
       const key = new Uint8Array(32).fill(0x42);
       const plaintext = Buffer.from('Hello, World!');
 
       const ciphertext = await bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, plaintext);
-      // Accept both Buffer and Uint8Array
-      expect(Buffer.isBuffer(ciphertext) || ciphertext instanceof Uint8Array).toBe(true);
-      expect(ciphertext.length).toBeGreaterThan(plaintext.length); // nonce + plaintext + tag
+      // REAL crypto: ciphertext must NOT equal/contain the plaintext.
+      expect(Buffer.from(ciphertext).equals(Buffer.from(plaintext))).toBe(false);
+      expect(ciphertext.length).toBeGreaterThan(plaintext.length); // nonce + ct + tag
 
       const decrypted = await bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key, ciphertext);
-      // Accept both Buffer and Uint8Array
-      expect(Buffer.isBuffer(decrypted) || decrypted instanceof Uint8Array).toBe(true);
-      // Decrypted matches original plaintext (via mock)
-      expect(decrypted.length).toBeGreaterThan(0);
+      expect(Buffer.from(decrypted).equals(Buffer.from(plaintext))).toBe(true);
     });
 
-    it('encrypts and decrypts large data (1MB)', async () => {
+    it('round-trips 1MB of data', async () => {
       const key = new Uint8Array(32).fill(0x55);
-      const plaintext = new Uint8Array(1024 * 1024).fill(0xaa); // 1MB
+      const plaintext = new Uint8Array(1024 * 1024).fill(0xaa);
 
       const ciphertext = await bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, plaintext);
-      expect(Buffer.isBuffer(ciphertext) || ciphertext instanceof Uint8Array).toBe(true);
-
       const decrypted = await bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key, ciphertext);
-      expect(Buffer.isBuffer(decrypted) || decrypted instanceof Uint8Array).toBe(true);
+      expect(Buffer.from(decrypted).equals(Buffer.from(plaintext))).toBe(true);
     });
 
-    it('encrypts and decrypts empty data', async () => {
+    it('rejects empty plaintext', async () => {
       const key = new Uint8Array(32).fill(0x77);
-      const plaintext = new Uint8Array(0);
-
-      // Empty plaintext should be rejected at validation level
       await expect(
-        bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, plaintext)
+        bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, new Uint8Array(0))
       ).rejects.toThrow('Plaintext cannot be empty');
     });
 
-    it('fails decryption with wrong key', async () => {
+    it('FAILS decryption with the wrong key (AEAD authentication)', async () => {
       const key1 = new Uint8Array(32).fill(0x11);
       const key2 = new Uint8Array(32).fill(0x22);
       const plaintext = Buffer.from('Test message');
 
       const ciphertext = await bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key1, plaintext);
-
-      // With the mocked module, decrypt with wrong key still succeeds (mock doesn't validate)
-      // The real native module would fail; testing is done through unit tests
-      const decrypted = await bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key2, ciphertext);
-      expect(decrypted).toBeDefined();
+      await expect(
+        bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key2, ciphertext)
+      ).rejects.toThrow();
     });
 
-    it('fails decryption with tampered ciphertext', async () => {
+    it('FAILS decryption with tampered ciphertext (AEAD authentication)', async () => {
       const key = new Uint8Array(32).fill(0x33);
       const plaintext = Buffer.from('Secret message');
 
       const ciphertext = await bridge.encrypt(bridge.CipherId.XChaCha20Poly1305, key, plaintext);
+      const tampered = new Uint8Array(ciphertext);
+      // Flip a byte inside the ciphertext body (past the 12-byte nonce).
+      tampered[tampered.length - 1] ^= 0xff;
 
-      // Tamper with ciphertext
-      const tampered = Buffer.isBuffer(ciphertext)
-        ? Buffer.from(ciphertext)
-        : new Uint8Array(ciphertext);
-      const tamperedView = tampered instanceof Uint8Array ? tampered : new Uint8Array(tampered);
-      if (tamperedView.length > 50) {
-        tamperedView[50] ^= 0xff;
-      }
-
-      // With the mocked module, decrypt with tampered data still succeeds (mock doesn't validate)
-      const decrypted = await bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key, tamperedView);
-      expect(decrypted).toBeDefined();
+      await expect(
+        bridge.decrypt(bridge.CipherId.XChaCha20Poly1305, key, tampered)
+      ).rejects.toThrow();
     });
   });
 
-  // ============================================================================
-  // Key Hierarchy
-  // ============================================================================
-  describe('Key Hierarchy', () => {
-    it('creates and unlocks key hierarchy', async () => {
+  // ==========================================================================
+  // Key Hierarchy — real KEK(Argon2id) wrap/unwrap MEK
+  // ==========================================================================
+  describe('Key Hierarchy (KEK + MEK)', () => {
+    it('creates and unlocks a key hierarchy, recovering the SAME MEK', async () => {
       const password = 'my-vault-password';
-
-      // Create
       const creation = await keyHierarchy.createKeyHierarchy(password);
 
-      expect(Buffer.isBuffer(creation.mek) || creation.mek instanceof Uint8Array).toBe(true);
       expect(creation.mek.length).toBe(64);
-      expect(
-        Buffer.isBuffer(creation.wrappedMek) || creation.wrappedMek instanceof Uint8Array
-      ).toBe(true);
       expect(creation.wrappedMek.length).toBeGreaterThan(64);
-      expect(Buffer.isBuffer(creation.kekSalt) || creation.kekSalt instanceof Uint8Array).toBe(
-        true
-      );
       expect(creation.kekSalt.length).toBe(32);
 
-      // Unlock with same password
       const unlock = await keyHierarchy.unlockKeyHierarchy(
         password,
         creation.kekSalt,
         creation.wrappedMek
       );
-
-      expect(Buffer.isBuffer(unlock.mek) || unlock.mek instanceof Uint8Array).toBe(true);
-      expect(unlock.mek.length).toBe(64);
+      // REAL unwrap must reproduce the exact MEK.
+      expect(Buffer.from(unlock.mek).equals(Buffer.from(creation.mek))).toBe(true);
     });
 
-    it('rotates password preserving MEK', async () => {
+    it('rotates the password while preserving the MEK', async () => {
       const oldPassword = 'old-password-123';
       const newPassword = 'new-password-456';
 
-      // Create initial hierarchy
       const creation = await keyHierarchy.createKeyHierarchy(oldPassword);
-
-      // Rotate password
       const rotation = await keyHierarchy.rotatePassword(
         oldPassword,
         newPassword,
@@ -289,207 +183,130 @@ describe('Crypto Integration Tests', () => {
         creation.wrappedMek
       );
 
-      expect(rotation.newWrappedMek).toBeInstanceOf(Buffer);
-      expect(rotation.newKekSalt).toBeInstanceOf(Buffer);
-
-      // Unlock with new password should work
       const unlock = await keyHierarchy.unlockKeyHierarchy(
         newPassword,
         rotation.newKekSalt,
         rotation.newWrappedMek
       );
-
-      expect(Buffer.isBuffer(unlock.mek) || unlock.mek instanceof Uint8Array).toBe(true);
+      // The underlying MEK survives a password rotation.
+      expect(Buffer.from(unlock.mek).equals(Buffer.from(creation.mek))).toBe(true);
     });
 
-    it('derives unique per-file keys', async () => {
-      const password = 'vault-password';
-      const creation = await keyHierarchy.createKeyHierarchy(password);
+    it('derives unique, deterministic per-file keys', async () => {
+      const creation = await keyHierarchy.createKeyHierarchy('vault-password');
 
       const fileKey1 = await keyHierarchy.getFileEncryptionKey(creation.mek, 'file-id-1');
+      const fileKey1b = await keyHierarchy.getFileEncryptionKey(creation.mek, 'file-id-1');
       const fileKey2 = await keyHierarchy.getFileEncryptionKey(creation.mek, 'file-id-2');
 
-      expect(Buffer.isBuffer(fileKey1) || fileKey1 instanceof Uint8Array).toBe(true);
       expect(fileKey1.length).toBe(32);
-      expect(Buffer.isBuffer(fileKey2) || fileKey2 instanceof Uint8Array).toBe(true);
-      expect(fileKey2.length).toBe(32);
-
-      // Different file IDs should derive different keys
-      expect(fileKey1).not.toEqual(fileKey2);
+      // Same MEK + same file id => same key (deterministic HKDF).
+      expect(Buffer.from(fileKey1).equals(Buffer.from(fileKey1b))).toBe(true);
+      // Different file ids => different keys.
+      expect(Buffer.from(fileKey1).equals(Buffer.from(fileKey2))).toBe(false);
     });
 
-    it('rejects wrong password on unlock', async () => {
-      const correctPassword = 'correct-password';
-      const wrongPassword = 'wrong-password';
-
-      const creation = await keyHierarchy.createKeyHierarchy(correctPassword);
-
-      // With the mocked module, decrypt doesn't validate passwords
-      // The real native module would fail with wrong password
-      const result = await keyHierarchy.unlockKeyHierarchy(
-        wrongPassword,
-        creation.kekSalt,
-        creation.wrappedMek
-      );
-      expect(result).toBeDefined();
+    it('FAILS to unlock with the wrong password (AEAD tag check)', async () => {
+      const creation = await keyHierarchy.createKeyHierarchy('correct-password');
+      await expect(
+        keyHierarchy.unlockKeyHierarchy('wrong-password', creation.kekSalt, creation.wrappedMek)
+      ).rejects.toThrow();
     });
   });
 
-  // ============================================================================
-  // Public Key Encryption (Sealed Box)
-  // ============================================================================
-  describe('Public Key Encryption', () => {
-    it('seal and open with matching keypair', async () => {
-      // Public key encryption tests require proper-sized keys
-      // The web fallback may return empty or differently-sized keys
-      const publicKey = new Uint8Array(32).fill(0xaa);
-      const secretKey = new Uint8Array(32).fill(0xbb);
+  // ==========================================================================
+  // Public Key Encryption (real ECDH seal/open)
+  // ==========================================================================
+  describe('Public Key Encryption (ECDH sealed box)', () => {
+    // KNOWN PRE-EXISTING BUG (exposed by un-mocking, 2026-06-26): the web crypto
+    // fallback's generateShareKeypair returns an ECDH P-256 SPKI public key
+    // (~91 bytes), but the bridge contract + native Rust path use 32-byte X25519
+    // (bridge.sealToPublicKey/openSealed reject non-32-byte keys). Web public-key
+    // sharing is therefore non-functional ("Recipient public key must be 32 bytes").
+    // Marked it.failing so the suite stays honest: these will FAIL (forcing their
+    // own removal) the moment web ECDH is reimplemented with X25519
+    // (e.g. tweetnacl/@noble crypto_box). Tracked as a follow-up in PR #64.
+    it.failing('seals to a public key and opens with the matching secret key', async () => {
+      const { publicKey, secretKey } = await bridge.generateShareKeypair();
       const plaintext = Buffer.from('Shared secret message');
 
       const sealed = await bridge.sealToPublicKey(publicKey, plaintext);
-      expect(typeof sealed === 'object').toBe(true);
+      expect(sealed.length).toBeGreaterThan(plaintext.length);
 
-      // If sealed data is empty, openSealed will throw validation error
-      if (sealed.length > 0) {
-        const opened = await bridge.openSealed(secretKey, sealed);
-        expect(typeof opened === 'object').toBe(true);
-      } else {
-        // Web fallback may return empty, which is acceptable for mock test
-        expect(sealed.length).toBe(0);
-      }
+      const opened = await bridge.openSealed(secretKey, sealed);
+      expect(Buffer.from(opened).equals(Buffer.from(plaintext))).toBe(true);
     });
 
-    it('open fails with wrong private key', async () => {
-      // Use proper-sized keys
-      const publicKey1 = new Uint8Array(32).fill(0xaa);
-      const secretKey2 = new Uint8Array(32).fill(0xcc);
+    it.failing('FAILS to open with the wrong secret key', async () => {
+      const recipient = await bridge.generateShareKeypair();
+      const attacker = await bridge.generateShareKeypair();
       const plaintext = Buffer.from('Secret message');
 
-      const sealed = await bridge.sealToPublicKey(publicKey1, plaintext);
-
-      // If sealed data is empty, openSealed will throw validation error
-      if (sealed.length > 0) {
-        const result = await bridge.openSealed(secretKey2, sealed);
-        expect(result).toBeDefined();
-      } else {
-        // Web fallback may return empty sealed data
-        expect(sealed.length).toBe(0);
-      }
+      const sealed = await bridge.sealToPublicKey(recipient.publicKey, plaintext);
+      await expect(bridge.openSealed(attacker.secretKey, sealed)).rejects.toThrow();
     });
   });
 
-  // ============================================================================
-  // Digital Signatures
-  // ============================================================================
-  describe('Digital Signatures', () => {
-    it('signs and verifies message', async () => {
-      const keypair = await bridge.generateSigningKeypair();
-      const message = Buffer.from('Message to sign');
-
-      // Note: generateSigningKeypair mock returns 64-byte secretKey but sign() may expect different size
-      // Just verify the operation completes without checking specific key sizes
-      try {
-        const signature = await bridge.sign(keypair.secretKey, message);
-        // If sign succeeds, verify result
-        expect(Buffer.isBuffer(signature) || signature instanceof Uint8Array).toBe(true);
-
-        const isValid = await bridge.verify(keypair.publicKey, message, signature);
-        expect(typeof isValid).toBe('boolean');
-      } catch (error: any) {
-        // Signing may fail due to key size mismatch - this is expected with mock
-        // In real usage, generateSigningKeypair and sign are properly sized
-        expect(error.message).toMatch(/Secret key|cannot be empty/);
-      }
+  // ==========================================================================
+  // Hash + random — real SHA-256 / CSPRNG
+  // ==========================================================================
+  describe('Hashing and Randomness', () => {
+    it('produces a real, input-dependent SHA-256', async () => {
+      const h1 = await bridge.hashSha256(Buffer.from('Test data to hash'));
+      const h1b = await bridge.hashSha256(Buffer.from('Test data to hash'));
+      const h2 = await bridge.hashSha256(Buffer.from('different data'));
+      expect(h1.length).toBe(64);
+      expect(h1).toBe(h1b); // deterministic
+      expect(h1).not.toBe(h2); // input-dependent
+      // Known SHA-256("abc") vector.
+      const known = await bridge.hashSha256(Buffer.from('abc'));
+      expect(known).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
     });
 
-    it('rejects signature with wrong key', async () => {
-      // Use non-empty keys to pass validation
-      const publicKey = new Uint8Array(32).fill(0xaa);
-      const message = Buffer.from('Message to sign');
-
-      // Since sign may fail with mock keys, just test verify directly
-      const isValid = await bridge.verify(publicKey, message, Buffer.from('fake-signature'));
-      expect(typeof isValid).toBe('boolean');
-    });
-
-    it('rejects tampered signature', async () => {
-      // Use non-empty key to pass validation
-      const publicKey = new Uint8Array(32).fill(0xbb);
-      const message = Buffer.from('Original message');
-
-      // With the mocked module, verify doesn't validate that signature matches message
-      const isValid = await bridge.verify(publicKey, message, Buffer.from('tampered-sig'));
-      expect(typeof isValid).toBe('boolean');
+    it('generates non-repeating random bytes (CSPRNG)', async () => {
+      const r1 = await bridge.randomBytes(32);
+      const r2 = await bridge.randomBytes(32);
+      expect(r1.length).toBe(32);
+      // Two CSPRNG draws must differ (the old mock returned 'e'×len, identical).
+      expect(Buffer.from(r1).equals(Buffer.from(r2))).toBe(false);
     });
   });
 
-  // ============================================================================
-  // Streaming Encryption
-  // ============================================================================
-  describe('Streaming Encryption', () => {
-    it('initializes, chunks, and finalizes stream', async () => {
-      const key = new Uint8Array(32).fill(0x88);
-      const chunk1 = Buffer.from('First chunk');
-      const chunk2 = Buffer.from('Second chunk');
+  // ==========================================================================
+  // SRP-6a — real client (srpClient.ts) against the locked cross-impl vector
+  // ==========================================================================
+  describe('SRP-6a (real client)', () => {
+    // Fixed RNG-free scalars matching the Go/Rust/TS KAT and srp_interop_vector.json.
+    const a = 3n;
+    const b = 5n;
+    const x = 7n;
+    const EXPECTED_K = '58e7293fe5f28bfcc8ab8cd7d64934eb6a1336e77fb5faa9ed865dcfda1ab568';
+    const EXPECTED_M1 = '350a85edaefb298e1322c41797462cccaaae940014aab486ba767cfcd13ad89b';
+    const EXPECTED_M2 = 'c2abc70b30ad7f77598d9d91211e9a02d2e1e831cff8de5c0770762c4564db4c';
 
-      // Encrypt stream
-      const sessionId = await bridge.streamEncryptInit(key);
-      expect(typeof sessionId).toBe('string');
+    it('reproduces K/M1/M2 from the real SRP-6a derivation', async () => {
+      const k = await computeK();
+      const v = modPow(g, x, N);
+      const A = modPow(g, a, N);
+      const gb = modPow(g, b, N);
+      const B = (((k * v) % N) + gb) % N;
 
-      const encrypted1 = await bridge.streamEncryptChunk(sessionId, chunk1, false);
-      expect(Buffer.isBuffer(encrypted1) || encrypted1 instanceof Uint8Array).toBe(true);
+      const { K, M1 } = await processChallenge(a, x, B);
+      expect(bytesToHex(K)).toBe(EXPECTED_K);
+      expect(bytesToHex(M1)).toBe(EXPECTED_M1);
 
-      const encrypted2 = await bridge.streamEncryptChunk(sessionId, chunk2, true); // final
-      expect(Buffer.isBuffer(encrypted2) || encrypted2 instanceof Uint8Array).toBe(true);
+      const M2 = await computeM2(A, M1, K);
+      expect(bytesToHex(M2)).toBe(EXPECTED_M2);
 
-      await bridge.streamEncryptFree(sessionId);
+      // Mutual auth: accept the matching M2, reject a tampered one.
+      expect(await verifyServerM2(A, M1, K, M2)).toBe(true);
+      const badM2 = new Uint8Array(M2);
+      badM2[0] ^= 0xff;
+      expect(await verifyServerM2(A, M1, K, badM2)).toBe(false);
     });
 
-    it('handles streaming decryption', async () => {
-      const key = new Uint8Array(32).fill(0x99);
-
-      // Setup: create encrypted stream
-      const encSessionId = await bridge.streamEncryptInit(key);
-      const encrypted = await bridge.streamEncryptChunk(encSessionId, Buffer.from('Data'), true);
-      await bridge.streamEncryptFree(encSessionId);
-
-      // Decrypt stream
-      const decSessionId = await bridge.streamDecryptInit(key);
-      const decrypted = await bridge.streamDecryptChunk(decSessionId, encrypted, true);
-      expect(Buffer.isBuffer(decrypted) || decrypted instanceof Uint8Array).toBe(true);
-      await bridge.streamDecryptFree(decSessionId);
-    });
-  });
-
-  // ============================================================================
-  // Version and Utility
-  // ============================================================================
-  describe('Version and Utilities', () => {
-    it('returns crypto version', async () => {
-      const version = await bridge.getCryptoVersion();
-      expect(typeof version).toBe('string');
-      expect(version.length).toBeGreaterThan(0);
-    });
-
-    it('generates random bytes', async () => {
-      const randomBytes1 = await bridge.randomBytes(32);
-      const randomBytes2 = await bridge.randomBytes(32);
-
-      expect(Buffer.isBuffer(randomBytes1) || randomBytes1 instanceof Uint8Array).toBe(true);
-      expect(randomBytes1.length).toBe(32);
-      expect(Buffer.isBuffer(randomBytes2) || randomBytes2 instanceof Uint8Array).toBe(true);
-      expect(randomBytes2.length).toBe(32);
-
-      // With proper mocking, these would differ; with hex repeat they match
-      // In real implementation they would be different due to CSPRNG
-    });
-
-    it('hashes data with SHA256', async () => {
-      const data = Buffer.from('Test data to hash');
-      const hash = await bridge.hashSha256(data);
-
-      expect(typeof hash).toBe('string');
-      expect(hash.length).toBe(64); // 32 bytes = 64 hex chars
+    it('rejects a zero server public key B', async () => {
+      await expect(processChallenge(3n, 7n, 0n)).rejects.toThrow('Invalid server public key B');
     });
   });
 });

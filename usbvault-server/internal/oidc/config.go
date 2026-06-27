@@ -26,6 +26,16 @@ type ProviderConfig struct {
 	Scopes                []string  `json:"scopes"`
 	Enabled               bool      `json:"enabled"`
 	CreatedAt             time.Time `json:"created_at"`
+
+	// AllowedRedirectURIs is the exact-match allowlist of redirect_uri values
+	// accepted for this provider. SECURITY: redirect_uri must never be used
+	// verbatim from the client; it must match one of these entries exactly to
+	// prevent authorization-code interception / open redirect.
+	//
+	// Populated from the oidc_providers.allowed_redirect_uris column
+	// (added in migration 015). When empty, redirectURIAllowed falls back to
+	// the global OIDCConfig.CallbackBaseURL.
+	AllowedRedirectURIs []string `json:"allowed_redirect_uris"`
 }
 
 // OIDCConfig holds the global OIDC configuration.
@@ -124,7 +134,7 @@ func DecryptSecret(ciphertext []byte, key []byte) (string, error) {
 func LoadProviders(ctx context.Context, pool *pgxpool.Pool) ([]ProviderConfig, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT id, slug, display_name, issuer_url, client_id, client_secret_encrypted,
-		        allowed_domains, scopes, enabled, created_at
+		        allowed_domains, scopes, allowed_redirect_uris, enabled, created_at
 		 FROM oidc_providers WHERE enabled = true
 		 ORDER BY display_name`)
 	if err != nil {
@@ -137,7 +147,7 @@ func LoadProviders(ctx context.Context, pool *pgxpool.Pool) ([]ProviderConfig, e
 		var p ProviderConfig
 		if err := rows.Scan(&p.ID, &p.Slug, &p.DisplayName, &p.IssuerURL,
 			&p.ClientID, &p.ClientSecretEncrypted, &p.AllowedDomains,
-			&p.Scopes, &p.Enabled, &p.CreatedAt); err != nil {
+			&p.Scopes, &p.AllowedRedirectURIs, &p.Enabled, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan provider row: %w", err)
 		}
 		providers = append(providers, p)

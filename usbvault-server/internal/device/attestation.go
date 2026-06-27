@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
 
 // AttestationType identifies the platform attestation mechanism
@@ -535,9 +536,13 @@ func RequireAttestation(attestSvc *AttestationService, deviceSvc *Service) func(
 				return
 			}
 
-			// Get user ID from context (set by auth middleware)
-			userIDStr := r.Header.Get("X-User-ID")
-			if userIDStr == "" {
+			// SECURITY: derive the identity from the authenticated request
+			// context populated by the auth middleware (the validated JWT),
+			// NOT from a client-supplied header. Trusting X-User-ID would let
+			// any caller impersonate another user's enrollment (confused
+			// deputy / authz bypass).
+			userIDStr, ok := r.Context().Value(ctxkeys.UserID).(string)
+			if !ok || userIDStr == "" {
 				http.Error(w, `{"error":"authentication required"}`, http.StatusUnauthorized)
 				return
 			}

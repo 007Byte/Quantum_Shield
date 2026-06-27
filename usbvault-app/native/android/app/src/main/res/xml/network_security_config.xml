@@ -1,32 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PH9-FIX: Android Network Security Configuration (CWE-319)
+<!--
+  F8 — Native TLS Certificate Pinning Scaffold (Android)
 
-     This configuration enforces secure network communications:
-     - Blocks all cleartext (HTTP) traffic by default
-     - Requires HTTPS with system certificate authorities
-     - Allows localhost/10.0.2.2 cleartext for development/testing only
+  SOURCE FOR EXPO PREBUILD. This file is referenced by app.json
+  (expo.android.networkSecurityConfig) and is copied into
+  android/app/src/main/res/xml/network_security_config.xml during `expo prebuild`.
+  Keep it in sync with the committed native copy of the same name.
 
-     Integration with AndroidManifest.xml:
-     <application
-       android:networkSecurityConfig="@xml/network_security_config"
-       ...
-     >
+  This Network Security Configuration:
+    - Blocks all cleartext (HTTP) traffic by default (CWE-319).
+    - Trusts only the system certificate authorities for TLS.
+    - Allows localhost / 10.0.2.2 cleartext for development & emulator only.
+    - Contains a *scaffolded* SPKI public-key <pin-set> for api.usbvault.io
+      that is intentionally LEFT DISABLED (commented out).
+
+  WHY THE PIN-SET IS DISABLED
+  ===========================
+  Android certificate pinning is FAIL-CLOSED: if a <pin-set> is active and the
+  presented certificate chain does not match ANY listed pin, the TLS handshake
+  is rejected. Shipping placeholder ("AAAA...=") pins would therefore break ALL
+  HTTPS traffic to api.usbvault.io on every device.
+
+  The secure base-config (system anchors, no cleartext) is ACTIVE today. The
+  pin-set below is staged but commented out so the placeholder state is
+  non-breaking.
+
+  HOW TO ENABLE (see usbvault-app/PINNING.md for exact commands)
+  ==============================================================
+    1. Generate the real primary SPKI SHA-256 base64 pin from the live cert.
+    2. Generate a real backup pin (next/rotation cert or pinned intermediate CA).
+    3. Replace BOTH placeholder digests below with the real values.
+    4. Set a realistic <pin-set expiration="..."> so pinning soft-fails open
+       instead of bricking clients if rotation is missed.
+    5. Uncomment the <pin-set> block.
+    6. Run `expo prebuild` (so this file is copied into android/) and
+       device-test against staging AND production before release.
+
+  DO NOT uncomment with placeholder values. DO NOT enable in production until
+  real primary + backup pins are filled in and tested on real devices.
 -->
 <network-security-config>
-    <!-- PH9-FIX: Base configuration - HTTPS only (CWE-319) -->
+    <!-- Secure base: HTTPS only, system CAs only. ACTIVE. -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
-            <!-- PH9-FIX: Only trust system certificate authorities -->
             <certificates src="system" />
         </trust-anchors>
     </base-config>
 
-    <!-- PH9-FIX: Development only: allow localhost cleartext for testing
-         Remove this configuration in production builds -->
+    <!-- Development only: allow localhost / emulator cleartext for testing.
+         Remove for production hardening if not needed. -->
     <domain-config cleartextTrafficPermitted="true">
-        <!-- Local machine via USB debugging -->
         <domain includeSubdomains="false">localhost</domain>
-        <!-- Android emulator default gateway -->
         <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- API host hardening. The domain entry is ACTIVE (system-CA TLS only).
+         The <pin-set> is the F8 pinning scaffold and is DISABLED until real
+         pins are filled in (see header). -->
+    <domain-config>
+        <domain includeSubdomains="true">api.usbvault.io</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+
+        <!-- ====================================================================
+             SPKI PIN-SET SCAFFOLD — DISABLED. DO NOT UNCOMMENT WITH PLACEHOLDERS.
+
+             expiration: set this to a date BEFORE the backup cert expires so a
+             missed rotation soft-fails (pinning is bypassed) rather than
+             bricking every client. Update each rotation.
+
+        <pin-set expiration="2027-06-25">
+            PLACEHOLDER — primary pin (current leaf SPKI SHA-256 / base64).
+            Replace AAAA...= with the real value from PINNING.md.
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+
+            PLACEHOLDER — backup pin (next/rotation cert or pinned intermediate).
+            Replace BBBB...= with the real value from PINNING.md.
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+        ==================================================================== -->
     </domain-config>
 </network-security-config>

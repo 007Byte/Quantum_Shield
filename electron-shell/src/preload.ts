@@ -42,6 +42,13 @@ contextBridge.exposeInMainWorld('electronBridge', {
   getCompanionStatus: (): Promise<string> =>
     ipcRenderer.invoke('companion:get-status'),
 
+  /**
+   * Get the bearer token required by the companion's /usb/* routes.
+   * The HTTP client attaches this as `Authorization: Bearer <token>`.
+   */
+  getCompanionToken: (): Promise<string> =>
+    ipcRenderer.invoke('companion:get-token'),
+
   /** Subscribe to companion status changes. Returns unsubscribe function. */
   onCompanionStatusChanged: (callback: (status: string, detail?: string) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: string, detail?: string) => {

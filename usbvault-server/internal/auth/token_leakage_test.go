@@ -180,11 +180,13 @@ func TestTokenLeakage_ExpiredRefreshToken_CannotGetNewAccess(t *testing.T) {
 	// Test that expired refresh tokens cannot be used
 	refreshTokenID := "expired-refresh-token"
 
-	// Store as expired (TTL = 0)
-	err := client.Set(ctx, "refresh_token:"+refreshTokenID, "user-123", 0).Err()
+	// Store with a 1ms TTL. Redis treats a zero expiration as "persist forever",
+	// so an actual short-lived TTL is required to exercise expiry semantics.
+	err := client.Set(ctx, "refresh_token:"+refreshTokenID, "user-123", time.Millisecond).Err()
 	require.NoError(t, err)
 
-	// Immediately check it's gone
+	// Wait for the TTL to elapse, then confirm the token is gone (redis.Nil).
+	time.Sleep(20 * time.Millisecond)
 	val, err := client.Get(ctx, "refresh_token:"+refreshTokenID).Result()
 	assert.Error(t, err)
 	assert.Empty(t, val)

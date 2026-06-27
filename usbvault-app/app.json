@@ -39,6 +39,16 @@
               "NSExceptionAllowsInsecureHTTPLoads": true,
               "NSIncludesSubdomains": false
             }
+          },
+          "_F8_PINNING_README": "F8 iOS TLS pinning scaffold. To enable: (1) fill real SPKI SHA-256 base64 pins per usbvault-app/PINNING.md, (2) rename the disabled key below to 'NSPinnedDomains', (3) replace the AAAA/BBBB placeholders with primary+backup pins, (4) run expo prebuild and device-test. Pinning is FAIL-CLOSED, so do NOT enable with placeholders.",
+          "_F8_NSPinnedDomains_DISABLED": {
+            "api.usbvault.io": {
+              "NSIncludesSubdomains": true,
+              "NSPinnedLeafIdentities": [
+                { "SPKI-SHA256-BASE64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+                { "SPKI-SHA256-BASE64": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=" }
+              ]
+            }
           }
         }
       }

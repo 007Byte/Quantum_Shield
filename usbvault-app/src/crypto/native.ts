@@ -408,7 +408,12 @@ const webCryptoFallback: USBVaultCryptoModule = {
   },
 
   async generateShareKeypair(): Promise<{ public: string; private: string }> {
-    // SECURITY FIX: Generate mathematically related X25519 keypair using ECDH P-256
+    // KNOWN BUG (web public-key sharing is broken — tracked in PR #64): this
+    // returns an ECDH P-256 SPKI public key (~91 bytes), but the bridge contract
+    // and native Rust path use 32-byte X25519 (bridge.sealToPublicKey/openSealed
+    // reject non-32-byte keys), so web sharing does not work. Reimplement with
+    // X25519 (e.g. tweetnacl/@noble crypto_box: ephemeral_pub(32)||nonce(24)||
+    // ct||tag(16), which also interops with the native sealed-box format).
     // Web fallback: Use Web Crypto API to generate proper key pairs
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
@@ -577,27 +582,21 @@ const webCryptoFallback: USBVaultCryptoModule = {
   async srpDeriveSession(
     _clientPrivateHex: string,
     _serverPublicHex: string,
-    saltHex: string,
+    _saltHex: string,
     _username: string,
-    password: string
+    _password: string
   ): Promise<{ proof: string; key: string }> {
-    // Argon2id-based SRP session derivation matching native Rust implementation (SG-008)
-    // Derives 512 bits: first 256 bits = proof, second 256 bits = session key
-    const salt = fromHex(saltHex);
-    const hash = await argon2id({
-      password,
-      salt,
-      parallelism: 4,
-      iterations: 3,
-      memorySize: 65536, // 64 MiB — matches native Argon2id parameters
-      hashLength: 64, // 512 bits: 32 bytes proof + 32 bytes key
-      outputType: 'hex',
-    });
-
-    return {
-      proof: hash.slice(0, 64), // First 32 bytes (64 hex chars)
-      key: hash.slice(64, 128), // Second 32 bytes (64 hex chars)
-    };
+    // F7: The previous web implementation here was a FAKE — it merely Argon2id-
+    // hashed the password into "proof"+"key" with NO modular exponentiation, so it
+    // could never complete a real SRP-6a handshake with the Go server. The real,
+    // byte-for-byte interoperable SRP-6a client now lives in crypto/srpClient.ts
+    // and is wired directly into services/auth.ts on every platform. Nothing in the
+    // app should call this web-fallback method anymore; fail loudly if it does so a
+    // fake SRP path can never silently come back.
+    throw new Error(
+      'srpDeriveSession (web fallback) is removed. Use the real SRP-6a client in ' +
+        'crypto/srpClient.ts (wired through services/auth.ts).'
+    );
   },
 
   async hashSha256(dataHex: string): Promise<string> {
@@ -795,20 +794,6 @@ const webCryptoFallback: USBVaultCryptoModule = {
     header.set(wrappedMek, offset);
     offset += wrappedMek.length;
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[PROVISION-DIAG] Salt hex:', toHex(salt));
-    console.warn('[PROVISION-DIAG] KEK hex:', kekHex);
-    console.warn('[PROVISION-DIAG] wrappedMek length:', wrappedMek.length);
-    console.warn('[PROVISION-DIAG] wrappedMek first 16 bytes:', toHex(wrappedMek.slice(0, 16)));
-    console.warn('[PROVISION-DIAG] wrappedMek written at offset:', offset - wrappedMek.length);
-    console.warn(
-      '[PROVISION-DIAG] Password length:',
-      password.length,
-      'first3chars:',
-      password.substring(0, 3)
-    );
-    // ────────────────────────────────────────────────────────────────
-
     // state_version = 1 (u64 LE)
     writeU64LE(header, offset, 1);
     offset += 8;
@@ -920,28 +905,6 @@ const webCryptoFallback: USBVaultCryptoModule = {
     off += 4;
     const argon2Parallelism = header[off];
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[UNLOCK-DIAG] Header size:', header.length);
-    console.warn('[UNLOCK-DIAG] KDF byte @8:', header[8], '(expect 2=Argon2id)');
-    console.warn('[UNLOCK-DIAG] Cipher byte @9:', header[9]);
-    console.warn('[UNLOCK-DIAG] Salt hex:', toHex(salt));
-    console.warn('[UNLOCK-DIAG] metaOffset:', metaOffset);
-    console.warn(
-      '[UNLOCK-DIAG] Argon2 params: memory=',
-      argon2Memory,
-      'time=',
-      argon2Time,
-      'parallelism=',
-      argon2Parallelism
-    );
-    console.warn(
-      '[UNLOCK-DIAG] Password length:',
-      password.length,
-      'first3chars:',
-      password.substring(0, 3)
-    );
-    // ────────────────────────────────────────────────────────────────
-
     // Derive KEK from password + salt using header's Argon2 params
     const kekHex = await argon2id({
       password,
@@ -963,27 +926,8 @@ const webCryptoFallback: USBVaultCryptoModule = {
     wrappedOffset += 4;
     const wrappedMek = header.slice(wrappedOffset, wrappedOffset + wrappedMekLen);
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────
-    console.warn('[UNLOCK-DIAG] KEK hex:', kekHex);
-    console.warn('[UNLOCK-DIAG] fcBlockOffset:', fcBlockOffset, 'fcBlockLen:', fcBlockLen);
-    console.warn('[UNLOCK-DIAG] wrappedMek offset:', wrappedOffset, 'len:', wrappedMekLen);
-    console.warn('[UNLOCK-DIAG] wrappedMek first 16 bytes:', toHex(wrappedMek.slice(0, 16)));
-    console.warn('[UNLOCK-DIAG] wrappedMek last 16 bytes:', toHex(wrappedMek.slice(-16)));
-    // ────────────────────────────────────────────────────────────────
-
     // Decrypt wrapped MEK with KEK
-    let mek: Uint8Array;
-    try {
-      mek = await aesGcmDecryptRaw(kek, wrappedMek);
-    } catch (unwrapErr) {
-      console.error('[UNLOCK-DIAG] MEK unwrap FAILED!', unwrapErr);
-      console.error(
-        '[UNLOCK-DIAG] This means KEK does not match the one used to wrap MEK during provision.'
-      );
-      console.error('[UNLOCK-DIAG] Full KEK:', kekHex);
-      console.error('[UNLOCK-DIAG] Full wrappedMek hex:', toHex(wrappedMek));
-      throw unwrapErr;
-    }
+    const mek = await aesGcmDecryptRaw(kek, wrappedMek);
     if (mek.length !== 64) {
       throw new Error('Invalid MEK length after unwrap');
     }

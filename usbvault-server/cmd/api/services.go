@@ -151,6 +151,22 @@ func (a *App) initServices(ctx context.Context) error {
 	a.notifyService = notifyService
 	a.syncService = syncService
 
+	// F3: wire authoritative server-side tier enforcement now that the tier
+	// source (billing/subscriptions + users.subscription_tier) is available.
+	//   - Vault creation: enforce per-tier MaxVaults cap.
+	//   - File upload: enforce per-tier max file size (DV-001 path).
+	vaultService.SetTierLimiter(vault.NewTierLimiter(a.dbPool))
+	storageService.SetBillingChecker(billingService)
+	// F3: gate the multipart upload path by the same authoritative tier source so a
+	// client cannot bypass the single-shot per-tier file-size limit via multipart.
+	multipartService.SetBillingChecker(billingService)
+	// F3 (FIX A/B): give the multipart path the S3-sourced storage-usage source so
+	// the post-assembly finalize check enforces the same cumulative MaxStorageMB
+	// quota as the single-shot upload path (authoritative size truth is S3).
+	multipartService.SetStorageUsageChecker(storageService)
+	// F3: gate share creation by the sharing feature/tier and per-tier maxShares.
+	sharingService.SetBillingChecker(billingService)
+
 	// Initialize backup service
 	backupConfig, err := backuppkg.LoadBackupConfig()
 	if err != nil {
