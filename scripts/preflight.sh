@@ -32,11 +32,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CRYPTO="$ROOT/usbvault-crypto"
 SERVER="$ROOT/usbvault-server"
 APP="$ROOT/usbvault-app"
+COMPANION="$ROOT/usb-companion"
+ELECTRON="$ROOT/electron-shell"
 
 # Tool/version pins matching CI.
 GOSEC_VERSION="v2.27.1"
 GITLEAKS_VERSION="8.21.2"
 GOLANGCI_VERSION="v2.12.2"
+# Pin the Go toolchain to CI's version (ci.yml go-version '1.25', go.mod go 1.25.0)
+# so build/vet/race/govulncheck match CI instead of the local go1.26 line — which
+# otherwise reports stdlib govulncheck findings CI never sees. Override by exporting
+# GOTOOLCHAIN before running.
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.25.0}"
 
 # Postgres for migrations + Go integration tests (one container, two DBs).
 PG_CONTAINER="usbvault-preflight-pg"
@@ -44,6 +51,12 @@ PG_PORT="55432"
 PG_IMAGE="postgres:16-alpine"
 export TEST_DATABASE_URL="postgres://postgres:postgres@localhost:${PG_PORT}/usbvault_test"
 MIGRATE_DSN="postgres://postgres:postgres@localhost:${PG_PORT}/usbvault_migrate?sslmode=disable"
+# Redis for Go integration + auth token/jwt tests (mirrors CI's redis service on
+# :6379). Without it, token_leakage_test.go / jwt_test.go t.Skip() locally yet RUN
+# in CI — a silent parity hole that previously let an integration failure reach CI.
+REDIS_CONTAINER="usbvault-preflight-redis"
+REDIS_PORT="6379"
+export REDIS_URL="redis://localhost:${REDIS_PORT}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
 declare -a RESULTS=()
@@ -67,12 +80,24 @@ run_advisory() { # like run() but a non-zero exit WARNs instead of failing the s
 }
 
 # ── Service management ───────────────────────────────────────────────────────
+# Fail-fast when Docker is required but unavailable, so a dead daemon is NEVER
+# mistaken for a code failure (the exact confusion that derailed a push before).
+require_docker() {
+  [ "$NO_SERVICES" = "1" ] && return 0
+  command -v docker >/dev/null 2>&1 || {
+    echo -e "${RED}${BOLD}Docker CLI not found${NC} — the Go integration, migrations and Redis gates need it."
+    echo -e "${YELLOW}Install Docker, or pass --no-services if Postgres+Redis are already running.${NC}"; exit 3; }
+  docker info >/dev/null 2>&1 || {
+    echo -e "${RED}${BOLD}Docker daemon is NOT running.${NC}"
+    echo -e "${RED}DB / Redis / integration gates would fail for an INFRASTRUCTURE reason — not a code problem.${NC}"
+    echo -e "${YELLOW}Start Docker Desktop and re-run, or pass --no-services if PG(:$PG_PORT)+Redis(:$REDIS_PORT) are already up.${NC}"; exit 3; }
+}
 start_pg() {
   [ "$NO_SERVICES" = "1" ] && return 0
-  command -v docker >/dev/null || { echo -e "${RED}docker required for DB gates${NC}"; return 1; }
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
   docker run -d --name "$PG_CONTAINER" -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-    -e POSTGRES_DB=usbvault_test -p "${PG_PORT}:5432" "$PG_IMAGE" >/dev/null
+    -e POSTGRES_DB=usbvault_test -p "${PG_PORT}:5432" "$PG_IMAGE" >/dev/null \
+    || { echo -e "${RED}${BOLD}failed to start Postgres container${NC}"; exit 3; }
   for _ in $(seq 1 30); do docker exec "$PG_CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
   docker exec "$PG_CONTAINER" psql -U postgres -tAc \
     "CREATE DATABASE usbvault_migrate;" >/dev/null 2>&1 || true
@@ -80,6 +105,16 @@ start_pg() {
     "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS pgcrypto;" >/dev/null 2>&1 || true
 }
 stop_pg() { [ "$NO_SERVICES" = "1" ] && return 0; docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true; }
+# Redis mirrors CI's `redis:7-alpine` service so integration/auth tests RUN locally
+# instead of t.Skip()-ping past — closing the parity hole that hid token_leakage.
+start_redis() {
+  [ "$NO_SERVICES" = "1" ] && return 0
+  docker rm -f "$REDIS_CONTAINER" >/dev/null 2>&1 || true
+  docker run -d --name "$REDIS_CONTAINER" -p "${REDIS_PORT}:6379" redis:7-alpine >/dev/null \
+    || { echo -e "${RED}${BOLD}failed to start Redis container${NC}"; exit 3; }
+  for _ in $(seq 1 30); do docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1 && break; sleep 1; done
+}
+stop_redis() { [ "$NO_SERVICES" = "1" ] && return 0; docker rm -f "$REDIS_CONTAINER" >/dev/null 2>&1 || true; }
 
 # ── Domain gates (EXACT CI commands) ─────────────────────────────────────────
 gate_rust() {
@@ -102,14 +137,17 @@ gate_go() {
   run "go: vet"        "$SERVER" go vet ./...
   run "go: test -race" "$SERVER" go test -race ./...
   command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1 || true
-  # ADVISORY: CI's govulncheck gate is effectively a no-op (its jq parses a
-  # streamed sequence of JSON objects as if it were one array, so the CALLED
-  # count never exceeds 0 and the gate never fires) and the repo treats vuln
-  # scanning as non-blocking during dev. We still RUN it and SURFACE findings —
-  # strictly better than CI's silent swallow. Local go1.26 adds stdlib findings
-  # absent on CI's go1.25; triage any THIRD-PARTY advisories (currently go-jose
-  # v4.1.3→4.1.4, golang.org/x/net 0.51→0.53, otel otlptracehttp 1.42→1.43).
-  run_advisory "go: govulncheck (advisory — surface vulns)" "$SERVER" govulncheck ./...
+  # BLOCKING on THIRD-PARTY reachable vulns — mirrors ci.yml's gate EXACTLY (same
+  # `jq -rs` slurp counting non-stdlib reachable OSVs, exit 1 when >0). That gate
+  # DOES fire (it caught pgx GO-2026-5004); the prior "advisory, CI is a no-op"
+  # assumption here is precisely what let govulncheck blindside us. Stdlib findings
+  # stay advisory (cleared by the GOTOOLCHAIN pin above), matching CI's stdlib warning.
+  run "go: govulncheck (third-party blocks, mirrors CI)" "$SERVER" bash -c '
+    govulncheck -json ./... > /tmp/pf-govuln.json 2>/dev/null || true
+    tp=$(jq -rs "[.[] | select(.finding.trace[0].function != null) | select(.finding.trace[0].module != \"stdlib\") | .finding.osv] | unique | length" /tmp/pf-govuln.json 2>/dev/null || echo 0)
+    sl=$(jq -rs "[.[] | select(.finding.trace[0].function != null) | select(.finding.trace[0].module == \"stdlib\") | .finding.osv] | unique | length" /tmp/pf-govuln.json 2>/dev/null || echo 0)
+    echo "govulncheck: $tp third-party reachable, $sl stdlib reachable (stdlib advisory)"
+    [ "$tp" -eq 0 ]'
   run "go: integration (-tags=integration)" "$SERVER" go test -tags=integration ./...
 }
 gate_migrations() {
@@ -186,14 +224,28 @@ gate_env() {
   chmod +x "$ROOT/scripts/validate-env.sh"
   run "env: validate .env.example" "$ROOT" ./scripts/validate-env.sh --dry-run .env.example
 }
+gate_companion() {
+  # CI ci.yml usb-companion job (BLOCKING): npm ci + npm test (node --test) — the
+  # 62 path-traversal / file-type input-validation cases. Had NO preflight gate.
+  section "USB Companion (usb-companion) — npm ci + input-validation tests"
+  run "companion: npm ci"   "$COMPANION" npm ci
+  run "companion: npm test" "$COMPANION" npm test
+}
+gate_electron() {
+  # CI ci.yml electron-shell job (BLOCKING): npm ci + npm test (jest) — 39 smoke
+  # cases. Had NO preflight gate.
+  section "Electron Shell (electron-shell) — npm ci + smoke tests"
+  run "electron: npm ci"   "$ELECTRON" npm ci
+  run "electron: npm test" "$ELECTRON" npm test
+}
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 MODE="full"; NO_SERVICES="0"; E2E_CI_SIM="0"; declare -a ONLY=()
 for arg in "$@"; do case "$arg" in
   --full) MODE="full";; --changed) MODE="changed";; --no-services) NO_SERVICES="1";;
   --e2e-ci-sim) E2E_CI_SIM="1";;
-  --rust|--go|--migrations|--rn|--e2e|--security|--env) ONLY+=("${arg#--}"); MODE="only";;
-  --list) echo "Gates: rust go migrations rn e2e security env  | CI-only: ffi-build EAS DAST Trivy SBOM"; exit 0;;
+  --rust|--go|--migrations|--rn|--companion|--electron|--e2e|--security|--env) ONLY+=("${arg#--}"); MODE="only";;
+  --list) echo "Gates: rust go migrations rn companion electron e2e security env  | CI-only: ffi-build EAS DAST Trivy SBOM"; exit 0;;
   *) echo "Unknown arg: $arg"; exit 2;;
 esac; done
 
@@ -207,21 +259,29 @@ want() { # want <domain>
     rust)        echo "$diff" | grep -q "^usbvault-crypto/";;
     go|migrations) echo "$diff" | grep -q "^usbvault-server/";;
     rn|e2e)      echo "$diff" | grep -q "^usbvault-app/";;
+    companion)   echo "$diff" | grep -q "^usb-companion/";;
+    electron)    echo "$diff" | grep -q "^electron-shell/";;
     security|env) return 0;; # always
   esac
 }
 
 echo -e "${BOLD}preflight.sh — mode=$MODE  e2e-ci-sim=$E2E_CI_SIM${NC}"
 NEED_DB=0
-{ want rust >/dev/null; } # warm
 if want go || want migrations; then NEED_DB=1; fi
-[ "$NEED_DB" = "1" ] && { section "Starting Postgres ($PG_IMAGE on :$PG_PORT)"; start_pg || true; }
-trap stop_pg EXIT
+if [ "$NEED_DB" = "1" ]; then
+  require_docker   # fail-fast & loud if the daemon is down — never mistaken for code
+  section "Starting Postgres ($PG_IMAGE on :$PG_PORT) + Redis (redis:7-alpine on :$REDIS_PORT)"
+  start_pg
+  start_redis
+fi
+trap 'stop_pg; stop_redis' EXIT
 
 want rust       && gate_rust
 want go         && gate_go
 want migrations && gate_migrations
 want rn         && gate_rn
+want companion  && gate_companion
+want electron   && gate_electron
 want e2e        && gate_e2e
 want security   && gate_security
 want env        && gate_env
