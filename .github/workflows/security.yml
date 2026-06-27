@@ -102,6 +102,18 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      # Deps review F1/F2/F4: the crypto crate must not declare release-candidate /
+      # pre-release version requirements on its direct dependencies (the removed `srp`
+      # 0.7.0-rc.1 pulled an entire RC crypto-bigint/crypto-common/yanked-digest stack
+      # onto the auth-adjacent path). Fail fast if one is reintroduced.
+      - name: Ban release-candidate / pre-release crypto dependencies
+        run: |
+          if grep -nE '=[[:space:]]*"[^"]*-(rc|alpha|beta)' Cargo.toml; then
+            echo "::error::release-candidate/pre-release version requirement found in usbvault-crypto/Cargo.toml — pin to a stable release"
+            exit 1
+          fi
+          echo "OK: no -rc/-alpha/-beta version requirements in usbvault-crypto/Cargo.toml"
+
       - name: Install cargo-audit
         run: cargo install cargo-audit
 
