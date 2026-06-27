@@ -59,8 +59,8 @@ type BillingPool interface {
 // Note: API keys must NEVER be hardcoded in source code.
 // They must be loaded from environment variables (e.g., STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
 type StripeConfig struct {
-	APIKey       string // STRIPE_SECRET_KEY environment variable
-	WebhookSecret string // STRIPE_WEBHOOK_SECRET environment variable
+	APIKey         string // STRIPE_SECRET_KEY environment variable
+	WebhookSecret  string // STRIPE_WEBHOOK_SECRET environment variable
 	PublishableKey string // STRIPE_PUBLISHABLE_KEY environment variable
 }
 
@@ -259,9 +259,9 @@ func (bs *BillingService) CreateSubscription(ctx context.Context, userID, tier s
 	defer resp.Body.Close()
 
 	var result struct {
-		ID                 string `json:"id"`
-		CurrentPeriodEnd   int64  `json:"current_period_end"`
-		Error *struct {
+		ID               string `json:"id"`
+		CurrentPeriodEnd int64  `json:"current_period_end"`
+		Error            *struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
@@ -512,6 +512,39 @@ func (bs *BillingService) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{"status": "received"})
 }
 
+// effectiveUserTier returns the tier to mirror onto users.subscription_tier: the
+// subscription's tier when the subscription is active, otherwise "free" (a
+// cancelled/past-due/incomplete subscription must not leave the user on a paid
+// override).
+func effectiveUserTier(tier, status string) string {
+	if status == "active" {
+		return tier
+	}
+	return "free"
+}
+
+// propagateTierToUser mirrors the authoritative subscription tier onto
+// users.subscription_tier (#66) so the F3 enforcement override path
+// (vault.TierLimiter.ResolveTier) and admin-granted, subscription-less tiers agree
+// with billing. This is best-effort and intentionally non-fatal: ResolveTier's
+// PRIMARY source is the active `subscriptions` row, which the caller updates
+// atomically just above, so a transient failure here leaves enforcement correct
+// (it still reads the subscription) and self-heals on the next webhook delivery —
+// the column is a secondary, convergent override, not the source of truth.
+func (bs *BillingService) propagateTierToUser(ctx context.Context, userID, tier, status string) {
+	if bs.pool == nil || userID == "" {
+		return
+	}
+	effective := effectiveUserTier(tier, status)
+	if _, err := bs.pool.Exec(ctx,
+		`UPDATE users SET subscription_tier = $1, updated_at = NOW() WHERE id = $2`,
+		effective, userID,
+	); err != nil {
+		log.Warn().Err(err).Str("user_id", userID).Str("tier", effective).
+			Msg("#66: failed to sync users.subscription_tier from webhook (subscriptions row remains authoritative)")
+	}
+}
+
 // PH8-FIX: Handle customer.subscription.created — activate tier for new subscriptions
 func (bs *BillingService) handleSubscriptionCreated(ctx context.Context, event map[string]interface{}) {
 	dataObj, ok := event["data"].(map[string]interface{})
@@ -571,6 +604,9 @@ func (bs *BillingService) handleSubscriptionCreated(ctx context.Context, event m
 		log.Error().Err(err).Str("subscription_id", subID).Str("user_id", userID).Msg("failed to activate subscription in database")
 		return
 	}
+
+	// #66: mirror the active tier onto users.subscription_tier so all enforcers agree.
+	bs.propagateTierToUser(ctx, userID, tier, status)
 
 	log.Info().Str("subscription_id", subID).Str("user_id", userID).Str("tier", tier).Str("status", status).Msg("subscription created and activated")
 }
@@ -649,6 +685,9 @@ func (bs *BillingService) handleSubscriptionUpdated(ctx context.Context, event m
 		return
 	}
 
+	// #66: mirror the updated tier onto users.subscription_tier.
+	bs.propagateTierToUser(ctx, userID, defaultTier, status)
+
 	log.Info().Str("subscription_id", subID).Str("user_id", userID).Str("status", status).Str("tier", defaultTier).Msg("subscription updated in database")
 }
 
@@ -697,6 +736,9 @@ func (bs *BillingService) handleSubscriptionDeleted(ctx context.Context, event m
 		log.Error().Err(err).Str("subscription_id", subID).Str("user_id", userID).Msg("failed to update subscription cancellation in database")
 		return
 	}
+
+	// #66: a cancelled subscription reverts the user override to free.
+	bs.propagateTierToUser(ctx, userID, "free", "cancelled")
 
 	log.Info().Str("subscription_id", subID).Str("user_id", userID).Msg("subscription cancelled in database")
 }
@@ -940,10 +982,10 @@ func HandleWebhook(bs *BillingService) http.HandlerFunc {
 // PH8-FIX: Tier ranking for upgrade/downgrade validation
 func getTierRanking(tier string) int {
 	rankMap := map[string]int{
-		"enterprise":  3,
-		"team":        2,
-		"individual":  1,
-		"free":        0,
+		"enterprise": 3,
+		"team":       2,
+		"individual": 1,
+		"free":       0,
 	}
 	if rank, ok := rankMap[tier]; ok {
 		return rank
@@ -1458,7 +1500,7 @@ func computeWebhookSignature(payload []byte, secret string) string {
 // These should come from environment variables in production.
 func (bs *BillingService) mapTierToPrice(tier string) string {
 	priceMap := map[string]string{
-		"free":       "",                                    // Free tier has no Stripe price
+		"free":       "",                                   // Free tier has no Stripe price
 		"individual": os.Getenv("STRIPE_PRICE_INDIVIDUAL"), // e.g., price_xxx
 		"team":       os.Getenv("STRIPE_PRICE_TEAM"),       // e.g., price_yyy
 		"enterprise": os.Getenv("STRIPE_PRICE_ENTERPRISE"), // e.g., price_zzz
