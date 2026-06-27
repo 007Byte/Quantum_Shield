@@ -1,9 +1,10 @@
 //! Cross-implementation interop KAT for X25519 sealed-box sharing (issue #71).
 //!
 //! Proves the native Rust sharing path (`sharing::open`) can decrypt a box sealed
-//! by the WEB implementation (usbvault-app @noble: X25519 ECDH + HKDF-SHA256("seal")
-//! + XChaCha20-Poly1305, layout ephemeral_pub(32) || nonce(24) || ct||tag). The
-//! companion web KAT (usbvault-app/src/crypto/__tests__/shareInterop.kat.test.ts)
+//! by the WEB implementation (usbvault-app @noble): X25519 ECDH, then
+//! HKDF-SHA256("seal"), then XChaCha20-Poly1305, with layout ephemeral_pub(32)
+//! then nonce(24) then ct/tag. The companion web KAT
+//! (usbvault-app/src/crypto/__tests__/shareInterop.kat.test.ts)
 //! opens the Rust-sealed vector; here we open the web-sealed one. Both share a
 //! single recipient keypair, so together they prove web<->native interoperability.
 
