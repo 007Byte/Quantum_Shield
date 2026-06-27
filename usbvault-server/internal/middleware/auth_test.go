@@ -378,7 +378,10 @@ func TestGetClientIP_RemoteAddr(t *testing.T) {
 	}
 }
 
-func TestGetClientIP_XRealIP(t *testing.T) {
+// M-6: forwarding headers are honored ONLY when the immediate peer is a configured
+// trusted proxy.
+func TestGetClientIP_XRealIPFromTrustedProxy(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.RemoteAddr = "127.0.0.1:54321"
 	req.Header.Set("X-Real-IP", "203.0.113.42")
@@ -389,26 +392,44 @@ func TestGetClientIP_XRealIP(t *testing.T) {
 	}
 }
 
-func TestGetClientIP_XForwardedFor(t *testing.T) {
+func TestGetClientIP_XForwardedForFromTrustedProxy(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.RemoteAddr = "127.0.0.1:54321"
 	req.Header.Set("X-Forwarded-For", "198.51.100.1, 203.0.113.42")
 
 	ip := getClientIP(req)
-	// H-5 FIX: Should return the RIGHTMOST (last) non-empty IP, which is the one
-	// added by our trusted proxy. The leftmost IP is client-supplied and spoofable.
+	// H-5: return the RIGHTMOST (proxy-added) entry, not the client's spoofable
+	// leftmost value.
 	if ip != "203.0.113.42" {
 		t.Errorf("expected '203.0.113.42', got %q", ip)
 	}
 }
 
-func TestGetClientIP_XForwardedForSingle(t *testing.T) {
+// M-6 security property: a direct (untrusted) client cannot spoof its source IP via
+// forwarding headers — they are ignored and RemoteAddr is authoritative.
+func TestGetClientIP_IgnoresHeadersFromUntrustedPeer(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8") // the peer below is NOT in this range
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.RemoteAddr = "198.51.100.7:44444"
+	req.Header.Set("X-Forwarded-For", "203.0.113.42")
+	req.Header.Set("X-Real-IP", "203.0.113.42")
 
 	ip := getClientIP(req)
-	if ip != "192.0.2.1" {
-		t.Errorf("expected '192.0.2.1', got %q", ip)
+	if ip != "198.51.100.7" {
+		t.Errorf("spoofed headers must be ignored from an untrusted peer; expected '198.51.100.7', got %q", ip)
+	}
+}
+
+func TestGetClientIP_NoTrustedProxyConfigIgnoresHeaders(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "") // unset/empty → trust nothing
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	req.Header.Set("X-Forwarded-For", "203.0.113.42")
+
+	ip := getClientIP(req)
+	if ip != "127.0.0.1" {
+		t.Errorf("with no trusted-proxy config, headers must be ignored; expected '127.0.0.1', got %q", ip)
 	}
 }
 

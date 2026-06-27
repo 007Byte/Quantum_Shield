@@ -3,12 +3,15 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
@@ -220,7 +223,15 @@ func RequireTier(requiredTier string, pool *pgxpool.Pool) func(http.Handler) htt
 			).Scan(&tier)
 
 			if err != nil {
-				log.Debug().Str("user_id", userID).Err(err).Msg("no active subscription found, defaulting to free")
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Debug().Str("user_id", userID).Msg("no active subscription — free tier")
+				} else {
+					// M-4: do not silently mask a real DB error as "free". Log loudly
+					// (alerting); still fail-closed to free so a transient blip can never
+					// grant a higher tier.
+					log.Error().Err(err).Str("user_id", userID).Str("required_tier", requiredTier).
+						Msg("M-4: tier lookup failed — denying (fail-closed to free)")
+				}
 				tier = "free"
 			}
 
@@ -252,28 +263,70 @@ func RequireTier(requiredTier string, pool *pgxpool.Pool) func(http.Handler) htt
 	}
 }
 
+// M-6: forwarding headers (X-Forwarded-For / X-Real-IP) are only trustworthy when
+// the request actually arrived from one of our reverse proxies; a direct client can
+// otherwise spoof its source IP, which is used for rate-limit / lockout keying and
+// audit. The trusted set is configured via TRUSTED_PROXY_CIDRS (comma-separated,
+// e.g. "10.0.0.0/8,127.0.0.1/32"). When unset/empty, NO forwarding header is trusted
+// and the immediate peer (RemoteAddr) is authoritative.
+func parseTrustedProxyCIDRs() []*net.IPNet {
+	var cidrs []*net.IPNet
+	for _, part := range strings.Split(os.Getenv("TRUSTED_PROXY_CIDRS"), ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, ipnet, err := net.ParseCIDR(part); err == nil {
+			cidrs = append(cidrs, ipnet)
+		}
+	}
+	return cidrs
+}
+
+// remoteIsTrustedProxy reports whether the immediate peer (r.RemoteAddr) is within
+// the configured trusted-proxy CIDR set.
+func remoteIsTrustedProxy(remoteAddr string) bool {
+	cidrs := parseTrustedProxyCIDRs()
+	if len(cidrs) == 0 {
+		return false
+	}
+	host := remoteAddr
+	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		host = h
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, n := range cidrs {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header (from reverse proxy)
-	// H-5 FIX: Use the RIGHTMOST (last) non-empty entry, which is the IP added by the
-	// closest trusted proxy. Using the leftmost entry trusts the client's claim about
-	// its own IP address, enabling IP spoofing. The rightmost entry is authoritative
-	// because it was added by our infrastructure, not by the client.
-	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
-		ips := strings.Split(xForwardedFor, ",")
-		// Iterate from right to left to find the last non-empty IP
-		for i := len(ips) - 1; i >= 0; i-- {
-			if trimmed := strings.TrimSpace(ips[i]); trimmed != "" {
-				return trimmed
+	// Only honor client-supplied forwarding headers when the immediate peer is a
+	// configured trusted proxy; otherwise RemoteAddr is authoritative and the headers
+	// are ignored to prevent source-IP spoofing (M-6).
+	if remoteIsTrustedProxy(r.RemoteAddr) {
+		// H-5: use the RIGHTMOST non-empty X-Forwarded-For entry — the one added by
+		// the closest (trusted) proxy, not the client's self-claimed leftmost value.
+		if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
+			ips := strings.Split(xForwardedFor, ",")
+			for i := len(ips) - 1; i >= 0; i-- {
+				if trimmed := strings.TrimSpace(ips[i]); trimmed != "" {
+					return trimmed
+				}
 			}
+		}
+		if xRealIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); xRealIP != "" {
+			return xRealIP
 		}
 	}
 
-	// Check X-Real-IP header
-	if xRealIP := r.Header.Get("X-Real-IP"); xRealIP != "" {
-		return xRealIP
-	}
-
-	// Fall back to RemoteAddr, stripping port if present
+	// Fall back to RemoteAddr, stripping port if present.
 	addr := r.RemoteAddr
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		return host
