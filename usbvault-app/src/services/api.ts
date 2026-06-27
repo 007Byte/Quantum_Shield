@@ -599,6 +599,25 @@ export async function getUploadUrl(request: GetUploadUrlRequest): Promise<GetUpl
   return response.data;
 }
 
+export interface ConfirmUploadResponse {
+  confirmed: boolean;
+  size: number;
+}
+
+// #67: after a single-shot presigned PUT, call this so the SERVER HeadObjects the
+// real stored size and enforces the per-tier file-size limit — an oversized object
+// is deleted and the call rejected with 413. The single-shot upload flow MUST call
+// this once the PUT completes (the pre-upload size in getUploadUrl is client-declared
+// and therefore not authoritative).
+export async function confirmUpload(
+  vaultId: string,
+  blobId: string
+): Promise<ConfirmUploadResponse> {
+  const client = getApiClient();
+  const response = await client.post(`/vaults/${vaultId}/blobs/confirm`, { blob_id: blobId });
+  return response.data;
+}
+
 export interface GetDownloadUrlResponse {
   downloadUrl: string;
 }

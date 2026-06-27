@@ -388,6 +388,30 @@ func (c *APIClient) PutCiphertext(presignedURL string, ciphertext []byte) error 
 	return nil
 }
 
+// ConfirmUpload calls the server's #67 confirm endpoint after a presigned PUT so the
+// server HeadObjects the REAL stored size and binds it to the tier limit. Returns the
+// confirmed size.
+func (c *APIClient) ConfirmUpload(user *TestUser, vaultID, blobID string) (int64, error) {
+	c.SetToken(user.Token)
+	resp, err := c.do(http.MethodPost, apiPrefix+"/vaults/"+vaultID+"/blobs/confirm", map[string]string{"blob_id": blobID})
+	if err != nil {
+		return 0, fmt.Errorf("confirm request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("confirm failed with status %d: %s", resp.StatusCode, respBody)
+	}
+	var result struct {
+		Confirmed bool  `json:"confirmed"`
+		Size      int64 `json:"size"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("decode confirm response: %w", err)
+	}
+	return result.Size, nil
+}
+
 // ListBlobs lists all blobs in a vault.
 func (c *APIClient) ListBlobs(user *TestUser, vaultID string) ([]TestBlob, error) {
 	c.SetToken(user.Token)
