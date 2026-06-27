@@ -29,9 +29,10 @@ rand_core = { version = "0.6", features = ["getrandom"] }
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# SRP protocol
-srp = "0.7.0-rc.1"
-# Big integers for SRP-6a
+# Big integers for SRP-6a. The SRP-6a protocol is hand-rolled in src/srp_client.rs
+# over num-bigint; the `srp` crate was unused and was the SOLE consumer of a
+# release-candidate crypto stack (crypto-bigint 0.7.0-rc.28, crypto-common 0.2.1,
+# yanked digest 0.11.1), so it is removed entirely (deps review F1/F2/F4).
 num-bigint = "0.4"
 # Lazy static initialization
 once_cell = "1"
