@@ -170,17 +170,23 @@ class RecoveryPhraseService {
     mnemonic: string[],
     passphrase: string = ''
   ): Promise<string> {
+    // LOW-7: the mnemonic-derived seed (and the 32-byte AES key sliced from it) are
+    // sensitive; hoist them so the finally block can zeroize them once importKey has
+    // copied the bytes into the CryptoKey.
+    let seed: ArrayBuffer | undefined;
+    let keyBytes: ArrayBuffer | undefined;
     try {
       // Generate random IV
       const iv = crypto.getRandomValues(new Uint8Array(BIP39_CONFIG.IV_LENGTH));
 
       // Derive seed from mnemonic
-      const seed = await this.mnemonicToSeed(mnemonic, passphrase);
+      seed = await this.mnemonicToSeed(mnemonic, passphrase);
 
       // Derive encryption key from seed (first 256 bits)
+      keyBytes = seed.slice(0, 32);
       const encryptionKey = await crypto.subtle.importKey(
         'raw',
-        seed.slice(0, 32),
+        keyBytes,
         { name: 'AES-GCM' },
         false,
         ['encrypt']
@@ -215,6 +221,10 @@ class RecoveryPhraseService {
     } catch (error) {
       logger.error('[FEAT-02] Master key encryption failed', error);
       throw new Error(`Failed to encrypt master key: ${error}`);
+    } finally {
+      // LOW-7: wipe the seed + derived key bytes (the CryptoKey already holds a copy).
+      if (seed) new Uint8Array(seed).fill(0);
+      if (keyBytes) new Uint8Array(keyBytes).fill(0);
     }
   }
 
@@ -233,6 +243,11 @@ class RecoveryPhraseService {
     mnemonic: string[],
     passphrase: string = ''
   ): Promise<ArrayBuffer> {
+    // LOW-7: see encryptMasterKey — hoist the sensitive seed + derived key bytes so
+    // the finally can zeroize them. The returned master key is NOT wiped here (the
+    // caller needs the plaintext and owns its lifetime).
+    let seed: ArrayBuffer | undefined;
+    let keyBytes: ArrayBuffer | undefined;
     try {
       const blob: EncryptedBlob = JSON.parse(encryptedBlob);
 
@@ -249,12 +264,13 @@ class RecoveryPhraseService {
       encryptedData.set(tagArray, ciphertextArray.length);
 
       // Derive seed from mnemonic
-      const seed = await this.mnemonicToSeed(mnemonic, passphrase);
+      seed = await this.mnemonicToSeed(mnemonic, passphrase);
 
       // Derive decryption key
+      keyBytes = seed.slice(0, 32);
       const decryptionKey = await crypto.subtle.importKey(
         'raw',
-        seed.slice(0, 32),
+        keyBytes,
         { name: 'AES-GCM' },
         false,
         ['decrypt']
@@ -275,6 +291,11 @@ class RecoveryPhraseService {
     } catch (error) {
       logger.error('[FEAT-02] Master key decryption failed', error);
       throw new Error(`Failed to decrypt master key: ${error}`);
+    } finally {
+      // LOW-7: wipe the seed + derived key bytes (the CryptoKey already holds a copy).
+      // The returned master key is intentionally left intact for the caller.
+      if (seed) new Uint8Array(seed).fill(0);
+      if (keyBytes) new Uint8Array(keyBytes).fill(0);
     }
   }
 
