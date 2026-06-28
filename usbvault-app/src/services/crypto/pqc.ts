@@ -60,11 +60,11 @@ export interface HybridPublicKey {
   mlKem: string;
 }
 
-/** Hybrid secret key: X25519(32 bytes) + ML-KEM-1024(1568 bytes) */
+/** Hybrid secret key: X25519(32 bytes) + ML-KEM-1024 decapsulation key(3168 bytes) */
 export interface HybridSecretKey {
   /** Base64-encoded X25519 secret key (32 bytes) */
   x25519: string;
-  /** Base64-encoded ML-KEM-1024 decapsulation key (1568 bytes) */
+  /** Base64-encoded ML-KEM-1024 decapsulation key (3168 bytes, FIPS 203) */
   mlKem: string;
 }
 

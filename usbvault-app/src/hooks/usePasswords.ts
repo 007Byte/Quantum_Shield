@@ -1,6 +1,6 @@
 // PH4-FIX: usePasswords hook - extracted logic layer for password management
 import { useState, useCallback, useEffect } from 'react';
-import * as Clipboard from 'expo-clipboard';
+import { copyWithAutoClear } from '@/services/security/appProtection';
 import { validatePassword, levelToLabel } from '@/utils/passwordPolicy';
 import { passwordService } from '@/services/passwordService';
 import {
@@ -172,7 +172,10 @@ export function usePasswords() {
 
   const copyPassword = async (passwordText: string, entryId: string) => {
     try {
-      await Clipboard.setStringAsync(passwordText);
+      // SECURITY: route through copyWithAutoClear so the clipboard is wiped after the
+      // configured timeout (the app's standard for sensitive copies), instead of
+      // leaving the password resident on the clipboard indefinitely.
+      await copyWithAutoClear(passwordText);
       setCopyFeedback(entryId);
       setTimeout(() => setCopyFeedback(null), 2000);
       return true;

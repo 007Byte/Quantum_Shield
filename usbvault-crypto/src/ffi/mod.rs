@@ -446,9 +446,9 @@ pub extern "C" fn usbvault_generate_salt(out: *mut u8) -> i32 {
 /// # Safety
 /// Caller must ensure:
 /// - x25519_pub_out can hold 32 bytes
-/// - mlkem_pub_out can hold 1568 bytes
+/// - mlkem_pub_out can hold 1568 bytes (ML-KEM-1024 encapsulation key)
 /// - x25519_sec_out can hold 32 bytes
-/// - mlkem_sec_out can hold 1568 bytes
+/// - mlkem_sec_out can hold 3168 bytes (ML-KEM-1024 decapsulation key, FIPS 203)
 ///
 /// # Returns
 /// ERR_SUCCESS (0) on success, or ERR_INVALID_ARGUMENT if pqc feature not enabled

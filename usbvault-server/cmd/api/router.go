@@ -226,9 +226,16 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 			r.Post("/verify", auditpkg.HandleVerifyChain(a.auditService))
 			// PH6-FIX: Anomaly detection and compliance report routes
 			r.Get("/anomalies", auditpkg.HandleGetAnomalies(a.anomalyDetectionService))
-			r.Get("/compliance-report", auditpkg.HandleGenerateComplianceReport(a.complianceService))
-			// RM-011: Audit export requires Pro tier (feature-gated)
-			r.With(mw.RequireFeature(mw.FeatureAuditExport, a.dbPool)).Get("/compliance-export", auditpkg.HandleExportComplianceCSV(a.complianceService))
+			// BOLA FIX: the compliance report/export aggregate security events across
+			// ALL users (org-wide SOC-2 reporting; the queries are intentionally not
+			// user-scoped). They must therefore be admin-only — a plain authenticated
+			// user must not be able to read every other user's security events.
+			r.Group(func(r chi.Router) {
+				r.Use(mw.RequireRole("admin", a.dbPool))
+				r.Get("/compliance-report", auditpkg.HandleGenerateComplianceReport(a.complianceService))
+				// RM-011: Audit export additionally requires Pro tier (feature-gated)
+				r.With(mw.RequireFeature(mw.FeatureAuditExport, a.dbPool)).Get("/compliance-export", auditpkg.HandleExportComplianceCSV(a.complianceService))
+			})
 		})
 
 		// Billing routes (authenticated except webhook)
