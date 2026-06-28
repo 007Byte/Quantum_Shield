@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
 )
 
 // ProviderConfig represents an OIDC Identity Provider configuration.
@@ -63,13 +64,20 @@ func LoadConfig() (*OIDCConfig, error) {
 		return nil, fmt.Errorf("OIDC_SECRET_ENCRYPTION_KEY must be 32 bytes base64-encoded")
 	}
 
-	kekKeyB64 := os.Getenv("OIDC_KEK_ENCRYPTION_KEY")
-	if kekKeyB64 == "" {
-		return nil, fmt.Errorf("OIDC_KEK_ENCRYPTION_KEY required when OIDC_ENABLED=true")
-	}
-	kekKey, err := base64.StdEncoding.DecodeString(kekKeyB64)
-	if err != nil || len(kekKey) != 32 {
-		return nil, fmt.Errorf("OIDC_KEK_ENCRYPTION_KEY must be 32 bytes base64-encoded")
+	// OIDC_KEK_ENCRYPTION_KEY is OPTIONAL. Server-side KEK escrow is a PLANNED, not-yet-
+	// implemented feature: no code path encrypts or stores a user KEK with this key
+	// today, and the product decision is to PRESERVE zero-knowledge — the server must
+	// never be able to decrypt a user's vault. OIDC users therefore rely on Hybrid mode,
+	// not server-side escrow. We still validate the key length when it is provided (so a
+	// future escrow rollout has a correct key), but its absence must NOT block OIDC.
+	var kekKey []byte
+	if kekKeyB64 := os.Getenv("OIDC_KEK_ENCRYPTION_KEY"); kekKeyB64 != "" {
+		decoded, derr := base64.StdEncoding.DecodeString(kekKeyB64)
+		if derr != nil || len(decoded) != 32 {
+			return nil, fmt.Errorf("OIDC_KEK_ENCRYPTION_KEY, when set, must be 32 bytes base64-encoded")
+		}
+		kekKey = decoded
+		log.Warn().Msg("OIDC_KEK_ENCRYPTION_KEY is set but server-side KEK escrow is not implemented (planned); the key is unused and the server cannot decrypt user vaults")
 	}
 
 	callbackBase := os.Getenv("OIDC_CALLBACK_BASE_URL")
