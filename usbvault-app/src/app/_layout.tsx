@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
+import { useVaultSessionStore } from '@/stores/vaultSessionStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAppProtection } from '@/services/security/appProtection';
 import { checkDeviceIntegrity } from '@/services/security/deviceIntegrity';
@@ -131,19 +132,34 @@ export default function RootLayout() {
 
   useWebBackground();
 
-  // RM-005: Auto-lock callback — locks vault and clears sensitive state
+  // RM-005 / MED-4: Auto-lock callback. Lock BOTH the auth state AND the vault session —
+  // vaultSessionStore.lockVault() is what actually zeroizes the in-memory vaultKey + MEK
+  // buffers (.fill(0)). Locking only the auth store left key material resident in memory.
   const handleAutoLock = useCallback(() => {
-    logger.log('[RootLayout] Auto-lock triggered — locking vault');
+    logger.log('[RootLayout] Auto-lock triggered — wiping session keys + locking vault');
+    useVaultSessionStore.getState().lockVault();
     lockVault();
   }, [lockVault]);
 
   // RM-005: Initialize app protection (auto-lock, clipboard clearing, screenshot prevention)
   useAppProtection(handleAutoLock, {
-    autoLockTimeoutMs: 300000, // 5 minutes
+    // MED-4: short grace on background, then wipe keys + lock (was 5 minutes — key
+    // material lingered in memory the whole time the app was backgrounded).
+    autoLockTimeoutMs: 30000, // 30 seconds
     clearClipboardMs: 30000, // 30 seconds
     preventScreenshots: true,
     lockOnBackground: true,
   });
+
+  // MED-4 (web): a hard page unload (tab close / navigation) leaves no time for the
+  // background grace, so wipe session keys immediately. visibilitychange===hidden is
+  // already covered via react-native-web's AppState 'background' mapping.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onPageHide = () => handleAutoLock();
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, [handleAutoLock]);
 
   useEffect(() => {
     checkAuth();
