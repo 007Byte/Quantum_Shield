@@ -1,5 +1,5 @@
 # =============================================================================
-# USBVault Enterprise — Canary Deployment with Argo Rollouts
+# Quantum_Shield — Canary Deployment with Argo Rollouts
 # =============================================================================
 #
 # Replaces the standard Deployment with an Argo Rollout that implements

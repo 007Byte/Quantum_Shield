@@ -1,5 +1,5 @@
 #!/bin/sh
-# Database initialization script for USBVault Enterprise
+# Database initialization script for Quantum_Shield
 # This script runs automatically when the PostgreSQL container starts
 
 set -e

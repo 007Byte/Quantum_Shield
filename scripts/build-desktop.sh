@@ -9,7 +9,7 @@ BUILD_DIR="$PROJECT_ROOT/dist"
 VERSION="${VERSION:-1.0.0}"
 
 echo "============================================================"
-echo "QAV Desktop Build — v${VERSION}"
+echo "Quantum_Shield Desktop Build — v${VERSION}"
 echo "============================================================"
 
 mkdir -p "$BUILD_DIR"

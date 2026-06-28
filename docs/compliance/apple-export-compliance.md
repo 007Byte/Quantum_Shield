@@ -1,4 +1,4 @@
-# USBVault Enterprise -- Apple Export Compliance Questionnaire Answers
+# Quantum_Shield -- Apple Export Compliance Questionnaire Answers
 
 **Bundle ID:** com.usbvault.enterprise
 **Last updated:** 2026-03-15
@@ -10,8 +10,8 @@
 
 When submitting an app to App Store Connect, Apple presents an export
 compliance questionnaire under **"Manage App Encryption"** in the app's
-build metadata. This document records the correct answers for USBVault
-Enterprise.
+build metadata. This document records the correct answers for
+Quantum_Shield.
 
 These answers must be reviewed each time the app's cryptographic
 capabilities change.
@@ -47,7 +47,7 @@ Category 5, Part 2 of the U.S. Export Administration Regulations?"**
 
 **Answer: YES**
 
-USBVault Enterprise qualifies for the exemption under
+Quantum_Shield qualifies for the exemption under
 **EAR 740.17(b)(1)** -- mass-market encryption software.
 
 Justification:

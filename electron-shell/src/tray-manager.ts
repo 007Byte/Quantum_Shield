@@ -31,7 +31,7 @@ export class TrayManager {
     // In production, use proper icon assets from assets/ directory
     const icon = this.createTrayIcon();
     this.tray = new Tray(icon);
-    this.tray.setToolTip('USBVault Enterprise');
+    this.tray.setToolTip('Quantum_Shield');
     this.tray.on('click', () => this.showWindow());
     this.updateMenu();
   }
@@ -80,7 +80,7 @@ export class TrayManager {
       '○ Companion Stopped';
 
     const menu = Menu.buildFromTemplate([
-      { label: 'USBVault Enterprise', enabled: false },
+      { label: 'Quantum_Shield', enabled: false },
       { type: 'separator' },
       { label: statusLabel, enabled: false },
       { type: 'separator' },

@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV users store encrypted documents and file attachments. Requirements:
+Quantum_Shield users store encrypted documents and file attachments. Requirements:
 
 - Serve large files (up to 100MB) without loading entire file in memory
 - Multipart upload for resumable uploads (network resilience)

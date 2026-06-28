@@ -1,5 +1,5 @@
 #!/bin/bash
-# USBVault Enterprise — macOS Launcher
+# Quantum_Shield — macOS Launcher
 # Double-click this file to start USBVault from your USB drive.
 # No installation required. No admin required for daily use.
 
@@ -20,7 +20,7 @@ export USB_STANDALONE_MODE=true
 export NODE_ENV=production
 
 echo "╔══════════════════════════════════════════╗"
-echo "║        USBVault Enterprise Edition       ║"
+echo "║          Quantum_Shield Edition          ║"
 echo "║     Portable Encrypted File Storage      ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""

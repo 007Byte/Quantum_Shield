@@ -1,4 +1,4 @@
-# Share File Flow — USBVault Enterprise
+# Share File Flow — Quantum_Shield
 # Assumes the user is already logged in. Navigates to the Share tab,
 # initiates a new share, enters a recipient email, and asserts success.
 appId: com.usbvault.enterprise

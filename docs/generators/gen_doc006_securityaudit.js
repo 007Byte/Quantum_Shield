@@ -1,5 +1,5 @@
 /**
- * DOC-006: USBVault Enterprise — Security Audit Package v2.0
+ * DOC-006: Quantum_Shield — Security Audit Package v2.0
  * Audience: Third-Party Penetration Testers, Security Auditors
  */
 
@@ -28,7 +28,7 @@ async function generate(outDir) {
 
     // 1
     H.h1("1. Audit Scope"),
-    H.p("This security audit package covers all attack surfaces of USBVault Enterprise v2.0 (codename \u201CFortress Enterprise\u201D). The audit scope encompasses four distinct subsystems, each with its own technology stack, threat model, and attack surface."),
+    H.p("This security audit package covers all attack surfaces of Quantum_Shield v2.0 (codename \u201CFortress Enterprise\u201D). The audit scope encompasses four distinct subsystems, each with its own technology stack, threat model, and attack surface."),
     H.makeTableBoldFirst(
       ["Subsystem", "Technology", "Endpoints / Surface", "Critical Assets"],
       [
@@ -282,12 +282,12 @@ async function generate(outDir) {
     H.importantBox("Distribution Notice:", "This document is provided to approved penetration testing firms under NDA. Do not distribute, reproduce, or store beyond the engagement period. Destroy all copies upon engagement completion."),
 
     H.spacer(400),
-    H.p([H.italic("End of Document \u2014 USBVault Enterprise Security Audit Package v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("End of Document \u2014 Quantum_Shield Security Audit Package v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_Security_Audit_Package.docx",
-    headerTitle: "USBVault Enterprise \u2014 Security Audit Package",
+    headerTitle: "Quantum_Shield \u2014 Security Audit Package",
     headerClassification: "CONFIDENTIAL",
     footerDocId: "DOC-006", footerVersion: "2.0", children, outDir,
   });

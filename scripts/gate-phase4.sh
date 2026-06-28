@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Quantum Armor Vault (QAV) — Phase 4 AST Gate
+# Quantum_Shield — Phase 4 AST Gate
 # Vault & Storage Operations Verification
 # ============================================================
 # Gate Requirement: DAST storage scan + E2E crypto verify
@@ -34,7 +34,7 @@ check_fail() { echo -e "  ${RED}[FAIL]${NC} $1"; FAIL_COUNT=$((FAIL_COUNT + 1));
 check_warn() { echo -e "  ${YELLOW}[WARN]${NC} $1"; WARN_COUNT=$((WARN_COUNT + 1)); }
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}QAV Phase 4 AST Gate — Vault & Storage Operations${NC}"
+echo -e "${BLUE}Quantum_Shield Phase 4 AST Gate — Vault & Storage Operations${NC}"
 echo -e "${BLUE}============================================================${NC}"
 echo ""
 

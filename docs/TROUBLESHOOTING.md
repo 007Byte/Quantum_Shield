@@ -1,6 +1,6 @@
-# QAV Troubleshooting Guide
+# Quantum_Shield Troubleshooting Guide
 
-This guide covers common issues, diagnostics, and solutions for the QAV (Quick Access Vault) platform.
+This guide covers common issues, diagnostics, and solutions for the Quantum_Shield platform.
 
 ## Table of Contents
 

@@ -1,7 +1,7 @@
 package config
 
 // DE-020 FIX: Environment variable documentation
-// This file documents all environment variables used by the QAV server.
+// This file documents all environment variables used by the Quantum_Shield server.
 //
 // Required Variables:
 //   DATABASE_URL          - PostgreSQL connection string (e.g., postgres://user:pass@host:5432/dbname?sslmode=require)

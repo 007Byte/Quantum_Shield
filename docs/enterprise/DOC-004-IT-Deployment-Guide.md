@@ -1,4 +1,4 @@
-# DOC-004: USBVault Enterprise -- IT Deployment Guide
+# DOC-004: Quantum_Shield -- IT Deployment Guide
 
 | Field | Value |
 |-------|-------|
@@ -34,7 +34,7 @@
 
 ## 1. Overview
 
-USBVault Enterprise is a zero-knowledge encrypted file storage system. This guide covers deploying the server-side infrastructure for cloud-connected mode, as well as preparing USB drives for standalone deployment.
+Quantum_Shield is a zero-knowledge encrypted file storage system. This guide covers deploying the server-side infrastructure for cloud-connected mode, as well as preparing USB drives for standalone deployment.
 
 ### Zero-Knowledge Guarantee
 

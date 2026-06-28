@@ -475,7 +475,7 @@ Thank you for your patience.
 ### Customer Notification Email
 
 ```
-Subject: QAV Service Incident - Update & Resolution
+Subject: Quantum_Shield Service Incident - Update & Resolution
 
 Dear Valued Customer,
 
@@ -499,7 +499,7 @@ We sincerely apologize for the disruption. If you have any questions,
 please contact support@qav.com or reply to this email.
 
 Best regards,
-QAV Operations Team
+Quantum_Shield Operations Team
 ```
 
 ---

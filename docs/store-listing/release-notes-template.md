@@ -1,4 +1,4 @@
-# USBVault Enterprise — Release Notes Template
+# Quantum_Shield — Release Notes Template
 
 Use this template for "What's New" text on both Apple App Store and Google Play Store.
 Apple allows 4000 characters. Google Play allows 500 characters.
@@ -33,7 +33,7 @@ Use these standard categories (include only those relevant to the release):
 ### App Store (What's New)
 
 ```
-Welcome to USBVault Enterprise v1.0.0 — portable encrypted file storage with intelligence-grade security.
+Welcome to Quantum_Shield v1.0.0 — portable encrypted file storage with intelligence-grade security.
 
 NEW
 - XChaCha20-Poly1305 + AES-256-GCM-SIV dual-layer encryption
@@ -58,7 +58,7 @@ Your files. Your key. Zero trace.
 ### Google Play (What's New — 500 char limit)
 
 ```
-USBVault Enterprise v1.0.0 — Initial Release
+Quantum_Shield v1.0.0 — Initial Release
 
 - Dual-layer encryption: XChaCha20-Poly1305 + AES-256-GCM-SIV
 - Post-Quantum Cryptography (ML-KEM-1024)
@@ -78,7 +78,7 @@ USBVault Enterprise v1.0.0 — Initial Release
 ### App Store (What's New)
 
 ```
-USBVault Enterprise v1.1.0
+Quantum_Shield v1.1.0
 
 NEW
 - Biometric unlock: Use Face ID or Touch ID to open your vault
@@ -101,7 +101,7 @@ SECURITY
 ### Google Play (What's New — 500 char limit)
 
 ```
-USBVault v1.1.0
+Quantum_Shield v1.1.0
 
 New: Biometric unlock (fingerprint/face), Vault health dashboard
 Improved: Grid/list view toggle, faster USB 3.0+ mounting, instant password search

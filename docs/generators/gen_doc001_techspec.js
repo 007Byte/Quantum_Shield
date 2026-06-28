@@ -1,5 +1,5 @@
 /**
- * DOC-001: USBVault Enterprise — Technical Specification v2.0
+ * DOC-001: Quantum_Shield — Technical Specification v2.0
  * Audience: Engineers, Security Auditors, Penetration Testers
  */
 
@@ -46,8 +46,8 @@ async function generate(outDir) {
     //  1. EXECUTIVE SUMMARY
     // ═══════════════════════════════════════════════════════════
     H.h1("1. Executive Summary"),
-    H.p("USBVault Enterprise Edition v2.0 (codename \u201CFortress Enterprise\u201D) is a portable encrypted file storage platform that enables users to carry sensitive data on a standard USB drive, access it from any computer running Windows, macOS, or Linux, and leave zero forensic evidence upon ejection. The system achieves intelligence-grade security through a layered defense architecture while maintaining consumer-grade simplicity."),
-    H.p("This Technical Specification serves as the definitive engineering reference for USBVault Enterprise v2.0. It documents every binary format, cryptographic protocol, API contract, and security mechanism in sufficient detail for independent implementation, security audit, or compliance review."),
+    H.p("Quantum_Shield Edition v2.0 (codename \u201CFortress Enterprise\u201D) is a portable encrypted file storage platform that enables users to carry sensitive data on a standard USB drive, access it from any computer running Windows, macOS, or Linux, and leave zero forensic evidence upon ejection. The system achieves intelligence-grade security through a layered defense architecture while maintaining consumer-grade simplicity."),
+    H.p("This Technical Specification serves as the definitive engineering reference for Quantum_Shield v2.0. It documents every binary format, cryptographic protocol, API contract, and security mechanism in sufficient detail for independent implementation, security audit, or compliance review."),
     H.spacer(100),
 
     H.h2("1.1 Technology Stack"),
@@ -392,7 +392,7 @@ async function generate(outDir) {
     //  5. SECURITY MODULES
     // ═══════════════════════════════════════════════════════════
     H.h1("5. Security Modules"),
-    H.p("USBVault Enterprise implements a twelve-layer defense-in-depth security architecture. Each layer operates independently: the failure or compromise of any single layer does not reduce the protection provided by the remaining layers. This section documents each layer with its implementation status and technical details."),
+    H.p("Quantum_Shield implements a twelve-layer defense-in-depth security architecture. Each layer operates independently: the failure or compromise of any single layer does not reduce the protection provided by the remaining layers. This section documents each layer with its implementation status and technical details."),
     H.spacer(80),
 
     H.h2("5.1 Defense-in-Depth Layers"),
@@ -665,7 +665,7 @@ async function generate(outDir) {
     //  APPENDIX A: ARCHITECTURE DECISION RECORDS
     // ═══════════════════════════════════════════════════════════
     H.h1("Appendix A: Architecture Decision Records"),
-    H.p("The following ADRs document key technology and design decisions made during USBVault Enterprise development. Each records the context, decision rationale, and consequences."),
+    H.p("The following ADRs document key technology and design decisions made during Quantum_Shield development. Each records the context, decision rationale, and consequences."),
     H.spacer(80),
     H.makeTableBoldFirst(
       ["ADR", "Title", "Rationale Summary"],
@@ -694,7 +694,7 @@ async function generate(outDir) {
     //  APPENDIX B: THREAT MODEL
     // ═══════════════════════════════════════════════════════════
     H.h1("Appendix B: Threat Model"),
-    H.p("The following threat model enumerates the primary attack vectors against USBVault Enterprise and documents the mitigations implemented for each. Likelihood assessments assume a motivated adversary with physical access to the USB drive and network access to the cloud backend."),
+    H.p("The following threat model enumerates the primary attack vectors against Quantum_Shield and documents the mitigations implemented for each. Likelihood assessments assume a motivated adversary with physical access to the USB drive and network access to the cloud backend."),
     H.spacer(80),
     H.makeTable(
       ["ID", "Threat", "Likelihood", "Impact", "Mitigation"],
@@ -715,7 +715,7 @@ async function generate(outDir) {
       ],
       [500, 1600, 1000, 1000, 5260]
     ),
-    H.caption("Table B.1 \u2014 USBVault Enterprise Threat Model"),
+    H.caption("Table B.1 \u2014 Quantum_Shield Threat Model"),
     H.pageBreak(),
 
     // ═══════════════════════════════════════════════════════════
@@ -741,12 +741,12 @@ async function generate(outDir) {
 
     // ─── END ──────────────────────────────────────────────────
     H.spacer(400),
-    H.p([H.italic("End of Document \u2014 USBVault Enterprise Technical Specification v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("End of Document \u2014 Quantum_Shield Technical Specification v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_Technical_Specification_v2.docx",
-    headerTitle: "USBVault Enterprise \u2014 Technical Specification",
+    headerTitle: "Quantum_Shield \u2014 Technical Specification",
     headerClassification: "CONFIDENTIAL",
     footerDocId: "DOC-001",
     footerVersion: "2.0",

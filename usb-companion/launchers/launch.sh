@@ -1,5 +1,5 @@
 #!/bin/bash
-# USBVault Enterprise — Linux Launcher
+# Quantum_Shield — Linux Launcher
 # Run this file to start USBVault from your USB drive.
 # No installation required. No admin required for daily use.
 
@@ -18,7 +18,7 @@ export USB_STANDALONE_MODE=true
 export NODE_ENV=production
 
 echo "╔══════════════════════════════════════════╗"
-echo "║        USBVault Enterprise Edition       ║"
+echo "║          Quantum_Shield Edition          ║"
 echo "║     Portable Encrypted File Storage      ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""

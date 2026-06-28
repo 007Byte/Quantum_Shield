@@ -1,4 +1,4 @@
-# Semgrep ignore file for USBVault Enterprise
+# Semgrep ignore file for Quantum_Shield
 # Only exclude files with known/accepted findings that would cause false positives
 
 # Test files may use placeholder values intentionally

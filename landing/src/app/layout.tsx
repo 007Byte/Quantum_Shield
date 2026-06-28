@@ -16,7 +16,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Quantum Armor Vault | Post-Quantum Encrypted USB Vault",
+  title: "Quantum_Shield | Post-Quantum Encrypted USB Vault",
   description:
     "Military-grade post-quantum encryption for your files, passwords, and messages. Zero-knowledge. Cross-platform. Hardware-isolated on USB.",
   keywords: [
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "USBVault" }],
   openGraph: {
-    title: "Quantum Armor Vault | Post-Quantum Encrypted USB Vault",
+    title: "Quantum_Shield | Post-Quantum Encrypted USB Vault",
     description:
       "Military-grade post-quantum encryption for your files, passwords, and messages.",
     type: "website",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Quantum Armor Vault",
+    title: "Quantum_Shield",
     description:
       "Post-quantum encryption. Zero-knowledge. Hardware-isolated on USB.",
   },

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive security verification test suite for the Quantum Armor Vault Rust crypto crate covering:
+Comprehensive security verification test suite for the Quantum_Shield Rust crypto crate covering:
 - **Phase 2.5**: V2/V3 Format Compatibility Tests
 - **Phase 2.6**: SRP-6a Protocol Verification Tests
 - **Phase 2.7**: X25519 Sealed-Box + ECDH Tests

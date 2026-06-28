@@ -1,8 +1,8 @@
-# Quantum Armor Vault (QAV) Crypto Core - Project Manifest
+# Quantum_Shield Crypto Core - Project Manifest
 
 ## Summary
 
-Complete, production-ready Rust cryptographic library for Quantum Armor Vault (QAV). Implements zero-knowledge encryption with portable compilation to iOS, Android, macOS, Windows, and Linux.
+Complete, production-ready Rust cryptographic library for Quantum_Shield. Implements zero-knowledge encryption with portable compilation to iOS, Android, macOS, Windows, and Linux.
 
 **Total Code**: 2,149 lines (1,815 Rust + 54 Cargo config + 280 documentation)
 
@@ -313,7 +313,7 @@ Complete, production-ready Rust cryptographic library for Quantum Armor Vault (Q
 
 ## License
 
-Proprietary - Quantum Armor Vault (QAV)
+Proprietary - Quantum_Shield
 
 ## Version
 

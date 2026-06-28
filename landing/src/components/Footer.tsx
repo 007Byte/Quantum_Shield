@@ -83,7 +83,7 @@ export function Footer() {
             />
             <div>
               <span className="text-vault-text font-semibold text-sm">
-                Quantum Armor Vault
+                Quantum_Shield
               </span>
               <span className="text-vault-text-muted text-xs ml-2">
                 Enterprise-grade security for everyone

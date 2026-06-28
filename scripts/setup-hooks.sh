@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quantum Armor Vault (QAV) - Local Git Hooks Setup
+# Quantum_Shield - Local Git Hooks Setup
 # Run this once after cloning the repository
 
 set -e
@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Quantum Armor Vault (QAV) - Dev Setup${NC}"
+echo -e "${BLUE}Quantum_Shield - Dev Setup${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 

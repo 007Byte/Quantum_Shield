@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# USBVault Enterprise — Go Dead Code Analyzer (Fast)
+# Quantum_Shield — Go Dead Code Analyzer (Fast)
 # Uses go vet + build checks, plus a single-pass grep index for export analysis.
 # =============================================================================
 set -euo pipefail
@@ -23,7 +23,7 @@ separator() { printf '%0.s-' {1..72}; echo; }
 banner() {
     echo ""
     echo -e "${BOLD}${CYAN}======================================================${RESET}"
-    echo -e "${BOLD}${CYAN}  USBVault Enterprise — Go Dead Code Analysis${RESET}"
+    echo -e "${BOLD}${CYAN}  Quantum_Shield — Go Dead Code Analysis${RESET}"
     echo -e "${BOLD}${CYAN}======================================================${RESET}"
     echo ""
 }

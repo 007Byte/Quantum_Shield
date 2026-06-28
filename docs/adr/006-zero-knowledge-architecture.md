@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV's core security promise is that user data remains encrypted end-to-end. The server must:
+Quantum_Shield's core security promise is that user data remains encrypted end-to-end. The server must:
 
 - Never access plaintext vault contents
 - Never store or derive user passwords

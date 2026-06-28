@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV mobile client requires state management for:
+Quantum_Shield mobile client requires state management for:
 
 - User authentication state (token, user profile, permissions)
 - Vault list and current vault metadata

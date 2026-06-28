@@ -1,4 +1,4 @@
-# Login Flow — USBVault Enterprise
+# Login Flow — Quantum_Shield
 # Launches the app, waits for the login screen, enters credentials, and asserts dashboard is visible.
 appId: com.usbvault.enterprise
 

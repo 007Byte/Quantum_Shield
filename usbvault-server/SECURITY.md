@@ -1,4 +1,4 @@
-# Quantum Armor Vault (QAV) Server - Security Architecture (Phase 6)
+# Quantum_Shield Server - Security Architecture (Phase 6)
 
 **Document Status**: Phase 6 - Server-Side Security Architecture
 **Last Updated**: March 2026
@@ -22,7 +22,7 @@
 
 ## Executive Summary
 
-Quantum Armor Vault (QAV) Server implements a zero-knowledge architecture where encrypted user data is stored and served without decryption. The server enforces cryptographic authentication, granular authorization, and robust abuse prevention mechanisms.
+Quantum_Shield Server implements a zero-knowledge architecture where encrypted user data is stored and served without decryption. The server enforces cryptographic authentication, granular authorization, and robust abuse prevention mechanisms.
 
 **Core Principles**:
 - **Server Never Decrypts**: All user data remains encrypted in storage
@@ -1222,4 +1222,4 @@ Public/Media:
 
 **END OF DOCUMENT**
 
-This document is current as of March 2026 and represents the comprehensive server-side security architecture of Quantum Armor Vault (QAV). It is intended for security auditors and backend infrastructure teams.
+This document is current as of March 2026 and represents the comprehensive server-side security architecture of Quantum_Shield. It is intended for security auditors and backend infrastructure teams.

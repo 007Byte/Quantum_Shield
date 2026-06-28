@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup verification script for QAV development environment
+# Setup verification script for Quantum_Shield development environment
 # Checks system requirements and project configuration
 
 set -e
@@ -15,7 +15,7 @@ checks_total=0
 warnings=0
 
 echo -e "${BLUE}================================${NC}"
-echo -e "${BLUE}QAV Setup Verification${NC}"
+echo -e "${BLUE}Quantum_Shield Setup Verification${NC}"
 echo -e "${BLUE}================================${NC}"
 echo ""
 

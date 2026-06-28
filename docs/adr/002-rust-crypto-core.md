@@ -6,7 +6,7 @@
 
 ## Context
 
-The cryptographic core is the most security-critical component of QAV. It must:
+The cryptographic core is the most security-critical component of Quantum_Shield. It must:
 
 - Implement XChaCha20-Poly1305 with timing-attack resistance
 - Support ML-KEM-1024 for post-quantum key encapsulation

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# USBVault Enterprise — Production Deployment Orchestrator
+# Quantum_Shield — Production Deployment Orchestrator
 # =============================================================================
 #
 # Orchestrates the complete production deployment sequence:
@@ -176,13 +176,13 @@ fi
 # Create log directory
 # ---------------------------------------------------------------------------
 mkdir -p "$LOG_DIR"
-echo "USBVault Enterprise — Deployment Log" > "$LOG_FILE"
+echo "Quantum_Shield — Deployment Log" > "$LOG_FILE"
 echo "Started: $(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$LOG_FILE"
 echo "Options: $*" >> "$LOG_FILE"
 echo "---" >> "$LOG_FILE"
 
 echo "" | tee -a "$LOG_FILE"
-echo -e "${BOLD}${CYAN}  USBVault Enterprise — Production Deployment${NC}" | tee -a "$LOG_FILE"
+echo -e "${BOLD}${CYAN}  Quantum_Shield — Production Deployment${NC}" | tee -a "$LOG_FILE"
 echo -e "  $(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee -a "$LOG_FILE"
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "  ${YELLOW}DRY-RUN MODE — no changes will be made${NC}" | tee -a "$LOG_FILE"

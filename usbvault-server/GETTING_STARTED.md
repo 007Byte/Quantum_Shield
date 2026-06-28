@@ -1,4 +1,4 @@
-# Getting Started with Quantum Armor Vault (QAV) Backend
+# Getting Started with Quantum_Shield Backend
 
 This guide will help you set up the development environment and get the server running locally.
 

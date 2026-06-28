@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "USBVault Enterprise — Documentation Generation Handoff",
+    "title": "Quantum_Shield — Documentation Generation Handoff",
     "purpose": "Complete knowledge base for generating ALL enterprise documentation. Feed this entire file to Claude and ask it to generate each document listed in the 'documents_to_generate' section.",
     "generated": "2026-03-15",
     "generated_by": "Claude Opus 4.6 — after completing Phases 1-5 of Enterprise development",
@@ -8,7 +8,7 @@
   },
 
   "product_identity": {
-    "name": "USBVault Enterprise Edition",
+    "name": "Quantum_Shield",
     "version": "2.0",
     "codename": "Fortress Enterprise",
     "tagline": "Portable Encrypted File Storage — Intelligence-Grade Security for Everyone",
@@ -324,7 +324,7 @@
   "documents_to_generate": [
     {
       "id": "DOC-001",
-      "title": "USBVault Enterprise — Technical Specification",
+      "title": "Quantum_Shield — Technical Specification",
       "filename": "USBVault_Enterprise_Technical_Specification_v2.docx",
       "format": "docx",
       "audience": "Engineers, security auditors, pen testers",
@@ -346,7 +346,7 @@
     },
     {
       "id": "DOC-002",
-      "title": "USBVault Enterprise — Architecture & System Design",
+      "title": "Quantum_Shield — Architecture & System Design",
       "filename": "USBVault_Enterprise_Architecture_v2.docx",
       "format": "docx",
       "audience": "System architects, engineering leads, DevOps",
@@ -370,7 +370,7 @@
     },
     {
       "id": "DOC-003",
-      "title": "USBVault Enterprise — User Manual",
+      "title": "Quantum_Shield — User Manual",
       "filename": "USBVault_Enterprise_User_Manual.docx",
       "format": "docx",
       "audience": "Non-technical end users, customers",
@@ -395,7 +395,7 @@
     },
     {
       "id": "DOC-004",
-      "title": "USBVault Enterprise — IT Deployment Guide",
+      "title": "Quantum_Shield — IT Deployment Guide",
       "filename": "USBVault_Enterprise_IT_Deployment_Guide.docx",
       "format": "docx",
       "audience": "IT administrators, enterprise deployment teams",
@@ -417,7 +417,7 @@
     },
     {
       "id": "DOC-005",
-      "title": "USBVault Enterprise — Product Specification",
+      "title": "Quantum_Shield — Product Specification",
       "filename": "USBVault_Enterprise_Product_Specification.docx",
       "format": "docx",
       "audience": "Product managers, stakeholders, sales engineers, investors",
@@ -441,7 +441,7 @@
     },
     {
       "id": "DOC-006",
-      "title": "USBVault Enterprise — Security Audit Package",
+      "title": "Quantum_Shield — Security Audit Package",
       "filename": "USBVault_Enterprise_Security_Audit_Package.docx",
       "format": "docx",
       "audience": "Third-party penetration testers, security auditors",
@@ -464,7 +464,7 @@
     },
     {
       "id": "DOC-007",
-      "title": "USBVault Enterprise — Recovery Procedures",
+      "title": "Quantum_Shield — Recovery Procedures",
       "filename": "USBVault_Enterprise_Recovery_Procedures.docx",
       "format": "docx",
       "audience": "End users, IT support staff",

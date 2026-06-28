@@ -1,4 +1,4 @@
-# Decrypt File Flow — USBVault Enterprise
+# Decrypt File Flow — Quantum_Shield
 # Assumes the user is already logged in. Navigates to Decrypt & Export,
 # selects the first file, enters the vault password, and asserts success.
 appId: com.usbvault.enterprise

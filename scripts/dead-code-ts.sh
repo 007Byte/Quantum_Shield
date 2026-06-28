@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# USBVault Enterprise — TypeScript Dead Code Analyzer (Fast)
+# Quantum_Shield — TypeScript Dead Code Analyzer (Fast)
 # Uses a pre-built word index for O(1) lookups instead of per-symbol grep.
 # =============================================================================
 set -euo pipefail
@@ -27,7 +27,7 @@ separator() { printf '%0.s-' {1..72}; echo; }
 banner() {
     echo ""
     echo -e "${BOLD}${CYAN}======================================================${RESET}"
-    echo -e "${BOLD}${CYAN}  USBVault Enterprise — TypeScript Dead Code Analysis${RESET}"
+    echo -e "${BOLD}${CYAN}  Quantum_Shield — TypeScript Dead Code Analysis${RESET}"
     echo -e "${BOLD}${CYAN}======================================================${RESET}"
     echo ""
 }

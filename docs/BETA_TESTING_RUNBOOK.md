@@ -1,6 +1,6 @@
-# USBVault Enterprise -- Beta Testing Runbook
+# Quantum_Shield -- Beta Testing Runbook
 
-**App**: USBVault Enterprise v0.1.0
+**App**: Quantum_Shield v0.1.0
 **Bundle ID**: `com.usbvault.enterprise`
 **Platforms**: iOS (iPhone + iPad), Android
 **Crypto Core**: Rust FFI (Argon2id + XChaCha20-Poly1305 + AES-256-GCM-SIV)
@@ -99,7 +99,7 @@ Update `eas.json` submit configuration with real values:
 
 1. Go to [App Store Connect](https://appstoreconnect.apple.com) > My Apps > "+" > New App.
 2. Select **iOS** platform.
-3. Enter app name: **USBVault Enterprise**.
+3. Enter app name: **Quantum_Shield**.
 4. Select your primary language.
 5. Bundle ID: select `com.usbvault.enterprise` (must match the provisioning profile).
 6. SKU: `usbvault-enterprise`.
@@ -122,7 +122,7 @@ eas submit --platform ios --id <build-id>
 
 #### Step 4: Configure TestFlight in App Store Connect
 
-1. Navigate to **My Apps > USBVault Enterprise > TestFlight**.
+1. Navigate to **My Apps > Quantum_Shield > TestFlight**.
 2. The uploaded build will appear under **iOS Builds** after processing (typically 10--30 minutes).
 3. **Compliance**: Answer the export compliance questionnaire.
    - USBVault uses encryption: **Yes**.
@@ -176,12 +176,12 @@ eas submit --platform ios --id <build-id>
 4. Grant these permissions:
    - **Release management**: Create, edit, and roll out releases.
    - **App information**: View app information (read-only is sufficient).
-5. Apply permissions to **USBVault Enterprise** specifically (or all apps).
+5. Apply permissions to **Quantum_Shield** specifically (or all apps).
 
 #### Step 3: Create the App in Google Play Console
 
 1. Go to **All Apps > Create App**.
-2. App name: **USBVault Enterprise**.
+2. App name: **Quantum_Shield**.
 3. Default language: English (United States).
 4. App type: App. Category: Tools or Productivity.
 5. Free or Paid: set based on your model.
@@ -754,7 +754,7 @@ Beta testers should use the following template when reporting issues. Share this
 
 ---
 
-### Bug Report -- USBVault Enterprise Beta
+### Bug Report -- Quantum_Shield Beta
 
 **Reporter**:
 **Date**:
@@ -847,9 +847,9 @@ All items below must be satisfied before submitting to the App Store and Google 
 
 1. Download the **TestFlight** app from the App Store on your test device.
 2. Open the invitation email from App Store Connect.
-3. Tap "View in TestFlight" to install USBVault Enterprise.
+3. Tap "View in TestFlight" to install Quantum_Shield.
 4. After installation, open the app and proceed with testing.
-5. Provide feedback directly through TestFlight (shake device or go to TestFlight > USBVault Enterprise > Send Beta Feedback).
+5. Provide feedback directly through TestFlight (shake device or go to TestFlight > Quantum_Shield > Send Beta Feedback).
 
 ### Google Play Internal Testing (Android)
 

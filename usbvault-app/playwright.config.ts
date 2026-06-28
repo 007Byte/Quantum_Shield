@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E test configuration for USBVault Enterprise.
+ * Playwright E2E test configuration for Quantum_Shield.
  *
  * Tests run against the Expo web dev server. The port defaults to 8081 (what CI
  * uses) but is overridable via E2E_PORT so the suite can run on a machine where

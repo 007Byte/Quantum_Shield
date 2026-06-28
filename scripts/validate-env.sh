@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validates production environment configuration for USBVault Enterprise
+# Validates production environment configuration for Quantum_Shield
 # Usage: ./scripts/validate-env.sh [.env-file]
 #
 # Exit codes:
@@ -143,7 +143,7 @@ fi
 # ------------------------------------------------------------------
 # Full validation mode
 # ------------------------------------------------------------------
-echo -e "${BOLD}=== USBVault Enterprise — Production Environment Validation ===${NC}"
+echo -e "${BOLD}=== Quantum_Shield — Production Environment Validation ===${NC}"
 echo ""
 
 # Helper: check a required variable

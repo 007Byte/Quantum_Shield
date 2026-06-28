@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pre-build environment validation for USBVault Enterprise.
+# Pre-build environment validation for Quantum_Shield.
 # Ensures no placeholder values remain before production builds.
 # Run: bash scripts/validate-env.sh [--production]
 
@@ -26,7 +26,7 @@ pass() {
 }
 
 echo "========================================"
-echo "  USBVault Enterprise - Env Validator"
+echo "  Quantum_Shield - Env Validator"
 echo "========================================"
 echo ""
 

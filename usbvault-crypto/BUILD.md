@@ -1,8 +1,8 @@
-# Quantum Armor Vault (QAV) Crypto Core - Build Guide
+# Quantum_Shield Crypto Core - Build Guide
 
 ## Overview
 
-This is the zero-knowledge cryptographic core for Quantum Armor Vault (QAV). It compiles to native libraries for:
+This is the zero-knowledge cryptographic core for Quantum_Shield. It compiles to native libraries for:
 - iOS (`.a` static library + header)
 - Android (`.so` shared library via cargo-ndk)
 - macOS (`.dylib`)
@@ -266,7 +266,7 @@ cargo test -- --nocapture --test-threads=1
 
 ```typescript
 // Load native library
-const crypto = NativeModules.Quantum Armor VaultCrypto;
+const crypto = NativeModules.USBVaultCrypto;
 
 // Derive key
 const masterKey = await crypto.deriveKey(password, salt);

@@ -1,8 +1,8 @@
-# Quantum Armor Vault (QAV) Crypto Core
+# Quantum_Shield Crypto Core
 
 ## Quick Start
 
-A complete, production-ready Rust cryptographic library for zero-knowledge encryption in Quantum Armor Vault (QAV). Compiles to native libraries for iOS, Android, macOS, Windows, and Linux.
+A complete, production-ready Rust cryptographic library for zero-knowledge encryption in Quantum_Shield. Compiles to native libraries for iOS, Android, macOS, Windows, and Linux.
 
 ### What's Included
 
@@ -156,7 +156,7 @@ All functions return `0` on success or negative error codes on failure.
 ```typescript
 import { NativeModules } from 'react-native';
 
-const crypto = NativeModules.Quantum Armor VaultCrypto;
+const crypto = NativeModules.USBVaultCrypto;
 
 // Derive encryption key
 const password = 'user_password';
@@ -278,7 +278,7 @@ cargo bench
 
 ## License
 
-Proprietary - Quantum Armor Vault (QAV)
+Proprietary - Quantum_Shield
 
 ## Contributing
 

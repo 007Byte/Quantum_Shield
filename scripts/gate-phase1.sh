@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quantum Armor Vault (QAV) - Phase 1 AST Gate Validation
+# Quantum_Shield - Phase 1 AST Gate Validation
 # Requirement: SAST + SCA + Secret scan must PASS
 # This script validates that all Phase 1 infrastructure is in place
 # and runs the gate checks locally.
@@ -28,7 +28,7 @@ info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 
 echo -e "${BOLD}${BLUE}"
 echo "╔══════════════════════════════════════════════╗"
-echo "║  Quantum Armor Vault (QAV) - Phase 1 AST Gate      ║"
+echo "║  Quantum_Shield - Phase 1 AST Gate           ║"
 echo "║  SAST + SCA + Secret Scan Validation         ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"

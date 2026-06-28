@@ -1,4 +1,4 @@
-# USBVault Enterprise — Claude Hand-Off Document
+# Quantum_Shield — Claude Hand-Off Document
 
 **Last Updated:** March 19, 2026
 **Purpose:** Bring any new Claude session up to speed on the current state of the project, active work, design standards, and critical context.

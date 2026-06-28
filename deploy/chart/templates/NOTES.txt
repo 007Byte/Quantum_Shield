@@ -1,5 +1,5 @@
 ===========================================================================
-  USBVault Enterprise has been deployed!
+  Quantum_Shield has been deployed!
 ===========================================================================
 
 Release:     {{ .Release.Name }}

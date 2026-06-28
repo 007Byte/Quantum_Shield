@@ -1,7 +1,7 @@
 {
   "name": "@usbvault/desktop",
   "version": "1.0.0",
-  "description": "USBVault Enterprise Desktop — Electron shell wrapping the web frontend and USB companion service",
+  "description": "Quantum_Shield Desktop — Electron shell wrapping the web frontend and USB companion service",
   "private": true,
   "main": "dist/main.js",
   "scripts": {

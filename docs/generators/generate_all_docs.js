@@ -1,5 +1,5 @@
 /**
- * USBVault Enterprise — Professional Document Generator
+ * Quantum_Shield — Professional Document Generator
  * Generates all 7 enterprise .docx documents
  *
  * Usage:
@@ -242,7 +242,7 @@ async function generateTechSpec() {
   console.log("Generating DOC-001: Technical Specification...");
   const children = [
     ...titlePage(
-      "USBVault Enterprise",
+      "Quantum_Shield",
       "Technical Specification",
       "2.0", "March 15, 2026",
       "Engineers, Security Auditors, Pen Testers",
@@ -253,7 +253,7 @@ async function generateTechSpec() {
 
     // Section 1
     h1("1. Executive Summary"),
-    p("USBVault Enterprise Edition is a portable encrypted file storage platform engineered to intelligence-grade security standards. Users carry sensitive files on a standard USB drive, plug into any computer running Windows, macOS, or Linux, access files with a password, and walk away leaving zero forensic evidence."),
+    p("Quantum_Shield Edition is a portable encrypted file storage platform engineered to intelligence-grade security standards. Users carry sensitive files on a standard USB drive, plug into any computer running Windows, macOS, or Linux, access files with a password, and walk away leaving zero forensic evidence."),
     h2("1.1 Technology Stack"),
     makeTable(
       ["Subsystem", "Language", "Purpose"],
@@ -604,7 +604,7 @@ async function generateTechSpec() {
 
     new Paragraph({ spacing: { before: 600 } }),
     p([
-      italic("Document generated March 15, 2026. USBVault Enterprise Edition v2.0."),
+      italic("Document generated March 15, 2026. Quantum_Shield Edition v2.0."),
     ]),
   ];
 
@@ -613,7 +613,7 @@ async function generateTechSpec() {
     numbering: getNumbering(),
     sections: [{
       properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 Technical Specification v2.0", "CONFIDENTIAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 Technical Specification v2.0", "CONFIDENTIAL") },
       footers: { default: makeFooter() },
       children,
     }]
@@ -627,13 +627,13 @@ async function generateTechSpec() {
 async function generateArchitecture() {
   console.log("Generating DOC-002: Architecture & System Design...");
   const children = [
-    ...titlePage("USBVault Enterprise", "Architecture & System Design", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "Architecture & System Design", "2.0", "March 15, 2026",
       "System Architects, Engineering Leads, DevOps", "CONFIDENTIAL"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
 
     h1("1. System Overview"),
-    p("USBVault Enterprise is built on a zero-knowledge, four-subsystem architecture supporting dual-mode operation: USB-only standalone (offline) or cloud-connected (sync, sharing, backup, billing)."),
+    p("Quantum_Shield is built on a zero-knowledge, four-subsystem architecture supporting dual-mode operation: USB-only standalone (offline) or cloud-connected (sync, sharing, backup, billing)."),
     h2("1.1 Trust Boundaries"),
     makeTable(["Boundary", "Crosses", "Never Crosses"], [
       ["App \u2194 Rust FFI", "Password (once), encrypted bytes", "Derived keys, plaintext"],
@@ -759,13 +759,13 @@ async function generateArchitecture() {
     ], [2200, 1200, 1200, 4760]),
 
     new Paragraph({ spacing: { before: 600 } }),
-    p([italic("Document generated March 15, 2026. USBVault Enterprise Edition v2.0.")]),
+    p([italic("Document generated March 15, 2026. Quantum_Shield Edition v2.0.")]),
   ];
 
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 Architecture v2.0", "CONFIDENTIAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 Architecture v2.0", "CONFIDENTIAL") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_Architecture_v2.docx");
@@ -776,7 +776,7 @@ async function generateArchitecture() {
 async function generateUserManual() {
   console.log("Generating DOC-003: User Manual...");
   const children = [
-    ...titlePage("USBVault Enterprise", "User Manual", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "User Manual", "2.0", "March 15, 2026",
       "End Users, Customers", "PUBLIC"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
@@ -909,13 +909,13 @@ async function generateUserManual() {
     p("Files remain encrypted. Without your password, data is indistinguishable from random noise. Cloud backup enables restore to a new drive."),
 
     new Paragraph({ spacing: { before: 600 } }),
-    p([italic("USBVault Enterprise v2.0 \u2014 Intelligence-Grade Security for Everyone.")]),
+    p([italic("Quantum_Shield v2.0 \u2014 Intelligence-Grade Security for Everyone.")]),
   ];
 
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 User Manual", "") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 User Manual", "") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_User_Manual.docx");
@@ -926,13 +926,13 @@ async function generateUserManual() {
 async function generateITGuide() {
   console.log("Generating DOC-004: IT Deployment Guide...");
   const children = [
-    ...titlePage("USBVault Enterprise", "IT Deployment Guide", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "IT Deployment Guide", "2.0", "March 15, 2026",
       "IT Administrators, Enterprise Deployment Teams", "INTERNAL"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
 
     h1("1. Overview"),
-    p("USBVault Enterprise is a portable encrypted file storage system. From IT\u2019s perspective, there are two deployment surfaces: self-contained USB drives (no infrastructure needed) and the optional cloud backend (sync, sharing, backup, billing)."),
+    p("Quantum_Shield is a portable encrypted file storage system. From IT\u2019s perspective, there are two deployment surfaces: self-contained USB drives (no infrastructure needed) and the optional cloud backend (sync, sharing, backup, billing)."),
     p("Zero-Knowledge Guarantee: The server NEVER handles plaintext data, filenames, or encryption keys. All crypto is client-side. Authentication uses SRP-6a (server never sees passwords)."),
     pageBreak(),
 
@@ -1036,13 +1036,13 @@ async function generateITGuide() {
     bullet("Linux: Configure udev rules for USB access"),
 
     new Paragraph({ spacing: { before: 600 } }),
-    p([italic("Document generated March 15, 2026. USBVault Enterprise Edition v2.0.")]),
+    p([italic("Document generated March 15, 2026. Quantum_Shield Edition v2.0.")]),
   ];
 
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 IT Deployment Guide", "INTERNAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 IT Deployment Guide", "INTERNAL") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_IT_Deployment_Guide.docx");
@@ -1053,7 +1053,7 @@ async function generateITGuide() {
 async function generateProductSpec() {
   console.log("Generating DOC-005: Product Specification...");
   const children = [
-    ...titlePage("USBVault Enterprise", "Product Specification", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "Product Specification", "2.0", "March 15, 2026",
       "Product Managers, Stakeholders, Sales Engineers, Investors", "CONFIDENTIAL"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
@@ -1149,13 +1149,13 @@ async function generateProductSpec() {
     bullet("Crash-safe vault \u2014 dual-index atomic commits with rollback protection"),
 
     new Paragraph({ spacing: { before: 600 } }),
-    p([italic("USBVault Enterprise v2.0 \u2014 Intelligence-Grade Security for Everyone.")]),
+    p([italic("Quantum_Shield v2.0 \u2014 Intelligence-Grade Security for Everyone.")]),
   ];
 
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 Product Specification", "CONFIDENTIAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 Product Specification", "CONFIDENTIAL") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_Product_Specification.docx");
@@ -1166,13 +1166,13 @@ async function generateProductSpec() {
 async function generateSecurityAudit() {
   console.log("Generating DOC-006: Security Audit Package...");
   const children = [
-    ...titlePage("USBVault Enterprise", "Security Audit Package", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "Security Audit Package", "2.0", "March 15, 2026",
       "Third-Party Penetration Testers, Security Auditors", "CONFIDENTIAL"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
 
     h1("1. Scope"),
-    p("This audit covers all attack surfaces of USBVault Enterprise v2.0:"),
+    p("This audit covers all attack surfaces of Quantum_Shield v2.0:"),
     bullet("Companion API (Node.js/Express) \u2014 19 REST endpoints, localhost:3001"),
     bullet("Web Application (TypeScript/React) \u2014 37-page SPA"),
     bullet("Rust Crypto Core \u2014 Argon2id, AEAD, streaming, PQC, vault header"),
@@ -1309,7 +1309,7 @@ async function generateSecurityAudit() {
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 Security Audit Package", "CONFIDENTIAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 Security Audit Package", "CONFIDENTIAL") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_Security_Audit_Package.docx");
@@ -1320,7 +1320,7 @@ async function generateSecurityAudit() {
 async function generateRecovery() {
   console.log("Generating DOC-007: Recovery Procedures...");
   const children = [
-    ...titlePage("USBVault Enterprise", "Recovery Procedures", "2.0", "March 15, 2026",
+    ...titlePage("Quantum_Shield", "Recovery Procedures", "2.0", "March 15, 2026",
       "End Users, IT Support Staff", "INTERNAL"),
     new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
     pageBreak(),
@@ -1437,7 +1437,7 @@ async function generateRecovery() {
   const doc = new Document({
     styles: getStyles(), numbering: getNumbering(),
     sections: [{ properties: pageProps(),
-      headers: { default: makeHeader("USBVault Enterprise \u2014 Recovery Procedures", "INTERNAL") },
+      headers: { default: makeHeader("Quantum_Shield \u2014 Recovery Procedures", "INTERNAL") },
       footers: { default: makeFooter() }, children }]
   });
   await saveDoc(doc, "USBVault_Enterprise_Recovery_Procedures.docx");
@@ -1447,7 +1447,7 @@ async function generateRecovery() {
 
 async function main() {
   console.log("═══════════════════════════════════════════════════════");
-  console.log("  USBVault Enterprise — Document Generation Suite");
+  console.log("  Quantum_Shield — Document Generation Suite");
   console.log("  Generating 7 professional .docx documents...");
   console.log("═══════════════════════════════════════════════════════\n");
 

@@ -369,11 +369,11 @@ func DASTEndpoints() []DASTEndpoint {
 // This can be used to configure automated DAST tools
 func DASTScanConfig() map[string]interface{} {
 	return map[string]interface{}{
-		"name":        "QAV DAST Configuration",
-		"description": "OWASP ZAP configuration for QAV API security testing",
+		"name":        "Quantum_Shield DAST Configuration",
+		"description": "OWASP ZAP configuration for Quantum_Shield API security testing",
 		"version":     "1.0",
 		"scanPolicy": map[string]interface{}{
-			"name": "QAV Security Scan",
+			"name": "Quantum_Shield Security Scan",
 			"policies": []map[string]interface{}{
 				{
 					"policyid": "10000",

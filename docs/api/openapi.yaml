@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: QAV API
+  title: Quantum_Shield API
   version: 1.0.0
-  description: Quantum-resistant Access Vault API - Secure encrypted file storage and sharing with end-to-end encryption
+  description: Quantum_Shield — quantum-resistant, end-to-end encrypted file storage and sharing
   contact:
-    name: QAV Support
+    name: Quantum_Shield Support
   license:
     name: Proprietary
 

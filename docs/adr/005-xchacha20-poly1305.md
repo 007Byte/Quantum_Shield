@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV encrypts all user data with an AEAD cipher. Requirements:
+Quantum_Shield encrypts all user data with an AEAD cipher. Requirements:
 
 - Random nonce for every message (prevent replay attacks)
 - Deterministic authentication (detect tampering)

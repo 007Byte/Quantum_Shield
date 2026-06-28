@@ -1,4 +1,4 @@
-# Quantum Armor Vault (QAV) Crypto - Formal Verification and Security Proofs (Phase 6)
+# Quantum_Shield Crypto - Formal Verification and Security Proofs (Phase 6)
 
 **Document Status**: Phase 6 - Security Proofs and Verification Framework
 **Last Updated**: March 2026
@@ -22,7 +22,7 @@
 
 ## Executive Summary
 
-Quantum Armor Vault (QAV) employs cryptographic protocols with well-established security properties. This document provides mathematical analysis and security proofs for the core cryptographic components. Current proofs are conducted at the paper level with manual verification; machine-checked formal verification is planned for Phase 7.
+Quantum_Shield employs cryptographic protocols with well-established security properties. This document provides mathematical analysis and security proofs for the core cryptographic components. Current proofs are conducted at the paper level with manual verification; machine-checked formal verification is planned for Phase 7.
 
 **Security Claims Summary**:
 
@@ -273,7 +273,7 @@ Formal Definition:
 └── Implication: No efficient algorithm distinguishes HKDF from random
 ```
 
-**Application in Quantum Armor Vault**:
+**Application in Quantum_Shield**:
 
 ```
 Key Derivation Instances:
@@ -348,7 +348,7 @@ Proof Intuition:
           2^(-192) = nonce collision probability
 ```
 
-**Implementation Security in Quantum Armor Vault**:
+**Implementation Security in Quantum_Shield**:
 
 ```
 Nonce Handling:
@@ -433,7 +433,7 @@ Formal Definition:
 └── Implication: Nonce reuse does not break confidentiality
 ```
 
-**Usage in Quantum Armor Vault**:
+**Usage in Quantum_Shield**:
 
 ```
 Metadata Encryption (Optional):
@@ -704,7 +704,7 @@ Lemma 2 (No info below threshold):
 │   ├── Information-theoretic indistinguishability
 │   └── No amount of computation helps (bound is information-theoretic)
 
-Application to Quantum Armor Vault (3-of-5 scheme):
+Application to Quantum_Shield (3-of-5 scheme):
 ├── Secret: MEK (64 bytes = 512 bits)
 ├── Threshold: t = 3 (minimum shares needed)
 ├── Total shares: n = 5
@@ -757,7 +757,7 @@ Field Choice:
 │   ├── Disadvantage: Slower arithmetic
 │   └── Choice: Better for high-security scenarios
 │
-└── Quantum Armor Vault selection: GF(2^8) byte-wise for performance
+└── Quantum_Shield selection: GF(2^8) byte-wise for performance
 
 Share Verification:
 ├── Checksum: SHA-256 of each share
@@ -876,7 +876,7 @@ Security Properties:
    └── Loss of newest version: Detected (version lower than expected)
 ```
 
-### Practical Implementation in Quantum Armor Vault
+### Practical Implementation in Quantum_Shield
 
 ```
 State Version Field:
@@ -1168,7 +1168,7 @@ Performance Regression:
 
 ## Conclusion
 
-Quantum Armor Vault (QAV) employs well-researched cryptographic primitives with security properties proven in published literature. The combination of these primitives (Argon2id + HKDF + AEAD ciphers) provides strong security guarantees.
+Quantum_Shield employs well-researched cryptographic primitives with security properties proven in published literature. The combination of these primitives (Argon2id + HKDF + AEAD ciphers) provides strong security guarantees.
 
 **Phase 6 Achievements**:
 - Comprehensive security analysis of all cryptographic components
@@ -1221,7 +1221,7 @@ Quantum Armor Vault (QAV) employs well-researched cryptographic primitives with 
 
 **END OF DOCUMENT**
 
-This document is current as of March 2026 and provides comprehensive formal security analysis of Quantum Armor Vault (QAV) Crypto. It is intended for security auditors, cryptographic researchers, and formal methods specialists.
+This document is current as of March 2026 and provides comprehensive formal security analysis of Quantum_Shield Crypto. It is intended for security auditors, cryptographic researchers, and formal methods specialists.
 
 ---
 

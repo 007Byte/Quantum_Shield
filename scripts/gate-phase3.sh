@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Quantum Armor Vault (QAV) — Phase 3 AST Gate
+# Quantum_Shield — Phase 3 AST Gate
 # Authentication & Authorization Verification
 # ============================================================
 # Gate Requirement: OWASP ZAP auth scan + BOLA tests
@@ -44,7 +44,7 @@ check_warn() {
 }
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}QAV Phase 3 AST Gate — Authentication & Authorization${NC}"
+echo -e "${BLUE}Quantum_Shield Phase 3 AST Gate — Authentication & Authorization${NC}"
 echo -e "${BLUE}============================================================${NC}"
 echo ""
 

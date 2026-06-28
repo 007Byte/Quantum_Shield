@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Database initialization script for USBVault Enterprise
+# Database initialization script for Quantum_Shield
 # This script is mounted into the PostgreSQL container as an initdb script
 # OR can be run standalone to initialize a development database.
 

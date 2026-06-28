@@ -1,5 +1,5 @@
 /**
- * DOC-004: USBVault Enterprise — IT Deployment Guide v2.0
+ * DOC-004: Quantum_Shield — IT Deployment Guide v2.0
  * Audience: IT Administrators, Enterprise Deployment Teams
  */
 
@@ -28,7 +28,7 @@ async function generate(outDir) {
 
     // 1
     H.h1("1. Overview"),
-    H.p("USBVault Enterprise is a portable encrypted file storage system with an optional cloud backend. From IT\u2019s perspective, there are two deployment surfaces: self-contained USB drives (requiring no infrastructure) and the optional cloud backend (enabling sync, sharing, backup, and billing). This guide covers both."),
+    H.p("Quantum_Shield is a portable encrypted file storage system with an optional cloud backend. From IT\u2019s perspective, there are two deployment surfaces: self-contained USB drives (requiring no infrastructure) and the optional cloud backend (enabling sync, sharing, backup, and billing). This guide covers both."),
     H.importantBox("Zero-Knowledge Guarantee:", "The server NEVER handles plaintext data, filenames, or encryption keys. All cryptographic operations execute client-side in a Rust core. Authentication uses SRP-6a (the server never sees passwords). A fully compromised server reveals zero user content."),
     H.pageBreak(),
 
@@ -266,12 +266,12 @@ async function generate(outDir) {
     H.bullet("Review Sentry for error reports and stack traces"),
 
     H.spacer(400),
-    H.p([H.italic("End of Document \u2014 USBVault Enterprise IT Deployment Guide v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("End of Document \u2014 Quantum_Shield IT Deployment Guide v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_IT_Deployment_Guide.docx",
-    headerTitle: "USBVault Enterprise \u2014 IT Deployment Guide",
+    headerTitle: "Quantum_Shield \u2014 IT Deployment Guide",
     headerClassification: "INTERNAL",
     footerDocId: "DOC-004", footerVersion: "2.0", children, outDir,
   });

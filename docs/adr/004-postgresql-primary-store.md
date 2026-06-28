@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV requires a durable ACID data store for:
+Quantum_Shield requires a durable ACID data store for:
 
 - User identity and encrypted vault records
 - Audit logs and cryptographic key metadata

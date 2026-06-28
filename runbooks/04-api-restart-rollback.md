@@ -9,7 +9,7 @@
 
 ## Overview
 
-This runbook covers emergency restart and rollback procedures for the QAV API service. Covers scenarios including bad deployments, panic loops, configuration errors, and stuck processes. RTO target is 2-3 minutes.
+This runbook covers emergency restart and rollback procedures for the Quantum_Shield API service. Covers scenarios including bad deployments, panic loops, configuration errors, and stuck processes. RTO target is 2-3 minutes.
 
 **Status:** PH1-FIX Implementation Complete (Circuit Breaker Integration)
 

@@ -127,7 +127,7 @@ func TestSecurityEventLogging(t *testing.T) {
 			EventType:  EventAuthLogin,
 			Severity:   SeverityInfo,
 			SourceIP:   "192.168.1.1",
-			UserAgent:  "QAV/1.0",
+			UserAgent:  "Quantum_Shield/1.0",
 			UserID:     "user-123",
 			Outcome:    "success",
 			Timestamp:  time.Now().UTC(),

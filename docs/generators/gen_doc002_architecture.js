@@ -1,5 +1,5 @@
 /**
- * DOC-002: USBVault Enterprise — Architecture & System Design v2.0
+ * DOC-002: Quantum_Shield — Architecture & System Design v2.0
  * Audience: System Architects, Engineering Leads, DevOps
  */
 
@@ -48,7 +48,7 @@ async function generate(outDir) {
     H.h1("1. System Overview"),
 
     H.h2("1.1 Design Goals"),
-    H.p("USBVault Enterprise v2.0 was architected to satisfy five non-negotiable design constraints simultaneously: intelligence-grade cryptographic security, zero-installation portability across Windows/macOS/Linux, zero forensic trace upon ejection, crash-safe data integrity under any failure mode, and consumer-grade simplicity requiring no technical knowledge to operate. These constraints are inherently in tension\u2014strong security typically demands complexity, and portability limits available system APIs\u2014so the architecture represents a carefully optimized set of tradeoffs."),
+    H.p("Quantum_Shield v2.0 was architected to satisfy five non-negotiable design constraints simultaneously: intelligence-grade cryptographic security, zero-installation portability across Windows/macOS/Linux, zero forensic trace upon ejection, crash-safe data integrity under any failure mode, and consumer-grade simplicity requiring no technical knowledge to operate. These constraints are inherently in tension\u2014strong security typically demands complexity, and portability limits available system APIs\u2014so the architecture represents a carefully optimized set of tradeoffs."),
     H.p("The system operates in two deployment modes from a single codebase: USB-only mode (fully offline, no server infrastructure, vault password serves as the only authentication), and cloud-connected mode (optional backend for multi-device sync, vault sharing, backup, billing, and FIDO2 credential management). Both modes use identical cryptographic protocols and vault formats, ensuring that a vault created offline can be connected to the cloud later without migration."),
     H.spacer(100),
 
@@ -79,7 +79,7 @@ async function generate(outDir) {
     //  2. COMPONENT ARCHITECTURE
     // ═══════════════════════════════════════════════════════════
     H.h1("2. Component Architecture"),
-    H.p("USBVault Enterprise comprises four distinct subsystems, each implemented in the language best suited to its security and performance requirements. The subsystems communicate through well-defined interfaces with strict data contracts."),
+    H.p("Quantum_Shield comprises four distinct subsystems, each implemented in the language best suited to its security and performance requirements. The subsystems communicate through well-defined interfaces with strict data contracts."),
     H.spacer(80),
 
     H.h2("2.1 Subsystem Overview"),
@@ -157,7 +157,7 @@ async function generate(outDir) {
     H.pageBreak(),
 
     H.h2("2.4 usbvault-server (Cloud Backend)"),
-    H.p("The Go server provides the optional cloud backend for USBVault Enterprise. It handles authentication (SRP-6a + JWT + FIDO2), vault metadata management, encrypted blob storage in S3, Stripe billing integration, multi-device sync via WebSocket, and administrative APIs for enterprise deployment. The server is designed as a stateless microservice deployed on Kubernetes with horizontal pod autoscaling."),
+    H.p("The Go server provides the optional cloud backend for Quantum_Shield. It handles authentication (SRP-6a + JWT + FIDO2), vault metadata management, encrypted blob storage in S3, Stripe billing integration, multi-device sync via WebSocket, and administrative APIs for enterprise deployment. The server is designed as a stateless microservice deployed on Kubernetes with horizontal pod autoscaling."),
     H.makeTable(
       ["Component", "Technology", "Purpose"],
       [
@@ -397,7 +397,7 @@ async function generate(outDir) {
     //  9. OBSERVABILITY
     // ═══════════════════════════════════════════════════════════
     H.h1("9. Observability"),
-    H.p("USBVault Enterprise uses a comprehensive observability stack for monitoring, alerting, error tracking, and distributed tracing. The observability architecture is designed to provide full visibility into system health without exposing any user data or encryption material."),
+    H.p("Quantum_Shield uses a comprehensive observability stack for monitoring, alerting, error tracking, and distributed tracing. The observability architecture is designed to provide full visibility into system health without exposing any user data or encryption material."),
     H.spacer(80),
     H.makeTable(
       ["Component", "Technology", "Purpose"],
@@ -562,12 +562,12 @@ async function generate(outDir) {
 
     // ─── END ──────────────────────────────────────────────────
     H.spacer(400),
-    H.p([H.italic("End of Document \u2014 USBVault Enterprise Architecture & System Design v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("End of Document \u2014 Quantum_Shield Architecture & System Design v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_Architecture_v2.docx",
-    headerTitle: "USBVault Enterprise \u2014 Architecture & System Design",
+    headerTitle: "Quantum_Shield \u2014 Architecture & System Design",
     headerClassification: "CONFIDENTIAL",
     footerDocId: "DOC-002",
     footerVersion: "2.0",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Integration test orchestration for USBVault Enterprise
+# Integration test orchestration for Quantum_Shield
 # Starts isolated test infrastructure, runs backend and frontend E2E tests,
 # then cleans up. All in one command.
 #

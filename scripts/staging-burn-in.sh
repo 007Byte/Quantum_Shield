@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# USBVault Enterprise — Staging Burn-In Test (LAUNCH-10)
+# Quantum_Shield — Staging Burn-In Test (LAUNCH-10)
 # ==============================================================================
 #
 # Runs synthetic load against the staging API for a configurable duration
@@ -624,7 +624,7 @@ generate_report() {
 # Main execution
 # ---------------------------------------------------------------------------
 main() {
-    log_head "USBVault Enterprise — Staging Burn-In Test (LAUNCH-10)"
+    log_head "Quantum_Shield — Staging Burn-In Test (LAUNCH-10)"
     log_info "Target:      ${STAGING_URL}"
     log_info "Duration:    ${DURATION_HOURS} hours"
     log_info "Concurrency: ${CONCURRENCY} workers"

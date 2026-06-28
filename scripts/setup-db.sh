@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# USBVault Enterprise — Full Database Setup
+# Quantum_Shield — Full Database Setup
 #
 # This script initializes the complete database stack:
 #   1. Starts PostgreSQL, Redis, MinIO via Docker Compose
@@ -257,7 +257,7 @@ reset_database() {
 main() {
     echo -e "${BOLD}${CYAN}"
     echo "╔══════════════════════════════════════════╗"
-    echo "║   USBVault Enterprise — Database Setup   ║"
+    echo "║   Quantum_Shield — Database Setup   ║"
     echo "╚══════════════════════════════════════════╝"
     echo -e "${NC}"
 

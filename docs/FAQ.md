@@ -1,9 +1,9 @@
-# USBVault Enterprise — Frequently Asked Questions
+# Quantum_Shield — Frequently Asked Questions
 
 ## General
 
 ### What is USBVault?
-USBVault Enterprise is a portable encrypted file storage system. It encrypts files on a USB drive using military-grade cryptography (XChaCha20-Poly1305 or AES-256-GCM-SIV) so that your data remains secure even if the USB drive is lost, stolen, or seized.
+Quantum_Shield is a portable encrypted file storage system. It encrypts files on a USB drive using military-grade cryptography (XChaCha20-Poly1305 or AES-256-GCM-SIV) so that your data remains secure even if the USB drive is lost, stolen, or seized.
 
 ### Who is USBVault for?
 USBVault is designed for security-conscious professionals, government agencies, intelligence operatives, journalists, and anyone who needs untraceable encrypted storage that resists physical seizure, forensic analysis, and future quantum computing attacks.

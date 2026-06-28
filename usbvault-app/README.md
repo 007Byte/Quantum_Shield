@@ -1,10 +1,10 @@
-# Quantum Armor Vault (QAV) React Native App
+# Quantum_Shield React Native App
 
 A production-ready, cross-platform React Native application for secure file encryption and vault management with post-quantum cryptography (PQC) support.
 
 ## Project Description
 
-Quantum Armor Vault (QAV) is an enterprise-grade file encryption vault built with React Native, offering:
+Quantum_Shield is an enterprise-grade file encryption vault built with React Native, offering:
 
 - **Post-Quantum Cryptography (PQC)** - ML-KEM, ML-DSA, SLH-DSA via Rust FFI for future-proof encryption
 - **Zero-Knowledge Architecture** - Password-based encryption with no server-side access to sensitive data
@@ -215,9 +215,9 @@ For security vulnerabilities, please report privately:
 
 ## License
 
-Quantum Armor Vault (QAV) - Proprietary Software. All rights reserved.
+Quantum_Shield - Proprietary Software. All rights reserved.
 
-Copyright (c) 2026 Quantum Armor Vault Inc.
+Copyright (c) 2026 Quantum_Shield Inc.
 
 ---
 

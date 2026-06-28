@@ -1,4 +1,4 @@
-# Quantum Armor Vault (QAV) Backend - Complete File Index
+# Quantum_Shield Backend - Complete File Index
 
 ## Project Statistics
 - **Total Files**: 26
@@ -654,4 +654,4 @@ vault/, storage/, sharing/, audit/, notify/
 
 ---
 
-This index provides a complete reference to all files in the Quantum Armor Vault (QAV) backend codebase.
+This index provides a complete reference to all files in the Quantum_Shield backend codebase.

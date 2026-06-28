@@ -1,5 +1,5 @@
 /**
- * USBVault Enterprise v2.0 — Document Generation Helpers
+ * Quantum_Shield v2.0 — Document Generation Helpers
  * Professional formatting module for enterprise-grade .docx output
  *
  * Architecture: Shared across all 7 document generators
@@ -201,7 +201,7 @@ function makeFooter(docId, version) {
         spacing: { before: 0 },
         border: { top: { style: BorderStyle.SINGLE, size: 2, color: BRAND.GRAY_RULE, space: 6 } },
         children: [
-          new TextRun({ text: `${docId || "USBVault Enterprise"}  |  v${version || "2.0"}`, font: LAYOUT.FONT, size: 14, color: BRAND.GRAY_LIGHT }),
+          new TextRun({ text: `${docId || "Quantum_Shield"}  |  v${version || "2.0"}`, font: LAYOUT.FONT, size: 14, color: BRAND.GRAY_LIGHT }),
           new TextRun({ children: [
             new PositionalTab({
               alignment: PositionalTabAlignment.CENTER,
@@ -247,7 +247,7 @@ function coverPage(opts) {
   // Brand line
   els.push(new Paragraph({
     alignment: AlignmentType.CENTER, spacing: { after: 200 },
-    children: [new TextRun({ text: "USBVault Enterprise Edition", font: LAYOUT.FONT, size: 28, color: BRAND.ACCENT, bold: true })]
+    children: [new TextRun({ text: "Quantum_Shield Edition", font: LAYOUT.FONT, size: 28, color: BRAND.ACCENT, bold: true })]
   }));
 
   // Title
@@ -709,7 +709,7 @@ async function buildDoc(opts) {
     numbering: getNumbering(),
     creator: "USBVault Engineering",
     title: headerTitle,
-    description: `USBVault Enterprise v2.0 \u2014 ${headerTitle}`,
+    description: `Quantum_Shield v2.0 \u2014 ${headerTitle}`,
     sections: [{
       properties: pageProps(),
       headers: { default: makeHeader(headerTitle, headerClassification, footerDocId) },

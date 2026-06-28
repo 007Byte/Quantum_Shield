@@ -1,10 +1,10 @@
 @echo off
-:: USBVault Enterprise — Windows Launcher
+:: Quantum_Shield — Windows Launcher
 :: Double-click this file to start USBVault from your USB drive.
 :: No installation required. No admin required for daily use.
 
 setlocal enabledelayedexpansion
-title USBVault Enterprise Edition
+title Quantum_Shield Edition
 
 :: ── Configuration ────────────────────────────────────────────────────
 set MAX_RESTARTS=5
@@ -17,7 +17,7 @@ set USB_STANDALONE_MODE=true
 set NODE_ENV=production
 
 echo ========================================
-echo    USBVault Enterprise Edition
+echo    Quantum_Shield Edition
 echo    Portable Encrypted File Storage
 echo ========================================
 echo.

@@ -1,4 +1,4 @@
-# DOC-001: USBVault Enterprise -- Technical Specification
+# DOC-001: Quantum_Shield -- Technical Specification
 
 | Field | Value |
 |-------|-------|
@@ -36,7 +36,7 @@
 
 ## 1. Executive Summary
 
-USBVault Enterprise Edition (codename "Fortress Enterprise") is a portable encrypted file storage system designed to intelligence-grade security standards. The system enables users to carry sensitive files on a USB drive, access them on any computer running Windows, macOS, or Linux, and leave zero forensic evidence after use.
+Quantum_Shield (codename "Fortress Enterprise") is a portable encrypted file storage system designed to intelligence-grade security standards. The system enables users to carry sensitive files on a USB drive, access them on any computer running Windows, macOS, or Linux, and leave zero forensic evidence after use.
 
 ### Technology Stack
 
@@ -59,7 +59,7 @@ USBVault Enterprise Edition (codename "Fortress Enterprise") is a portable encry
 
 ## 2. System Architecture Overview
 
-USBVault Enterprise is a four-subsystem architecture with a zero-knowledge design. All cryptographic operations execute client-side in Rust. The server never sees plaintext content, filenames, or encryption keys.
+Quantum_Shield is a four-subsystem architecture with a zero-knowledge design. All cryptographic operations execute client-side in Rust. The server never sees plaintext content, filenames, or encryption keys.
 
 ### Subsystems
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generates production secrets for USBVault Enterprise
+# Generates production secrets for Quantum_Shield
 # Usage: ./scripts/generate-secrets.sh [output-dir]
 #
 # This script generates all cryptographic material and passwords needed
