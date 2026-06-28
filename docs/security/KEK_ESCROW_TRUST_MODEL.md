@@ -2,14 +2,20 @@
 
 ## Overview
 
-USBVault supports two authentication methods with fundamentally different
-cryptographic trust models: **SRP-6a** (zero-knowledge) and **OIDC**
-(server-escrowed KEK). Enterprise buyers must understand the security
-implications of each before selecting an authentication strategy for their
-organization.
+USBVault supports two authentication methods: **SRP-6a** (zero-knowledge) and
+**OIDC** (SSO). This document describes the cryptographic trust boundaries,
+threat model, and the planned KEK-escrow / HSM upgrade path for OIDC.
 
-This document covers the cryptographic trust boundaries, threat model, and
-the planned HSM upgrade path that eliminates the software-key escrow risk.
+> **⚠️ Current implementation status.** Server-side KEK **escrow is NOT
+> implemented — it is a PLANNED feature.** No code path encrypts or stores a user's
+> KEK with a server-held key, and `OIDC_KEK_ENCRYPTION_KEY` is **optional** (an unused
+> placeholder reserved for the future rollout — `usbvault-server/internal/oidc/config.go`
+> loads it but nothing consumes it). **Today, OIDC users rely on Hybrid mode and the
+> server CANNOT decrypt any user's vault** — the zero-knowledge property described below
+> holds for OIDC users as well as SRP users. The "server-escrowed KEK" model in the rest
+> of this document describes the *future, opt-in* design, NOT current behavior. If/when
+> escrow ships it will be an explicit, separately-gated enterprise option backed by the
+> HSM path below.
 
 ---
 
