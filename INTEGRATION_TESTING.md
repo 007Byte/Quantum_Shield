@@ -204,16 +204,16 @@ Frontend E2E tests use Playwright and the helpers from `usbvault-app/e2e/helpers
 
 #### Directing Tests to Test Backend
 
-Update `usbvault-app/playwright.config.ts` to use the test API:
+`playwright.config.ts` sets the browser `baseURL` (the **web app** origin) from `E2E_BASE_URL`, while the **backend API** the app talks to is selected separately via `API_URL`:
 
 ```typescript
 use: {
-  baseURL: process.env.API_URL || 'http://localhost:8081',
+  baseURL: E2E_BASE_URL, // web app origin (Expo web export / dev server)
   // ...
 },
 ```
 
-When running via the integration script:
+To run the E2E suite against the live test backend on :8090, set `API_URL`:
 
 ```bash
 API_URL=http://localhost:8090 npx playwright test
@@ -222,7 +222,7 @@ API_URL=http://localhost:8090 npx playwright test
 #### Example: Auth Flow Test
 
 ```typescript
-// usbvault-app/e2e/vault.spec.ts
+// usbvault-app/e2e/vault-creation.spec.ts
 import { test, expect } from '@playwright/test';
 import { registerAndLogin, createVault, waitForApp } from './helpers';
 
@@ -271,7 +271,7 @@ usbvault-app/
 ├── e2e/
 │   ├── helpers.ts               # Shared E2E helpers
 │   ├── auth.spec.ts             # Authentication tests
-│   ├── vault.spec.ts            # Vault operations tests
+│   ├── vault-creation.spec.ts            # Vault operations tests
 │   └── ...
 └── playwright.config.ts          # Playwright configuration
 ```
@@ -313,7 +313,7 @@ go test -tags=integration -v -run TestVaultFullFlow ./internal/integration
 
 # Frontend
 cd usbvault-app
-npx playwright test vault.spec.ts
+npx playwright test vault-creation.spec.ts
 ```
 
 ## Troubleshooting
