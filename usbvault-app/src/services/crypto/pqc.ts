@@ -630,9 +630,7 @@ export function activateAllAlgorithms(): void {
   status.algorithmDetails.forEach(detail => {
     // ML-DSA-87 is intentionally excluded: it is a roadmap (planned) signature
     // scheme, not yet implemented. Active signatures use Ed25519.
-    if (
-      ['ML-KEM-1024', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(detail.name)
-    ) {
+    if (['ML-KEM-1024', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(detail.name)) {
       detail.status = 'active';
     }
   });
