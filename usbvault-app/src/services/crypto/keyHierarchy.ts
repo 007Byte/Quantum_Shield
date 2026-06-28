@@ -76,12 +76,16 @@ export interface KeyRotationResult {
  * @returns KeyHierarchyCreationResult with mek, wrappedMek, and kekSalt
  */
 export async function createKeyHierarchy(password: string): Promise<KeyHierarchyCreationResult> {
+  // HIGH-6: the KEK is a transient secret — only needed to wrap the MEK. Hoist it so
+  // we can zeroize it in finally regardless of success/failure. The MEK is NOT wiped
+  // here: it is returned to the caller (which owns its lifetime).
+  let kek: Uint8Array | undefined;
   try {
     // 1. Generate random 32-byte salt for KEK derivation
     const kekSalt = await randomBytes(32);
 
     // 2. Derive KEK from password: Argon2id(password, salt) → domain-separated 32-byte key
-    const kek = await deriveKEK(password, kekSalt);
+    kek = await deriveKEK(password, kekSalt);
 
     // 3. Generate random 64-byte MEK (32 encryption + 32 HMAC)
     const mek = await generateMEK();
@@ -97,6 +101,8 @@ export async function createKeyHierarchy(password: string): Promise<KeyHierarchy
     throw new Error(
       `Key hierarchy creation failed: ${error instanceof Error ? error.message : String(error)}`
     );
+  } finally {
+    kek?.fill(0);
   }
 }
 
@@ -117,9 +123,11 @@ export async function unlockKeyHierarchy(
   kekSalt: Uint8Array,
   wrappedMek: Uint8Array
 ): Promise<KeyHierarchyUnlockResult> {
+  // HIGH-6: wipe the transient KEK after unwrapping; the MEK is returned to the caller.
+  let kek: Uint8Array | undefined;
   try {
     // 1. Re-derive KEK from password + stored salt
-    const kek = await deriveKEK(password, kekSalt);
+    kek = await deriveKEK(password, kekSalt);
 
     // 2. Unwrap MEK — fails with AEAD error if password is wrong
     const mek = await unwrapMEK(kek, wrappedMek);
@@ -132,6 +140,8 @@ export async function unlockKeyHierarchy(
     throw new Error(
       `Key hierarchy unlock failed: ${error instanceof Error ? error.message : String(error)}`
     );
+  } finally {
+    kek?.fill(0);
   }
 }
 
@@ -156,15 +166,19 @@ export async function rotatePassword(
   oldKekSalt: Uint8Array,
   wrappedMek: Uint8Array
 ): Promise<KeyRotationResult> {
+  // HIGH-6: both the unwrapped MEK and the new KEK are transient here (rotatePassword
+  // returns only the re-wrapped blob + salt, never the MEK), so wipe both in finally.
+  let mek: Uint8Array | undefined;
+  let newKek: Uint8Array | undefined;
   try {
     // 1. Unwrap MEK with old password's KEK
-    const { mek } = await unlockKeyHierarchy(oldPassword, oldKekSalt, wrappedMek);
+    ({ mek } = await unlockKeyHierarchy(oldPassword, oldKekSalt, wrappedMek));
 
     // 2. Generate new salt for new KEK
     const newKekSalt = await randomBytes(32);
 
     // 3. Derive new KEK from new password
-    const newKek = await deriveKEK(newPassword, newKekSalt);
+    newKek = await deriveKEK(newPassword, newKekSalt);
 
     // 4. Re-wrap same MEK with new KEK
     const newWrappedMek = await wrapMEK(newKek, mek);
@@ -177,6 +191,9 @@ export async function rotatePassword(
     throw new Error(
       `Password rotation failed: ${error instanceof Error ? error.message : String(error)}`
     );
+  } finally {
+    newKek?.fill(0);
+    mek?.fill(0);
   }
 }
 
@@ -214,6 +231,8 @@ export async function migrateToKeyHierarchy(
   password: string,
   legacyKey: Uint8Array
 ): Promise<KeyHierarchyCreationResult> {
+  // HIGH-6: wipe the transient KEK in finally; the synthetic MEK is returned.
+  let kek: Uint8Array | undefined;
   try {
     // Pad the legacy 32-byte key to 64 bytes (add HMAC portion)
     // The HMAC portion is derived deterministically so the migration is reproducible
@@ -224,7 +243,7 @@ export async function migrateToKeyHierarchy(
 
     // Create KEK and wrap the synthetic MEK
     const kekSalt = await randomBytes(32);
-    const kek = await deriveKEK(password, kekSalt);
+    kek = await deriveKEK(password, kekSalt);
     const wrappedMek = await wrapMEK(kek, syntheticMek);
 
     logger.info('[keyHierarchy] Migrated legacy vault to key hierarchy');
@@ -235,5 +254,7 @@ export async function migrateToKeyHierarchy(
     throw new Error(
       `Key hierarchy migration failed: ${error instanceof Error ? error.message : String(error)}`
     );
+  } finally {
+    kek?.fill(0);
   }
 }

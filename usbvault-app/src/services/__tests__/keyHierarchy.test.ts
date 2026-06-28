@@ -199,4 +199,50 @@ describe('Key Hierarchy Service', () => {
       expect(result.kekSalt).toBeDefined();
     });
   });
+
+  // HIGH-6: transient KEKs (and the unwrapped MEK in rotatePassword) must be zeroized
+  // from memory once they are no longer needed. The mocks hand back a buffer instance
+  // that the function under test must overwrite in its finally block.
+  describe('key material zeroization (HIGH-6)', () => {
+    it('createKeyHierarchy wipes the transient KEK', async () => {
+      const kek = new Uint8Array(32).fill(0x22);
+      mockDeriveKEK.mockResolvedValueOnce(kek);
+      await createKeyHierarchy('mypassword');
+      expect(kek.every(b => b === 0)).toBe(true);
+    });
+
+    it('unlockKeyHierarchy wipes the transient KEK', async () => {
+      const kek = new Uint8Array(32).fill(0x22);
+      mockDeriveKEK.mockResolvedValueOnce(kek);
+      await unlockKeyHierarchy(
+        'mypassword',
+        new Uint8Array(32).fill(0x11),
+        new Uint8Array(80).fill(0x44)
+      );
+      expect(kek.every(b => b === 0)).toBe(true);
+    });
+
+    it('rotatePassword wipes the new KEK and the transient (unwrapped) MEK', async () => {
+      const oldKek = new Uint8Array(32).fill(0x22);
+      const newKek = new Uint8Array(32).fill(0x77);
+      mockDeriveKEK.mockResolvedValueOnce(oldKek).mockResolvedValueOnce(newKek);
+      const mek = new Uint8Array(64).fill(0x33);
+      mockUnwrapMEK.mockResolvedValueOnce(mek);
+      await rotatePassword(
+        'old',
+        'new',
+        new Uint8Array(32).fill(0x11),
+        new Uint8Array(80).fill(0x44)
+      );
+      expect(newKek.every(b => b === 0)).toBe(true);
+      expect(mek.every(b => b === 0)).toBe(true);
+    });
+
+    it('migrateToKeyHierarchy wipes the transient KEK', async () => {
+      const kek = new Uint8Array(32).fill(0x22);
+      mockDeriveKEK.mockResolvedValueOnce(kek);
+      await migrateToKeyHierarchy('password', new Uint8Array(32).fill(0xee));
+      expect(kek.every(b => b === 0)).toBe(true);
+    });
+  });
 });
