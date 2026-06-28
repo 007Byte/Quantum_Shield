@@ -160,9 +160,9 @@ int32_t usbvault_generate_salt(uint8_t *out);
 // # Safety
 // Caller must ensure:
 // - x25519_pub_out can hold 32 bytes
-// - mlkem_pub_out can hold 1568 bytes
+// - mlkem_pub_out can hold 1568 bytes (ML-KEM-1024 encapsulation key)
 // - x25519_sec_out can hold 32 bytes
-// - mlkem_sec_out can hold 1568 bytes
+// - mlkem_sec_out can hold 3168 bytes (ML-KEM-1024 decapsulation key, FIPS 203)
 //
 // # Returns
 // ERR_SUCCESS (0) on success, or ERR_INVALID_ARGUMENT if pqc feature not enabled
@@ -196,7 +196,7 @@ int32_t usbvault_pqc_seal(const uint8_t *x25519_pub,
 // # Safety
 // Caller must ensure:
 // - x25519_sec is 32 bytes (recipient X25519 secret key)
-// - mlkem_sec is 1568 bytes (recipient ML-KEM-1024 decapsulation key)
+// - mlkem_sec is 3168 bytes (recipient ML-KEM-1024 decapsulation key, FIPS 203)
 // - sealed_ptr/sealed_len are valid
 // - out_ptr has capacity for plaintext (sealed_len - 1640)
 int32_t usbvault_pqc_open(const uint8_t *x25519_sec,

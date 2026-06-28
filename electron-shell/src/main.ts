@@ -18,7 +18,7 @@
  *        └── System Tray (status, eject, quit)
  */
 
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import { join } from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import { CompanionManager } from './companion-manager';
@@ -141,6 +141,29 @@ function createMainWindow(): void {
     mainWindow.loadURL('data:text/html,' + encodeURIComponent(getWaitingHTML()));
     waitForCompanionAndLoad();
   }
+
+  // SECURITY: lock top-level navigation to the local companion origin. Without this,
+  // an in-page navigation to a remote URL would run WITH the preload/IPC bridge
+  // attached, exposing the USB companion bridge to attacker-controlled content.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const p = companion.getPort();
+    const origin = p ? `http://127.0.0.1:${p}` : null;
+    if (!origin || !url.startsWith(origin)) {
+      event.preventDefault();
+    }
+  });
+  // window.open / target=_blank: never open a renderer-controlled URL in-app. Hand
+  // safe https links to the OS browser; deny everything else.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      if (new URL(url).protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      // malformed URL — deny
+    }
+    return { action: 'deny' };
+  });
 
   // Handle window close — hide to tray on macOS, quit on other platforms
   mainWindow.on('close', (event) => {
