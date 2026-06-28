@@ -23,7 +23,7 @@ Initial evaluation included AES-256-GCM and AES-256-GCM-SIV.
 1. Symmetric data encryption (vault records, documents)
 2. File attachment encryption (client and server-side)
 
-With AES-256-GCM as secondary cipher for compatibility (future cryptographic agility).
+With **AES-256-GCM-SIV** (nonce-misuse-resistant) as the secondary cipher for compatibility and cryptographic agility.
 
 Key parameters:
 - 192-bit random nonce (XChaCha20 extension allows 24 bytes vs AES-GCM's 12)
@@ -37,9 +37,9 @@ Key parameters:
    - Pros: Hardware acceleration (AES-NI), well-studied, NIST-standardized
    - Cons: 12-byte nonce limit encourages nonce-reuse bugs, slower without hardware, timing attacks if implementation naive
 
-2. **AES-256-GCM-SIV (Synthetic IV mode)**
+2. **AES-256-GCM-SIV (Synthetic IV mode)** — *adopted as the secondary cipher*
    - Pros: Nonce misuse-resistant (safe if nonce reused), deterministic authentication
-   - Cons: No performance advantage vs XChaCha20-Poly1305, less deployed code paths, deterministic output leaks patterns
+   - Cons: No performance advantage vs XChaCha20-Poly1305; deterministic output can reveal plaintext equality under nonce reuse (acceptable for the compatibility/agility role)
 
 ## Consequences
 

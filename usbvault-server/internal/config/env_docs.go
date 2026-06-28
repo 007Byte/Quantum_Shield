@@ -10,7 +10,7 @@ package config
 //   SERVER_PORT           - HTTP server port (default: "8080")
 //   LOG_LEVEL             - Logging level: "debug", "info", "warn", "error" (default: "info")
 //   AWS_REGION            - AWS region for S3 (default: "us-east-1")
-//   S3_BUCKET             - S3 bucket name (default: "qav-prod")
+//   S3_BUCKET             - S3 bucket name (default: "usbvault-prod")
 //   STRIPE_SECRET_KEY     - Stripe API secret key
 //   STRIPE_WEBHOOK_SECRET - Stripe webhook signing secret
 //   REDIS_URL             - Redis connection URL (default: "redis://localhost:6379")

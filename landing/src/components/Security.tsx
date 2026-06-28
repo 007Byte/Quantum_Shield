@@ -27,7 +27,7 @@ const CIPHER_SUITE = [
   { key: "KEX", value: "ML-KEM-1024 (FIPS 203)" },
   { key: "AEAD", value: "AES-256-GCM-SIV" },
   { key: "KDF", value: "Argon2id (64MB, t=3, p=4)" },
-  { key: "SIG", value: "Ed25519 + ML-DSA-87" },
+  { key: "SIG", value: "Ed25519" },
   { key: "AUTH", value: "FIDO2 WebAuthn" },
 ] as const;
 

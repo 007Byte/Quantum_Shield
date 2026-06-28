@@ -110,7 +110,7 @@ build_rust_crypto() {
 build_go_server() {
     log_info "Building Go server (deterministic)..."
 
-    cd "$PROJECT_ROOT/qav-server"
+    cd "$PROJECT_ROOT/usbvault-server"
 
     local version="${BUILD_NUMBER:-dev}"
     local commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -124,12 +124,12 @@ build_go_server() {
             -X main.Commit=$commit \
             -X main.BuildTime=$timestamp \
             -buildid=" \
-        -o "$BUILD_DIR/qav-server" \
+        -o "$BUILD_DIR/usbvault-server" \
         ./cmd/api/
 
-    local hash=$(compute_sha256 "$BUILD_DIR/qav-server")
+    local hash=$(compute_sha256 "$BUILD_DIR/usbvault-server")
     log_pass "Go server: $hash"
-    echo "\"go_server\": {\"file\": \"qav-server\", \"sha256\": \"$hash\", \"version\": \"$version\", \"commit\": \"$commit\"}," >> "$BUILD_DIR/hashes.json"
+    echo "\"go_server\": {\"file\": \"usbvault-server\", \"sha256\": \"$hash\", \"version\": \"$version\", \"commit\": \"$commit\"}," >> "$BUILD_DIR/hashes.json"
 
     cd "$PROJECT_ROOT"
 }

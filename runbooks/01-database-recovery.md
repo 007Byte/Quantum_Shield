@@ -17,7 +17,7 @@ This runbook guides recovery procedures for PostgreSQL database failures includi
 
 - PostgreSQL 14+ with pg_restore utility installed
 - AWS CLI v2 configured with appropriate credentials
-- Access to backup S3 bucket (`qav-db-backups-prod`)
+- Access to backup S3 bucket (`usbvault-db-backups-prod`)
 - SSH access to database replica server
 - Database admin credentials loaded in secure credential manager
 - CloudWatch access for monitoring
@@ -39,14 +39,14 @@ This runbook guides recovery procedures for PostgreSQL database failures includi
 **Detection Tools:**
 ```bash
 # Check database connectivity
-psql -h prod-db.internal -U app_user -d qav_db -c "SELECT version();"
+psql -h prod-db.internal -U app_user -d usbvault_db -c "SELECT version();"
 
 # Monitor replication status
 psql -h prod-db.internal -U postgres -d postgres -c "SELECT * FROM pg_stat_replication;"
 
 # Check database size and free space
 df -h /var/lib/postgresql/data
-psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database WHERE datname = 'qav_db';"
+psql -h prod-db.internal -U postgres -d usbvault_db -c "SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database WHERE datname = 'usbvault_db';"
 ```
 
 ---
@@ -83,7 +83,7 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 5. **Check latest backup status**
    ```bash
    aws s3api list-objects-v2 \
-     --bucket qav-db-backups-prod \
+     --bucket usbvault-db-backups-prod \
      --prefix daily/ \
      --query 'sort_by(Contents, &LastModified)[-1]' \
      --region us-east-1
@@ -92,8 +92,8 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 6. **Verify backup integrity**
    ```bash
    aws s3api head-object \
-     --bucket qav-db-backups-prod \
-     --key daily/qav_db_$(date -d '1 day ago' +%Y%m%d).backup
+     --bucket usbvault-db-backups-prod \
+     --key daily/usbvault_db_$(date -d '1 day ago' +%Y%m%d).backup
    ```
 
 7. **Confirm replica status** (if not primary failure)
@@ -143,7 +143,7 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 
 12. **Verify applications reconnect**
     ```bash
-    psql -h prod-db.internal -U app_user -d qav_db -c "SELECT datname, now() FROM pg_database LIMIT 1;"
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "SELECT datname, now() FROM pg_database LIMIT 1;"
     ```
 
 ### Phase 4B: Backup Restore (if needed)
@@ -151,8 +151,8 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 13. **Stop all application connections**
     ```bash
     # Scale down app pods
-    kubectl scale deployment qav-api --replicas=0 -n production
-    kubectl scale deployment qav-worker --replicas=0 -n production
+    kubectl scale deployment usbvault-api --replicas=0 -n production
+    kubectl scale deployment usbvault-worker --replicas=0 -n production
 
     # Wait for graceful shutdown
     sleep 30
@@ -168,12 +168,12 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 15. **Download latest backup**
     ```bash
     cd /var/lib/postgresql
-    aws s3 cp s3://qav-db-backups-prod/daily/qav_db_$(date -d '1 day ago' +%Y%m%d).backup .
+    aws s3 cp s3://usbvault-db-backups-prod/daily/usbvault_db_$(date -d '1 day ago' +%Y%m%d).backup .
 
     # Verify checksum
-    aws s3api head-object --bucket qav-db-backups-prod \
-      --key daily/qav_db_$(date -d '1 day ago' +%Y%m%d).backup.sha256
-    sha256sum -c qav_db_*.backup.sha256
+    aws s3api head-object --bucket usbvault-db-backups-prod \
+      --key daily/usbvault_db_$(date -d '1 day ago' +%Y%m%d).backup.sha256
+    sha256sum -c usbvault_db_*.backup.sha256
     ```
 
 16. **Restore from backup**
@@ -190,21 +190,21 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
       --clean \
       --format=custom \
       --dbname=postgres \
-      /var/lib/postgresql/data/qav_db_*.backup
+      /var/lib/postgresql/data/usbvault_db_*.backup
     ```
 
 17. **Restore custom settings**
     ```sql
     -- Restore parameter settings
-    ALTER DATABASE qav_db SET shared_preload_libraries = 'pg_stat_statements,pgcrypto';
-    ALTER DATABASE qav_db SET max_connections = 200;
-    ALTER DATABASE qav_db SET work_mem = '4MB';
+    ALTER DATABASE usbvault_db SET shared_preload_libraries = 'pg_stat_statements,pgcrypto';
+    ALTER DATABASE usbvault_db SET max_connections = 200;
+    ALTER DATABASE usbvault_db SET work_mem = '4MB';
     ```
 
 18. **Restore user permissions**
     ```bash
-    sudo -u postgres psql -d qav_db -f /backup/roles.sql
-    sudo -u postgres psql -d qav_db -f /backup/grants.sql
+    sudo -u postgres psql -d usbvault_db -f /backup/roles.sql
+    sudo -u postgres psql -d usbvault_db -f /backup/grants.sql
     ```
 
 19. **Rebuild replication**
@@ -231,7 +231,7 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 
 20. **Verify database health**
     ```bash
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       SELECT
         schemaname,
         tablename,
@@ -244,16 +244,16 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 
 21. **Scale applications back up**
     ```bash
-    kubectl scale deployment qav-api --replicas=3 -n production
-    kubectl scale deployment qav-worker --replicas=2 -n production
+    kubectl scale deployment usbvault-api --replicas=3 -n production
+    kubectl scale deployment usbvault-worker --replicas=2 -n production
 
     # Monitor pod startup
-    kubectl logs -n production -l app=qav-api --tail=50 -f
+    kubectl logs -n production -l app=usbvault-api --tail=50 -f
     ```
 
 22. **Run data integrity checks**
     ```bash
-    psql -h prod-db.internal -U app_user -d qav_db -f /scripts/integrity_checks.sql
+    psql -h prod-db.internal -U app_user -d usbvault_db -f /scripts/integrity_checks.sql
     ```
 
 ---
@@ -263,7 +263,7 @@ psql -h prod-db.internal -U postgres -d qav_db -c "SELECT datname, pg_size_prett
 - [ ] Database accepts connections: `pg_isready -h prod-db.internal`
 - [ ] Replication lag is near zero: `SELECT now() - pg_last_xact_replay_timestamp();`
 - [ ] All critical tables present: `SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public';`
-- [ ] Application health checks pass: `curl -s http://qav-api:8080/health | jq .status`
+- [ ] Application health checks pass: `curl -s http://usbvault-api:8080/health | jq .status`
 - [ ] Background jobs resuming: `SELECT COUNT(*) FROM jobs WHERE status = 'pending';`
 - [ ] No error spikes in logs: `grep -i "error\|warning" /var/log/app.log | wc -l`
 - [ ] Customer-facing dashboards updating: Monitor metrics in production environment

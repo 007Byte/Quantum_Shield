@@ -34,7 +34,7 @@ export const ALGORITHMS: AlgorithmOption[] = [
     tagColor: '#8B5CF6',
     description:
       'Post-quantum hybrid encryption. Protects against future quantum computer attacks.',
-    specs: 'ML-KEM-1024 + AES-256-GCM-SIV · ML-DSA-87 signatures · HKDF-SHA384',
+    specs: 'ML-KEM-1024 + AES-256-GCM-SIV · Ed25519 signatures · HKDF-SHA384',
   },
 ];
 

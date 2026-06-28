@@ -296,7 +296,7 @@
       "pqc": {
         "encap": "ML-KEM-1024-Schlüsselkapselung (FIPS 203)",
         "hybrid": "Klassische + PQC-Schlüssel über HKDF-SHA384",
-        "auth": "AEAD-Tag pro Block + ML-DSA-87-Signatur",
+        "auth": "AEAD-Tag pro Block",
         "integrity": "HMAC-SHA256-Datensatz + PQC-Kopfzeilensignatur"
       }
     },
@@ -316,7 +316,7 @@
       "maximum": {
         "kdf": "Argon2id + ML-KEM-1024-Hybrid über HKDF-SHA384",
         "auth": "Pro-Block-AEAD + PQC-Schlüsselkapselungsebene",
-        "integrity": "HMAC-SHA256 + ML-DSA-87-Kopfzeilensignatur",
+        "integrity": "HMAC-SHA256 + Ed25519-Kopfzeilensignatur",
         "keyDeriv": "Klassische + PQC-Schlüssel — sicher wenn eine bestehen bleibt"
       }
     }
@@ -482,7 +482,7 @@
     "ed25519Name": "Ed25519-Identitätsschlüssel",
     "x25519Name": "X25519-Austauschschlüssel",
     "mlkemName": "ML-KEM-1024 PQC-Schlüssel",
-    "mldsaName": "ML-DSA-87 PQC-Schlüssel",
+    "mldsaName": "ML-DSA-87 PQC-Schlüssel (geplant)",
     "aes256Name": "AES-256-Hauptverschlüsselungsschlüssel"
   },
   "devices": {
@@ -1012,8 +1012,8 @@
     "layerGhostActive": "Aktiv: Bereinigung bei Sperre/Abmeldung",
     "layerGhostOff": "Geistermodus nicht aktiviert",
     "layerPqcName": "PQC-Schild",
-    "layerPqcDesc": "Post-Quanten-Schicht ML-KEM-1024 + ML-DSA-87",
-    "layerPqcDetails": "ML-KEM-1024-Kapselung + ML-DSA-87-Signaturen aktiv",
+    "layerPqcDesc": "Post-Quanten-Schicht ML-KEM-1024",
+    "layerPqcDetails": "ML-KEM-1024-Kapselung aktiv",
     "layerPqcOff": "PQC nicht aktiviert",
     "cryptoCiName": "Vertraulichkeit und Integrität",
     "cryptoCiDesc": "256-Bit-AEAD-Chiffre mit Nonce-Wiederverwendungsresistenz gewährleistet Datenschutz und Unveränderlichkeit",
@@ -1026,7 +1026,7 @@
     "cryptoFsAlgo": "X25519 ephemer + HKDF-SHA256 pro Sitzung",
     "cryptoNrName": "Nichtabstreitbarkeit",
     "cryptoNrDesc": "Kryptografische Signaturen beweisen Authentizität und verhindern Leugnung von Operationen",
-    "cryptoNrAlgo": "Digitale Signaturen Ed25519 / ML-DSA-87",
+    "cryptoNrAlgo": "Digitale Signaturen Ed25519",
     "maxProtection": "Maximaler Schutz",
     "strongProtection": "Starker Schutz",
     "goodProtection": "Guter Schutz",
@@ -1097,7 +1097,7 @@
       "pqc": {
         "name": "Post-Quanten-Kryptographie",
         "desc": "ML-KEM-1024 hybride Schlüsselkapselung für Quantenresistenz.",
-        "activeDetails": "ML-KEM-1024 (FIPS 203) + ML-DSA-87 (FIPS 204)",
+        "activeDetails": "ML-KEM-1024 (FIPS 203)",
         "notEnabled": "PQC nicht aktiviert"
       }
     },
@@ -1119,8 +1119,8 @@
       },
       "nr": {
         "name": "Nichtabstreitbarkeit",
-        "desc": "Jede Tresor-Operation wird digital mit Ihrem Ed25519-Identitätsschlüssel signiert und erzeugt einen kryptographischen Urheberschaftsnachweis. Die Post-Quanten ML-DSA-87 Co-Signatur sichert diese Nachweise gegen zukünftige Quantenangriffe.",
-        "algo": "Ed25519-Identitätssignaturen · ML-DSA-87 (FIPS 204) Co-Signaturen · HMAC-SHA256-Auditkette"
+        "desc": "Jede Tresor-Operation wird digital mit Ihrem Ed25519-Identitätsschlüssel signiert und erzeugt einen kryptographischen Urheberschaftsnachweis. Eine Post-Quanten ML-DSA-87 Co-Signatur ist auf der Roadmap, um diese Nachweise zusätzlich gegen zukünftige Quantenangriffe abzusichern.",
+        "algo": "Ed25519-Identitätssignaturen · HMAC-SHA256-Auditkette (ML-DSA-87 Co-Signaturen geplant)"
       }
     }
   },
@@ -1201,13 +1201,13 @@
       },
       "section3": {
         "title": "ML-KEM und ML-DSA",
-        "body": "USBVault implementiert ML-KEM-1024 (Modular-Lattice Key Encapsulation) für Schlüsselaustausch und ML-DSA-87 (Modular-Lattice Digital Signatures) für Authentifizierung. Diese sind NIST-standardisiert (FIPS 203/204) und stellen die verfügbaren stärksten Post-Quanten-Sicherheitsstufen dar."
+        "body": "USBVault implementiert ML-KEM-1024 (Modular-Lattice Key Encapsulation, NIST FIPS 203) für den Schlüsselaustausch. Digitale Signaturen werden heute mit Ed25519 erstellt; ML-DSA-87 (Modular-Lattice Digital Signatures, NIST FIPS 204) ist für die Authentifizierung auf der Roadmap. Diese Gitter-basierten Verfahren stellen die stärksten verfügbaren Post-Quanten-Sicherheitsstufen dar."
       },
       "section4": {
         "title": "Jetzt ernten, später entschlüsseln",
         "body": "Gegner könnten heute verschlüsselten Datenverkehr aufzeichnen und planen, ihn zu entschlüsseln, sobald Quantencomputer reif sind. Diese \"Jetzt ernten, später entschlüsseln\"-Strategie ist der Grund, warum die Migration zu PQC dringend ist, obwohl großflächige Quantencomputer noch nicht existieren. Die PQC-Schicht von USBVault schützt Ihre Daten vor dieser zukünftigen Bedrohung."
       },
-      "takeaway": "Quantencomputer werden die Public-Key-Kryptographie von heute knacken. USBVault verwendet NIST-standardisierte Gitter-basierte Algorithmen (ML-KEM, ML-DSA), um Ihre Daten vor gegenwärtigen und zukünftigen Bedrohungen zu schützen."
+      "takeaway": "Quantencomputer werden die Public-Key-Kryptographie von heute knacken. USBVault verwendet den NIST-standardisierten Gitter-basierten Algorithmus ML-KEM, um Ihre Daten vor gegenwärtigen und zukünftigen Bedrohungen zu schützen; ML-DSA-Signaturen sind auf der Roadmap."
     },
     "lesson3": {
       "section1": {
@@ -1988,7 +1988,7 @@
     "hardwareSecureEnclave": "Hardware (Secure Enclave / TEE)",
     "hybrid": "Hybrid (Software + Hardware)",
     "pqcLabel": "Post-Quanten-Kryptographie",
-    "pqcMeta": "ML-KEM-1024 + ML-DSA-87",
+    "pqcMeta": "ML-KEM-1024",
     "active": "Aktiv",
     "backupMaintenance": "Sicherung & Wartung",
     "autoBackup": "Automatische Sicherung",
@@ -2079,7 +2079,7 @@
     "integritySpec": "HMAC-SHA256 pro Datensatz + 16-Byte-AEAD-Tag pro Chunk",
     "keyWrapSpec": "HKDF-SHA256 Unterschlüssel pro Datei von 64-Byte MEK",
     "pqcSpec": "ML-KEM-1024 Hybrid-Schlüsselkapsulation (FIPS 203)",
-    "signingSpec": "Ed25519-Identität + ML-DSA-87-Kopfzeilensignatur",
+    "signingSpec": "Ed25519-Identität + Ed25519-Kopfzeilensignatur",
     "platformName": "Quantum Shield (V3.0)",
     "active": "Aktiv"
   },
@@ -2367,7 +2367,7 @@
     "cipherAes": "AES-256-GCM-SIV",
     "cipherXchacha": "XChaCha20-Poly1305",
     "cipherPqc": "PQC-Hybrid (ML-KEM-1024 + AES-256)",
-    "mlDsa": "ML-DSA-87 (FIPS 204)",
+    "mlDsa": "ML-DSA-87 (FIPS 204) — geplant",
     "kdfValue": "Argon2id (64 MB, 3 Iterationen, 4 Spuren)",
     "integrityValue": "HMAC-SHA256 + AEAD-Tag"
   },
@@ -2754,7 +2754,7 @@
     "compactVaultStorage": "Tresorspeicher komprimieren",
     "compactionComplete": "Komprimierung abgeschlossen",
     "compactionCompleteMessage": "Der Tresorspeicher wurde optimiert.",
-    "pqcAlgorithms": "ML-KEM-1024 + ML-DSA-87"
+    "pqcAlgorithms": "ML-KEM-1024"
   },
   "paywall": {
     "chooseYourPlan": "Wählen Sie Ihren Plan",

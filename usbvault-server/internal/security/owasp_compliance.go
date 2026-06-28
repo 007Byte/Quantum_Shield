@@ -50,7 +50,7 @@ func OWASPTop10Web() []OWASPControl {
 			},
 			CWEs: []string{"CWE-327", "CWE-328", "CWE-338"},
 			Evidence: []string{
-				"qav-crypto/src (XChaCha20-Poly1305 implementation)",
+				"usbvault-crypto/src (XChaCha20-Poly1305 implementation)",
 				"internal/storage/e2e_test.go (Argon2id, XChaCha20-Poly1305)",
 				"internal/auth/register.go (X25519 key handling)",
 				"internal/auth/jwt.go (Ed25519 JWT signing)",

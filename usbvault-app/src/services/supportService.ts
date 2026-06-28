@@ -106,7 +106,7 @@ const EMBEDDED_FAQ: FAQItem[] = [
     id: 'faq-5',
     question: 'What is post-quantum cryptography (PQC)?',
     answer:
-      'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. USBVault uses ML-KEM-1024 (FIPS 203) for key encapsulation and ML-DSA-87 (FIPS 204) for digital signatures, both standardized by NIST in 2024. These protect your data today against "harvest now, decrypt later" quantum threats.',
+      'PQC refers to cryptographic algorithms designed to resist attacks from quantum computers. USBVault uses ML-KEM-1024 (FIPS 203) for post-quantum key encapsulation, standardized by NIST in 2024, to protect your data today against "harvest now, decrypt later" quantum threats. Digital signatures currently use Ed25519; post-quantum ML-DSA-87 (FIPS 204) signatures are on the roadmap and not yet active.',
     category: 'Security',
     tags: ['pqc', 'quantum', 'ml-kem', 'ml-dsa'],
   },

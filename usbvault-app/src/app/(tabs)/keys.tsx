@@ -58,14 +58,6 @@ function KeysScreen() {
       status: 'active' as const,
     },
     {
-      id: 'ml-dsa',
-      name: t('keys.mldsaName'),
-      algorithm: 'ML-DSA-87',
-      type: 'post-quantum signing',
-      created: '2024-01-20',
-      status: 'active' as const,
-    },
-    {
       id: 'aes256',
       name: t('keys.aes256Name'),
       algorithm: 'AES-256',
@@ -258,7 +250,7 @@ function KeysScreen() {
                     </View>
                     <View style={styles.historyEvent}>
                       <Text style={styles.historyEventText}>{t('keys.allKeysRotated')}</Text>
-                      <Text style={styles.historyEventDesc}>ML-DSA-87, ML-KEM-1024, X25519</Text>
+                      <Text style={styles.historyEventDesc}>Ed25519, ML-KEM-1024, X25519</Text>
                     </View>
                   </View>
 

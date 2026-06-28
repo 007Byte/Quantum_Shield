@@ -177,7 +177,7 @@ class SyncService {
 
   /**
    * RM-007: Connect to the sync WebSocket endpoint.
-   * @param wsUrl  Full WebSocket URL, e.g. wss://api.usbvault.com/ws/sync
+   * @param wsUrl  Full WebSocket URL, e.g. wss://api.usbvault.io/ws/sync
    * @param token  JWT auth token
    * @param onSyncEvent  Callback for incoming encrypted sync events
    */

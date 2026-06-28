@@ -125,7 +125,8 @@ USBVault employs a **zero-knowledge architecture**:
 - **SRP-6a authentication**: Your password is never transmitted to our servers. Authentication uses a zero-knowledge proof.
 - **Argon2id key derivation**: Your master password is strengthened against brute-force attacks using Argon2id.
 - **XChaCha20-Poly1305 / AES-256-GCM-SIV**: Industry-leading authenticated encryption algorithms protect your data.
-- **Post-Quantum Cryptography**: Optional ML-KEM-1024 and ML-DSA-87 algorithms provide resistance to future quantum computing threats.
+- **Digital signatures**: Vault and identity operations are signed with **Ed25519**.
+- **Post-Quantum Cryptography**: Optional ML-KEM-1024 key encapsulation provides resistance to future quantum computing threats. Post-quantum digital signatures (ML-DSA-87) are on our roadmap and are not yet active.
 - **TLS 1.3**: All network communications are encrypted in transit.
 
 Because of our zero-knowledge design, **we cannot access your vault contents even if compelled by a court order**. We can only provide encrypted blobs that are cryptographically unusable without your master password.

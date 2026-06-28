@@ -44,7 +44,7 @@ This runbook addresses TLS certificate expiration, renewal, and deployment. Cove
 **Detection Tools:**
 ```bash
 # Check certificate expiration date
-openssl s_client -connect api.qav.internal:443 -servername api.qav.internal </dev/null | grep "notAfter"
+openssl s_client -connect api.usbvault.internal:443 -servername api.usbvault.internal </dev/null | grep "notAfter"
 
 # Get all certs expiring soon
 kubectl get certificate -n production -o json | jq '.items[] | {name: .metadata.name, expiresAt: .status.notAfter}'
@@ -56,7 +56,7 @@ kubectl get certificaterequest -n production
 curl -s 'http://prometheus.internal:9090/api/v1/query?query=ssl_cert_not_after' | jq '.data.result[] | {cert: .metric.cert, expires: .value}'
 
 # Check certificate pinning service
-curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: .domain, pin_hash: .public_key_hash, expires: .expires}'
+curl -s https://cert-pinning.usbvault.internal/api/v1/pins | jq '.certs[] | {domain: .domain, pin_hash: .public_key_hash, expires: .expires}'
 ```
 
 ---
@@ -64,7 +64,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
 ## Certificate Types
 
 ### Type 1: Standard TLS Certificates
-- Domain: api.qav.internal, qav.com
+- Domain: api.usbvault.internal, usbvault.io
 - Issued by: Let's Encrypt (free) or commercial CA
 - Renewal: Via cert-manager, typically 90 days (Let's Encrypt)
 
@@ -102,13 +102,13 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
 2. **Verify impact scope**
    ```bash
    # Is API actually down?
-   curl -v https://api.qav.internal/health 2>&1 | grep -i "certificate\|error\|ssl"
+   curl -v https://api.usbvault.internal/health 2>&1 | grep -i "certificate\|error\|ssl"
 
    # Which services are affected?
    kubectl get svc -n production | grep -E "https|tls"
 
    # Check if certificate pinning involved
-   curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | select(.expires < now) | .domain'
+   curl -s https://cert-pinning.usbvault.internal/api/v1/pins | jq '.certs[] | select(.expires < now) | .domain'
    ```
 
 3. **Determine severity**
@@ -148,11 +148,11 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
    ```bash
    # If cert-manager fails, renew manually
    curl -s https://api.certbot.eff.org/v1/certificates \
-     -d 'domain=api.qav.internal' \
-     -d 'email=admin@qav.com'
+     -d 'domain=api.usbvault.internal' \
+     -d 'email=admin@usbvault.io'
 
    # Or use certbot directly
-   certbot renew --cert-name api.qav.internal --force-renewal
+   certbot renew --cert-name api.usbvault.internal --force-renewal
 
    # This requires DNS challenge resolution
    # Ensure DNS TXT records can be created/verified
@@ -162,7 +162,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
    ```bash
    # If ACME challenge fails, request emergency cert
    curl -X POST https://acme-v02.api.letsencrypt.org/acme/new-order \
-     -d '{"identifiers":[{"type":"dns","value":"api.qav.internal"}]}' \
+     -d '{"identifiers":[{"type":"dns","value":"api.usbvault.internal"}]}' \
      -H "Content-Type: application/jose+json"
 
    # Monitor challenge status
@@ -182,7 +182,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
    kubectl patch ingress api-tls -n production -p '{
      "spec":{
        "tls":[{
-         "hosts":["api.qav.internal"],
+         "hosts":["api.usbvault.internal"],
          "secretName":"api-tls-new"
        }]
      }
@@ -196,13 +196,13 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
 8. **Verify certificate deployment**
    ```bash
    # Check cert is now served
-   openssl s_client -connect api.qav.internal:443 -servername api.qav.internal </dev/null | \
+   openssl s_client -connect api.usbvault.internal:443 -servername api.usbvault.internal </dev/null | \
      openssl x509 -noout -dates
 
    # Should show: notBefore and notAfter with new dates
 
    # Test HTTPS connectivity
-   curl -v https://api.qav.internal/health 2>&1 | grep -i "ssl\|certificate"
+   curl -v https://api.usbvault.internal/health 2>&1 | grep -i "ssl\|certificate"
    # Should NOT see certificate error
    ```
 
@@ -217,11 +217,11 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
      base64
 
    # Register pin with pinning service
-   curl -X POST https://cert-pinning.qav.internal/api/v1/pins \
+   curl -X POST https://cert-pinning.usbvault.internal/api/v1/pins \
      -H "Authorization: Bearer $CERT_ADMIN_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
-       "domain": "api.qav.internal",
+       "domain": "api.usbvault.internal",
        "public_key_hash": "sha256/'"$NEW_PIN_HASH"'",
        "certificate_hash": "sha256/'"$CERT_HASH"'",
        "valid_from": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
@@ -230,11 +230,11 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
      }'
 
    # Keep old pin as backup (set primary: false)
-   curl -X POST https://cert-pinning.qav.internal/api/v1/pins \
+   curl -X POST https://cert-pinning.usbvault.internal/api/v1/pins \
      -H "Authorization: Bearer $CERT_ADMIN_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
-       "domain": "api.qav.internal",
+       "domain": "api.usbvault.internal",
        "public_key_hash": "sha256/'"$OLD_PIN_HASH"'",
        "primary": false
      }'
@@ -404,7 +404,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
 
 ```bash
 # Check certificate expiration
-openssl s_client -connect api.qav.internal:443 </dev/null | openssl x509 -noout -dates
+openssl s_client -connect api.usbvault.internal:443 </dev/null | openssl x509 -noout -dates
 
 # Check Kubernetes cert
 kubectl get secret api-tls -n production -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -dates

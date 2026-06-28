@@ -52,7 +52,7 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 
 # Query suspicious auth attempts
-psql -h prod-db.internal -U app_user -d qav_db -c "
+psql -h prod-db.internal -U app_user -d usbvault_db -c "
   SELECT COUNT(*), source_ip, error_type
   FROM auth_logs
   WHERE created_at > NOW() - INTERVAL '1 hour'
@@ -138,11 +138,11 @@ aws cloudtrail lookup-events \
 4. **Identify key type and scope**
    ```bash
    # For JWT keys:
-   curl -X GET https://kms.qav.internal/api/v1/keys/jwt \
+   curl -X GET https://kms.usbvault.internal/api/v1/keys/jwt \
      -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.keys[].id, .keys[].status'
 
    # For API keys:
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      SELECT key_hash, client_name, created_at, last_used_at
      FROM api_keys
      WHERE status = 'active'
@@ -150,7 +150,7 @@ aws cloudtrail lookup-events \
      LIMIT 20;"
 
    # For MEK:
-   aws kms describe-key --key-id alias/qav-mek-prod
+   aws kms describe-key --key-id alias/usbvault-mek-prod
    ```
 
 5. **Determine exposure vector**
@@ -175,7 +175,7 @@ aws cloudtrail lookup-events \
 7. **Initiate emergency key rotation via KMS**
    ```bash
    # Call new PH2-FIX key rotation endpoint
-   curl -X POST https://kms.qav.internal/api/v1/keys/rotate \
+   curl -X POST https://kms.usbvault.internal/api/v1/keys/rotate \
      -H "Authorization: Bearer $ADMIN_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
@@ -189,19 +189,19 @@ aws cloudtrail lookup-events \
 8. **Monitor rotation status**
    ```bash
    # Watch rotation progress
-   watch -n 5 'curl -s https://kms.qav.internal/api/v1/keys/rotation-status \
+   watch -n 5 'curl -s https://kms.usbvault.internal/api/v1/keys/rotation-status \
      -H "Authorization: Bearer $ADMIN_TOKEN" | jq .'
 
    # Expected progression:
    # - "status": "in_progress"
    # - "services_rotated": 3/5
-   # - Updated: qav-api, qav-auth, qav-worker
+   # - Updated: usbvault-api, usbvault-auth, usbvault-worker
    ```
 
 9. **Verify new key deployment**
    ```bash
    # Check if services are using new keys
-   kubectl logs -n production deployment/qav-api \
+   kubectl logs -n production deployment/usbvault-api \
      --all-containers=true | grep -i "key_id\|rotation"
 
    # Query key metadata
@@ -214,18 +214,18 @@ aws cloudtrail lookup-events \
     kubectl get secrets -n production jwt-keys -o yaml
 
     # Force pod restarts to pick up new key
-    kubectl rollout restart deployment/qav-api -n production
-    kubectl rollout restart deployment/qav-auth -n production
-    kubectl rollout restart deployment/qav-worker -n production
+    kubectl rollout restart deployment/usbvault-api -n production
+    kubectl rollout restart deployment/usbvault-auth -n production
+    kubectl rollout restart deployment/usbvault-worker -n production
 
     # Wait for rollout to complete
-    kubectl rollout status deployment/qav-api -n production
+    kubectl rollout status deployment/usbvault-api -n production
     ```
 
 11. **Invalidate old credentials globally**
     ```bash
     # Revoke all tokens signed with old key
-    curl -X POST https://auth.qav.internal/api/v1/tokens/revoke-all \
+    curl -X POST https://auth.usbvault.internal/api/v1/tokens/revoke-all \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -d '{"reason": "emergency_key_rotation", "affected_key": "jwt-primary-old"}'
 
@@ -241,7 +241,7 @@ aws cloudtrail lookup-events \
 12. **Query access logs for unauthorized activity**
     ```bash
     # Find all uses of compromised key in last 7 days
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       SELECT
         timestamp,
         source_ip,
@@ -262,21 +262,21 @@ aws cloudtrail lookup-events \
 13. **Extract forensic data for investigation**
     ```bash
     # Export relevant logs
-    aws s3 sync s3://qav-cloudtrail-logs/2026/03/09/ /tmp/forensics/cloudtrail/
+    aws s3 sync s3://usbvault-cloudtrail-logs/2026/03/09/ /tmp/forensics/cloudtrail/
 
     # Get database audit logs
     pg_dump -h prod-db.internal -U postgres --table audit_logs \
-      -d qav_db > /tmp/forensics/audit_logs.sql
+      -d usbvault_db > /tmp/forensics/audit_logs.sql
 
     # Package forensics for security team
     tar -czf /tmp/forensics-$(date +%Y%m%d-%H%M%S).tar.gz /tmp/forensics/
-    aws s3 cp /tmp/forensics-*.tar.gz s3://qav-security-forensics/
+    aws s3 cp /tmp/forensics-*.tar.gz s3://usbvault-security-forensics/
     ```
 
 14. **Identify impacted user accounts**
     ```bash
     # Find which customers had data accessed
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       SELECT DISTINCT customer_id, COUNT(*) as access_count
       FROM audit_logs
       WHERE api_key_hash = '$COMPROMISED_KEY_HASH'
@@ -348,8 +348,8 @@ aws cloudtrail lookup-events \
 
 - [ ] New key generated and deployed to all services
 - [ ] Old keys removed from active use (confirmed in KMS)
-- [ ] All prior tokens invalidated: `curl -s https://auth.qav.internal/api/v1/token-status | jq .revoked_count`
-- [ ] Authentication works with new keys: `curl -X POST https://api.qav.internal/v1/auth -d '{"client_id":"test"}'`
+- [ ] All prior tokens invalidated: `curl -s https://auth.usbvault.internal/api/v1/token-status | jq .revoked_count`
+- [ ] Authentication works with new keys: `curl -X POST https://api.usbvault.internal/v1/auth -d '{"client_id":"test"}'`
 - [ ] No unauthorized access attempts in last 10 mins: `grep UNAUTHORIZED /var/log/app.log | wc -l`
 - [ ] Customer notifications sent to all affected parties
 - [ ] Forensic logs secured and archived

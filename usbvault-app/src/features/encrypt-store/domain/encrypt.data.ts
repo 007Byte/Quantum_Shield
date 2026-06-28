@@ -41,8 +41,8 @@ export function getAlgorithmOptions(t: (key: string) => string): AlgorithmOption
       details: [
         { label: 'KEM', value: 'ML-KEM-1024 (FIPS 203) key encapsulation' },
         { label: 'Hybrid', value: 'Classical + PQC keys via HKDF-SHA384' },
-        { label: 'Auth', value: 'AEAD tag per chunk + ML-DSA-87 signature' },
-        { label: 'Integrity', value: 'HMAC-SHA256 record + PQC header sig' },
+        { label: 'Auth', value: 'AEAD tag per chunk + Ed25519 signature' },
+        { label: 'Integrity', value: 'HMAC-SHA256 record + Ed25519 header sig' },
       ],
     },
   ];
@@ -82,7 +82,7 @@ export function getSecurityLevels(t: (key: string) => string): SecurityLevel[] {
       details: [
         { label: 'KDF', value: 'Argon2id + ML-KEM-1024 hybrid via HKDF-SHA384' },
         { label: 'Encrypt', value: 'AEAD per-chunk + PQC key encapsulation layer' },
-        { label: 'HMAC', value: 'HMAC-SHA256 + ML-DSA-87 header signature' },
+        { label: 'HMAC', value: 'HMAC-SHA256 + Ed25519 header signature' },
         { label: 'Keys', value: 'Classical + PQC keys — secure if either holds' },
       ],
     },

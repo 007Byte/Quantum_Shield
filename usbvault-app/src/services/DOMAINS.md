@@ -11,7 +11,7 @@ The service layer has been reorganized into domain-bounded modules to improve ma
 Cryptographic operations: PQC, key hierarchy, verification, steganography.
 
 **Files:**
-- `pqc.ts` — Post-quantum cryptography (ML-KEM-1024, ML-DSA-87, hybrid X25519)
+- `pqc.ts` — Post-quantum cryptography (ML-KEM-1024, hybrid X25519; post-quantum signatures such as ML-DSA-87 are roadmap-only and not yet active)
   - Exports: `pqcStatusService`, `generateHybridKeypair()`, `hybridSeal()`, `hybridOpen()`
 - `keyHierarchy.ts` — Key hierarchy (KEK, MEK, per-file keys)
   - Exports: `createKeyHierarchy()`, `unlockKeyHierarchy()`, `rotatePassword()`

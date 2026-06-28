@@ -4,7 +4,7 @@
 
 A cross-platform React Native mobile and desktop application for Quantum_Shield, featuring:
 
-- **Post-Quantum Cryptography**: ML-KEM, ML-DSA, SLH-DSA via Rust FFI
+- **Post-Quantum Cryptography**: ML-KEM-1024 key encapsulation via Rust FFI (post-quantum signatures such as ML-DSA are on the roadmap)
 - **Zero-Knowledge Security**: Password-based encryption without server-side access
 - **SRP Authentication**: Secure Remote Password protocol for authentication
 - **Responsive Design**: Cosmic purple/magenta theme adapted for all screen sizes
@@ -105,7 +105,7 @@ _layout (Root)
 - **Symmetric**: `encrypt/decrypt` with AES-256-GCM
 - **Key Exchange**: X25519 + ChaCha20-Poly1305
 - **Signing**: Ed25519 signatures
-- **Post-Quantum**: ML-KEM, ML-DSA support ready
+- **Post-Quantum**: ML-KEM-1024 key encapsulation ready (post-quantum signatures such as ML-DSA are on the roadmap)
 
 ### 3. Design System
 - **Colors**: Dark backgrounds (#0F0B1E), purple accents (#7C3AED), magenta (#EC4899)
@@ -325,7 +325,7 @@ npm start
 
 For issues or questions:
 1. Check documentation in security whitepaper
-2. Contact: support@usbvault.com
+2. Contact: support@usbvault.io
 3. GitHub issues (if open source)
 
 ## License

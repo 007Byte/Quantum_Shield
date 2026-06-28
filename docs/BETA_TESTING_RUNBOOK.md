@@ -548,7 +548,7 @@ For each flow, execute the steps manually on at least one iOS and one Android de
 
 ### 4.1 Argon2id Key Derivation Time Targets
 
-Argon2id parameters (native/Rust): m=65536 (64 MB), t=3, p=1
+Argon2id parameters (native/Rust): m=65536 (64 MiB), t=3, p=4
 
 | Device Class | Example Device | Target Time | Max Acceptable |
 |-------------|----------------|-------------|----------------|

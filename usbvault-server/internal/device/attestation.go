@@ -59,12 +59,12 @@ type DeviceAttestationRecord struct {
 // AttestationConfig holds configuration for attestation verification
 type AttestationConfig struct {
 	// iOS App Attest
-	AppleAppID         string // e.g., "TEAMID.com.qav.enterprise"
+	AppleAppID         string // e.g., "TEAMID.com.usbvault.enterprise"
 	AppleRootCertPEM   string // Apple App Attest Root CA
 	AppleEnvironment   string // "production" or "development"
 
 	// Android Play Integrity
-	GooglePackageName  string // e.g., "com.qav.enterprise"
+	GooglePackageName  string // e.g., "com.usbvault.enterprise"
 	GoogleProjectID    string
 	PlayIntegrityAPIKey string
 

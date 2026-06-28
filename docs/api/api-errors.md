@@ -320,6 +320,4 @@ All error responses follow this format:
 ## Related Documents
 
 - [OpenAPI Specification](./openapi.yaml)
-- [Security Guidelines](../SECURITY.md)
-- [Authentication Documentation](../docs/authentication.md)
-- [RBAC Documentation](../docs/rbac.md)
+- [Security Guidelines](../../SECURITY.md)

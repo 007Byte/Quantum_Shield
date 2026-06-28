@@ -655,7 +655,7 @@ Redis Sentinel support via `REDIS_SENTINEL_ADDRS` environment variable:
 | zeroize | 1 | Secure memory zeroing |
 | rand / rand_core | 0.8 / 0.6 | CSPRNG (OsRng) |
 | subtle | 2 | Constant-time comparisons |
-| srp | 0.7.0-rc.1 | SRP-6a protocol |
+| num-bigint | 0.4 | Big-integer arithmetic for hand-rolled SRP-6a |
 | serde / serde_json | 1 | Serialization |
 | cbindgen | 0.26 | C header generation (build) |
 | proptest | 1 | Property-based testing (dev) |

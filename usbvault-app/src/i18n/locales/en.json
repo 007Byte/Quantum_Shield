@@ -296,8 +296,8 @@
       "pqc": {
         "encap": "ML-KEM-1024 (FIPS 203) key encapsulation",
         "hybrid": "Classical + PQC keys via HKDF-SHA384",
-        "auth": "AEAD tag per chunk + ML-DSA-87 signature",
-        "integrity": "HMAC-SHA256 record + PQC header sig"
+        "auth": "AEAD tag per chunk + Ed25519 signature",
+        "integrity": "HMAC-SHA256 record + Ed25519 header sig"
       }
     },
     "level": {
@@ -316,7 +316,7 @@
       "maximum": {
         "kdf": "Argon2id + ML-KEM-1024 hybrid via HKDF-SHA384",
         "auth": "AEAD per-chunk + PQC key encapsulation layer",
-        "integrity": "HMAC-SHA256 + ML-DSA-87 header signature",
+        "integrity": "HMAC-SHA256 + Ed25519 header signature",
         "keyDeriv": "Classical + PQC keys — secure if either holds"
       }
     }
@@ -482,7 +482,7 @@
     "ed25519Name": "Ed25519 Identity Key",
     "x25519Name": "X25519 Exchange Key",
     "mlkemName": "ML-KEM-1024 PQC Key",
-    "mldsaName": "ML-DSA-87 PQC Key",
+    "mldsaName": "ML-DSA-87 PQC Key (Roadmap)",
     "aes256Name": "AES-256 Master Encryption Key"
   },
   "devices": {
@@ -1013,8 +1013,8 @@
     "layerGhostActive": "Active: cleanup on lock/logout",
     "layerGhostOff": "Ghost Mode not enabled",
     "layerPqcName": "PQC Shield",
-    "layerPqcDesc": "ML-KEM-1024 + ML-DSA-87 post-quantum layer",
-    "layerPqcDetails": "ML-KEM-1024 encapsulation + ML-DSA-87 signatures active",
+    "layerPqcDesc": "ML-KEM-1024 post-quantum layer",
+    "layerPqcDetails": "ML-KEM-1024 encapsulation active (ML-DSA-87 signatures on roadmap)",
     "layerPqcOff": "PQC not enabled",
     "cryptoCiName": "Confidentiality & Integrity",
     "cryptoCiDesc": "256-bit AEAD cipher with nonce-misuse resistance ensures data stays private and unmodified",
@@ -1027,7 +1027,7 @@
     "cryptoFsAlgo": "X25519 ephemeral + HKDF-SHA256 per-session",
     "cryptoNrName": "Non-Repudiation",
     "cryptoNrDesc": "Cryptographic signatures prove authenticity and prevent denial of vault operations",
-    "cryptoNrAlgo": "Ed25519 / ML-DSA-87 digital signatures",
+    "cryptoNrAlgo": "Ed25519 digital signatures",
     "maxProtection": "Maximum Protection",
     "strongProtection": "Strong Protection",
     "goodProtection": "Good Protection",
@@ -1098,7 +1098,7 @@
       "pqc": {
         "name": "Post-Quantum Cryptography",
         "desc": "ML-KEM-1024 hybrid key encapsulation for quantum resistance.",
-        "activeDetails": "ML-KEM-1024 (FIPS 203) + ML-DSA-87 (FIPS 204)",
+        "activeDetails": "ML-KEM-1024 (FIPS 203)",
         "notEnabled": "PQC not enabled"
       }
     },
@@ -1120,8 +1120,8 @@
       },
       "nr": {
         "name": "Non-Repudiation",
-        "desc": "Every vault operation is digitally signed with your Ed25519 identity key, creating a cryptographic proof of authorship. The post-quantum ML-DSA-87 co-signature future-proofs these proofs against quantum attacks on the audit trail.",
-        "algo": "Ed25519 identity signatures · ML-DSA-87 (FIPS 204) co-signatures · HMAC-SHA256 audit chain"
+        "desc": "Every vault operation is digitally signed with your Ed25519 identity key, creating a cryptographic proof of authorship. A post-quantum ML-DSA-87 co-signature is on the roadmap to future-proof these proofs against quantum attacks on the audit trail.",
+        "algo": "Ed25519 identity signatures · HMAC-SHA256 audit chain (ML-DSA-87 co-signatures planned)"
       }
     }
   },
@@ -1202,13 +1202,13 @@
       },
       "section3": {
         "title": "ML-KEM and ML-DSA",
-        "body": "USBVault implements ML-KEM-1024 (Module-Lattice Key Encapsulation) for key exchange and ML-DSA-87 (Module-Lattice Digital Signatures) for authentication. These are NIST-standardized (FIPS 203/204) and represent the strongest post-quantum security levels available."
+        "body": "USBVault implements ML-KEM-1024 (Module-Lattice Key Encapsulation) for quantum-resistant key exchange, with ML-DSA-87 (Module-Lattice Digital Signatures) for authentication on the roadmap. These are NIST-standardized (FIPS 203/204) and represent the strongest post-quantum security levels available. Authentication today uses Ed25519 signatures."
       },
       "section4": {
         "title": "Harvest Now, Decrypt Later",
         "body": "Adversaries may be recording encrypted traffic today, planning to decrypt it once quantum computers mature. This \"harvest now, decrypt later\" strategy is why migrating to PQC is urgent even though large-scale quantum computers don't exist yet. USBVault's PQC layer protects your data against this future threat."
       },
-      "takeaway": "Quantum computers will break today's public-key crypto. USBVault uses NIST-standardized lattice-based algorithms (ML-KEM, ML-DSA) to protect your data against both current and future threats."
+      "takeaway": "Quantum computers will break today's public-key crypto. USBVault uses the NIST-standardized lattice-based ML-KEM algorithm (with ML-DSA signatures on the roadmap) to protect your data against both current and future threats."
     },
     "lesson3": {
       "section1": {
@@ -1989,7 +1989,7 @@
     "hardwareSecureEnclave": "Hardware (Secure Enclave / TEE)",
     "hybrid": "Hybrid (Software + Hardware)",
     "pqcLabel": "Post-Quantum Cryptography",
-    "pqcMeta": "ML-KEM-1024 + ML-DSA-87",
+    "pqcMeta": "ML-KEM-1024",
     "active": "Active",
     "backupMaintenance": "Backup & Maintenance",
     "autoBackup": "Auto Backup",
@@ -2080,7 +2080,7 @@
     "integritySpec": "HMAC-SHA256 per record + 16-byte AEAD tag per chunk",
     "keyWrapSpec": "HKDF-SHA256 per-file subkeys from 64-byte MEK",
     "pqcSpec": "ML-KEM-1024 hybrid key encapsulation (FIPS 203)",
-    "signingSpec": "Ed25519 identity + ML-DSA-87 header signature",
+    "signingSpec": "Ed25519 identity + header signature",
     "platformName": "Quantum Shield (V3.0)"
   },
   "exportFile": {
@@ -2349,7 +2349,7 @@
     "displayName": "DISPLAY NAME",
     "keyFingerprint": "KEY FINGERPRINT",
     "pqcSigning": "PQC SIGNING",
-    "mlDsa": "ML-DSA-87 (FIPS 204)",
+    "mlDsa": "ML-DSA-87 (FIPS 204) — on roadmap",
     "vaultReady": "Vault Ready",
     "vaultReadyDescription": "Your secure vault is configured and ready. Here is a summary of your setup:",
     "summCipher": "Cipher",
@@ -2764,7 +2764,7 @@
     "compactVaultStorage": "Compact Vault Storage",
     "compactionComplete": "Compaction Complete",
     "compactionCompleteMessage": "Vault storage has been optimized.",
-    "pqcAlgorithms": "ML-KEM-1024 + ML-DSA-87"
+    "pqcAlgorithms": "ML-KEM-1024"
   },
   "paywall": {
     "chooseYourPlan": "Choose Your Plan",

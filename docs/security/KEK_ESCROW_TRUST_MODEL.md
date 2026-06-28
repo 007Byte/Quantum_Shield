@@ -287,7 +287,7 @@ admins should pair this with the recovery phrase mechanism
 | `OIDC_KEK_ENCRYPTION_KEY` | Master key for wrapping OIDC users' escrowed KEKs. 32 bytes, base64-encoded. | `openssl rand -base64 32` | Secrets manager (AWS Secrets Manager, Vault, Azure Key Vault). **Never** in `.env` files, Dockerfiles, or source control. |
 | `OIDC_SECRET_ENCRYPTION_KEY` | Encrypts OIDC client secrets stored in `oidc_providers.client_secret_encrypted`. Separate from KEK escrow. | `openssl rand -base64 32` | Same as above. |
 | `OIDC_ENABLED` | Feature flag. Set to `"true"` to enable OIDC. | N/A | Environment config. |
-| `OIDC_CALLBACK_BASE_URL` | OAuth callback URL. Default: `https://app.usbvault.com/auth/oidc/callback` | N/A | Environment config. |
+| `OIDC_CALLBACK_BASE_URL` | OAuth callback URL. Default: `https://app.usbvault.io/auth/oidc/callback` | N/A | Environment config. |
 
 ### Key Rotation Procedure for `OIDC_KEK_ENCRYPTION_KEY`
 
