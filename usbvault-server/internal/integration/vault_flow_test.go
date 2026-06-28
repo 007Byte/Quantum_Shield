@@ -162,13 +162,26 @@ func TestZeroKnowledgeRoundTrip(t *testing.T) {
 		t.Fatalf("failed to confirm upload: %v", err)
 	}
 
-	// Invariant 2: the server still only ever held ciphertext — re-decrypt the
-	// bytes we uploaded and confirm they round-trip to the original plaintext
-	// (decrypt(encrypt(x)) == x), proving the stored bytes were genuine
-	// ciphertext, not plaintext.
-	roundTripped := decryptClientSide(t, key, ciphertext)
+	// Invariant 2: close the LITERAL round-trip. Download the bytes the SERVER
+	// actually stored (presigned GET from object storage) and prove (a) they are
+	// byte-identical to the ciphertext we uploaded — the server persisted ONLY
+	// ciphertext and never the plaintext — and (b) decrypting the FETCHED bytes
+	// (not our local copy) yields the original plaintext. This makes the test a
+	// genuine end-to-end zero-knowledge round-trip rather than a self-check.
+	stored, err := client.DownloadCiphertext(user, vault.ID, zkBlobID)
+	if err != nil {
+		t.Fatalf("failed to download stored ciphertext: %v", err)
+	}
+	if bytes.Contains(stored, plaintext) {
+		t.Fatal("server-stored bytes contain the plaintext — storage is not zero-knowledge")
+	}
+	if !bytes.Equal(stored, ciphertext) {
+		t.Fatalf("server-stored bytes differ from the uploaded ciphertext (%d vs %d bytes) — storage altered the blob",
+			len(stored), len(ciphertext))
+	}
+	roundTripped := decryptClientSide(t, key, stored)
 	if !bytes.Equal(roundTripped, plaintext) {
-		t.Fatalf("decrypt(encrypt(x)) != x: got %q want %q", roundTripped, plaintext)
+		t.Fatalf("decrypt(server-stored ciphertext) != plaintext: got %q want %q", roundTripped, plaintext)
 	}
 
 	// Cleanup.
