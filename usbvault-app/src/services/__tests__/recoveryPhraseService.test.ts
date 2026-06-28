@@ -172,6 +172,54 @@ describe('RecoveryPhraseService', () => {
 
       expect(encrypted1).not.toBe(encrypted2); // Different IVs
     });
+
+    // LOW-7: the mnemonic-derived seed must be wiped after use. Spy on
+    // mnemonicToSeed to capture the exact ArrayBuffer the function used, then assert
+    // it is all-zero once the call returns (the finally block wiped it).
+    it('zeroizes the mnemonic-derived seed after encryptMasterKey (LOW-7)', async () => {
+      const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
+
+      const orig = recoveryPhraseService.mnemonicToSeed.bind(recoveryPhraseService);
+      let captured: ArrayBuffer | undefined;
+      const spy = jest
+        .spyOn(recoveryPhraseService, 'mnemonicToSeed')
+        .mockImplementation(async (m: string[], p?: string) => {
+          const seed = await orig(m, p);
+          captured = seed;
+          return seed;
+        });
+
+      await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
+      spy.mockRestore();
+
+      expect(captured).toBeDefined();
+      expect(new Uint8Array(captured as ArrayBuffer).every(b => b === 0)).toBe(true);
+    });
+
+    it('zeroizes the seed after decryptMasterKey but preserves the returned master key (LOW-7)', async () => {
+      const masterKey = new TextEncoder().encode('my-secret-master-key').buffer;
+      const mnemonic = await recoveryPhraseService.generateMnemonic();
+      const blob = await recoveryPhraseService.encryptMasterKey(masterKey, mnemonic);
+
+      const orig = recoveryPhraseService.mnemonicToSeed.bind(recoveryPhraseService);
+      let captured: ArrayBuffer | undefined;
+      const spy = jest
+        .spyOn(recoveryPhraseService, 'mnemonicToSeed')
+        .mockImplementation(async (m: string[], p?: string) => {
+          const seed = await orig(m, p);
+          captured = seed;
+          return seed;
+        });
+
+      const recovered = await recoveryPhraseService.decryptMasterKey(blob, mnemonic);
+      spy.mockRestore();
+
+      // Seed wiped...
+      expect(new Uint8Array(captured as ArrayBuffer).every(b => b === 0)).toBe(true);
+      // ...but the returned master key is intact (round-trips).
+      expect(new Uint8Array(recovered)).toEqual(new Uint8Array(masterKey));
+    });
   });
 
   describe('decryptMasterKey', () => {
