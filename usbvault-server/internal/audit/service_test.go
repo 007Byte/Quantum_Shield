@@ -60,6 +60,11 @@ func TestLogAction(t *testing.T) {
 			actionType:    "LOGIN",
 			encryptedData: []byte("encrypted_login_data"),
 			setupDB: func(mock pgxmock.PgxPoolIface) {
+				// LogAction now runs in a tx with a per-user advisory lock (atomic chain).
+				mock.ExpectBegin()
+				mock.ExpectExec("pg_advisory_xact_lock").
+					WithArgs("user-123").
+					WillReturnResult(pgxmock.NewResult("SELECT", 1))
 				// No previous entries
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
 					WithArgs("user-123").
@@ -69,6 +74,7 @@ func TestLogAction(t *testing.T) {
 				mock.ExpectExec("INSERT INTO audit_log").
 					WithArgs("user-123", "LOGIN", []byte("encrypted_login_data"), mockTimeArg{}, mockByteArrayArg{}, mockByteArrayArg{}).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+				mock.ExpectCommit()
 			},
 			expectError: false,
 		},
@@ -78,6 +84,10 @@ func TestLogAction(t *testing.T) {
 			actionType:    "FILE_ACCESSED",
 			encryptedData: []byte("file_access_data"),
 			setupDB: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectExec("pg_advisory_xact_lock").
+					WithArgs("user-456").
+					WillReturnResult(pgxmock.NewResult("SELECT", 1))
 				// Previous entry exists
 				prevHash := make([]byte, 32)
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
@@ -88,6 +98,7 @@ func TestLogAction(t *testing.T) {
 				mock.ExpectExec("INSERT INTO audit_log").
 					WithArgs("user-456", "FILE_ACCESSED", []byte("file_access_data"), mockTimeArg{}, mockByteArrayArg{}, mockByteArrayArg{}).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+				mock.ExpectCommit()
 			},
 			expectError: false,
 		},
@@ -97,15 +108,20 @@ func TestLogAction(t *testing.T) {
 			actionType:    "PERMISSION_DENIED",
 			encryptedData: []byte("denial_data"),
 			setupDB: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectExec("pg_advisory_xact_lock").
+					WithArgs("user-789").
+					WillReturnResult(pgxmock.NewResult("SELECT", 1))
 				// No previous entries
 				mock.ExpectQuery("SELECT hash FROM audit_log WHERE user_id").
 					WithArgs("user-789").
 					WillReturnError(pgx.ErrNoRows)
 
-				// Insert fails
+				// Insert fails -> tx rolls back (deferred)
 				mock.ExpectExec("INSERT INTO audit_log").
 					WithArgs("user-789", "PERMISSION_DENIED", []byte("denial_data"), mockTimeArg{}, mockByteArrayArg{}, mockByteArrayArg{}).
 					WillReturnError(context.DeadlineExceeded)
+				mock.ExpectRollback()
 			},
 			expectError: true,
 		},

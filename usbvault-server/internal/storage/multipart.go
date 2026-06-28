@@ -13,6 +13,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,6 +165,15 @@ var ErrFileSizeExceedsTier = fmt.Errorf("file size exceeds subscription tier lim
 // violation. Keeping this early check avoids creating S3 multipart state for an
 // obviously-oversized declared upload.
 func (ms *MultipartService) InitiateUpload(ctx context.Context, userID, vaultID, fileID string, totalSize int64) (*MultipartUpload, error) {
+	// SECURITY: vaultID and fileID are interpolated into the S3 object key below.
+	// Reject empty values and path separators / traversal so a caller cannot escape
+	// the "vaults/<vaultID>/files/<fileID>" namespace and target arbitrary object keys.
+	for _, id := range []string{vaultID, fileID} {
+		if id == "" || strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
+			return nil, fmt.Errorf("invalid id: must not be empty or contain path separators")
+		}
+	}
+
 	// F3: early gate on the declared size against the user's tier before any S3 work.
 	maxFileSize, tier := ms.resolveMaxFileSize(ctx, userID)
 	if totalSize > maxFileSize {

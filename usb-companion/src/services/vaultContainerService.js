@@ -48,6 +48,36 @@ const MAX_IO_SIZE = 64 * 1024 * 1024;
  */
 const VAULT_SIZE_LIMIT_PERCENT = 0.50;
 
+// ---------------------------------------------------------------------------
+// Per-mountPoint write serialization
+//
+// VAULT.bin mutations (header write, append, compact) are read-modify-write on a
+// single shared file. Two concurrent mutators corrupt the container — e.g. two
+// appends both read the same end offset and overwrite each other, or an append
+// races a compact's read-all/rewrite/rename. The companion serves concurrent HTTP
+// requests, so serialize ALL mutators per resolved mount path: each runs only after
+// the previous one for that mount has settled.
+// ---------------------------------------------------------------------------
+const _vaultWriteChains = new Map();
+function withVaultWriteLock(mountPoint, fn) {
+  const key = resolve(mountPoint);
+  const prev = _vaultWriteChains.get(key) || Promise.resolve();
+  const result = prev.then(fn, fn); // run after prev settles, regardless of outcome
+  // Keep a non-rejecting tail so a failed mutation does not break the chain.
+  _vaultWriteChains.set(key, result.then(() => {}, () => {}));
+  return result;
+}
+
+export function writeVaultHeader(mountPoint, headerBytes) {
+  return withVaultWriteLock(mountPoint, () => _writeVaultHeaderImpl(mountPoint, headerBytes));
+}
+export function appendBytes(mountPoint, data) {
+  return withVaultWriteLock(mountPoint, () => _appendBytesImpl(mountPoint, data));
+}
+export function compactVault(mountPoint, activeFiles) {
+  return withVaultWriteLock(mountPoint, () => _compactVaultImpl(mountPoint, activeFiles));
+}
+
 /**
  * Validate that a mount point is under a known USB mount directory.
  * Prevents arbitrary filesystem access via path traversal.
@@ -157,7 +187,7 @@ export async function readVaultHeader(mountPoint) {
  * @param {string} mountPoint - USB drive mount path
  * @param {Buffer} headerBytes - Exactly 24576 bytes
  */
-export async function writeVaultHeader(mountPoint, headerBytes) {
+async function _writeVaultHeaderImpl(mountPoint, headerBytes) {
   if (!Buffer.isBuffer(headerBytes) || headerBytes.length !== HEADER_SIZE) {
     throw new Error(`Header must be exactly ${HEADER_SIZE} bytes`);
   }
@@ -234,7 +264,7 @@ export async function readBytes(mountPoint, offset, length) {
  * @param {Buffer} data - Bytes to append
  * @returns {Promise<{offset: number, length: number}>}
  */
-export async function appendBytes(mountPoint, data) {
+async function _appendBytesImpl(mountPoint, data) {
   if (!Buffer.isBuffer(data) || data.length === 0) {
     throw new Error('Data must be a non-empty Buffer');
   }
@@ -296,7 +326,7 @@ export async function getVaultSize(mountPoint) {
  * @param {{ [fileId: string]: { offset: number, length: number } }} activeFiles - Active file records from index
  * @returns {Promise<{ newOffsets: { [fileId: string]: { offset: number, length: number } }, oldSize: number, newSize: number }>}
  */
-export async function compactVault(mountPoint, activeFiles) {
+async function _compactVaultImpl(mountPoint, activeFiles) {
   const path = vaultBinPath(mountPoint);
 
   // Step 1: Read original file size

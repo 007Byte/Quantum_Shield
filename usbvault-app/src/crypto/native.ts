@@ -310,11 +310,13 @@ const webCryptoFallback: USBVaultCryptoModule = {
       false,
       ['encrypt']
     );
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      plaintext.buffer as ArrayBuffer
-    );
+    const encParams: AesGcmParams = { name: 'AES-GCM', iv };
+    if (_aadHex) {
+      // Bind the associated data (e.g. version/header) so it is authenticated —
+      // dropping it silently defeated rollback/version binding on web.
+      encParams.additionalData = fromHex(_aadHex).buffer as ArrayBuffer;
+    }
+    const ciphertext = await crypto.subtle.encrypt(encParams, key, plaintext.buffer as ArrayBuffer);
     // Return iv || ciphertext (tag is appended by AES-GCM)
     const result = new Uint8Array(iv.length + ciphertext.byteLength);
     result.set(iv, 0);
@@ -334,11 +336,11 @@ const webCryptoFallback: USBVaultCryptoModule = {
       false,
       ['decrypt']
     );
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-      key,
-      ciphertext.buffer as ArrayBuffer
-    );
+    const decParams: AesGcmParams = { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer };
+    if (_aadHex) {
+      decParams.additionalData = fromHex(_aadHex).buffer as ArrayBuffer;
+    }
+    const plaintext = await crypto.subtle.decrypt(decParams, key, ciphertext.buffer as ArrayBuffer);
     return toHex(new Uint8Array(plaintext));
   },
 

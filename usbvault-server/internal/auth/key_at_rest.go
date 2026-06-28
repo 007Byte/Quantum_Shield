@@ -69,6 +69,12 @@ func sealSigningKey(privKey []byte) ([]byte, error) {
 		return nil, err
 	}
 	if kek == nil {
+		// Fail closed in production: never persist the token-signing private key as
+		// plaintext when ENVIRONMENT=production. Dev/test (KEK unset) keep the legacy
+		// base64 path with a loud warning so they continue to work.
+		if os.Getenv("ENVIRONMENT") == "production" {
+			return nil, fmt.Errorf("refusing to store JWT signing key unencrypted in production: set %s (base64-encoded 32 bytes)", jwtKEKEnv)
+		}
 		log.Warn().Msgf("JWT signing key stored UNENCRYPTED at rest — set %s (base64 32 bytes) to envelope-encrypt", jwtKEKEnv)
 		return []byte(base64.StdEncoding.EncodeToString(privKey)), nil
 	}
