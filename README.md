@@ -8,7 +8,7 @@
 
 Quantum_Shield is a cross-platform encrypted storage system for sensitive files. All cryptography runs **client-side**: the backend stores only ciphertext and never sees your password, keys, or plaintext. Files are protected with **hybrid post-quantum encryption** (X25519 + ML-KEM-1024), so data stays confidential even against a future quantum adversary.
 
-> **A note on naming:** the product is **Quantum_Shield** (used consistently across the component READMEs and the Rust crate). This GitHub repository is named `Quantum_Shield`, and the mobile app currently ships under the display name *Quantum_Shield.* These are aliases of the same project — see [`NAMING.md`](NAMING.md) and [Status & known gaps](#status--known-gaps).
+> **A note on naming:** the product is **Quantum_Shield**. The `usbvault-*` names throughout the tree — the `usbvault-crypto` / `usbvault-server` / `usbvault-app` directories, the `@usbvault/*` packages, and the `usbvault.io` domains — are the **code namespace**: a deliberately-retained implementation identity, not a second product name. See [`NAMING.md`](NAMING.md).
 
 ---
 
@@ -43,7 +43,7 @@ Supporting directories: `electron-shell/` (desktop wrapper) · `usb-companion/` 
 ## Security model
 
 - **Zero-knowledge by design** — encryption happens only on the client; the server stores ciphertext + wrapped keys and never receives plaintext or passwords. File bytes move directly to/from object storage via short-lived presigned URLs.
-- **Authentication** — SRP-6a (RFC 5054, 2048-bit), so the password is never sent over the wire; optional FIDO2 / WebAuthn hardware keys; signed, device-bound access + refresh tokens; account lockout and rate limiting.
+- **Authentication** — SRP-6a (RFC 5054 protocol) over the RFC 7919 `ffdhe3072` 3072-bit group, so the password is never sent over the wire; optional FIDO2 / WebAuthn hardware keys; signed, device-bound access + refresh tokens; account lockout and rate limiting.
 - **Post-quantum** — hybrid X25519 + ML-KEM-1024 (FIPS 203); data stays protected as long as *either* scheme remains unbroken.
 - **Ciphers & KDF** — AES-256-GCM-SIV and XChaCha20-Poly1305 (streaming AEAD with independent per-chunk nonces); Argon2id (RFC 9106) key derivation.
 - **Key hierarchy** — master password → Argon2id → master key → wrapped master-encryption-key → per-file keys (HKDF).
@@ -140,7 +140,6 @@ make test                       # run all component test suites
 This README is intentionally honest about the project's current state:
 
 - **Active development, pre-1.0.** Every component is at `0.1.0`; treat this as a work in progress, not a released product.
-- **Inconsistent branding.** The product is named *Quantum_Shield* in the component READMEs and the Rust crate, but the repo is `Quantum_Shield` and the app's display name is *Quantum_Shield.* These should be canonicalized to a single name; see [`NAMING.md`](NAMING.md) for the mapping (a full rename is out of scope for now).
 - **No `LICENSE` file.** The code is **proprietary** (`usbvault-crypto/Cargo.toml` declares `license = "Proprietary"`), but no top-level license/copyright notice is committed yet.
 
 ---

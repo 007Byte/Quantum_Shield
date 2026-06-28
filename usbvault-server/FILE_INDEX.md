@@ -90,7 +90,7 @@ usbvault-server/
 - `hashEmail()` - Hash email with SHA256
 - `randomBigInt()` - Generate random big integer for ephemeral values
 
-**Security**: RFC 5054, 2048-bit group, no plaintext password storage
+**Security**: RFC 5054 protocol, RFC 7919 ffdhe3072 3072-bit group, no plaintext password storage
 
 **HTTP Endpoints**:
 - `POST /api/v1/auth/srp/init` - Request authentication

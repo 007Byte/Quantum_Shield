@@ -16,7 +16,7 @@ A production-ready, zero-knowledge SaaS backend server for Quantum_Shield has be
 
 ### Authentication (3)
 - **internal/auth/srp.go** (196 lines)
-  - SRP-6a implementation (RFC 5054, 2048-bit group)
+  - SRP-6a implementation (RFC 5054 protocol, RFC 7919 ffdhe3072 3072-bit group)
   - HandleSRPInit: Generate server ephemeral B, store in Redis
   - HandleSRPVerify: Validate client proof, issue JWT tokens
   - Secure password authentication without plaintext

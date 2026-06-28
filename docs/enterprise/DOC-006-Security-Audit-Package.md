@@ -194,7 +194,7 @@ Password --> Argon2id(64MiB, t=3, p=4) --> KEK(32B)
 | X25519 | Curve25519 ECDH | `sharing.rs` via x25519-dalek |
 | ML-KEM-1024 | NIST FIPS 203 (feature-gated) | `crypto/pqc.rs` |
 | GF(256) Shamir SSS | 3-of-5 threshold, AES polynomial | `shamir.rs` |
-| SRP-6a | 2048-bit group | `srp_client.rs` / `internal/auth/jwt.go` |
+| SRP-6a | RFC 7919 ffdhe3072 (3072-bit group) | `srp_client.rs` / `internal/auth/srp.go` |
 
 ### Nonce Management
 
@@ -475,7 +475,7 @@ Buffer overflow or underflow triggers SIGSEGV. On drop: data zeroed, munlock'd, 
 | WebCrypto key material in JS heap | Medium | Transient; browser handles memory security |
 | sessionStorage clearable by user | Low | Zero-trace cleanup runs before eject |
 | No steganographic delivery (planned) | Low | Hidden partition and file attributes provide concealment |
-| SRP uses 2048-bit group | Low | Standard security level; upgrade path available |
+| SRP uses RFC 7919 ffdhe3072 (3072-bit) group | Low | Exceeds the RFC 5054 2048-bit baseline; meets current guidance |
 | No certificate transparency monitoring | Low | Certificate pinning in mobile apps |
 
 ---
