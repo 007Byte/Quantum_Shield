@@ -15,7 +15,7 @@ A zero-knowledge SaaS backend for Quantum_Shield. The server never sees plaintex
 ### Core Components
 
 #### Authentication (`internal/auth/`)
-- **SRP-6a**: Secure Remote Password authentication (RFC 5054, 2048-bit)
+- **SRP-6a**: Secure Remote Password authentication (RFC 5054 protocol, RFC 7919 ffdhe3072 3072-bit group)
 - **FIDO2/WebAuthn**: Hardware security key support
 - **JWT**: Ed25519-signed tokens for session management
   - Access tokens: 1 hour expiry

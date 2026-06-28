@@ -42,7 +42,7 @@ military-specific functions.
 | X25519 | IETF RFC 7748 | 256-bit | Elliptic-curve Diffie-Hellman key exchange (vault sharing) | N/A |
 | HMAC-SHA256 | NIST FIPS 198-1 | 256-bit | Message authentication and integrity verification | N/A |
 | HKDF-SHA256 | IETF RFC 5869 | 256-bit | Key derivation (sub-key generation from master key) | N/A |
-| SRP-6a | RFC 5054 | 2048-bit group | Zero-knowledge password authentication (password never transmitted) | N/A |
+| SRP-6a | RFC 5054 / RFC 7919 | 3072-bit group (ffdhe3072) | Zero-knowledge password authentication (password never transmitted) | N/A |
 | TLS 1.3 | IETF RFC 8446 | Various | Transport encryption (all client-server communication) | N/A |
 
 ### Implementation Details
@@ -119,7 +119,7 @@ submitted via email to:
 | ECCN | 5D002.c.1 |
 | Authorization | 740.17(b)(1) |
 | Encryption algorithms | AES-256-GCM-SIV, XChaCha20-Poly1305, ML-KEM-1024, Argon2id, Ed25519, X25519, HMAC-SHA256, HKDF-SHA256 |
-| Key lengths | 256-bit (symmetric), 2048-bit (SRP group), 256-bit (ECC) |
+| Key lengths | 256-bit (symmetric), 3072-bit (SRP group), 256-bit (ECC) |
 | Product type | Mobile/desktop application |
 | Product availability | Public app stores, unrestricted download |
 
