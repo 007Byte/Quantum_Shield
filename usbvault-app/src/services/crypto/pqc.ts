@@ -10,7 +10,11 @@
  * - Hybrid seal (encrypt for recipient using both classical + PQ KEM)
  * - Hybrid open (decrypt using both classical + PQ secret keys)
  * - Key serialization for storage and transport
- * - ML-KEM-1024 and ML-DSA-87 enrollment and CNSA 2.0 compliance tracking
+ * - ML-KEM-1024 enrollment and CNSA 2.0 compliance tracking
+ *
+ * NOTE: Digital signatures currently use Ed25519. ML-DSA-87 (FIPS 204) is on
+ * the post-quantum roadmap and is NOT yet implemented; the ML-DSA status
+ * tracking below reflects planned (not active) capability only.
  *
  * Security Model:
  * - Hybrid approach: secure if EITHER X25519 OR ML-KEM-1024 remains unbroken
@@ -219,9 +223,9 @@ function getDefaultStatus(): PQCStatus {
         name: 'ML-DSA-87',
         standard: 'FIPS 204',
         strength: '~256-bit AES-equivalent',
-        status: 'unavailable',
+        status: 'pending',
         description:
-          'Post-quantum digital signature algorithm (Module-Lattice-Based Digital Signature Algorithm)',
+          'Post-quantum digital signature algorithm (Module-Lattice-Based Digital Signature Algorithm) — PLANNED / on the roadmap, NOT yet implemented. Signatures currently use Ed25519.',
       },
       {
         name: 'AES-256-GCM-SIV',
@@ -510,8 +514,11 @@ export function enrollMLKEM(): void {
 }
 
 /**
- * Enroll ML-DSA-87 (digital signature algorithm).
- * Generates a key ID and updates algorithm details.
+ * Pre-enroll ML-DSA-87 (digital signature algorithm) as a PLANNED capability.
+ *
+ * ML-DSA-87 (FIPS 204) is NOT yet implemented — there is no native sign/verify
+ * code path. Active digital signatures use Ed25519. This records intent to adopt
+ * ML-DSA-87 on the roadmap and keeps its status as 'pending' (never 'active').
  */
 export function enrollMLDSA(): void {
   const status = readStatus();
@@ -522,7 +529,8 @@ export function enrollMLDSA(): void {
 
   const mlDsaDetail = status.algorithmDetails.find(a => a.name === 'ML-DSA-87');
   if (mlDsaDetail) {
-    mlDsaDetail.status = 'active';
+    // Roadmap capability only — ML-DSA-87 is not yet signing anything.
+    mlDsaDetail.status = 'pending';
   }
 
   status.cnsaCompliant = status.mlKemEnrolled && status.mlDsaEnrolled;
@@ -531,7 +539,7 @@ export function enrollMLDSA(): void {
   auditService.log(
     'system',
     'pqc',
-    { algorithm: 'ML-DSA-87', action: 'enrolled', keyId },
+    { algorithm: 'ML-DSA-87', action: 'pre_enrolled_roadmap', keyId },
     'success'
   );
 }
@@ -620,14 +628,20 @@ export function activateAllAlgorithms(): void {
   const status = readStatus();
 
   status.algorithmDetails.forEach(detail => {
+    // ML-DSA-87 is intentionally excluded: it is a roadmap (planned) signature
+    // scheme, not yet implemented. Active signatures use Ed25519.
     if (
-      ['ML-KEM-1024', 'ML-DSA-87', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(
-        detail.name
-      )
+      ['ML-KEM-1024', 'AES-256-GCM-SIV', 'SHA-3-256', 'HKDF-SHA256'].includes(detail.name)
     ) {
       detail.status = 'active';
     }
   });
+
+  // Keep ML-DSA-87 marked as planned (pending), never active.
+  const mlDsaDetail = status.algorithmDetails.find(a => a.name === 'ML-DSA-87');
+  if (mlDsaDetail) {
+    mlDsaDetail.status = 'pending';
+  }
 
   status.mlKemEnrolled = true;
   status.mlDsaEnrolled = true;

@@ -6,7 +6,7 @@ A production-ready, cross-platform React Native application for secure file encr
 
 Quantum_Shield is an enterprise-grade file encryption vault built with React Native, offering:
 
-- **Post-Quantum Cryptography (PQC)** - ML-KEM, ML-DSA, SLH-DSA via Rust FFI for future-proof encryption
+- **Post-Quantum Cryptography (PQC)** - ML-KEM-1024 key encapsulation via Rust FFI for future-proof encryption (post-quantum signatures such as ML-DSA are on the roadmap)
 - **Zero-Knowledge Architecture** - Password-based encryption with no server-side access to sensitive data
 - **SRP-6a Authentication** - Secure Remote Password protocol prevents password transmission
 - **Cross-Platform** - Native iOS/Android + macOS, Windows, Linux, and web platforms
@@ -112,7 +112,7 @@ For detailed architecture, see [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md).
 - **Symmetric** - AES-256-GCM for file encryption
 - **Key Exchange** - X25519 elliptic curve
 - **Digital Signatures** - Ed25519 signatures
-- **Post-Quantum Ready** - ML-KEM, ML-DSA support via Rust FFI
+- **Post-Quantum Ready** - ML-KEM-1024 key encapsulation via Rust FFI (post-quantum signatures such as ML-DSA are on the roadmap)
 - **Rust FFI Only** - No JavaScript crypto in production
 
 ### Data Protection

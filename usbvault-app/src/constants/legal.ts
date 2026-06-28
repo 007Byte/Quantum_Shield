@@ -79,7 +79,7 @@ We do not use advertising networks or tracking pixels.
 - SRP-6a authentication: password never transmitted
 - Argon2id key derivation for brute-force resistance
 - XChaCha20-Poly1305 / AES-256-GCM-SIV authenticated encryption
-- Optional post-quantum cryptography (ML-KEM-1024, ML-DSA-87)
+- Optional post-quantum cryptography (ML-KEM-1024)
 - TLS 1.3 for all network communications
 
 We cannot access your vault contents even if compelled by court order.

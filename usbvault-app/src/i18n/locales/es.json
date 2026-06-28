@@ -296,8 +296,8 @@
       "pqc": {
         "encap": "Encapsulación de claves ML-KEM-1024 (FIPS 203)",
         "hybrid": "Claves clásicas + PQC a través de HKDF-SHA384",
-        "auth": "Etiqueta AEAD por fragmento + firma ML-DSA-87",
-        "integrity": "Registro HMAC-SHA256 + firma de encabezado PQC"
+        "auth": "Etiqueta AEAD por fragmento + firma Ed25519",
+        "integrity": "Registro HMAC-SHA256 + firma de encabezado Ed25519"
       }
     },
     "level": {
@@ -316,7 +316,7 @@
       "maximum": {
         "kdf": "Argon2id + ML-KEM-1024 híbrido a través de HKDF-SHA384",
         "auth": "AEAD por fragmento + capa de encapsulación de claves PQC",
-        "integrity": "HMAC-SHA256 + firma de encabezado ML-DSA-87",
+        "integrity": "HMAC-SHA256 + firma de encabezado Ed25519",
         "keyDeriv": "Claves clásicas + PQC — seguro si uno se mantiene"
       }
     }
@@ -482,7 +482,7 @@
     "ed25519Name": "Clave de identidad Ed25519",
     "x25519Name": "Clave de intercambio X25519",
     "mlkemName": "Clave PQC ML-KEM-1024",
-    "mldsaName": "Clave PQC ML-DSA-87",
+    "mldsaName": "Clave PQC ML-DSA-87 (planeada)",
     "aes256Name": "Clave de encriptación maestra AES-256"
   },
   "devices": {
@@ -1012,8 +1012,8 @@
     "layerGhostActive": "Activo: limpieza al bloquear/cerrar sesión",
     "layerGhostOff": "Modo fantasma no habilitado",
     "layerPqcName": "Escudo PQC",
-    "layerPqcDesc": "Capa poscuántica ML-KEM-1024 + ML-DSA-87",
-    "layerPqcDetails": "Encapsulación ML-KEM-1024 + firmas ML-DSA-87 activas",
+    "layerPqcDesc": "Capa poscuántica ML-KEM-1024",
+    "layerPqcDetails": "Encapsulación ML-KEM-1024 activa + firmas Ed25519",
     "layerPqcOff": "PQC no habilitado",
     "cryptoCiName": "Confidencialidad e integridad",
     "cryptoCiDesc": "Cifrado AEAD de 256 bits con resistencia a reutilización de nonce garantiza privacidad e inmutabilidad",
@@ -1026,7 +1026,7 @@
     "cryptoFsAlgo": "X25519 efímero + HKDF-SHA256 por sesión",
     "cryptoNrName": "No repudio",
     "cryptoNrDesc": "Las firmas criptográficas prueban autenticidad e impiden negar operaciones",
-    "cryptoNrAlgo": "Firmas digitales Ed25519 / ML-DSA-87",
+    "cryptoNrAlgo": "Firmas digitales Ed25519",
     "maxProtection": "Protección máxima",
     "strongProtection": "Protección fuerte",
     "goodProtection": "Buena protección",
@@ -1097,7 +1097,7 @@
       "pqc": {
         "name": "Criptografía poscuántica",
         "desc": "Encapsulación híbrida de claves ML-KEM-1024 para resistencia cuántica.",
-        "activeDetails": "ML-KEM-1024 (FIPS 203) + ML-DSA-87 (FIPS 204)",
+        "activeDetails": "ML-KEM-1024 (FIPS 203)",
         "notEnabled": "PQC no activado"
       }
     },
@@ -1119,8 +1119,8 @@
       },
       "nr": {
         "name": "No repudio",
-        "desc": "Cada operación de la bóveda está firmada digitalmente con tu clave de identidad Ed25519, creando una prueba criptográfica de autoría. La co-firma poscuántica ML-DSA-87 protege estas pruebas contra ataques cuánticos futuros en la pista de auditoría.",
-        "algo": "Firmas de identidad Ed25519 · Co-firmas ML-DSA-87 (FIPS 204) · Cadena de auditoría HMAC-SHA256"
+        "desc": "Cada operación de la bóveda está firmada digitalmente con tu clave de identidad Ed25519, creando una prueba criptográfica de autoría. En la hoja de ruta, una co-firma poscuántica ML-DSA-87 protegerá estas pruebas contra ataques cuánticos futuros en la pista de auditoría.",
+        "algo": "Firmas de identidad Ed25519 · Cadena de auditoría HMAC-SHA256 · Co-firmas ML-DSA-87 (FIPS 204) planeadas"
       }
     }
   },
@@ -1201,13 +1201,13 @@
       },
       "section3": {
         "title": "ML-KEM y ML-DSA",
-        "body": "USBVault implementa ML-KEM-1024 (Encapsulación de claves basada en retículos de módulo) para intercambio de claves y ML-DSA-87 (Firmas digitales basadas en retículos de módulo) para autenticación. Estos están estandarizados por NIST (FIPS 203/204) y representan los niveles de seguridad poscuántica más fuertes disponibles."
+        "body": "USBVault implementa ML-KEM-1024 (Encapsulación de claves basada en retículos de módulo) para intercambio de claves, con ML-DSA-87 (Firmas digitales basadas en retículos de módulo) para autenticación en la hoja de ruta. Estos están estandarizados por NIST (FIPS 203/204) y representan los niveles de seguridad poscuántica más fuertes disponibles."
       },
       "section4": {
         "title": "Cosechar ahora, descifrar después",
         "body": "Los adversarios pueden estar grabando tráfico cifrado hoy, planeando descifrarlo una vez que las computadoras cuánticas maduren. Esta estrategia de \"cosechar ahora, descifrar después\" es por qué la migración a PQC es urgente aunque las computadoras cuánticas a gran escala no existan aún. La capa PQC de USBVault protege tus datos contra esta amenaza futura."
       },
-      "takeaway": "Las computadoras cuánticas romperán la criptografía de clave pública de hoy. USBVault usa algoritmos basados en retículos estandarizados por NIST (ML-KEM, ML-DSA) para proteger tus datos contra amenazas presentes y futuras."
+      "takeaway": "Las computadoras cuánticas romperán la criptografía de clave pública de hoy. USBVault usa ML-KEM, un algoritmo basado en retículos estandarizado por NIST, para proteger tus datos contra amenazas presentes y futuras, con firmas ML-DSA en la hoja de ruta."
     },
     "lesson3": {
       "section1": {
@@ -1988,7 +1988,7 @@
     "hardwareSecureEnclave": "Hardware (Secure Enclave / TEE)",
     "hybrid": "Híbrido (Software + Hardware)",
     "pqcLabel": "Criptografía poscuántica",
-    "pqcMeta": "ML-KEM-1024 + ML-DSA-87",
+    "pqcMeta": "ML-KEM-1024",
     "active": "Activo",
     "backupMaintenance": "Respaldo y mantenimiento",
     "autoBackup": "Respaldo automático",
@@ -2079,7 +2079,7 @@
     "integritySpec": "HMAC-SHA256 por registro + etiqueta AEAD de 16 bytes por fragmento",
     "keyWrapSpec": "HKDF-SHA256 subclaves por archivo desde MEK de 64 bytes",
     "pqcSpec": "Encapsulación de clave híbrida ML-KEM-1024 (FIPS 203)",
-    "signingSpec": "Identidad Ed25519 + firma de encabezado ML-DSA-87",
+    "signingSpec": "Identidad Ed25519 + firma de encabezado Ed25519",
     "platformName": "Quantum Shield (V3.0)"
   },
   "exportFile": {
@@ -2366,7 +2366,7 @@
     "cipherAes": "AES-256-GCM-SIV",
     "cipherXchacha": "XChaCha20-Poly1305",
     "cipherPqc": "Híbrido PQC (ML-KEM-1024 + AES-256)",
-    "mlDsa": "ML-DSA-87 (FIPS 204)",
+    "mlDsa": "ML-DSA-87 (FIPS 204) — planeado",
     "kdfValue": "Argon2id (64 MB, 3 iter, 4 carriles)",
     "integrityValue": "Etiqueta HMAC-SHA256 + AEAD"
   },
@@ -2753,7 +2753,7 @@
     "compactVaultStorage": "Compactar almacenamiento de bóveda",
     "compactionComplete": "Compactación completada",
     "compactionCompleteMessage": "El almacenamiento de la bóveda ha sido optimizado.",
-    "pqcAlgorithms": "ML-KEM-1024 + ML-DSA-87"
+    "pqcAlgorithms": "ML-KEM-1024"
   },
   "paywall": {
     "chooseYourPlan": "Elige tu Plan",
