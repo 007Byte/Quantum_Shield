@@ -438,6 +438,45 @@ func (c *APIClient) ConfirmUpload(user *TestUser, vaultID, blobID string) (int64
 	return result.Size, nil
 }
 
+// DownloadCiphertext requests a presigned download URL for a stored blob and GETs
+// the raw bytes back from object storage. It is used to prove the LITERAL
+// zero-knowledge round-trip: what the server persisted is byte-identical to the
+// ciphertext the client uploaded (the server never holds plaintext). The presigned
+// GET is self-authenticating (SigV4), so no bearer token is sent on the object-store
+// fetch; the dial-rewrite transport maps the in-network minio host to the test host.
+func (c *APIClient) DownloadCiphertext(user *TestUser, vaultID, blobID string) ([]byte, error) {
+	c.SetToken(user.Token)
+	resp, err := c.do(http.MethodPost, apiPrefix+"/vaults/"+vaultID+"/blobs/download-url", map[string]string{"blob_id": blobID})
+	if err != nil {
+		return nil, fmt.Errorf("download-url request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download-url failed with status %d: %s", resp.StatusCode, respBody)
+	}
+	var result struct {
+		DownloadURL string `json:"download_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode download-url response: %w", err)
+	}
+	if result.DownloadURL == "" {
+		return nil, fmt.Errorf("no download_url in response")
+	}
+
+	getResp, err := c.client.Get(result.DownloadURL)
+	if err != nil {
+		return nil, fmt.Errorf("GET stored ciphertext: %w", err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode < 200 || getResp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(getResp.Body)
+		return nil, fmt.Errorf("GET stored ciphertext failed with status %d: %s", getResp.StatusCode, respBody)
+	}
+	return io.ReadAll(getResp.Body)
+}
+
 // ListBlobs lists all blobs in a vault.
 func (c *APIClient) ListBlobs(user *TestUser, vaultID string) ([]TestBlob, error) {
 	c.SetToken(user.Token)
