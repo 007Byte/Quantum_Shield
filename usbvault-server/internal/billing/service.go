@@ -223,19 +223,14 @@ func (bs *BillingService) CreateSubscription(ctx context.Context, userID, tier s
 		return "", fmt.Errorf("no price configured for tier: %s", tier)
 	}
 
-	// If no Stripe key, use local mode
+	// SECURITY (CRIT-4): fail closed when there is no live Stripe configuration. In
+	// local/dev mode there is NO payment source, so persisting a paid tier here would be
+	// exactly the free self-grant removed from the /upgrade path. The authoritative paid
+	// tier is only ever written by the signature-verified webhook, never optimistically.
 	if !isLiveStripeKey(bs.apiKey) {
-		log.Warn().Msg("PH1-FIX: No Stripe API key, using local subscription mode")
-		subscriptionID := "local_sub_" + userID
-		_, err = bs.pool.Exec(ctx,
-			`UPDATE subscriptions SET stripe_subscription_id = $1, tier = $2, status = 'active',
-			 current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
-			 WHERE user_id = $3`,
-			subscriptionID, tier, userID)
-		if err != nil {
-			return "", fmt.Errorf("failed to store local subscription: %w", err)
-		}
-		return subscriptionID, nil
+		log.Warn().Str("user_id", userID).Str("tier", tier).
+			Msg("CRIT-4: subscription refused — no live Stripe configuration (no self-grant)")
+		return "", fmt.Errorf("paid subscriptions require an active Stripe billing configuration")
 	}
 
 	// PH1-FIX: Real Stripe API call
@@ -1394,25 +1389,12 @@ func HandleCreateCheckoutSession(bs *BillingService) http.HandlerFunc {
 			return
 		}
 
-		// Local mode: simulate checkout by directly upgrading
-		log.Warn().Msg("PH8-FIX: No Stripe key, simulating checkout session in local mode")
-		if bs.pool != nil {
-			_, err := bs.pool.Exec(ctx,
-				`UPDATE subscriptions SET tier = $1, status = 'active',
-				 current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
-				 WHERE user_id = $2`,
-				req.Tier, userID)
-			if err != nil {
-				http.Error(w, "failed to update subscription", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"url":        req.SuccessURL,
-			"session_id": "local_cs_" + userID,
-		})
+		// SECURITY (CRIT-4): a checkout session is meaningless without a live Stripe
+		// configuration, and directly upgrading here would be a free self-grant of a paid
+		// tier (the same hole closed on the /upgrade path). Fail closed.
+		log.Warn().Str("user_id", userID).Str("tier", req.Tier).
+			Msg("CRIT-4: checkout-session refused — no live Stripe configuration (no self-grant)")
+		http.Error(w, "checkout requires an active billing configuration", http.StatusPaymentRequired)
 	}
 }
 
