@@ -654,14 +654,16 @@ func (bs *BillingService) handleSubscriptionUpdated(ctx context.Context, event m
 		if item, ok := tier[0].(map[string]interface{}); ok {
 			if pricingTier, ok := item["price"].(map[string]interface{}); ok {
 				if pricingTierID, ok := pricingTier["id"].(string); ok {
-					// Map Stripe price ID to tier
-					switch {
-					case pricingTierID == "price_team_monthly":
-						defaultTier = "team"
-					case pricingTierID == "price_enterprise_monthly":
-						defaultTier = "enterprise"
-					default:
-						defaultTier = "individual"
+					// Map the real (env-configured) Stripe price ID back to its tier.
+					// The previous hardcoded literals ("price_team_monthly", ...) never
+					// matched the actual Stripe-generated price IDs (STRIPE_PRICE_*), so a
+					// paying team/enterprise customer's webhook fell through to the default
+					// and was silently DOWNGRADED to individual.
+					if t := bs.mapPriceToTier(pricingTierID); t != "" {
+						defaultTier = t
+					} else {
+						log.Warn().Str("price_id", pricingTierID).Str("subscription_id", subID).
+							Msg("webhook: unrecognized Stripe price id — keeping default tier")
 					}
 				}
 			}
@@ -1505,6 +1507,25 @@ func (bs *BillingService) mapTierToPrice(tier string) string {
 	}
 	if price, ok := priceMap[tier]; ok {
 		return price
+	}
+	return ""
+}
+
+// mapPriceToTier is the inverse of mapTierToPrice: it maps a Stripe price ID (as seen in a
+// webhook event) back to the local tier using the SAME env-configured price IDs, so the
+// webhook agrees with what Checkout/Subscribe used. Returns "" for an unknown/empty price.
+func (bs *BillingService) mapPriceToTier(priceID string) string {
+	if priceID == "" {
+		return ""
+	}
+	for tier, env := range map[string]string{
+		"individual": "STRIPE_PRICE_INDIVIDUAL",
+		"team":       "STRIPE_PRICE_TEAM",
+		"enterprise": "STRIPE_PRICE_ENTERPRISE",
+	} {
+		if v := os.Getenv(env); v != "" && v == priceID {
+			return tier
+		}
 	}
 	return ""
 }
