@@ -3,9 +3,11 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
@@ -24,28 +26,28 @@ type Feature string
 
 // Feature constants — must stay in sync with TypeScript tierService.ts Feature type
 const (
-	FeatureBasicEncryption Feature = "basic_encryption"
-	FeaturePasswordManager Feature = "password_manager"
-	FeatureSecureMessaging Feature = "secure_messaging"
-	FeatureFileSharing     Feature = "file_sharing"
-	FeatureGhostMessages   Feature = "ghost_messages"
-	FeatureBackupRestore   Feature = "backup_restore"
-	FeatureRecoveryPhrase  Feature = "recovery_phrase"
-	FeatureFIDO2Auth       Feature = "fido2_auth"
-	FeatureBiometricAuth   Feature = "biometric_auth"
-	FeatureKeyVerification Feature = "key_verification"
+	FeatureBasicEncryption   Feature = "basic_encryption"
+	FeaturePasswordManager   Feature = "password_manager"
+	FeatureSecureMessaging   Feature = "secure_messaging"
+	FeatureFileSharing       Feature = "file_sharing"
+	FeatureGhostMessages     Feature = "ghost_messages"
+	FeatureBackupRestore     Feature = "backup_restore"
+	FeatureRecoveryPhrase    Feature = "recovery_phrase"
+	FeatureFIDO2Auth         Feature = "fido2_auth"
+	FeatureBiometricAuth     Feature = "biometric_auth"
+	FeatureKeyVerification   Feature = "key_verification"
 	FeatureMetadataReduction Feature = "metadata_reduction"
-	FeatureForensicCleanup Feature = "forensic_cleanup"
-	FeatureDefenseDashboard Feature = "defense_dashboard"
-	FeaturePrioritySupport Feature = "priority_support"
-	FeatureUnlimitedStorage Feature = "unlimited_storage"
-	FeatureCustomEncryption Feature = "custom_encryption"
-	FeatureEnterpriseQR    Feature = "enterprise_qr"
+	FeatureForensicCleanup   Feature = "forensic_cleanup"
+	FeatureDefenseDashboard  Feature = "defense_dashboard"
+	FeaturePrioritySupport   Feature = "priority_support"
+	FeatureUnlimitedStorage  Feature = "unlimited_storage"
+	FeatureCustomEncryption  Feature = "custom_encryption"
+	FeatureEnterpriseQR      Feature = "enterprise_qr"
 	FeatureAdvancedAnalytics Feature = "advanced_analytics"
-	FeatureDedicatedSupport Feature = "dedicated_support"
-	FeatureSSOIntegration  Feature = "sso_integration"
-	FeatureAuditExport     Feature = "audit_export"
-	FeatureAutoBackup      Feature = "auto_backup"
+	FeatureDedicatedSupport  Feature = "dedicated_support"
+	FeatureSSOIntegration    Feature = "sso_integration"
+	FeatureAuditExport       Feature = "audit_export"
+	FeatureAutoBackup        Feature = "auto_backup"
 )
 
 // featureTierMap maps each feature to its minimum required tier.
@@ -139,8 +141,16 @@ func RequireFeature(feature Feature, pool *pgxpool.Pool) func(http.Handler) http
 			).Scan(&userTier)
 
 			if err != nil {
-				log.Debug().Str("user_id", userID).Err(err).
-					Msg("RM-011: no active subscription found — defaulting to free")
+				if errors.Is(err, pgx.ErrNoRows) {
+					// Legitimate "no active subscription → free" path.
+					log.Debug().Str("user_id", userID).Msg("RM-011: no active subscription — free tier")
+				} else {
+					// M-4: a REAL DB error must not be silently masked as "free". Log it
+					// loudly (alerting); still fall back to free so a transient blip can
+					// never GRANT a paid feature (fail-closed to the least-privileged tier).
+					log.Error().Err(err).Str("user_id", userID).Str("feature", string(feature)).
+						Msg("M-4: feature-gate tier lookup failed — denying (fail-closed to free)")
+				}
 				userTier = "free"
 			}
 
@@ -197,6 +207,14 @@ func CheckFeatureAccess(ctx context.Context, pool *pgxpool.Pool, userID string, 
 	).Scan(&userTier)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Debug().Str("user_id", userID).Msg("M-4: no active subscription — free tier")
+		} else {
+			// M-4: surface real DB errors loudly instead of masking them as "free";
+			// still fail-closed to free so an error never grants a paid feature.
+			log.Error().Err(err).Str("user_id", userID).Str("feature", string(feature)).
+				Msg("M-4: feature-access tier lookup failed — denying (fail-closed to free)")
+		}
 		userTier = "free"
 	}
 
