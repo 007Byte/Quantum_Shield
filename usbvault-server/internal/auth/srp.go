@@ -144,7 +144,7 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		// Check account lockout status
 		lockoutStatus, err := lockoutSvc.CheckLockout(ctx, emailHash)
 		if err != nil {
-			log.Error().Err(err).Str("email", req.Email).Msg("failed to check lockout status")
+			log.Error().Err(err).Str("email_hash", emailHash).Msg("failed to check lockout status")
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
@@ -156,7 +156,7 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 				retryAfter = 1
 			}
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
-			log.Warn().Str("email", req.Email).Int("retry_after_seconds", retryAfter).Msg("login attempt on locked account")
+			log.Warn().Str("email_hash", emailHash).Int("retry_after_seconds", retryAfter).Msg("login attempt on locked account")
 			http.Error(w, "account locked due to too many failed login attempts", http.StatusTooManyRequests)
 			return
 		}
@@ -179,7 +179,7 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 
 		if err != nil {
 			// User not found - perform constant-time dummy computation to prevent timing attacks
-			log.Debug().Err(err).Str("email", req.Email).Msg("user not found")
+			log.Debug().Err(err).Str("email_hash", emailHash).Msg("user not found")
 			// Generate dummy B to avoid timing leaks
 			dummyB := computeDummyB()
 			time.Sleep(time.Duration(randomDelayMS()) * time.Millisecond)

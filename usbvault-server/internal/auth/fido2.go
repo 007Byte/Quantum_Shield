@@ -57,7 +57,7 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 		).Scan(&userID)
 
 		if err != nil {
-			log.Debug().Err(err).Str("email", req.Email).Msg("user not found for FIDO2")
+			log.Debug().Err(err).Str("email_hash", emailHash).Msg("user not found for FIDO2")
 			// Constant-time delay to prevent timing-based user enumeration
 			time.Sleep(50 * time.Millisecond)
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)

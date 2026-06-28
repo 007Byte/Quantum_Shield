@@ -111,7 +111,7 @@ func NewBillingService(stripeKey string, pool BillingPool) *BillingService {
 func (bs *BillingService) CreateCustomer(ctx context.Context, userID, email string) (string, error) {
 	// TD-010 FIX: Validate email format before creating customer
 	if !isValidEmail(email) {
-		log.Warn().Str("user_id", userID).Str("email", email).Msg("invalid email format")
+		log.Warn().Str("user_id", userID).Msg("invalid email format")
 		return "", ErrInvalidEmail
 	}
 
