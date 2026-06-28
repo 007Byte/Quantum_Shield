@@ -1,6 +1,6 @@
-//! Quantum Armor Vault (QAV) - Zero-Knowledge Cryptographic Core
+//! Quantum_Shield - Zero-Knowledge Cryptographic Core
 //!
-//! This library provides portable cryptographic operations for Quantum Armor Vault (QAV),
+//! This library provides portable cryptographic operations for Quantum_Shield,
 //! compiled to native libraries for iOS, Android, macOS, Windows, and Linux.
 //! All encryption/decryption happens here — the server never sees plaintext.
 

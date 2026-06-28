@@ -1,4 +1,4 @@
-# DOC-005: USBVault Enterprise -- Product Specification
+# DOC-005: Quantum_Shield -- Product Specification
 
 | Field | Value |
 |-------|-------|

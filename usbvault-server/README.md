@@ -1,6 +1,6 @@
-# Quantum Armor Vault (QAV) - Go Backend Server
+# Quantum_Shield - Go Backend Server
 
-A zero-knowledge SaaS backend for Quantum Armor Vault (QAV). The server never sees plaintext data, encryption keys, or passwords.
+A zero-knowledge SaaS backend for Quantum_Shield. The server never sees plaintext data, encryption keys, or passwords.
 
 ## Architecture Overview
 
@@ -242,7 +242,7 @@ STRIPE_WEBHOOK_SECRET=whsec_***
 
 # FIDO2
 FIDO2_RELYING_PARTY_ID=qav.io
-FIDO2_RELYING_PARTY_NAME=Quantum Armor Vault
+FIDO2_RELYING_PARTY_NAME=Quantum_Shield
 FIDO2_RELYING_PARTY_ORIGIN=https://qav.io
 
 # Server
@@ -371,4 +371,4 @@ Example log:
 
 ## License
 
-Quantum Armor Vault (QAV) - Proprietary
+Quantum_Shield - Proprietary

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of PH2-FIX: Multipart Upload Support for the QAV project, enabling efficient uploading of large files (>5GB) with resumable state.
+This document describes the implementation of PH2-FIX: Multipart Upload Support for the Quantum_Shield project, enabling efficient uploading of large files (>5GB) with resumable state.
 
 **Implementation Files**:
 - `internal/storage/multipart.go` - Core multipart service

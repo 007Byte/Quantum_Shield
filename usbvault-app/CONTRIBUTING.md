@@ -1,6 +1,6 @@
-# Contributing to Quantum Armor Vault (QAV)
+# Contributing to Quantum_Shield
 
-Thank you for contributing to Quantum Armor Vault (QAV)! This guide ensures consistency and maintains our high security and quality standards.
+Thank you for contributing to Quantum_Shield! This guide ensures consistency and maintains our high security and quality standards.
 
 ## Development Environment Setup
 
@@ -404,4 +404,4 @@ Follow Semantic Versioning: `MAJOR.MINOR.PATCH`
 
 ---
 
-Thank you for contributing to Quantum Armor Vault (QAV)! Your work helps keep user data secure.
+Thank you for contributing to Quantum_Shield! Your work helps keep user data secure.

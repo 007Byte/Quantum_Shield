@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# USBVault Enterprise — Production Readiness Check
+# Quantum_Shield — Production Readiness Check
 #
 # Runs a comprehensive sweep to verify the codebase is production-safe:
 #   1. Environment variable validation (via validate-env.sh)
@@ -36,7 +36,7 @@ fail()  { echo -e "  ${RED}[FAIL]${NC}  $*"; }
 ERRORS=0
 WARNINGS=0
 
-echo -e "${BOLD}=== USBVault Enterprise — Production Readiness Check ===${NC}"
+echo -e "${BOLD}=== Quantum_Shield — Production Readiness Check ===${NC}"
 echo ""
 
 # ------------------------------------------------------------------

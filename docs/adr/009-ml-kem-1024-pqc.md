@@ -6,7 +6,7 @@
 
 ## Context
 
-Recent advances in quantum computing threaten RSA and ECC security (Shor's algorithm). QAV must prepare for post-quantum cryptography (PQC):
+Recent advances in quantum computing threaten RSA and ECC security (Shor's algorithm). Quantum_Shield must prepare for post-quantum cryptography (PQC):
 
 - NIST standardized ML-KEM-1024 in FIPS 203 (August 2024)
 - Hybrid approach: combine classical (X25519) with post-quantum (ML-KEM) for future-proofing

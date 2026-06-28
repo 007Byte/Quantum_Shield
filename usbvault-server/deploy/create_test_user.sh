@@ -1,5 +1,5 @@
 #!/bin/bash
-# Create a test user in QAV database
+# Create a test user in Quantum_Shield database
 # Run from the deploy/ directory: ./create_test_user.sh
 
 # This generates an SRP-compatible user and inserts it directly

@@ -1,4 +1,4 @@
-# DOC-002: USBVault Enterprise -- Architecture and System Design
+# DOC-002: Quantum_Shield -- Architecture and System Design
 
 | Field | Value |
 |-------|-------|
@@ -32,7 +32,7 @@
 
 ## 1. System Overview
 
-USBVault Enterprise is a four-subsystem architecture designed around the zero-knowledge principle: the server never handles plaintext data, filenames, or encryption keys. All cryptographic operations execute client-side in a Rust core linked via FFI.
+Quantum_Shield is a four-subsystem architecture designed around the zero-knowledge principle: the server never handles plaintext data, filenames, or encryption keys. All cryptographic operations execute client-side in a Rust core linked via FFI.
 
 ### Design Goals
 

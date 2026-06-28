@@ -1,4 +1,4 @@
-# USBVault Enterprise -- Google Play Data Safety Declaration
+# Quantum_Shield -- Google Play Data Safety Declaration
 
 **Package name:** com.usbvault.enterprise
 **Last updated:** 2026-03-15

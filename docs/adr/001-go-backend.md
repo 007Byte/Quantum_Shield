@@ -6,7 +6,7 @@
 
 ## Context
 
-The QAV project requires a performant REST API server capable of handling encrypted data operations with minimal latency. The backend must support:
+The Quantum_Shield project requires a performant REST API server capable of handling encrypted data operations with minimal latency. The backend must support:
 
 - Real-time session management with Redis integration
 - FFI calls to Rust cryptographic cores

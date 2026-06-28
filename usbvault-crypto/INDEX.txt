@@ -1,5 +1,5 @@
 ================================================================================
-USBVault Enterprise Crypto Core - Complete File Index
+Quantum_Shield Crypto Core - Complete File Index
 ================================================================================
 
 PROJECT LOCATION
@@ -431,7 +431,7 @@ NEXT STEPS
 VERSION & STATUS
 ================================================================================
 
-Project:     USBVault Enterprise Crypto Core
+Project:     Quantum_Shield Crypto Core
 Version:     0.1.0
 Location:    /sessions/gracious-stoic-knuth/mnt/USBVault/Enterprise_Version/usbvault-crypto/
 Status:      COMPLETE & VERIFIED

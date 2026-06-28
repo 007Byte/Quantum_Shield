@@ -174,7 +174,7 @@ export function Hero() {
         <motion.div variants={itemVariants} className="flex justify-center">
           <Image
             src="/logo.png"
-            alt="Quantum Armor Vault"
+            alt="Quantum_Shield"
             width={1536}
             height={1024}
             priority
@@ -191,19 +191,7 @@ export function Hero() {
             className="block gradient-text text-glow-strong"
             variants={headlineVariants}
           >
-            Quantum
-          </motion.span>
-          <motion.span
-            className="block text-vault-text"
-            variants={headlineVariants}
-          >
-            Armor
-          </motion.span>
-          <motion.span
-            className="block text-vault-cyan text-glow-cyan"
-            variants={headlineVariants}
-          >
-            Vault
+            Quantum_Shield
           </motion.span>
         </motion.h1>
 

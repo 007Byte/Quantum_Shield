@@ -1,5 +1,5 @@
 # =============================================================================
-# USBVault Enterprise — Default Helm Values (staging/dev)
+# Quantum_Shield — Default Helm Values (staging/dev)
 # =============================================================================
 # Override with production-values.yaml for production deployments:
 #   helm install usbvault ./chart -f production-values.yaml

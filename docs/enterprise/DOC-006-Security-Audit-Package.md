@@ -1,4 +1,4 @@
-# DOC-006: USBVault Enterprise -- Security Audit Package
+# DOC-006: Quantum_Shield -- Security Audit Package
 
 | Field | Value |
 |-------|-------|

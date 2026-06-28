@@ -1,5 +1,5 @@
 # =============================================================================
-# USBVault Enterprise — Kubernetes Namespace
+# Quantum_Shield — Kubernetes Namespace
 # =============================================================================
 #
 # Creates the "usbvault" namespace where all application resources live.

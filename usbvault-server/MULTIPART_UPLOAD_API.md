@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Multipart Upload API enables efficient uploading of large files (>5GB) to the QAV vault storage system. It breaks large files into smaller parts that can be uploaded independently, with support for resumable uploads and progress tracking.
+The Multipart Upload API enables efficient uploading of large files (>5GB) to the Quantum_Shield vault storage system. It breaks large files into smaller parts that can be uploaded independently, with support for resumable uploads and progress tracking.
 
 **Status**: PH2-FIX Implementation
 

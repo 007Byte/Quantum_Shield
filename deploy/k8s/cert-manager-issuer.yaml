@@ -1,5 +1,5 @@
 # =============================================================================
-# USBVault Enterprise — cert-manager ClusterIssuer
+# Quantum_Shield — cert-manager ClusterIssuer
 # =============================================================================
 #
 # Configures a ClusterIssuer for automatic TLS certificate provisioning via

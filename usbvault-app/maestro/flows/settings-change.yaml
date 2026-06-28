@@ -1,4 +1,4 @@
-# Settings Change Flow — USBVault Enterprise
+# Settings Change Flow — Quantum_Shield
 # Assumes the user is already logged in. Navigates to Settings,
 # scrolls to the security section, and verifies settings are visible.
 appId: com.usbvault.enterprise

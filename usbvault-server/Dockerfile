@@ -30,7 +30,7 @@ RUN CGO_ENABLED=1 \
 FROM alpine:3.19
 
 LABEL org.opencontainers.image.source="https://github.com/user/usbvault-enterprise"
-LABEL org.opencontainers.image.description="USBVault Enterprise Zero-Knowledge API Server"
+LABEL org.opencontainers.image.description="Quantum_Shield Zero-Knowledge API Server"
 LABEL org.opencontainers.image.licenses="Proprietary"
 
 WORKDIR /app

@@ -1,4 +1,4 @@
-# Quantum Armor Vault (QAV) App - Quick Start Guide
+# Quantum_Shield App - Quick Start Guide
 
 ## Installation
 

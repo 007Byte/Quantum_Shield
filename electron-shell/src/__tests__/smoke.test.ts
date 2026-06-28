@@ -462,7 +462,7 @@ describe('Electron Desktop Smoke Tests', () => {
     });
 
     it('should set the correct title', () => {
-      expect('USBVault Enterprise').toBe('USBVault Enterprise');
+      expect('Quantum_Shield').toBe('Quantum_Shield');
     });
 
     it('should set the OLED dark background color', () => {

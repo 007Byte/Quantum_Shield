@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# USBVault Enterprise — Full Test Harness
+# Quantum_Shield — Full Test Harness
 # Runs all language test suites, type checks, and dead code analysis.
 # =============================================================================
 set -o pipefail
@@ -29,7 +29,7 @@ separator() {
 banner() {
     echo ""
     separator
-    echo -e "${BOLD}${CYAN}    USBVault Enterprise -- Full Test Harness${RESET}"
+    echo -e "${BOLD}${CYAN}    Quantum_Shield -- Full Test Harness${RESET}"
     separator
     echo -e "  Started: $(date '+%Y-%m-%d %H:%M:%S')"
     echo -e "  Root:    $ROOT_DIR"

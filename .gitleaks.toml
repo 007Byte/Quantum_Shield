@@ -1,10 +1,10 @@
-title = "Quantum Armor Vault (QAV) Gitleaks Configuration"
+title = "Quantum_Shield Gitleaks Configuration"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "QAV global allowlist for test fixtures, docs, and known-safe patterns"
+description = "Quantum_Shield global allowlist for test fixtures, docs, and known-safe patterns"
 paths = [
   '''\.git''',
   '''\.github/workflows''',

@@ -1,4 +1,4 @@
-# Quantum Armor Vault (QAV) Crypto - Comprehensive Security Architecture (Phase 6)
+# Quantum_Shield Crypto - Comprehensive Security Architecture (Phase 6)
 
 **Document Status**: Phase 6 - Security Architecture Documentation
 **Last Updated**: March 2026
@@ -22,7 +22,7 @@
 
 ## Executive Summary
 
-Quantum Armor Vault (QAV) employs a multi-layered cryptographic architecture designed to provide zero-knowledge security guarantees. The system protects data at rest through authenticated encryption (AEAD), at transit through ephemeral key agreement (ECDH), and in use through memory safety primitives.
+Quantum_Shield employs a multi-layered cryptographic architecture designed to provide zero-knowledge security guarantees. The system protects data at rest through authenticated encryption (AEAD), at transit through ephemeral key agreement (ECDH), and in use through memory safety primitives.
 
 **Core Security Invariants**:
 - All plaintext data remains encrypted from initialization to destruction
@@ -168,7 +168,7 @@ Implementation:
 └── Zeroization: Keys/nonces zeroized immediately after use
 ```
 
-**Usage in Quantum Armor Vault**:
+**Usage in Quantum_Shield**:
 1. **MEK Wrapping**: Encrypt Master Encryption Key with KEK
    - Input: Raw MEK (64 bytes)
    - Output: Ciphertext (64) + Tag (16) = 80 bytes total
@@ -213,7 +213,7 @@ Implementation:
 └── Zeroization: All sensitive material immediately cleared
 ```
 
-**Usage in Quantum Armor Vault**:
+**Usage in Quantum_Shield**:
 1. **Metadata Encryption** (V4+): Encrypt vault metadata blocks
    - Input: Structured metadata (JSON)
    - Output: Encrypted metadata + tag
@@ -722,7 +722,7 @@ Recovery Process:
 **Physical Card Format**:
 ```
 ┌──────────────────────────────┐
-│  Quantum Armor Vault Recovery Card      │
+│  Quantum_Shield Recovery Card      │
 │                              │
 │  Vault ID: xxxxxxxxxxxxxx    │
 │  Share: 3 of 5               │
@@ -1167,4 +1167,4 @@ Documentation:
 
 **END OF DOCUMENT**
 
-This document is current as of March 2026 and represents the comprehensive security architecture of Quantum Armor Vault (QAV) Crypto Core. It is intended for security auditors and cryptographic reviewers.
+This document is current as of March 2026 and represents the comprehensive security architecture of Quantum_Shield Crypto Core. It is intended for security auditors and cryptographic reviewers.

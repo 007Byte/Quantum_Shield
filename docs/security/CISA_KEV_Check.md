@@ -1,8 +1,8 @@
-# CISA Known Exploited Vulnerabilities (KEV) Compliance - USBVault Enterprise
+# CISA Known Exploited Vulnerabilities (KEV) Compliance - Quantum_Shield
 
 **Audit Date:** 2026-03-12
 **Auditor:** Automated + Manual Review
-**Scope:** All USBVault Enterprise dependencies (Rust, Go, Node.js)
+**Scope:** All Quantum_Shield dependencies (Rust, Go, Node.js)
 
 ---
 
@@ -10,7 +10,7 @@
 
 The CISA Known Exploited Vulnerabilities (KEV) catalog lists vulnerabilities that are actively exploited in the wild. Organizations must remediate KEV-listed vulnerabilities on an accelerated timeline.
 
-USBVault Enterprise maintains active monitoring for KEV-listed vulnerabilities across all dependency ecosystems.
+Quantum_Shield maintains active monitoring for KEV-listed vulnerabilities across all dependency ecosystems.
 
 ---
 

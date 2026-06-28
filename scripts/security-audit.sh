@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# USBVault Enterprise Security Audit Runner
+# Quantum_Shield Security Audit Runner
 # Usage: ./scripts/security-audit.sh [--full|--quick|--report-only]
 #
 # Exit codes:
@@ -41,7 +41,7 @@ elif [[ "${1:-}" == "--report-only" ]]; then
 elif [[ "${1:-}" == "--full" ]]; then
     MODE="full"
 elif [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    echo "USBVault Enterprise Security Audit Runner"
+    echo "Quantum_Shield Security Audit Runner"
     echo ""
     echo "Usage: $0 [--full|--quick|--report-only]"
     echo ""
@@ -293,7 +293,7 @@ scan_kev() {
 # ============================================================
 echo ""
 echo -e "${BLUE}${BOLD}======================================================${NC}"
-echo -e "${BLUE}${BOLD}  USBVault Enterprise Security Audit${NC}"
+echo -e "${BLUE}${BOLD}  Quantum_Shield Security Audit${NC}"
 echo -e "${BLUE}${BOLD}  Mode: $MODE | Timestamp: $TIMESTAMP${NC}"
 echo -e "${BLUE}${BOLD}======================================================${NC}"
 echo ""

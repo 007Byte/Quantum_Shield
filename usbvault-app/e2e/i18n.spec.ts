@@ -4,7 +4,7 @@ import { waitForApp, registerAccount, expectAuthenticated, expectLoginScreen } f
 /**
  * Internationalization (i18n) E2E tests.
  *
- * USBVault Enterprise supports multiple locales. These tests verify that
+ * Quantum_Shield supports multiple locales. These tests verify that
  * switching languages updates visible UI labels on both auth and dashboard screens.
  */
 

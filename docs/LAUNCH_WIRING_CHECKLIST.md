@@ -1,4 +1,4 @@
-# USBVault Enterprise — Launch Wiring Checklist
+# Quantum_Shield — Launch Wiring Checklist
 
 When funding is available, follow these steps in order. Each step is a **config change only** — no code changes required.
 

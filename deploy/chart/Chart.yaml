@@ -1,6 +1,6 @@
 apiVersion: v2
 name: usbvault
-description: USBVault Enterprise — Zero-knowledge encrypted vault platform
+description: Quantum_Shield — Zero-knowledge encrypted vault platform
 type: application
 version: 1.0.0
 appVersion: "1.0.0"

@@ -67,7 +67,7 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 		// Initialize WebAuthn
 		wau, err := webauthn.New(&webauthn.Config{
 			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
-			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
+			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "Quantum_Shield"),
 			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
 		if err != nil {
@@ -167,7 +167,7 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 		// 2. Initialize WebAuthn with same config
 		wau, err := webauthn.New(&webauthn.Config{
 			RPID:          config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ID", "usbvault.io"),
-			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "QAV"),
+			RPDisplayName: config.GetEnvOrDefault("FIDO2_RELYING_PARTY_NAME", "Quantum_Shield"),
 			RPOrigins:     []string{config.GetEnvOrDefault("FIDO2_RELYING_PARTY_ORIGIN", "https://usbvault.io")},
 		})
 		if err != nil {

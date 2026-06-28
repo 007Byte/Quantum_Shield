@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# QAV FFI Cross-Platform Build Script
+# Quantum_Shield FFI Cross-Platform Build Script
 # Builds the Rust FFI library for all target platforms
 
 # Colors for output
@@ -41,7 +41,7 @@ print_error() {
 
 show_usage() {
     cat << EOF
-QAV FFI Cross-Platform Build Script
+Quantum_Shield FFI Cross-Platform Build Script
 
 Usage: $0 <platform> [options]
 

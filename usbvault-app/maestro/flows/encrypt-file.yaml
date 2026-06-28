@@ -1,4 +1,4 @@
-# Encrypt File Flow — USBVault Enterprise
+# Encrypt File Flow — Quantum_Shield
 # Assumes the user is already logged in. Navigates to Encrypt & Store,
 # selects a file, configures encryption, and asserts success.
 appId: com.usbvault.enterprise

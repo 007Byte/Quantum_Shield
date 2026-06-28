@@ -311,7 +311,7 @@ aws cloudtrail lookup-events \
     Dear [CUSTOMER_NAME],
 
     We are writing to inform you of a security incident involving API keys
-    used to access QAV services.
+    used to access Quantum_Shield services.
 
     WHAT HAPPENED:
     On [DATE] at [TIME], we discovered that API key(s) associated with your

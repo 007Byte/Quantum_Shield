@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV requires mobile support across iOS and Android with:
+Quantum_Shield requires mobile support across iOS and Android with:
 
 - Unified codebase for time-to-market
 - Client-side encryption before transmission

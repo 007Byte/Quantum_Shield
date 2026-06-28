@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAV Certificate Pin Extraction Script
+# Quantum_Shield Certificate Pin Extraction Script
 # Usage: ./scripts/extract-pins.sh [hostname] [port]
 #
 # Extracts SHA-256 SPKI pins from a server's TLS certificate chain.
@@ -15,7 +15,7 @@ set -euo pipefail
 HOSTNAME="${1:-api.usbvault.io}"
 PORT="${2:-443}"
 
-echo "=== QAV Certificate Pin Extraction ==="
+echo "=== Quantum_Shield Certificate Pin Extraction ==="
 echo "Host: ${HOSTNAME}:${PORT}"
 echo ""
 

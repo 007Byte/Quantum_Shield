@@ -281,6 +281,6 @@ export const TESTIMONIALS: Testimonial[] = [
     title: "IT Director",
     company: "Global Finance Corp",
     quote:
-      "Rolling out USBVault Enterprise across our organization was seamless. The SSO integration and audit logging are exactly what we needed for compliance.",
+      "Rolling out Quantum_Shield across our organization was seamless. The SSO integration and audit logging are exactly what we needed for compliance.",
   },
 ];

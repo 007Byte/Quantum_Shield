@@ -1,5 +1,5 @@
 /**
- * Shared sudo elevation utility for USBVault Enterprise.
+ * Shared sudo elevation utility for Quantum_Shield.
  *
  * Used by both USB provisioning and Zero-Trace cleanup for operations
  * that require administrator/root privileges on the host OS.

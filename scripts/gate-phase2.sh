@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quantum Armor Vault (QAV) - Phase 2 AST Gate Validation
+# Quantum_Shield - Phase 2 AST Gate Validation
 # Requirement: SAST + fuzz report + timing analysis
 # Validates the Cryptographic Core Hardening phase
 
@@ -27,7 +27,7 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; WARN_COUNT=$((WARN_COUNT + 1)); TOTA
 
 echo -e "${BOLD}${BLUE}"
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Quantum Armor Vault (QAV) - Phase 2 AST Gate          ║"
+echo "║  Quantum_Shield - Phase 2 AST Gate               ║"
 echo "║  SAST + Fuzz Report + Timing Analysis            ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"

@@ -2,7 +2,7 @@
 name = "usbvault-crypto"
 version = "0.1.0"
 edition = "2021"
-description = "Quantum Armor Vault zero-knowledge cryptographic core"
+description = "Quantum_Shield zero-knowledge cryptographic core"
 license = "Proprietary"
 
 [lib]

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Quantum Armor Vault (QAV) — Reproducible Build Script
+# Quantum_Shield — Reproducible Build Script
 # PH9-PQ-FIX: Deterministic compilation with hash publishing
 # ============================================================
 #
@@ -174,7 +174,7 @@ generate_manifest() {
     cat > "$MANIFEST_FILE" <<MANIFEST_EOF
 {
   "build_manifest": {
-    "project": "Quantum Armor Vault (QAV)",
+    "project": "Quantum_Shield",
     "version": "$version",
     "commit": "$commit",
     "branch": "$branch",
@@ -245,7 +245,7 @@ main() {
     mkdir -p "$BUILD_DIR"
     echo "" > "$BUILD_DIR/hashes.json"
 
-    log_info "Quantum Armor Vault (QAV) — Reproducible Build"
+    log_info "Quantum_Shield — Reproducible Build"
     log_info "SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH"
     log_info "Platform: $platform"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Comprehensive SAST (Static Application Security Testing) Runner
-# Executes security scanning on all QAV components
+# Executes security scanning on all Quantum_Shield components
 # Aggregates results and reports findings with exit code based on severity
 
 set -e
@@ -25,7 +25,7 @@ LOW_COUNT=0
 FAILED_SCANS=0
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}QAV SAST Security Scanning${NC}"
+echo -e "${BLUE}Quantum_Shield SAST Security Scanning${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 

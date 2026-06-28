@@ -1,5 +1,5 @@
 /**
- * DOC-003: USBVault Enterprise — User Manual v2.0
+ * DOC-003: Quantum_Shield — User Manual v2.0
  * Audience: Non-technical end users, customers
  * Tone: Friendly, clear, no jargon
  */
@@ -12,7 +12,7 @@ async function generate(outDir) {
   const children = [
     ...H.coverPage({
       title: "User Manual",
-      subtitle: "Your Complete Guide to USBVault Enterprise",
+      subtitle: "Your Complete Guide to Quantum_Shield",
       docId: "DOC-003", version: "2.0", date: "March 15, 2026",
       classification: "PUBLIC",
       audience: "End Users, Customers",
@@ -22,7 +22,7 @@ async function generate(outDir) {
 
     // 1
     H.h1("1. Welcome to USBVault"),
-    H.p("USBVault Enterprise is a portable encrypted file storage system that lets you carry sensitive files on a standard USB drive and access them from any computer. Your files are protected with military-grade encryption, and when you\u2019re done, USBVault removes all traces of your activity automatically."),
+    H.p("Quantum_Shield is a portable encrypted file storage system that lets you carry sensitive files on a standard USB drive and access them from any computer. Your files are protected with military-grade encryption, and when you\u2019re done, USBVault removes all traces of your activity automatically."),
     H.p("Think of USBVault as a personal vault you carry in your pocket. Plug it into any computer, enter your password, and your files appear. Unplug, and it\u2019s as if you were never there."),
     H.spacer(80),
     H.h2("1.1 Who Is USBVault For?"),
@@ -217,12 +217,12 @@ async function generate(outDir) {
     H.p("Yes. USBVault was designed to work completely offline. Plug in the USB, double-click the launcher, enter your password. No internet required. Cloud features (sync, sharing, backup) are optional."),
 
     H.spacer(400),
-    H.p([H.italic("USBVault Enterprise v2.0 \u2014 Intelligence-Grade Security for Everyone.")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("Quantum_Shield v2.0 \u2014 Intelligence-Grade Security for Everyone.")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_User_Manual.docx",
-    headerTitle: "USBVault Enterprise \u2014 User Manual",
+    headerTitle: "Quantum_Shield \u2014 User Manual",
     headerClassification: "",
     footerDocId: "DOC-003", footerVersion: "2.0", children, outDir,
   });

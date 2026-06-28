@@ -1,7 +1,7 @@
 # Phase 2.3 & 2.4: Testing Infrastructure Summary
 
 ## Overview
-Complete setup of fuzz testing (libfuzzer) and property-based testing (proptest) for the Quantum Armor Vault cryptographic core.
+Complete setup of fuzz testing (libfuzzer) and property-based testing (proptest) for the Quantum_Shield cryptographic core.
 
 ## Files Created
 

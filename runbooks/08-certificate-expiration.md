@@ -247,7 +247,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
     cat > /tmp/notification.txt <<'EOF'
     Subject: Certificate Pinning Update Required
 
-    The QAV API certificate has been renewed.
+    The Quantum_Shield API certificate has been renewed.
 
     NEW PIN (take effect immediately):
     sha256/[NEW_PIN_HASH]
@@ -305,7 +305,7 @@ curl -s https://cert-pinning.qav.internal/api/v1/pins | jq '.certs[] | {domain: 
     # If customer-facing service affected
     aws sns publish \
       --topic-arn arn:aws:sns:us-east-1:123456789012:customer-alerts \
-      --message "QAV API Certificate Renewed - No action required. Service fully operational."
+      --message "Quantum_Shield API Certificate Renewed - No action required. Service fully operational."
 
     # Update status page
     curl -X POST https://statuspage.io/api/v1/pages/$PAGE_ID/incidents \

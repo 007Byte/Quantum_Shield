@@ -1,7 +1,7 @@
 # F8 — Native TLS Certificate Pinning (api.usbvault.io)
 
 This document describes the **native SPKI public-key pinning scaffold** for the
-USBVault Enterprise app and how to safely turn it on.
+Quantum_Shield app and how to safely turn it on.
 
 > **STATUS: SCAFFOLDED & DISABLED (INERT).**
 > The wiring is in place on both platforms, but the pin-sets ship with clearly

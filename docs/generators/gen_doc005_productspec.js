@@ -1,5 +1,5 @@
 /**
- * DOC-005: USBVault Enterprise — Product Specification v2.0
+ * DOC-005: Quantum_Shield — Product Specification v2.0
  * Audience: Product Managers, Stakeholders, Sales Engineers, Investors
  */
 
@@ -53,7 +53,7 @@ async function generate(outDir) {
 
     // 2
     H.h1("2. Target Market"),
-    H.p("USBVault Enterprise addresses seven distinct market segments, each with specific security and operational requirements:"),
+    H.p("Quantum_Shield addresses seven distinct market segments, each with specific security and operational requirements:"),
     H.makeTableBoldFirst(
       ["Segment", "Key Need", "Differentiating Feature"],
       [
@@ -183,7 +183,7 @@ async function generate(outDir) {
 
     // 10
     H.h1("10. Competitive Differentiation"),
-    H.p("USBVault Enterprise occupies a unique position in the encrypted storage market by combining capabilities that no single competitor offers:"),
+    H.p("Quantum_Shield occupies a unique position in the encrypted storage market by combining capabilities that no single competitor offers:"),
     H.makeTableBoldFirst(
       ["Differentiator", "What It Means", "Competitor Gap"],
       [
@@ -200,12 +200,12 @@ async function generate(outDir) {
     H.caption("Table 10.1 \u2014 Competitive Differentiation Matrix"),
 
     H.spacer(400),
-    H.p([H.italic("End of Document \u2014 USBVault Enterprise Product Specification v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("End of Document \u2014 Quantum_Shield Product Specification v2.0 \u2014 March 15, 2026")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_Product_Specification.docx",
-    headerTitle: "USBVault Enterprise \u2014 Product Specification",
+    headerTitle: "Quantum_Shield \u2014 Product Specification",
     headerClassification: "CONFIDENTIAL",
     footerDocId: "DOC-005", footerVersion: "2.0", children, outDir,
   });

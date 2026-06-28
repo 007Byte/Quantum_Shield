@@ -1,5 +1,5 @@
 #!/bin/bash
-# USBVault Enterprise — Portable Node.js Bundler
+# Quantum_Shield — Portable Node.js Bundler
 #
 # Downloads platform-specific Node.js binaries for USB-bootable deployment.
 # Places them in usb-companion/node/{platform}/ for use by launcher scripts.

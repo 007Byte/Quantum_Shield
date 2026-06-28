@@ -1,4 +1,4 @@
-# DOC-003: USBVault Enterprise -- User Manual
+# DOC-003: Quantum_Shield -- User Manual
 
 | Field | Value |
 |-------|-------|
@@ -36,7 +36,7 @@
 
 ## 1. Welcome to USBVault
 
-USBVault Enterprise is your portable encrypted file storage system. It lets you carry sensitive files on a USB drive, access them on any computer running Windows, macOS, or Linux, and leave no trace that you were ever there.
+Quantum_Shield is your portable encrypted file storage system. It lets you carry sensitive files on a USB drive, access them on any computer running Windows, macOS, or Linux, and leave no trace that you were ever there.
 
 ### Who Is USBVault For?
 

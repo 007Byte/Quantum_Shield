@@ -1,4 +1,4 @@
-# DOC-007: USBVault Enterprise -- Recovery Procedures
+# DOC-007: Quantum_Shield -- Recovery Procedures
 
 | Field | Value |
 |-------|-------|
@@ -32,7 +32,7 @@
 
 ## 1. Overview
 
-This document covers all recovery procedures for USBVault Enterprise, from individual user recovery to server infrastructure disaster recovery. Recovery procedures are organized from most common to least common scenarios.
+This document covers all recovery procedures for Quantum_Shield, from individual user recovery to server infrastructure disaster recovery. Recovery procedures are organized from most common to least common scenarios.
 
 ### Recovery Hierarchy
 

@@ -1,6 +1,6 @@
-# QAV API Error Catalog
+# Quantum_Shield API Error Catalog
 
-This document describes all error codes and their HTTP status mappings used by the QAV API.
+This document describes all error codes and their HTTP status mappings used by the Quantum_Shield API.
 
 ## HTTP Status Code Mapping
 

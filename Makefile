@@ -27,7 +27,7 @@ COVERAGE_THRESHOLD := 70
 
 help:
 	@echo "========================================================================="
-	@echo "                   USBVault Enterprise - Build System"
+	@echo "                   Quantum_Shield - Build System"
 	@echo "                   Make targets for all components"
 	@echo "========================================================================="
 	@echo ""

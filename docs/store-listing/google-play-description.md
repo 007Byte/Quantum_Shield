@@ -1,8 +1,8 @@
-# USBVault Enterprise — Google Play Store Listing
+# Quantum_Shield — Google Play Store Listing
 
 ## Title (30 chars max)
 
-USBVault Enterprise
+Quantum_Shield
 
 ## Short Description (80 chars max)
 
@@ -10,7 +10,7 @@ Portable encrypted file vault with zero-trace forensic cleaning. Carry. Access. 
 
 ## Full Description (4000 chars max)
 
-USBVault Enterprise transforms any USB drive into a portable encrypted vault that leaves no forensic trace on the host computer.
+Quantum_Shield transforms any USB drive into a portable encrypted vault that leaves no forensic trace on the host computer.
 
 Plug in. Enter your password. Access your files. Unplug and walk away — 23 forensic cleaners wipe every trace from the machine, including temp files, clipboard data, memory residue, and recent file history.
 
@@ -18,7 +18,7 @@ Built for professionals who handle sensitive information and individuals who bel
 
 ------
 
-WHO IS USBVAULT FOR?
+WHO IS QUANTUM_SHIELD FOR?
 
 Journalists protecting sources and unpublished investigations. Attorneys safeguarding attorney-client privilege. Physicians carrying patient data between facilities. Government personnel handling classified material. Corporate executives traveling with trade secrets. Anyone crossing a border with files they would rather keep private.
 
@@ -26,7 +26,7 @@ Journalists protecting sources and unpublished investigations. Attorneys safegua
 
 ENCRYPTION THAT STANDS UP TO NATION-STATE ADVERSARIES
 
-USBVault does not rely on a single algorithm. It layers multiple encryption standards for defense-in-depth:
+Quantum_Shield does not rely on a single algorithm. It layers multiple encryption standards for defense-in-depth:
 
 XChaCha20-Poly1305 — High-speed authenticated encryption used by leading security tools worldwide.
 
@@ -34,13 +34,13 @@ AES-256-GCM-SIV — A secondary encryption layer providing misuse-resistant auth
 
 Argon2id Key Derivation — Your password is processed through 64 MB of memory-hard hashing, making brute-force and GPU-based cracking attacks economically impractical.
 
-Post-Quantum Cryptography (ML-KEM-1024) — Your files are protected today against the quantum computers of tomorrow. USBVault is among the first consumer products to implement NIST's post-quantum standard.
+Post-Quantum Cryptography (ML-KEM-1024) — Your files are protected today against the quantum computers of tomorrow. Quantum_Shield is among the first consumer products to implement NIST's post-quantum standard.
 
 ------
 
 ZERO-TRACE ARCHITECTURE
 
-This is not a marketing phrase. USBVault includes 23 discrete forensic cleaning routines that execute when you disconnect your drive:
+This is not a marketing phrase. Quantum_Shield includes 23 discrete forensic cleaning routines that execute when you disconnect your drive:
 
 - System temp file purging
 - Clipboard and paste buffer clearing
@@ -50,7 +50,7 @@ This is not a marketing phrase. USBVault includes 23 discrete forensic cleaning 
 - USB connection history removal
 - And 17 additional forensic countermeasures
 
-The result: a forensic examiner with full disk access to the host machine will find no evidence that USBVault was ever connected.
+The result: a forensic examiner with full disk access to the host machine will find no evidence that Quantum_Shield was ever connected.
 
 ------
 
@@ -68,7 +68,7 @@ Store all your credentials inside the same encrypted vault. Generate strong pass
 
 ENCRYPTED MESSAGING
 
-Exchange end-to-end encrypted messages with other USBVault users. Messages are stored locally in your vault, never on external servers. When you delete a message, it is permanently gone.
+Exchange end-to-end encrypted messages with other Quantum_Shield users. Messages are stored locally in your vault, never on external servers. When you delete a message, it is permanently gone.
 
 ------
 
@@ -101,7 +101,7 @@ PRIVACY PRINCIPLES
 - Open, auditable encryption standards
 - No account required for free-tier use
 
-Your files belong to you. USBVault keeps them that way.
+Your files belong to you. Quantum_Shield keeps them that way.
 
 ## Category
 

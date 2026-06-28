@@ -1,6 +1,6 @@
-# Integration Testing Guide — USBVault Enterprise
+# Integration Testing Guide — Quantum_Shield
 
-This document describes the full-stack integration test harness for USBVault Enterprise, which orchestrates the Go backend and Expo web frontend together in an isolated test environment.
+This document describes the full-stack integration test harness for Quantum_Shield, which orchestrates the Go backend and Expo web frontend together in an isolated test environment.
 
 > **Pushing changes?** Run the local CI mirror first — see
 > **[docs/QA_QC.md](docs/QA_QC.md)** (`scripts/preflight.sh`). It runs every

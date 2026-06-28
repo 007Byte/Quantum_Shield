@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# USBVault Enterprise — Synthetic Load Generator
+# Quantum_Shield — Synthetic Load Generator
 # ==============================================================================
 #
 # Generates specific API traffic patterns for testing and validation.
@@ -523,7 +523,7 @@ pattern_coverage() {
 # ---------------------------------------------------------------------------
 main() {
     echo -e "${BOLD}${CYAN}"
-    echo "  USBVault Enterprise — Synthetic Load Generator"
+    echo "  Quantum_Shield — Synthetic Load Generator"
     echo -e "${NC}"
     log_info "Target:     ${BASE_URL}"
     log_info "Auth:       $([ -n "$AUTH_TOKEN" ] && echo 'token provided' || echo 'unauthenticated')"

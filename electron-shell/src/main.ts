@@ -116,7 +116,7 @@ function createMainWindow(): void {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'USBVault Enterprise',
+    title: 'Quantum_Shield',
     backgroundColor: '#0F0B1E', // Match app's OLED dark background
     show: false, // Show when ready to prevent flash
     webPreferences: {

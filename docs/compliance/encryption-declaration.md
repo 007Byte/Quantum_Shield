@@ -1,6 +1,6 @@
-# USBVault Enterprise -- Encryption Export Compliance (ECCN Self-Classification)
+# Quantum_Shield -- Encryption Export Compliance (ECCN Self-Classification)
 
-**Product:** USBVault Enterprise
+**Product:** Quantum_Shield
 **Version:** 1.0
 **Last updated:** 2026-03-15
 **Prepared by:** USBVault Security Engineering
@@ -10,7 +10,7 @@
 ## 1. Purpose
 
 This document provides the ECCN (Export Control Classification Number)
-self-classification for USBVault Enterprise under the U.S. Export
+self-classification for Quantum_Shield under the U.S. Export
 Administration Regulations (EAR), administered by the Bureau of Industry
 and Security (BIS). It inventories all cryptographic algorithms used in
 the product and identifies the applicable license exception.
@@ -19,7 +19,7 @@ the product and identifies the applicable license exception.
 
 ## 2. Product Description
 
-USBVault Enterprise is a consumer/enterprise file encryption application
+Quantum_Shield is a consumer/enterprise file encryption application
 that allows users to encrypt files on USB storage devices and in cloud
 vaults. The product is available to the general public via the Apple App
 Store and Google Play Store.
@@ -74,7 +74,7 @@ The product is classified under:
 
 ### Applicable License Exception: EAR 740.17(b)(1)
 
-USBVault Enterprise qualifies for License Exception ENC under
+Quantum_Shield qualifies for License Exception ENC under
 **15 CFR 740.17(b)(1)** -- mass-market encryption software -- for the
 following reasons:
 
@@ -113,7 +113,7 @@ submitted via email to:
 
 | Field | Value |
 |-------|-------|
-| Product name | USBVault Enterprise |
+| Product name | Quantum_Shield |
 | Model/version | 1.0 |
 | Manufacturer | USBVault Inc. |
 | ECCN | 5D002.c.1 |
@@ -133,7 +133,7 @@ first export (app store availability).
 
 ## 6. Embargo and Sanctions Compliance
 
-USBVault Enterprise must not be made available to persons, entities, or
+Quantum_Shield must not be made available to persons, entities, or
 countries subject to U.S. sanctions. The following controls apply:
 
 - **Denied Persons List (DPL):** Screen against BIS Denied Persons List

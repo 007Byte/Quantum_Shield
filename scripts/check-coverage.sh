@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quantum Armor Vault (QAV) - Coverage Threshold Checker
+# Quantum_Shield - Coverage Threshold Checker
 # Verifies test coverage meets the 70% minimum across all codebases
 
 set -e

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * USBVault Enterprise v2.0 — Document Generation Suite
+ * Quantum_Shield v2.0 — Document Generation Suite
  * Generates all 7 professional .docx documents
  *
  * Usage:
@@ -35,7 +35,7 @@ async function main() {
 
   console.log("");
   console.log("\u2550".repeat(60));
-  console.log("  USBVault Enterprise v2.0 \u2014 Document Generation Suite");
+  console.log("  Quantum_Shield v2.0 \u2014 Document Generation Suite");
   console.log("  Generating 7 professional .docx documents...");
   console.log("\u2550".repeat(60));
   console.log("");

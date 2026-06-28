@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
-# QAV — Push to GitHub
+# Quantum_Shield — Push to GitHub
 # Run this once from Terminal to push your code to:
 #   https://github.com/007Byte/Quantum_Shield
 # ─────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo ""
-echo "⬡  Quantum Armor Vault — GitHub Push"
+echo "⬡  Quantum_Shield — GitHub Push"
 echo "────────────────────────────────────"
 echo ""
 

@@ -291,7 +291,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
     ATTACK_START=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
 
     cat > /tmp/user_notification.txt <<EOF
-    Subject: QAV Security Alert - Authentication Attempt
+    Subject: Quantum_Shield Security Alert - Authentication Attempt
 
     We detected unusual authentication activity on your account.
 
@@ -380,7 +380,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
     # Notify customers via email
     aws sns publish \
       --topic-arn arn:aws:sns:us-east-1:123456789012:customer-alerts \
-      --message "QAV Security Notice: Auth spike detected and contained. No impact to your accounts."
+      --message "Quantum_Shield Security Notice: Auth spike detected and contained. No impact to your accounts."
     ```
 
 ---

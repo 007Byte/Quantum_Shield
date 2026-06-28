@@ -1,5 +1,5 @@
 # =============================================================================
-# USBVault Enterprise — DNS Configuration (Route 53)
+# Quantum_Shield — DNS Configuration (Route 53)
 # =============================================================================
 #
 # Manages DNS records for the USBVault production domain. This file assumes:

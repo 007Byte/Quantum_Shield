@@ -1,8 +1,8 @@
-# Quantum Armor Vault (QAV) React Native App
+# Quantum_Shield React Native App
 
 ## Overview
 
-A cross-platform React Native mobile and desktop application for Quantum Armor Vault (QAV), featuring:
+A cross-platform React Native mobile and desktop application for Quantum_Shield, featuring:
 
 - **Post-Quantum Cryptography**: ML-KEM, ML-DSA, SLH-DSA via Rust FFI
 - **Zero-Knowledge Security**: Password-based encryption without server-side access
@@ -330,4 +330,4 @@ For issues or questions:
 
 ## License
 
-Quantum Armor Vault (QAV) - Proprietary Software
+Quantum_Shield - Proprietary Software

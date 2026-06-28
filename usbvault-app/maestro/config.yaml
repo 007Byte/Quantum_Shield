@@ -1,8 +1,8 @@
-# Maestro E2E Test Configuration — USBVault Enterprise
+# Maestro E2E Test Configuration — Quantum_Shield
 # https://maestro.mobile.dev/
 
 appId: com.usbvault.enterprise
-name: USBVault Enterprise E2E Tests
+name: Quantum_Shield E2E Tests
 
 # Default timeout for all commands (milliseconds)
 ext:

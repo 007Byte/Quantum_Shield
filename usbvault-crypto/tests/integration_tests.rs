@@ -1,4 +1,4 @@
-//! Comprehensive integration tests for QAV crypto crate
+//! Comprehensive integration tests for Quantum_Shield crypto crate
 //! Tests security-critical cryptographic operations
 
 use usbvault_crypto::*;

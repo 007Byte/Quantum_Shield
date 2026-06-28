@@ -2,7 +2,7 @@
 
 ## Overview
 
-This phase implements a comprehensive cross-platform Foreign Function Interface (FFI) build system for the Quantum Armor Vault Rust crypto crate. The implementation enables secure cryptographic operations to be compiled as native libraries for iOS, Android, macOS, Windows, and Linux platforms.
+This phase implements a comprehensive cross-platform Foreign Function Interface (FFI) build system for the Quantum_Shield Rust crypto crate. The implementation enables secure cryptographic operations to be compiled as native libraries for iOS, Android, macOS, Windows, and Linux platforms.
 
 ## Architecture
 
@@ -291,7 +291,7 @@ void usbvault_free(uint8_t *ptr, size_t len);
 **xcframework**
 - Combines device + simulator libraries
 - Single framework supports both contexts
-- Output: `Quantum Armor VaultCrypto.xcframework`
+- Output: `USBVaultCrypto.xcframework`
 
 ### Android Build
 
@@ -462,7 +462,7 @@ The FFI implementation enforces several safety guarantees:
 
 ```swift
 // Load the xcframework
-import Quantum Armor VaultCrypto
+import USBVaultCrypto
 
 // Call C functions
 var salt = [UInt8](repeating: 0, count: 32)

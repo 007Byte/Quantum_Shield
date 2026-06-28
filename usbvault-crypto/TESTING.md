@@ -1,9 +1,9 @@
-# Quantum Armor Vault Crypto Testing Setup
+# Quantum_Shield Crypto Testing Setup
 ## Phase 2.3: Fuzz Testing & Phase 2.4: Property-Based Tests
 
 ### Overview
 
-This document describes the comprehensive testing infrastructure for the Quantum Armor Vault cryptographic core, including fuzzing targets (libfuzzer) and property-based tests (proptest).
+This document describes the comprehensive testing infrastructure for the Quantum_Shield cryptographic core, including fuzzing targets (libfuzzer) and property-based tests (proptest).
 
 ---
 

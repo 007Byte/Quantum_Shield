@@ -1,4 +1,4 @@
-# USBVault Enterprise - Trivy False Positive Suppressions
+# Quantum_Shield - Trivy False Positive Suppressions
 # Each entry requires justification and review date
 
 # Alpine base image - acceptable risk for non-root containers

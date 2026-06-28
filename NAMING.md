@@ -1,28 +1,38 @@
 # Naming & Project Identity
 
-This project is currently known by three different names depending on where you look.
-They all refer to the **same project**:
+The canonical product name is **Quantum_Shield**. Everything in this repository — the
+GitHub repository (`007Byte/Quantum_Shield`), the mobile/desktop app, the server, the
+crypto core, and the marketing site — is one product, and that product is called
+**Quantum_Shield**.
 
-| Name | Where it appears |
-|---|---|
-| **Quantum Armor Vault (QAV)** | Canonical product name — component READMEs and the Rust crate (`usbvault-crypto`) |
-| **`Quantum_Shield`** | GitHub repository (`007Byte/Quantum_Shield`), CI badge URLs |
-| **USBVault Enterprise** | Mobile/desktop app display name |
+## Product name vs. code namespace
 
-In addition, code namespaces use `usbvault-*` (e.g. `usbvault-app`, `usbvault-server`,
-`usbvault-crypto`, `@usbvault/*` packages) and some docs refer to the product simply as
-"USBVault."
+There are two distinct things here, and only one of them is the "name":
 
-## Why this matters
+| | Value | Rule |
+|---|---|---|
+| **Product name** (human-facing) | **Quantum_Shield** | Use everywhere a human reads the product's name: docs, READMEs, store listings, the WebAuthn relying-party display name, app UI copy. |
+| **Code namespace** (machine-facing) | `usbvault-*` | Do **not** rename. It is wired into builds, imports, deploys, and credentials. |
 
-If you are reading the repo, an issue, a runbook, or a store listing, these names are
-interchangeable. `security@usbvault.io` and `https://usbvault.io` belong to the same
-project as the `Quantum_Shield` repository and the "Quantum Armor Vault (QAV)" product.
+The `usbvault-*` namespace is an implementation identity, not the product name, and it is
+**deliberately kept**:
 
-## Scope
+- package / directory / crate names: `usbvault-server`, `usbvault-app`, `usbvault-crypto`,
+  `usbvault-companion`, `electron-shell`, `landing`, and the `@usbvault/*` npm scope
+- the Go module path `github.com/usbvault/usbvault-server` and all import paths
+- domains and emails: `usbvault.io`, `app.usbvault.io`, `api.usbvault.io`,
+  `security@usbvault.io`
+- the WebAuthn **RPID** `usbvault.io` (a stable origin identifier — changing it would
+  invalidate every existing passkey), the on-disk `VAULT.bin` magic, env-var names
+  (`USBVAULT_*`, `OIDC_*`, `FIDO2_*`), Kubernetes namespaces, and Helm chart names
 
-A full rename to a single canonical name (across the repo directory tree, package
-namespaces, CI badge URLs, i18n locale strings, runbooks, and store listings) is
-**out of scope for now**. This document exists to remove ambiguity until that
-consolidation happens. When a canonical name is chosen, update this file and migrate the
-remaining references.
+## History
+
+The product was previously referred to by several names — "Quantum Armor Vault (QAV)",
+"QAV", and "USBVault Enterprise". Those are **retired aliases**; all of them have been
+consolidated to **Quantum_Shield**. The bare word "USBVault" survives only as part of the
+`usbvault-*` code namespace described above, never as the product name.
+
+If you find a lingering "QAV" / "Quantum Armor Vault" / "USBVault Enterprise" in a
+human-facing string, it is a leftover — replace it with **Quantum_Shield**. If you find
+`usbvault-*` in code, a path, a domain, an env var, or the RPID, **leave it**.

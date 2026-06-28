@@ -7,7 +7,7 @@ type OWASPControl struct {
 	ID          string   // e.g., "A01:2021"
 	Name        string   // e.g., "Broken Access Control"
 	Status      string   // "COMPLIANT", "PARTIAL", "NOT_APPLICABLE"
-	Mitigations []string // What QAV does to address this
+	Mitigations []string // What Quantum_Shield does to address this
 	CWEs        []string // Related CWEs
 	Evidence    []string // File paths or test names as evidence
 }
@@ -416,7 +416,7 @@ func OWASPAPISecurityTop10() []OWASPControl {
 }
 
 // OWASPMobileTop10 returns OWASP Mobile Top 10 2024 compliance status
-// Note: QAV is server-side only, but API compliance affects mobile clients
+// Note: Quantum_Shield is server-side only, but API compliance affects mobile clients
 func OWASPMobileTop10() []OWASPControl {
 	return []OWASPControl{
 		{

@@ -6,7 +6,7 @@
 
 ## Context
 
-QAV requires fast, ephemeral storage for:
+Quantum_Shield requires fast, ephemeral storage for:
 
 - Session tokens (authentication, 2-hour expiry)
 - Rate-limit counters (per-user, per-IP, per-endpoint)

@@ -1,5 +1,5 @@
 /**
- * DOC-007: USBVault Enterprise — Recovery Procedures v2.0
+ * DOC-007: Quantum_Shield — Recovery Procedures v2.0
  * Audience: End Users, IT Support Staff
  */
 
@@ -27,7 +27,7 @@ async function generate(outDir) {
 
     // Preface
     H.h1("Important: Read Before You Need It"),
-    H.p("This document covers every recovery scenario for USBVault Enterprise. We strongly recommend reading it once when you first set up USBVault\u2014not when you\u2019re in the middle of an emergency. Understanding your recovery options in advance can save you from permanent data loss."),
+    H.p("This document covers every recovery scenario for Quantum_Shield. We strongly recommend reading it once when you first set up USBVault\u2014not when you\u2019re in the middle of an emergency. Understanding your recovery options in advance can save you from permanent data loss."),
     H.warning("USBVault uses zero-knowledge encryption. This means nobody\u2014not USBVault support, not your IT department, not anyone\u2014can recover your data without your password or recovery phrase. This is a security feature, not a limitation. Plan accordingly."),
     H.pageBreak(),
 
@@ -243,12 +243,12 @@ async function generate(outDir) {
     H.warning("NEVER share your password or recovery phrase with support staff. USBVault will never ask for them. Anyone requesting these credentials is attempting unauthorized access."),
 
     H.spacer(400),
-    H.p([H.italic("Keep this document accessible separately from your vault. USBVault Enterprise v2.0 \u2014 March 15, 2026.")], { alignment: H.AlignmentType.CENTER }),
+    H.p([H.italic("Keep this document accessible separately from your vault. Quantum_Shield v2.0 \u2014 March 15, 2026.")], { alignment: H.AlignmentType.CENTER }),
   ];
 
   await H.buildDoc({
     filename: "USBVault_Enterprise_Recovery_Procedures.docx",
-    headerTitle: "USBVault Enterprise \u2014 Recovery Procedures",
+    headerTitle: "Quantum_Shield \u2014 Recovery Procedures",
     headerClassification: "INTERNAL",
     footerDocId: "DOC-007", footerVersion: "2.0", children, outDir,
   });
