@@ -176,9 +176,12 @@ func (krs *KeyRotationService) generateAndStoreKey(ctx context.Context) error {
 	krs.activeKey = key
 	krs.keyCache[kid] = key
 
-	// Update global keys for backward compatibility
+	// Update global keys for backward compatibility — under jwtKeyMu, the same lock
+	// the signing/validation readers hold, to avoid a data race during rotation.
+	jwtKeyMu.Lock()
 	jwtPrivateKey = privKey
 	jwtPublicKey = pubKey
+	jwtKeyMu.Unlock()
 
 	log.Info().Str("kid", kid).Msg("PH2-FIX: Generated new JWT signing key")
 	return nil

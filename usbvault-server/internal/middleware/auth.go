@@ -59,6 +59,13 @@ func AuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
 				if err != nil {
 					log.Debug().Err(err).Msg("invalid or revoked token")
 					// Continue without auth context - let RequireAuth handle it
+				} else if claims.Type != "access" {
+					// SECURITY: only an ACCESS token may authenticate API requests. A
+					// refresh token (30-day TTL) or any other type must NOT grant access
+					// to protected endpoints — the WebSocket path enforces this, and the
+					// HTTP path must mirror it. We skip injecting identity so RequireAuth
+					// returns 401 (token treated as unauthenticated here).
+					log.Warn().Str("user_id", claims.UserID).Str("type", claims.Type).Msg("non-access token presented to protected endpoint - denying")
 				} else {
 					// SECURITY (fail-closed): a device-bound token (claims.DeviceFingerprint
 					// set) MUST present a matching X-Device-Fingerprint header. The prior

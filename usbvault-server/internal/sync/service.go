@@ -248,7 +248,14 @@ func (ss *SyncService) HandleWebSocket(wsService *SyncService) http.HandlerFunc 
 					log.Debug().Err(err).Str("user_id", userID).Msg("invalid client message format")
 					continue
 				}
-				clientMsgCh <- msg
+				// Cancellable send: if the main loop has exited (ctx cancelled), don't
+				// block forever on a full channel — that would leak this goroutine and
+				// hold the websocket connection / OS socket open.
+				select {
+				case clientMsgCh <- msg:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}()
 

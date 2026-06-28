@@ -110,9 +110,27 @@ func (as *AuditService) LogSecurityEvent(ctx context.Context, event SecurityEven
 }
 
 func (as *AuditService) LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error {
+	// The hash chain is a read-modify-write (read last hash -> compute -> insert). Two
+	// concurrent LogAction calls for the same user could both read the same prev_hash
+	// and insert two rows sharing it, FORKING the tamper-evident chain. Make the whole
+	// operation atomic per user with a transaction + a per-user advisory lock so
+	// concurrent appends serialize instead of racing.
+	tx, err := as.pool.Begin(ctx)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("audit: failed to begin tx")
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Serialize concurrent appends for this user (released at tx end).
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, userID); err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("audit: failed to acquire advisory lock")
+		return err
+	}
+
 	// Get previous hash from last audit entry for this user
 	var prevHash []byte
-	err := as.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT hash FROM audit_log WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
 		userID,
 	).Scan(&prevHash)
@@ -132,14 +150,18 @@ func (as *AuditService) LogAction(ctx context.Context, userID string, actionType
 	newHash := h.Sum(nil)
 
 	// Insert into audit log
-	_, err = as.pool.Exec(ctx,
+	_, err = tx.Exec(ctx,
 		`INSERT INTO audit_log (user_id, action_type, encrypted_detail, timestamp, prev_hash, hash)
          VALUES ($1, $2, $3, $4, $5, $6)`,
 		userID, actionType, encryptedDetail, now, prevHash, newHash,
 	)
-
 	if err != nil {
 		log.Error().Err(err).Str("user_id", userID).Str("action_type", actionType).Msg("failed to log action")
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		log.Error().Err(err).Str("user_id", userID).Str("action_type", actionType).Msg("audit: failed to commit")
 		return err
 	}
 

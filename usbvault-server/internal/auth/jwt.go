@@ -386,7 +386,11 @@ func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) 
 		defer cancel()
 
 		revoked, err := redisClient.Get(ctx, "revoked:"+claims.JTI).Result()
-		if err == nil && revoked == "1" {
+		// Any present revocation entry means the token is revoked. Different callers
+		// write different reasons — "1" on logout, "account_deleted" on account
+		// deletion (account.go), "theft:<family>" on theft detection (revokeTokenFamily).
+		// A strict == "1" check silently let deletion/theft revocations through.
+		if err == nil && revoked != "" {
 			return nil, errors.New("token revoked")
 		}
 	}

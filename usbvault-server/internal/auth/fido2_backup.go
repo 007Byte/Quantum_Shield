@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -247,14 +248,16 @@ func HandleVerifyBackupCode(pool *pgxpool.Pool, redisClient *redis.Client, audit
 		codeFound := false
 		codeUsed := false
 
+		// Constant-time comparison without an early break: don't leak via timing which
+		// stored hash matched. usedCodes is keyed by providedHash, so the used-check
+		// does not depend on which stored entry matched.
 		for _, storedHash := range storedCodes {
-			if storedHash == providedHash {
+			if subtle.ConstantTimeCompare([]byte(storedHash), []byte(providedHash)) == 1 {
 				codeFound = true
-				if usedCodes[providedHash] {
-					codeUsed = true
-				}
-				break
 			}
+		}
+		if codeFound && usedCodes[providedHash] {
+			codeUsed = true
 		}
 
 		if !codeFound {
