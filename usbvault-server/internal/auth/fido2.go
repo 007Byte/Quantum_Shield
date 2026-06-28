@@ -296,6 +296,13 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 			return
 		}
 
+		// H-5: a FIDO2 assertion is a fresh strong authentication — record it so the user
+		// may enroll a new credential within the step-up window (any-strong-auth, not
+		// strictly SRP, so passkey-login users can still add another passkey).
+		if rerr := markRecentReauth(ctx, redisClient, userID); rerr != nil {
+			log.Warn().Err(rerr).Str("user_id", userID).Msg("H-5: failed to set recent-reauth marker (non-fatal)")
+		}
+
 		auditSvc.LogAction(ctx, userID, "FIDO2_LOGIN", nil)
 		log.Info().Str("user_id", userID).Msg("FIDO2 authentication successful")
 

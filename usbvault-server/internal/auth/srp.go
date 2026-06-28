@@ -404,6 +404,12 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 			return
 		}
 
+		// H-5: SRP verify is a fresh strong authentication — record it so the user may
+		// enroll a new credential within the short step-up window without re-authing again.
+		if rerr := markRecentReauth(ctx, redisClient, state.UserID); rerr != nil {
+			log.Warn().Err(rerr).Str("user_id", state.UserID).Msg("H-5: failed to set recent-reauth marker (non-fatal)")
+		}
+
 		// Reset lockout attempts on successful authentication
 		if err := lockoutSvc.ResetAttempts(ctx, state.EmailHash); err != nil {
 			log.Error().Err(err).Str("user_id", state.UserID).Msg("failed to reset lockout attempts")
