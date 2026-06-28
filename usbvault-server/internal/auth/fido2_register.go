@@ -25,9 +25,9 @@ type FIDO2RegisterChallengeResponse struct {
 }
 
 type FIDO2RegisterVerifyRequest struct {
-	SessionID              string `json:"session_id"`
+	SessionID               string `json:"session_id"`
 	AttestationResponseJSON string `json:"attestation_response"`
-	CredentialName        string `json:"credential_name"` // Optional user-friendly name
+	CredentialName          string `json:"credential_name"` // Optional user-friendly name
 }
 
 type FIDO2RegisterVerifyResponse struct {
@@ -36,10 +36,10 @@ type FIDO2RegisterVerifyResponse struct {
 }
 
 type FIDO2Credential struct {
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	LastUsedAt  time.Time `json:"last_used_at"`
-	Name        string    `json:"name"`
+	ID         string    `json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	Name       string    `json:"name"`
 }
 
 // HandleFIDO2RegisterChallenge initiates credential registration for an authenticated user
@@ -94,6 +94,26 @@ func HandleFIDO2RegisterChallenge(pool database.TransactionExecutor, redisClient
 			if err := json.Unmarshal(credentialsJSON, &credentials); err != nil {
 				log.Error().Err(err).Str("user_id", userID).Msg("failed to unmarshal existing credentials during FIDO2 registration challenge")
 				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// H-5: enrolling a NEW credential requires a recent strong authentication (SRP
+		// or FIDO2) — a bearer access token alone must not be enough to add a passkey/
+		// device (which would grant an attacker persistent access). The FIRST credential
+		// is exempt: a user with zero existing authenticators has no prior factor to step
+		// up with, and the account is still gated by its primary auth. Fail closed if the
+		// marker lookup errors.
+		if len(credentials) > 0 {
+			recent, rerr := hasRecentReauth(ctx, redisClient, userID)
+			if rerr != nil {
+				log.Error().Err(rerr).Str("user_id", userID).Msg("H-5: recent-reauth check failed — denying enrollment")
+				http.Error(w, "authorization check failed", http.StatusInternalServerError)
+				return
+			}
+			if !recent {
+				log.Warn().Str("user_id", userID).Msg("H-5: enrollment blocked — step-up (recent strong-auth) required")
+				writeStepUpRequired(w)
 				return
 			}
 		}
