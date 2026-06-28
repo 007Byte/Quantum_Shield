@@ -33,7 +33,7 @@ export interface SyncStoreState {
 
   /**
    * Connect to the sync WebSocket endpoint.
-   * @param wsUrl  Full WebSocket URL (e.g. wss://api.usbvault.com/api/v1/sync/ws)
+   * @param wsUrl  Full WebSocket URL (e.g. wss://api.usbvault.io/api/v1/sync/ws)
    * @param token  JWT access token
    * @param onSyncEvent  Optional callback when an encrypted event arrives
    */

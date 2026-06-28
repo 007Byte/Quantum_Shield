@@ -11,7 +11,7 @@ info:
 servers:
   - url: http://localhost:8080
     description: Development server
-  - url: https://api.qav.io
+  - url: https://api.usbvault.io
     description: Production server
 
 security:

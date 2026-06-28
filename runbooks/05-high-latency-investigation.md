@@ -51,7 +51,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='histogram_quantile(0
 # Look for sudden spike from baseline
 
 # Check application logs for slow queries
-kubectl logs -n production deployment/qav-api --tail=1000 | grep -i "duration\|slow\|timeout"
+kubectl logs -n production deployment/usbvault-api --tail=1000 | grep -i "duration\|slow\|timeout"
 
 # Check error rates
 curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_total{status=~"5.."}[5m])' | jq .
@@ -116,7 +116,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
    curl -s 'http://prometheus.internal:9090/api/v1/query?query=histogram_quantile(0.95,rate(http_request_duration_seconds_bucket{endpoint!="health"}[5m]))' | jq '.data.result[] | {endpoint: .metric.endpoint, p95: .value}'
 
    # Is it all servers or specific pods?
-   kubectl top pods -n production -l app=qav-api | head -20
+   kubectl top pods -n production -l app=usbvault-api | head -20
    # Look for CPU/memory usage differences
 
    # Is it increasing over time (leak) or suddenly spiked?
@@ -126,7 +126,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 3. **Check external factors**
    ```bash
    # Recent deployment?
-   kubectl rollout history deployment/qav-api -n production
+   kubectl rollout history deployment/usbvault-api -n production
 
    # Traffic surge?
    curl -s 'http://prometheus.internal:9090/api/v1/query?query=rate(http_requests_total[5m])' | jq '.data.result[] | {value}'
@@ -143,7 +143,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 4. **Check database query performance**
    ```bash
    # Query active connections
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      SELECT
        query,
        query_start,
@@ -156,7 +156,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
      LIMIT 10;"
 
    # Check slow query log
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      SELECT
        query,
        calls,
@@ -171,7 +171,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 5. **Identify missing indexes**
    ```bash
    # Queries using seq scan (inefficient)
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      SELECT
        query,
        seq_scan,
@@ -182,21 +182,21 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
      ORDER BY seq_scan DESC;"
 
    # Check for full table scans in slow queries
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      EXPLAIN ANALYZE SELECT ... [your slow query];"
    ```
 
 6. **Check connection pool status**
    ```bash
    # Database connections open
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      SELECT datname, count(*) as connections
      FROM pg_stat_activity
      GROUP BY datname
      ORDER BY connections DESC;"
 
    # App sees pool exhaustion?
-   kubectl logs -n production deployment/qav-api --tail=100 | grep -i "pool\|connection\|timeout"
+   kubectl logs -n production deployment/usbvault-api --tail=100 | grep -i "pool\|connection\|timeout"
 
    # Increase pool size if needed
    # Edit deployment, set: CONNECTION_POOL_SIZE=50 (default 20)
@@ -205,11 +205,11 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 7. **Monitor query completion**
    ```bash
    # Check if queries complete
-   watch -n 2 'psql -h prod-db.internal -U postgres -d qav_db -c "SELECT COUNT(*) FROM pg_stat_activity WHERE state != \"idle\";"'
+   watch -n 2 'psql -h prod-db.internal -U postgres -d usbvault_db -c "SELECT COUNT(*) FROM pg_stat_activity WHERE state != \"idle\";"'
 
    # If count stays high: queries are backing up
    # Kill long-running query if necessary:
-   psql -h prod-db.internal -U postgres -d qav_db -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query_start < NOW() - INTERVAL '5 minutes';"
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query_start < NOW() - INTERVAL '5 minutes';"
    ```
 
 #### Path B: External Service Latency (S3, etc.)
@@ -226,7 +226,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
      --statistics Average
 
    # Check app logs for S3 timeouts
-   kubectl logs -n production deployment/qav-api --tail=200 | grep -i "s3\|bucket\|timeout"
+   kubectl logs -n production deployment/usbvault-api --tail=200 | grep -i "s3\|bucket\|timeout"
 
    # Increase S3 client timeout
    # Edit deployment: S3_REQUEST_TIMEOUT=30000 (ms)
@@ -236,7 +236,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
    ```bash
    # From pod to S3
    kubectl run -it --rm debug --image=curlimages/curl --restart=Never -n production -- \
-     curl -w "Time: %{time_total}s\n" https://qav-bucket-prod.s3.amazonaws.com -I
+     curl -w "Time: %{time_total}s\n" https://usbvault-bucket-prod.s3.amazonaws.com -I
 
    # Check latency to AWS endpoint
    kubectl run -it --rm debug --image=busybox --restart=Never -n production -- \
@@ -248,7 +248,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 10. **Check CPU and memory usage**
     ```bash
     # Pod-level metrics
-    kubectl top pods -n production -l app=qav-api
+    kubectl top pods -n production -l app=usbvault-api
 
     # Node-level metrics
     kubectl top nodes
@@ -260,13 +260,13 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
     kubectl describe node <node-name> | grep -A 5 Allocated
 
     # Check GC pauses
-    kubectl logs -n production deployment/qav-api | grep -i "gc pause\|garbage collect"
+    kubectl logs -n production deployment/usbvault-api | grep -i "gc pause\|garbage collect"
     ```
 
 11. **Check disk I/O**
     ```bash
     # From pod or node
-    kubectl exec -n production deployment/qav-api -- iostat -x 1 5 | tail -20
+    kubectl exec -n production deployment/usbvault-api -- iostat -x 1 5 | tail -20
 
     # Look for high iowait (>20%)
 
@@ -279,10 +279,10 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 12. **Use distributed tracing to pinpoint latency**
     ```bash
     # Query Jaeger API for slow traces
-    curl -s 'http://jaeger.internal:16686/api/traces?service=qav-api&maxDuration=5000ms&minDuration=1000ms&limit=20' | jq '.data[] | {duration: .duration, spans: (.spans | length)}'
+    curl -s 'http://jaeger.internal:16686/api/traces?service=usbvault-api&maxDuration=5000ms&minDuration=1000ms&limit=20' | jq '.data[] | {duration: .duration, spans: (.spans | length)}'
 
     # Open Jaeger UI and:
-    # 1. Filter by service: qav-api
+    # 1. Filter by service: usbvault-api
     # 2. Look for traces with duration >1000ms
     # 3. Click on trace to see span timeline
     # 4. Identify which span is slowest (thickest bar)
@@ -321,7 +321,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
     kubectl get jobs -n production | grep -i rotation
 
     # Check certificate validation
-    kubectl logs -n production deployment/qav-api | grep -i "cert\|tls\|x509"
+    kubectl logs -n production deployment/usbvault-api | grep -i "cert\|tls\|x509"
     ```
 
 ### Phase 3: Metrics Deep-Dive with Prometheus (PH2-FIX)
@@ -353,7 +353,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
     kubectl get events -n production --sort-by='.lastTimestamp' | grep "14:3[0-5]"
 
     # Check for pod restarts/scaling events
-    kubectl describe deployment qav-api -n production | grep -A 20 "Replicas:"
+    kubectl describe deployment usbvault-api -n production | grep -A 20 "Replicas:"
     ```
 
 ### Phase 4: Resolution (varies by root cause)
@@ -361,17 +361,17 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 17. **If database query is slow: Optimize**
     ```bash
     # Add index for slow query
-    psql -h prod-db.internal -U postgres -d qav_db -c "
+    psql -h prod-db.internal -U postgres -d usbvault_db -c "
       CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
       -- Use CONCURRENTLY to avoid locking during business hours
     "
 
     # Or rewrite query for efficiency
     # Get query plan to understand issue:
-    psql -h prod-db.internal -U app_user -d qav_db -c "EXPLAIN ANALYZE SELECT ...;"
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "EXPLAIN ANALYZE SELECT ...;"
 
     # Restart app to clear query plan cache
-    kubectl rollout restart deployment/qav-api -n production
+    kubectl rollout restart deployment/usbvault-api -n production
     ```
 
 18. **If S3 latency is high: Optimize**
@@ -380,7 +380,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
     # Or migrate hot files to CloudFront
 
     # Increase S3 timeout and retry
-    kubectl set env deployment/qav-api \
+    kubectl set env deployment/usbvault-api \
       S3_REQUEST_TIMEOUT=60000 \
       S3_RETRY_COUNT=3 \
       -n production
@@ -392,10 +392,10 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 19. **If resource-constrained: Scale**
     ```bash
     # Increase pod replicas
-    kubectl scale deployment qav-api --replicas=5 -n production
+    kubectl scale deployment usbvault-api --replicas=5 -n production
 
     # Or increase resource limits
-    kubectl set resources deployment qav-api \
+    kubectl set resources deployment usbvault-api \
       --limits=cpu=2,memory=2Gi \
       --requests=cpu=1,memory=1Gi \
       -n production
@@ -407,7 +407,7 @@ curl -s http://prometheus.internal:9090/api/v1/query?query='rate(http_requests_t
 20. **If GC pause is issue: Tune JVM (if applicable)**
     ```bash
     # Adjust Java GC settings
-    kubectl set env deployment/qav-api \
+    kubectl set env deployment/usbvault-api \
       JAVA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
       -n production
     ```

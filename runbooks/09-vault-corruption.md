@@ -45,7 +45,7 @@ This runbook addresses HashiCorp Vault corruption scenarios including failed enc
 **Detection Tools:**
 ```bash
 # Check Vault health
-curl -s https://vault.qav.internal/v1/sys/health | jq .
+curl -s https://vault.usbvault.internal/v1/sys/health | jq .
 
 # Check Vault status
 vault status
@@ -58,11 +58,11 @@ vault debug -service-metrics
 
 # Query encryption operations
 curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
-  https://vault.qav.internal/v1/sys/audit | jq '.audit | keys'
+  https://vault.usbvault.internal/v1/sys/audit | jq '.audit | keys'
 
 # Check rollback protection state
 curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
-  https://vault.qav.internal/v1/sys/rekey/verify | jq '.state_version'
+  https://vault.usbvault.internal/v1/sys/rekey/verify | jq '.state_version'
 ```
 
 ---
@@ -98,7 +98,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
 1. **Verify Vault is truly corrupted**
    ```bash
    # Check Vault API status
-   curl -s https://vault.qav.internal/v1/sys/health | jq .
+   curl -s https://vault.usbvault.internal/v1/sys/health | jq .
 
    # Expected response should not have errors
    # Common responses:
@@ -138,7 +138,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
    done
 
    # Check application dependencies
-   kubectl logs -n production deployment/qav-api | grep -i "secret\|decrypt\|vault"
+   kubectl logs -n production deployment/usbvault-api | grep -i "secret\|decrypt\|vault"
    ```
 
 4. **Declare incident**
@@ -161,8 +161,8 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
    ```bash
    # Applications trying to access corrupted Vault will fail/hang
    # Gracefully stop them to avoid cascading failures
-   kubectl scale deployment qav-api --replicas=0 -n production
-   kubectl scale deployment qav-worker --replicas=0 -n production
+   kubectl scale deployment usbvault-api --replicas=0 -n production
+   kubectl scale deployment usbvault-worker --replicas=0 -n production
 
    # Notify team
    aws sns publish \
@@ -176,7 +176,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
    ```bash
    # Check state version
    curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
-     https://vault.qav.internal/v1/sys/rekey/verify | jq '.state_version'
+     https://vault.usbvault.internal/v1/sys/rekey/verify | jq '.state_version'
 
    # Compare to known good state version from audit logs
    # If state version jumped backwards: ROLLBACK ATTEMPT DETECTED
@@ -197,7 +197,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
 
    # Package and secure
    tar -czf /tmp/vault-forensics-$(date +%Y%m%d-%H%M%S).tar.gz /tmp/vault-forensics/
-   aws s3 cp /tmp/vault-forensics-*.tar.gz s3://qav-security-forensics/ --sse AES256
+   aws s3 cp /tmp/vault-forensics-*.tar.gz s3://usbvault-security-forensics/ --sse AES256
 
    # Contact security team
    cat > /tmp/security_alert.txt <<'EOF'
@@ -230,8 +230,8 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
    pg_dump -h vault-postgres.internal -U vault -d vault > /tmp/vault-db-corrupted.sql
 
    # Store backup securely
-   gpg --trust-model always -r security@qav.com -e /tmp/vault-db-corrupted.sql
-   aws s3 cp /tmp/vault-db-corrupted.sql.gpg s3://qav-vault-backups/
+   gpg --trust-model always -r security@usbvault.io -e /tmp/vault-db-corrupted.sql
+   aws s3 cp /tmp/vault-db-corrupted.sql.gpg s3://usbvault-vault-backups/
    ```
 
 9. **Path A: Restore from known-good backup**
@@ -270,7 +270,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
     # Re-encrypt with new key
 
     # Rotate encryption key
-    vault write -f transit/keys/qav-encryption-key/rotate
+    vault write -f transit/keys/usbvault-encryption-key/rotate
 
     # This rotates the key material but doesn't decrypt existing data
     # For existing secrets, they're encrypted with old key version
@@ -305,14 +305,14 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
     ```bash
     # Verify state version is consistent
     curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
-      https://vault.qav.internal/v1/sys/rekey/verify | jq '.state_version'
+      https://vault.usbvault.internal/v1/sys/rekey/verify | jq '.state_version'
 
     # Check encryption key versions match audit log
-    vault list transit/keys/qav-encryption-key/keys/
+    vault list transit/keys/usbvault-encryption-key/keys/
     # Should show: 1, 2, 3, ... (sequential)
 
     # Verify Master Encryption Key (MEK) state
-    aws kms describe-key --key-id alias/qav-mek-prod | jq '.KeyMetadata | {CreationDate, LastRotationDate}'
+    aws kms describe-key --key-id alias/usbvault-mek-prod | jq '.KeyMetadata | {CreationDate, LastRotationDate}'
     ```
 
 ### Phase 4: Seal Key Recovery (if applicable)
@@ -377,22 +377,22 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
     vault kv get secret/test
 
     # Scale applications back up
-    kubectl scale deployment qav-api --replicas=3 -n production
-    kubectl scale deployment qav-worker --replicas=2 -n production
+    kubectl scale deployment usbvault-api --replicas=3 -n production
+    kubectl scale deployment usbvault-worker --replicas=2 -n production
 
     # Monitor startup
-    kubectl rollout status deployment/qav-api -n production
+    kubectl rollout status deployment/usbvault-api -n production
     ```
 
 16. **Verify encrypted data access works**
     ```bash
     # Test application can read secrets
-    kubectl logs -n production -l app=qav-api --tail=50 | grep -i "secret\|vault"
+    kubectl logs -n production -l app=usbvault-api --tail=50 | grep -i "secret\|vault"
 
     # Should see successful secret reads, no errors
 
     # Health check API
-    curl -s http://qav-api:8080/health | jq '.status'
+    curl -s http://usbvault-api:8080/health | jq '.status'
     # Should return "healthy"
     ```
 
@@ -413,7 +413,7 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
       jq '[.auth.client_token[0:8], .request.path, .time]'
 
     # Share with security team
-    aws s3 cp /tmp/vault-audit-full.json s3://qav-vault-backups/forensics/
+    aws s3 cp /tmp/vault-audit-full.json s3://usbvault-vault-backups/forensics/
     ```
 
 18. **Plan preventive measures**
@@ -501,8 +501,8 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
 
 ## Critical Contacts
 
-- CISO: security-lead@qav.com
-- Legal: legal@qav.com
-- Compliance Officer: compliance@qav.com
+- CISO: security-lead@usbvault.io
+- Legal: legal@usbvault.io
+- Compliance Officer: compliance@usbvault.io
 - Incident Commander: [on-call rotation]
-- Database Administrator: dba@qav.com
+- Database Administrator: dba@usbvault.io

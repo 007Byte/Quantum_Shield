@@ -50,7 +50,7 @@ curl -s 'http://prometheus.internal:9090/api/v1/query?query=rate(auth_requests_t
 curl -s 'http://prometheus.internal:9090/api/v1/query?query=rate(auth_failures_total{reason="invalid_credentials"}[1m])' | jq '.data.result[0].value'
 
 # Check for suspicious IPs
-kubectl logs -n production deployment/qav-auth --tail=500 | grep -i "failed.*login\|invalid.*credentials" | cut -d' ' -f1 | sort | uniq -c | sort -rn | head -20
+kubectl logs -n production deployment/usbvault-auth --tail=500 | grep -i "failed.*login\|invalid.*credentials" | cut -d' ' -f1 | sort | uniq -c | sort -rn | head -20
 
 # Check rate limiting metrics
 redis-cli -h redis-master.internal KEYS "rate-limit:*" | head -20
@@ -109,19 +109,19 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 2. **Identify attack type**
    ```bash
    # Get top IPs attacking
-   kubectl logs -n production deployment/qav-auth --tail=2000 | \
+   kubectl logs -n production deployment/usbvault-auth --tail=2000 | \
      grep -i "failed login\|invalid credentials" | \
      awk '{print $NF}' | \
      sort | uniq -c | sort -rn | head -20
 
    # Get top usernames being targeted
-   kubectl logs -n production deployment/qav-auth --tail=2000 | \
+   kubectl logs -n production deployment/usbvault-auth --tail=2000 | \
      grep "failed login" | \
      awk '{print $(NF-1)}' | \
      sort | uniq -c | sort -rn | head -20
 
    # Check if distributed (many IPs) or single IP
-   UNIQUE_IPS=$(kubectl logs -n production deployment/qav-auth --tail=2000 | \
+   UNIQUE_IPS=$(kubectl logs -n production deployment/usbvault-auth --tail=2000 | \
      grep "failed login" | awk '{print $NF}' | sort -u | wc -l)
 
    if [ $UNIQUE_IPS -gt 50 ]; then
@@ -171,7 +171,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 5. **Block malicious IPs using WAF** (if single source)
    ```bash
    # Get top attacking IP
-   TOP_IP=$(kubectl logs -n production deployment/qav-auth --tail=2000 | \
+   TOP_IP=$(kubectl logs -n production deployment/usbvault-auth --tail=2000 | \
      grep "failed login" | \
      awk '{print $NF}' | \
      sort | uniq -c | sort -rn | head -1 | awk '{print $2}')
@@ -203,7 +203,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
    curl -s 'http://prometheus.internal:9090/api/v1/query?query=auth_accounts_locked_total' | jq '.data.result[].value'
 
    # Query locked accounts
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      SELECT email, locked_at, failed_attempts
      FROM users
      WHERE is_locked = true
@@ -219,7 +219,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 7. **Determine target accounts**
    ```bash
    # Which accounts are being attacked?
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      SELECT
        u.email,
        COUNT(aal.id) as failed_attempts,
@@ -239,7 +239,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 8. **Check for actual breaches**
    ```bash
    # Did attackers actually get in? (successful logins)
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      SELECT
        aal.source_ip,
        u.email,
@@ -259,7 +259,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 9. **Assess MFA bypass attempts**
    ```bash
    # Check if attackers bypassed MFA
-   kubectl logs -n production deployment/qav-auth --tail=2000 | grep -i "mfa.*failed\|totp.*invalid"
+   kubectl logs -n production deployment/usbvault-auth --tail=2000 | grep -i "mfa.*failed\|totp.*invalid"
 
    # If yes: indicates compromised password AND potentially compromised phone/secret
    # Notify security team immediately
@@ -273,7 +273,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
     # Enable CAPTCHA on auth endpoint
 
     # Update auth service config
-    kubectl set env deployment/qav-auth \
+    kubectl set env deployment/usbvault-auth \
       ENABLE_CAPTCHA=true \
       CAPTCHA_THRESHOLD=3 \
       -n production
@@ -282,7 +282,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
     # Blocks bots but allows human users to recover
 
     # Verify CAPTCHA challenge appearing
-    kubectl logs -n production deployment/qav-auth | grep -i captcha
+    kubectl logs -n production deployment/usbvault-auth | grep -i captcha
     ```
 
 11. **Notify affected users**
@@ -304,27 +304,27 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
        - Enable two-factor authentication if not already enabled
     2. If this was you: Wait 30 minutes for lock to expire, then login normally
 
-    Need help? Contact support@qav.com
+    Need help? Contact support@usbvault.io
     EOF
     ```
 
 12. **If high-value accounts compromised: Emergency password reset**
     ```bash
     # Force password reset for affected accounts
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       UPDATE users
       SET password_reset_required = true,
           password_reset_token = gen_random_uuid(),
           password_reset_expires = NOW() + INTERVAL '24 hours'
       WHERE email IN (
         SELECT email FROM json_array_elements(
-          '[\"admin@qav.com\", \"ceo@qav.com\"]'::jsonb
+          '[\"admin@usbvault.io\", \"ceo@usbvault.io\"]'::jsonb
         ) AS email(text)
       );
     "
 
     # Send password reset emails
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       SELECT email, password_reset_token
       FROM users
       WHERE password_reset_required = true;"
@@ -336,7 +336,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
     ```bash
     # After attack subsides, unlock accounts
     # Manual unlock (if needed before auto-unlock timer)
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       UPDATE users
       SET is_locked = false,
           failed_login_attempts = 0,
@@ -345,7 +345,7 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
         AND locked_at < NOW() - INTERVAL '30 minutes';"
 
     # Verify unlock
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       SELECT COUNT(*)
       FROM users
       WHERE is_locked = true;"
@@ -438,20 +438,20 @@ tail -1000 /var/log/auth.log | awk '{print $1}' | sort | uniq -c | sort -rn | he
 curl -s 'http://prometheus.internal:9090/api/v1/query?query=rate(auth_failures_total[1m])' | jq '.data.result[0].value'
 
 # Get top attacking IPs
-kubectl logs -n production deployment/qav-auth --tail=2000 | grep "failed" | awk '{print $NF}' | sort | uniq -c | sort -rn
+kubectl logs -n production deployment/usbvault-auth --tail=2000 | grep "failed" | awk '{print $NF}' | sort | uniq -c | sort -rn
 
 # Block IP immediately
 aws wafv2 create-ip-set --name "block-ips" --scope REGIONAL --ip-address-version IPV4 --addresses "192.0.2.1/32"
 
 # Check locked accounts
-psql -h prod-db.internal -U app_user -d qav_db -c "SELECT COUNT(*) FROM users WHERE is_locked = true;"
+psql -h prod-db.internal -U app_user -d usbvault_db -c "SELECT COUNT(*) FROM users WHERE is_locked = true;"
 
 # Unlock all accounts
-psql -h prod-db.internal -U app_user -d qav_db -c "UPDATE users SET is_locked = false, failed_login_attempts = 0;"
+psql -h prod-db.internal -U app_user -d usbvault_db -c "UPDATE users SET is_locked = false, failed_login_attempts = 0;"
 
 # Enable CAPTCHA
-kubectl set env deployment/qav-auth ENABLE_CAPTCHA=true -n production
+kubectl set env deployment/usbvault-auth ENABLE_CAPTCHA=true -n production
 
 # Monitor real-time
-kubectl logs -n production deployment/qav-auth -f | grep -i "failed\|error"
+kubectl logs -n production deployment/usbvault-auth -f | grep -i "failed\|error"
 ```

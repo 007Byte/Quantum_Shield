@@ -444,7 +444,7 @@ spec:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `EXPO_PUBLIC_API_URL` | Server API URL | `https://api.usbvault.com` |
+| `EXPO_PUBLIC_API_URL` | Server API URL | `https://api.usbvault.io` |
 | `EXPO_PUBLIC_ENABLE_MOCK_DATA` | Enable mock data | `false` |
 | `EXPO_PUBLIC_DEBUG_MODE` | Debug mode | `false` |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN for app | (empty) |

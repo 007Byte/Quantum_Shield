@@ -72,8 +72,8 @@ resource "aws_s3_bucket_cors" "vault_data" {
     allowed_headers = ["Authorization", "Content-Length", "X-Amz-Date", "X-Amz-Content-SHA256"]
     allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
     allowed_origins = [
-      "https://app.usbvault.com",
-      "https://api.usbvault.com"
+      "https://app.usbvault.io",
+      "https://api.usbvault.io"
     ]
     expose_headers = [
       "ETag",

@@ -83,7 +83,7 @@
 |-------|--------|
 | **Status** | PASS |
 | **Evidence** | `usbvault-crypto/src/cipher.rs`, `usbvault-crypto/src/kdf.rs` |
-| **Implementation** | XChaCha20-Poly1305 (IETF AEAD) for vault encryption. Argon2id for password-based key derivation (memory: 64 MiB, iterations: 3, parallelism: 4). All implementations use the `ring` and `chacha20poly1305` crates -- peer-reviewed, widely-audited Rust cryptographic libraries. No custom cryptographic primitives. |
+| **Implementation** | XChaCha20-Poly1305 (IETF AEAD) for vault encryption. Argon2id for password-based key derivation (memory: 64 MiB, iterations: 3, parallelism: 4). All implementations use the RustCrypto crates (`argon2`, `chacha20poly1305`, `aes-gcm-siv`, `hkdf`, `x25519-dalek`, `ml-kem`) -- peer-reviewed, widely-audited Rust cryptographic libraries. No custom cryptographic primitives. |
 
 ### MSTG-CRYPTO-3 -- Cryptography Appropriate for Use Case
 

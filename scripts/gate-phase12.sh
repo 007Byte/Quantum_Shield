@@ -171,23 +171,23 @@ echo ""
 # ============================================================
 echo -e "${BLUE}[Task 3] PQC FFI Exports${NC}"
 
-# qav_pqc_generate_keypair
-if grep -q "qav_pqc_generate_keypair" "$FFI_DIR/mod.rs" 2>/dev/null; then
-    check_pass "FFI: qav_pqc_generate_keypair export"
+# usbvault_pqc_generate_keypair
+if grep -q "usbvault_pqc_generate_keypair" "$FFI_DIR/mod.rs" 2>/dev/null; then
+    check_pass "FFI: usbvault_pqc_generate_keypair export"
 else
     check_fail "FFI: PQC keypair generation export missing"
 fi
 
-# qav_pqc_seal
-if grep -q "qav_pqc_seal" "$FFI_DIR/mod.rs" 2>/dev/null; then
-    check_pass "FFI: qav_pqc_seal export"
+# usbvault_pqc_seal
+if grep -q "usbvault_pqc_seal" "$FFI_DIR/mod.rs" 2>/dev/null; then
+    check_pass "FFI: usbvault_pqc_seal export"
 else
     check_fail "FFI: PQC seal export missing"
 fi
 
-# qav_pqc_open
-if grep -q "qav_pqc_open" "$FFI_DIR/mod.rs" 2>/dev/null; then
-    check_pass "FFI: qav_pqc_open export"
+# usbvault_pqc_open
+if grep -q "usbvault_pqc_open" "$FFI_DIR/mod.rs" 2>/dev/null; then
+    check_pass "FFI: usbvault_pqc_open export"
 else
     check_fail "FFI: PQC open export missing"
 fi

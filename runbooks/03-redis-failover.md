@@ -206,12 +206,12 @@ The volatile-lru eviction policy is configured to automatically remove least rec
 9. **Monitor rate limiter fallback** (PH1-FIX: In-Memory Rate Limiter)
    ```bash
    # Check if in-memory rate limiter kicked in
-   kubectl logs -n production -l app=qav-api | grep -i "rate.*limit\|fallback"
+   kubectl logs -n production -l app=usbvault-api | grep -i "rate.*limit\|fallback"
 
    # Verify rate limiting still working
    # Quick test: 101 requests in rapid succession should hit limit
    for i in {1..101}; do
-     curl -s -H "X-API-Key: test-key" https://api.qav.internal/v1/users \
+     curl -s -H "X-API-Key: test-key" https://api.usbvault.internal/v1/users \
        -w "HTTP %{http_code}\n" | tail -1
    done | sort | uniq -c
    # Should see some 429 (Too Many Requests) responses
@@ -377,12 +377,12 @@ The volatile-lru eviction policy is configured to automatically remove least rec
     # Should return: "test-value"
 
     # Test rate limiting (should work with failover)
-    curl -H "X-API-Key: test" https://api.qav.internal/v1/health -v
+    curl -H "X-API-Key: test" https://api.usbvault.internal/v1/health -v
     ```
 
 23. **Check application connectivity**
     ```bash
-    kubectl logs -n production -l app=qav-api --tail=50 | grep -i redis
+    kubectl logs -n production -l app=usbvault-api --tail=50 | grep -i redis
 
     # Should see successful connections, no timeouts
     ```

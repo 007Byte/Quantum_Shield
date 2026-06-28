@@ -71,7 +71,7 @@ func LoadBackupConfig() (*BackupConfig, error) {
 
 	storagePath := os.Getenv("BACKUP_STORAGE_PATH")
 	if storagePath == "" {
-		storagePath = "/var/backups/qav"
+		storagePath = "/var/backups/usbvault"
 	}
 
 	retentionDays := 30 // default

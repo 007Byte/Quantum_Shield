@@ -101,7 +101,7 @@ class ExternalPortalServiceImpl {
   }
 
   generateAccessUrl(shareId: string): string {
-    return `https://vault.usbvault.com/portal/${shareId}`;
+    return `https://vault.usbvault.io/portal/${shareId}`;
   }
 
   async validateAccess(

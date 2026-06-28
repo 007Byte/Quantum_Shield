@@ -300,4 +300,4 @@ describe('formatFileSize', () => {
 
 For detailed documentation, see `PROJECT_STRUCTURE.md`
 
-Questions? Check the security whitepaper or contact support@usbvault.com
+Questions? Check the security whitepaper or contact support@usbvault.io

@@ -82,7 +82,7 @@ func LoadConfig() (*OIDCConfig, error) {
 
 	callbackBase := os.Getenv("OIDC_CALLBACK_BASE_URL")
 	if callbackBase == "" {
-		callbackBase = "https://app.usbvault.com/auth/oidc/callback"
+		callbackBase = "https://app.usbvault.io/auth/oidc/callback"
 	}
 
 	scopes := []string{"openid", "email", "profile"}

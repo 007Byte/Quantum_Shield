@@ -325,7 +325,7 @@ npm start
 
 For issues or questions:
 1. Check documentation in security whitepaper
-2. Contact: support@usbvault.com
+2. Contact: support@usbvault.io
 3. GitHub issues (if open source)
 
 ## License

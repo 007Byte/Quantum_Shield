@@ -10,7 +10,7 @@
  *   Web/Standalone: Browser ──HTTP──▶ USB Companion (localhost:3001) ──OS──▶ lsblk/diskutil/WMI
  *
  * The companion runs on the user's machine and bridges to the OS USB subsystem.
- * This is NOT the remote Go backend (api.usbvault.com) — USB is inherently local.
+ * This is NOT the remote Go backend (api.usbvault.io) — USB is inherently local.
  */
 
 import axios, { AxiosInstance } from 'axios';

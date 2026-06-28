@@ -399,7 +399,7 @@ Follow Semantic Versioning: `MAJOR.MINOR.PATCH`
 
 - **Questions?** Open a discussion issue
 - **Bug reports?** Include reproduction steps
-- **Security issue?** Email security@usbvault.com
+- **Security issue?** Email security@usbvault.io
 - **Documentation?** Improve existing docs
 
 ---

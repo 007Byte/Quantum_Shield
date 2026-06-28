@@ -157,7 +157,7 @@ impl SrpClient {
 
     /// SG-008: Derive SRP private key x using Argon2id.
     ///
-    /// Uses the same Argon2id parameters as vault key derivation (65MB, 3 iterations)
+    /// Uses the same Argon2id parameters as vault key derivation (64 MiB, 3 iterations)
     /// but with a domain-separated salt to prevent cross-protocol key reuse:
     ///   srp_salt = SHA-256("srp-verifier" || salt || identity)
     ///

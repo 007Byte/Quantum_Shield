@@ -37,16 +37,16 @@ This runbook covers emergency disk space management for database volumes, S3 buc
 ```bash
 # Check database disk usage
 df -h /var/lib/postgresql/data
-psql -h prod-db.internal -U postgres -d postgres -c "SELECT pg_database_size('qav_db') as size;"
+psql -h prod-db.internal -U postgres -d postgres -c "SELECT pg_database_size('usbvault_db') as size;"
 
 # Check application volumes
-kubectl exec -n production deployment/qav-api -- df -h /data
+kubectl exec -n production deployment/usbvault-api -- df -h /data
 
 # Check node disk pressure
 kubectl describe node <node-name> | grep -A 5 "Conditions"
 
 # Check S3 bucket size
-aws s3 ls s3://qav-data-prod --recursive --summarize | grep "Total Size"
+aws s3 ls s3://usbvault-data-prod --recursive --summarize | grep "Total Size"
 
 # Check largest files
 find /var -type f -size +100M -exec ls -lh {} \; | head -20
@@ -112,7 +112,7 @@ du -sh /var/log/* | sort -hr | head -10
    # If database is affected
    psql -h prod-db.internal -U postgres -d postgres -c "
      SELECT
-       pg_size_pretty(pg_database_size('qav_db')) as db_size,
+       pg_size_pretty(pg_database_size('usbvault_db')) as db_size,
        pg_size_pretty(
          (SELECT setting::bigint * 8192
           FROM pg_settings WHERE name = 'shared_buffers')
@@ -146,7 +146,7 @@ du -sh /var/log/* | sort -hr | head -10
 4. **Check database space usage**
    ```bash
    # Find largest tables
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      SELECT
        schemaname,
        tablename,
@@ -164,22 +164,22 @@ du -sh /var/log/* | sort -hr | head -10
 5. **Stop new writes to database** (if critically full)
    ```bash
    # Set database to read-only
-   psql -h prod-db.internal -U postgres -d qav_db -c "
-     ALTER DATABASE qav_db SET default_transaction_read_only = on;"
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
+     ALTER DATABASE usbvault_db SET default_transaction_read_only = on;"
 
    # Notify applications
-   kubectl set env deployment/qav-api DB_READ_ONLY=true -n production
-   kubectl set env deployment/qav-worker DB_READ_ONLY=true -n production
+   kubectl set env deployment/usbvault-api DB_READ_ONLY=true -n production
+   kubectl set env deployment/usbvault-worker DB_READ_ONLY=true -n production
    ```
 
 6. **Archive old audit logs** (typically the largest table)
    ```bash
    # Check audit log table size
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      SELECT pg_size_pretty(pg_total_relation_size('public.audit_logs'));"
 
    # Archive logs older than 90 days
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      CREATE TABLE audit_logs_archive_202512 AS
      SELECT * FROM audit_logs
      WHERE created_at < '2025-12-01'::date;
@@ -191,20 +191,20 @@ du -sh /var/log/* | sort -hr | head -10
      REINDEX TABLE audit_logs;"
 
    # Export to S3 for long-term storage
-   psql -h prod-db.internal -U postgres -d qav_db \
+   psql -h prod-db.internal -U postgres -d usbvault_db \
      --copy \
      --command="SELECT * FROM audit_logs_archive_202512;" \
-     | aws s3 cp - s3://qav-audit-archive/audit_logs_202512.tsv
+     | aws s3 cp - s3://usbvault-audit-archive/audit_logs_202512.tsv
 
    # Drop archive table once exported
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      DROP TABLE audit_logs_archive_202512;"
    ```
 
 7. **Clean up WAL files**
    ```bash
    # Force checkpoint to flush WAL
-   psql -h prod-db.internal -U postgres -d qav_db -c "
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
      CHECKPOINT;"
 
    # Check if WAL can be pruned
@@ -222,7 +222,7 @@ du -sh /var/log/* | sort -hr | head -10
 8. **Reclaim space with VACUUM**
    ```bash
    # Aggressive vacuum on largest tables
-   psql -h prod-db.internal -U app_user -d qav_db -c "
+   psql -h prod-db.internal -U app_user -d usbvault_db -c "
      VACUUM FULL ANALYZE events;
      VACUUM FULL ANALYZE audit_logs;
      VACUUM FULL ANALYZE transactions;"
@@ -234,10 +234,10 @@ du -sh /var/log/* | sort -hr | head -10
 9. **Re-enable writes**
    ```bash
    # Once space is freed (should have at least 20% free)
-   psql -h prod-db.internal -U postgres -d qav_db -c "
-     ALTER DATABASE qav_db SET default_transaction_read_only = off;"
+   psql -h prod-db.internal -U postgres -d usbvault_db -c "
+     ALTER DATABASE usbvault_db SET default_transaction_read_only = off;"
 
-   kubectl set env deployment/qav-api DB_READ_ONLY=false -n production
+   kubectl set env deployment/usbvault-api DB_READ_ONLY=false -n production
    ```
 
 #### Path B: S3 Bucket Full
@@ -246,16 +246,16 @@ du -sh /var/log/* | sort -hr | head -10
     ```bash
     # Get bucket size
     aws s3api list-objects-v2 \
-      --bucket qav-data-prod \
+      --bucket usbvault-data-prod \
       --query '[Contents[].Size] | add(@)' | python3 -c "import sys, json; print(json.load(sys.stdin) / (1024**3), 'GB')"
 
     # Check for lifecycle policies
     aws s3api get-bucket-lifecycle-configuration \
-      --bucket qav-data-prod
+      --bucket usbvault-data-prod
 
     # Find largest objects
     aws s3api list-objects-v2 \
-      --bucket qav-data-prod \
+      --bucket usbvault-data-prod \
       --query 'sort_by(Contents, &Size)[-20:].[Key,Size]' \
       --output table
     ```
@@ -288,22 +288,22 @@ du -sh /var/log/* | sort -hr | head -10
     EOF
 
     aws s3api put-bucket-lifecycle-configuration \
-      --bucket qav-data-prod \
+      --bucket usbvault-data-prod \
       --lifecycle-configuration file:///tmp/lifecycle.json
     ```
 
 12. **Delete unnecessary files**
     ```bash
     # Find and delete old temporary files
-    aws s3 rm s3://qav-data-prod/temp/ --recursive
+    aws s3 rm s3://usbvault-data-prod/temp/ --recursive
 
     # Find duplicate/redundant backups
-    aws s3api list-objects-v2 --bucket qav-data-prod --prefix backup/ \
+    aws s3api list-objects-v2 --bucket usbvault-data-prod --prefix backup/ \
       --query 'Contents[].[Key,LastModified,Size]' \
       --output table | grep "$(date -d '30 days ago' +%Y-%m)"
 
     # Delete old backups (keep last 30 days)
-    aws s3 rm s3://qav-data-prod/backup/ \
+    aws s3 rm s3://usbvault-data-prod/backup/ \
       --recursive \
       --exclude "*" \
       --include "$(date -d '40 days ago' +%Y%m%d)*"
@@ -324,18 +324,18 @@ du -sh /var/log/* | sort -hr | head -10
       /var/log/*.log.*
 
     # Upload to S3 Glacier
-    aws s3 cp /tmp/logs-*.tar.gz s3://qav-log-archive/
+    aws s3 cp /tmp/logs-*.tar.gz s3://usbvault-log-archive/
     ```
 
 14. **Configure log rotation**
     ```bash
     # Check logrotate config
     cat /etc/logrotate.conf
-    cat /etc/logrotate.d/qav-app
+    cat /etc/logrotate.d/usbvault-app
 
     # Update rotation policy if too aggressive
-    cat > /etc/logrotate.d/qav-app <<'EOF'
-    /var/log/qav-api.log {
+    cat > /etc/logrotate.d/usbvault-app <<'EOF'
+    /var/log/usbvault-api.log {
       daily
       rotate 7
       compress
@@ -343,7 +343,7 @@ du -sh /var/log/* | sort -hr | head -10
       notifempty
       create 0640 app app
       postrotate
-        systemctl reload qav-api
+        systemctl reload usbvault-api
       endscript
     }
     EOF
@@ -355,13 +355,13 @@ du -sh /var/log/* | sort -hr | head -10
 15. **Clean application logs**
     ```bash
     # Check if application logs are in pod storage
-    kubectl exec -n production deployment/qav-api -- du -sh /var/log/
+    kubectl exec -n production deployment/usbvault-api -- du -sh /var/log/
 
     # Clear old logs from pods
-    kubectl exec -n production deployment/qav-api -- sh -c 'rm /var/log/*.log.* || true'
+    kubectl exec -n production deployment/usbvault-api -- sh -c 'rm /var/log/*.log.* || true'
 
     # Restart to clear logs
-    kubectl delete pods -n production -l app=qav-api
+    kubectl delete pods -n production -l app=usbvault-api
     ```
 
 #### Path D: Kubernetes Node Disk Pressure
@@ -369,7 +369,7 @@ du -sh /var/log/* | sort -hr | head -10
 16. **Free space on node**
     ```bash
     # SSH to node
-    NODE=$(kubectl get pods -n production deployment/qav-api -o jsonpath='{.items[0].spec.nodeName}')
+    NODE=$(kubectl get pods -n production deployment/usbvault-api -o jsonpath='{.items[0].spec.nodeName}')
     gcloud compute ssh $NODE --zone us-central1-a
 
     # Clean container images
@@ -419,7 +419,7 @@ du -sh /var/log/* | sort -hr | head -10
     du -sh /var/lib/postgresql/data/
 
     # For S3
-    aws s3 ls s3://qav-data-prod --recursive --summarize
+    aws s3 ls s3://usbvault-data-prod --recursive --summarize
 
     # For logs
     du -sh /var/log
@@ -428,7 +428,7 @@ du -sh /var/log/* | sort -hr | head -10
 19. **Verify services are healthy**
     ```bash
     # Database should be writable
-    psql -h prod-db.internal -U app_user -d qav_db -c "
+    psql -h prod-db.internal -U app_user -d usbvault_db -c "
       INSERT INTO test_table (message) VALUES ('test');
       DELETE FROM test_table;"
 

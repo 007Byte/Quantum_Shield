@@ -68,7 +68,7 @@ npm run android
 npm start
 ```
 
-Visit `http://localhost:19006` for web development.
+Visit `http://localhost:8081` for web development (Expo SDK 54 Metro; the CLI prints the exact URL on start).
 
 ## Architecture Overview
 
@@ -87,15 +87,16 @@ For detailed architecture, see [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md).
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Runtime | React Native + Expo | 0.73.0 / 50.0.0 |
-| Language | TypeScript | 5.3.0 |
-| Navigation | Expo Router | 3.4.0 |
-| State | Zustand | 4.5.0 |
-| HTTP | Axios | 1.6.0 |
-| UI | React Native SVG, Linear Gradient | 14.1.0, 2.8.3 |
+| Runtime | React Native + Expo (SDK 54) | 0.81 / 54 |
+| UI Framework | React | 19.1 |
+| Language | TypeScript | 5.3 |
+| Navigation | Expo Router | 6.0 |
+| State | Zustand | 4.5 |
+| HTTP | Axios | 1.6 |
+| UI | React Native SVG | 15.12 |
 | Crypto | Rust FFI Bridge | Native module |
-| Storage | Expo Secure Store | 12.8.0 |
-| Auth | Expo Local Authentication | 13.8.0 |
+| Storage | Expo Secure Store | 15.0 |
+| Auth | Expo Local Authentication | 17.0 |
 
 ## Security Implementation
 
@@ -210,7 +211,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for all version history and feature releases.
 ## Security & Support
 
 For security vulnerabilities, please report privately:
-- Email: security@usbvault.com
+- Email: security@usbvault.io
 - Security whitepaper available upon request
 
 ## License

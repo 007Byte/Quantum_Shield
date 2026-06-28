@@ -81,7 +81,7 @@ A zero-knowledge SaaS backend for Quantum_Shield. The server never sees plaintex
 ## Development Setup
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.25+
 - PostgreSQL 16
 - Redis 7
 - Docker & Docker Compose (optional)
@@ -90,7 +90,7 @@ A zero-knowledge SaaS backend for Quantum_Shield. The server never sees plaintex
 
 1. Clone and enter directory
 ```bash
-cd /sessions/gracious-stoic-knuth/mnt/Quantum Armor Vault/Enterprise_Version/usbvault-server
+cd usbvault-server
 ```
 
 2. Copy environment template
@@ -115,7 +115,7 @@ docker-compose logs -f api
 
 5. Run migrations
 ```bash
-docker-compose exec postgres psql -U usbvault -d usbvault -f /migrations/001_initial.sql
+docker-compose exec postgres psql -U usbvault -d usbvault_dev -f /docker-entrypoint-initdb.d/001_initial.sql
 ```
 
 6. API is available at `http://localhost:8080`
