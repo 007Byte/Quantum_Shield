@@ -28,6 +28,30 @@ func stripeSignature(payload []byte, secret string) string {
 	return fmt.Sprintf("t=%s,v1=%s", ts, sig)
 }
 
+// TestWebhookIdempotency verifies a replayed Stripe event (whose id is already recorded)
+// is acknowledged with 200 but NOT re-processed — the dedup INSERT hits a unique violation.
+func TestWebhookIdempotency(t *testing.T) {
+	secret := "test_secret_key"
+	os.Setenv("STRIPE_WEBHOOK_SECRET", secret)
+	defer os.Unsetenv("STRIPE_WEBHOOK_SECRET")
+
+	mockPool := NewMockPool()
+	// Simulate the event id already being recorded: the dedup INSERT unique-violates.
+	mockPool.ExecErr = &pgconn.PgError{Code: "23505"}
+	bs := NewBillingService("stripe_key", mockPool)
+
+	payload := []byte(`{"id":"evt_dup_1","type":"customer.subscription.updated","data":{"object":{"id":"sub_123"}}}`)
+	req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", stripeSignature(payload, secret))
+	w := httptest.NewRecorder()
+
+	HandleWebhook(bs).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for a duplicate (idempotent) event, got %d", w.Code)
+	}
+}
+
 func TestValidHMACSignaturePasses(t *testing.T) {
 	t.Run("valid HMAC signature passes verification", func(t *testing.T) {
 		// Setup
@@ -399,14 +423,18 @@ func TestWebhookResponseFormat(t *testing.T) {
 }
 
 // Mock database pool for testing - implements BillingPool interface
-type MockPool struct{}
+type MockPool struct {
+	// ExecErr, when set, is returned from Exec — used e.g. to simulate a
+	// unique-violation for the webhook idempotency test.
+	ExecErr error
+}
 
 func NewMockPool() *MockPool {
 	return &MockPool{}
 }
 
 func (m *MockPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
+	return pgconn.CommandTag{}, m.ExecErr
 }
 
 func (m *MockPool) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {

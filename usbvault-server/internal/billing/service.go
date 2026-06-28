@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -481,6 +482,28 @@ func (bs *BillingService) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
+
+	// Idempotency: process each Stripe event at most once. Stripe delivers events
+	// at-least-once, and a captured signature-valid request can be replayed within the
+	// timestamp-tolerance window — so dedupe on the immutable event id (a unique-violation
+	// means we already handled it). The signature is verified above, so a real captured
+	// event cannot have its id stripped without invalidating it; we simply skip dedup for
+	// an id-less payload rather than rejecting.
+	if eventID, _ := event["id"].(string); bs.pool != nil && eventID != "" {
+		if _, err := bs.pool.Exec(ctx,
+			`INSERT INTO processed_stripe_events (event_id, event_type) VALUES ($1, $2)`,
+			eventID, eventType); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				log.Info().Str("event_id", eventID).Msg("stripe webhook: duplicate event ignored (idempotent)")
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			log.Error().Err(err).Str("event_id", eventID).Msg("stripe webhook: failed to record event id")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	}
 
 	switch eventType {
 	case "customer.subscription.created":
