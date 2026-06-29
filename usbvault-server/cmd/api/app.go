@@ -120,6 +120,18 @@ func (a *App) Run(ctx context.Context) error {
 
 	// Set up HTTP server
 	isProduction := os.Getenv("ENVIRONMENT") == "production"
+
+	// MED-FIX (user enumeration): the decoy SRP-init salt for non-existent
+	// accounts is derived via an HMAC keyed on SRP_ENUM_SECRET. In production
+	// this secret MUST be set and at least 32 bytes so the decoy salt is
+	// unguessable; otherwise an attacker could recompute the deterministic decoy
+	// salt and distinguish real from fake accounts. Mirrors the ENVIRONMENT==
+	// "production" fail-closed gate used for the JWT key-at-rest KEK. Dev/test
+	// fall back to an empty secret (still deterministic) so local runs/tests work.
+	if isProduction && len(os.Getenv("SRP_ENUM_SECRET")) < 32 {
+		log.Fatal().Msg("SRP_ENUM_SECRET must be set to at least 32 bytes in production (anti-enumeration decoy salt key)")
+	}
+
 	router := a.setupRouter(isProduction)
 
 	// MEDIUM-FIX: Configurable server timeouts via environment variables

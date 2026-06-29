@@ -141,8 +141,12 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		// Look up user by email hash
 		emailHash := hashEmail(req.Email)
 
+		// HIGH-FIX: derive the client IP once and key all lockout operations on
+		// (emailHash + clientIP) so an off-path attacker cannot lock the victim.
+		clientIP := GetClientIP(r)
+
 		// Check account lockout status
-		lockoutStatus, err := lockoutSvc.CheckLockout(ctx, emailHash)
+		lockoutStatus, err := lockoutSvc.CheckLockout(ctx, emailHash, clientIP)
 		if err != nil {
 			log.Error().Err(err).Str("email_hash", emailHash).Msg("failed to check lockout status")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -178,13 +182,64 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		).Scan(&userID, &srpSalt, &srpVerifier, &verifierHashAlgo, &needsReReg)
 
 		if err != nil {
-			// User not found - perform constant-time dummy computation to prevent timing attacks
-			log.Debug().Err(err).Str("email_hash", emailHash).Msg("user not found")
-			// Generate dummy B to avoid timing leaks
-			dummyB := computeDummyB()
+			// MED-FIX (user enumeration): a non-existent account MUST be
+			// wire-indistinguishable from a real one. Instead of a 401, emit a
+			// uniform 200 SRPInitResponse carrying a deterministic decoy salt
+			// (stable per-email via the server-keyed HMAC) and a syntactically
+			// valid decoy B (a real group element g^b mod N). We also persist a
+			// decoy srp session with UserID=="" so the SHAPE and TIMING of a
+			// subsequent /verify match a real one; that verify then fails
+			// identically to a wrong proof because HandleSRPVerify rejects
+			// UserID=="" (see the required-field guard there). This intentionally
+			// reuses the exact same code path / amount of CPU work as the real
+			// branch below so timing also matches.
+			log.Debug().Err(err).Str("email_hash", emailHash).Msg("user not found — returning decoy SRP init")
+
+			decoySalt := deterministicPseudoSalt(emailHash)
+
+			N := new(big.Int)
+			N.SetString(srpN, 16)
+			g := big.NewInt(srpG)
+
+			b, berr := randomBigInt(srpEphemeralKeyBits)
+			if berr != nil {
+				log.Error().Err(berr).Msg("failed to generate decoy SRP ephemeral key")
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			// B = g^b mod N is a valid group element; the client cannot tell it
+			// was not formed as k*v + g^b for a real verifier v.
+			B := new(big.Int).Exp(g, b, N)
+			if B.Sign() == 0 {
+				B = big.NewInt(1)
+			}
+
+			// Persist a decoy session (UserID="" => /verify rejects it) so the
+			// session-existence shape matches a real handshake.
+			sessionID := uuid.New().String()
+			decoyState := srpServerState{
+				B:                B.String(),
+				BPrivate:         b.String(),
+				Salt:             decoySalt,
+				SRPVerifier:      nil,
+				EmailHash:        emailHash,
+				UserID:           "",
+				CreatedAt:        time.Now(),
+				VerifierHashAlgo: "argon2id",
+				RequiresRehash:   false,
+			}
+			stateJSON, _ := json.Marshal(decoyState)
+			redisClient.Set(ctx, "srp:"+sessionID, stateJSON, srpSessionTTL)
+
+			// Retain the timing-attack mitigation parity of the real path.
 			time.Sleep(time.Duration(randomDelayMS()) * time.Millisecond)
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
-			_ = dummyB // prevent optimization
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(SRPInitResponse{
+				Salt:      hex.EncodeToString(decoySalt),
+				B:         B.String(),
+				SessionID: sessionID,
+			})
 			return
 		}
 
@@ -311,6 +366,12 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 			return
 		}
 
+		// HIGH-FIX: key verify-side lockout failures on the VERIFY-TIME client IP
+		// (not the init-time IP). An attacker who never solves the SRP proof can
+		// thus only accumulate failures against their own IP bucket, never the
+		// victim's.
+		clientIP := GetClientIP(r)
+
 		// Parse SRP group parameters
 		N := new(big.Int)
 		N.SetString(srpN, 16)
@@ -321,7 +382,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		if _, ok := A.SetString(req.A, 10); !ok {
 			log.Warn().Str("user_id", state.UserID).Msg("invalid A value format")
 			// Record failed attempt
-			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash)
+			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash, clientIP)
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -330,7 +391,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		if A.Sign() <= 0 || A.Cmp(N) >= 0 {
 			log.Warn().Str("user_id", state.UserID).Msg("A out of valid range")
 			// Record failed attempt
-			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash)
+			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash, clientIP)
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -343,7 +404,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// knowing the password.
 		if u.Sign() == 0 {
 			log.Warn().Str("user_id", state.UserID).Msg("SRP scrambler u == 0, rejecting")
-			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash)
+			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash, clientIP)
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -379,7 +440,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		if subtle.ConstantTimeCompare([]byte(req.M1), []byte(M1Hex)) != 1 {
 			log.Warn().Str("user_id", state.UserID).Msg("SRP M1 verification failed")
 			// Record failed attempt
-			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash)
+			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash, clientIP)
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -388,7 +449,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		if time.Since(state.CreatedAt) > srpSessionTTL {
 			log.Warn().Str("user_id", state.UserID).Msg("SRP session expired")
 			// Record failed attempt for expired session
-			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash)
+			lockoutSvc.RecordFailedAttempt(ctx, state.EmailHash, clientIP)
 			http.Error(w, "session expired", http.StatusUnauthorized)
 			return
 		}
@@ -411,7 +472,7 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		}
 
 		// Reset lockout attempts on successful authentication
-		if err := lockoutSvc.ResetAttempts(ctx, state.EmailHash); err != nil {
+		if err := lockoutSvc.ResetAttempts(ctx, state.EmailHash, clientIP); err != nil {
 			log.Error().Err(err).Str("user_id", state.UserID).Msg("failed to reset lockout attempts")
 		}
 

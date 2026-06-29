@@ -61,15 +61,46 @@ func TestHandleFIDO2Challenge(t *testing.T) {
 			},
 		},
 		{
-			name:  "user not found returns generic error",
+			// MED-FIX (enumeration): a non-existent account must be
+			// indistinguishable from a valid one — uniform 200 + challenge.
+			name:  "user not found returns uniform challenge (no enumeration)",
 			email: "nonexistent@example.com",
 			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
 					WithArgs(hashEmail("nonexistent@example.com")).
 					WillReturnError(pgx.ErrNoRows)
 			},
-			expectStatus: http.StatusUnauthorized,
-			expectError:  "invalid credentials",
+			expectStatus: http.StatusOK,
+			validateResp: func(t *testing.T, body []byte) {
+				var resp FIDO2ChallengeResponse
+				err := json.Unmarshal(body, &resp)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, resp.Challenge)
+				assert.NotEmpty(t, resp.SessionID)
+			},
+		},
+		{
+			// MED-FIX (enumeration): a known account WITHOUT credentials must
+			// also be indistinguishable — uniform 200 + challenge, not 400.
+			name:  "user exists but no credentials returns uniform challenge",
+			email: "nocreds@example.com",
+			dbScanFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("SELECT id FROM users WHERE email_hash").
+					WithArgs(hashEmail("nocreds@example.com")).
+					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow("user-nocreds"))
+				mock.ExpectQuery("SELECT webauthn_credentials FROM users WHERE id").
+					WithArgs("user-nocreds").
+					WillReturnRows(pgxmock.NewRows([]string{"webauthn_credentials"}).
+						AddRow([]byte(nil)))
+			},
+			expectStatus: http.StatusOK,
+			validateResp: func(t *testing.T, body []byte) {
+				var resp FIDO2ChallengeResponse
+				err := json.Unmarshal(body, &resp)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, resp.Challenge)
+				assert.NotEmpty(t, resp.SessionID)
+			},
 		},
 		{
 			name:    "invalid request body",

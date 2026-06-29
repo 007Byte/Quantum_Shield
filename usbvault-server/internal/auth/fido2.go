@@ -47,21 +47,29 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		// Look up user
+		// MED-FIX (user enumeration): the previous handler returned three
+		// DISTINGUISHABLE responses — 401 "invalid credentials" for an unknown
+		// email, 400 "no credentials registered" for a known email without
+		// passkeys, and 200 + challenge for a fully-enrolled user — which leaks
+		// account state. Because this is a DISCOVERABLE login,
+		// BeginDiscoverableLogin() takes no user/credential list and has NO DB
+		// dependency, so we can mint a real-looking challenge for EVERY case.
+		// We still perform the user/credential lookups (so DB timing matches a
+		// real account) but treat not-found / no-credentials EXACTLY like the
+		// enrolled case: a uniform 200 + challenge. The later /fido2/verify then
+		// fails uniformly at the resolver (401 "authentication failed") when no
+		// matching user/credential exists, so verify does not enumerate either.
 		emailHash := hashEmail(req.Email)
 		var userID string
 
-		err := pool.QueryRow(ctx,
+		// User lookup — result intentionally does NOT change the response shape;
+		// it only mirrors the DB access pattern of a real account for timing.
+		if lookupErr := pool.QueryRow(ctx,
 			`SELECT id FROM users WHERE email_hash = $1`,
 			emailHash,
-		).Scan(&userID)
-
-		if err != nil {
-			log.Debug().Err(err).Str("email_hash", emailHash).Msg("user not found for FIDO2")
-			// Constant-time delay to prevent timing-based user enumeration
-			time.Sleep(50 * time.Millisecond)
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
-			return
+		).Scan(&userID); lookupErr != nil {
+			log.Debug().Err(lookupErr).Str("email_hash", emailHash).Msg("FIDO2 challenge for unknown account — returning decoy challenge")
+			userID = ""
 		}
 
 		// Initialize WebAuthn
@@ -75,26 +83,28 @@ func HandleFIDO2Challenge(pool database.TransactionExecutor, redisClient *redis.
 			return
 		}
 
-		// Get user credentials
-		var credentialsJSON []byte
-		err = pool.QueryRow(ctx,
-			`SELECT webauthn_credentials FROM users WHERE id = $1`,
-			userID,
-		).Scan(&credentialsJSON)
-
-		if err != nil || credentialsJSON == nil {
-			http.Error(w, "no credentials registered", http.StatusBadRequest)
-			return
+		// Credential lookup (only when the user exists). A user with no
+		// credentials is treated identically to a fully-enrolled one — the
+		// discoverable challenge below is independent of the stored credentials.
+		if userID != "" {
+			var credentialsJSON []byte
+			if credErr := pool.QueryRow(ctx,
+				`SELECT webauthn_credentials FROM users WHERE id = $1`,
+				userID,
+			).Scan(&credentialsJSON); credErr != nil || credentialsJSON == nil {
+				log.Debug().Str("email_hash", emailHash).Msg("FIDO2 challenge for account without credentials — returning decoy challenge")
+			} else {
+				var credentials []webauthn.Credential
+				if err := json.Unmarshal(credentialsJSON, &credentials); err != nil {
+					log.Error().Err(err).Msg("failed to unmarshal credentials during FIDO2 challenge")
+					http.Error(w, "internal error", http.StatusInternalServerError)
+					return
+				}
+			}
 		}
 
-		var credentials []webauthn.Credential
-		if err := json.Unmarshal(credentialsJSON, &credentials); err != nil {
-			log.Error().Err(err).Msg("failed to unmarshal credentials during FIDO2 challenge")
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-
-		// Create assertion options
+		// Create assertion options (discoverable — no DB dependency, so the
+		// challenge is generated identically for found/not-found/no-creds).
 		options, sessionData, err := wau.BeginDiscoverableLogin()
 		if err != nil {
 			http.Error(w, "failed to create assertion challenge", http.StatusInternalServerError)
