@@ -73,26 +73,32 @@ module.exports = {
   // functions ~14% / statements ~19%; crypto lines+statements ~32% / branches
   // ~24% / functions ~43%; services branches ~32%). jest --coverage enforces
   // these as a real floor. Ratchet UP as coverage climbs; never lower.
+  // Ratcheted 2026-06-29 to lock in current coverage as a NO-REGRESSION floor
+  // (raise as coverage grows; not a target). Actuals: crypto ~84%, services ~45%.
+  // NOTE: the GLOBAL number (~19%) is low because collectCoverageFrom spans ALL of
+  // src/ including the still-untested UI (screens/components/hooks) — closing that
+  // gap toward the 70% target is tracked in REMAINING_WORK.md. The security-critical
+  // crypto/services floors below are what this ratchet meaningfully protects.
   coverageThreshold: {
     global: {
       branches: 10,
-      functions: 12,
+      functions: 13,
       lines: 18,
       statements: 18,
     },
-    // Security-critical: client crypto primitives and bridge.
+    // Security-critical: client crypto primitives and bridge (now ~84% covered).
     './src/crypto/': {
-      branches: 22,
-      functions: 40,
-      lines: 31,
-      statements: 31,
+      branches: 46,
+      functions: 80,
+      lines: 82,
+      statements: 82,
     },
-    // Security-critical: key hierarchy, session, SRP, recovery-phrase services.
+    // Security-critical: key hierarchy, session, SRP, recovery-phrase, key-verification.
     './src/services/': {
-      branches: 30,
-      functions: 38,
-      lines: 38,
-      statements: 38,
+      branches: 33,
+      functions: 42,
+      lines: 42,
+      statements: 42,
     },
   },
 };
