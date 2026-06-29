@@ -2,7 +2,10 @@
 //
 // Features:
 //   - Multipart uploads for files up to 5GB per part
-//   - Resume capability with sequence tracking
+//   - Resume capability with sequence tracking; tracking state is persisted in
+//     PostgreSQL (multipart_uploads table) so resume survives server restarts
+//     and works across replicas, with the in-memory map acting as a
+//     write-through cache (pure in-memory fallback when no DB pool is wired)
 //   - Presigned URLs for direct part uploads from clients
 //   - Automatic cleanup of expired uploads (24h TTL)
 //   - Progress tracking with completed parts
@@ -13,6 +16,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/middleware"
 )
@@ -75,12 +80,19 @@ type CompletedPart struct {
 }
 
 // MultipartService manages the lifecycle of S3 multipart uploads.
-// Tracks upload state in memory and handles expiration cleanup.
+// Tracks upload state in PostgreSQL (durable across restarts, when a store is
+// wired) with an in-memory write-through cache, and handles expiration cleanup.
 type MultipartService struct {
 	s3Client *s3.Client
 	bucket   string
 	mu       sync.RWMutex
-	uploads  map[string]*MultipartUpload // uploadID -> upload state
+	uploads  map[string]*MultipartUpload // uploadID -> upload state (write-through cache)
+	// store is the durable (PostgreSQL) source of truth for upload tracking
+	// state. When nil, the service operates purely in-memory (preserves prior
+	// behavior and the struct-literal unit tests). When set, the uploads map is
+	// a write-through cache that rehydrates from the store on a lookup miss,
+	// which is what makes resume-after-restart / cross-replica resume work.
+	store multipartStore
 	// F3: optional tier source for per-tier file-size enforcement on the
 	// multipart path. Mirrors StorageService.billingChecker so the multipart
 	// and single-shot paths agree on the authoritative tier. When nil, no
@@ -103,11 +115,19 @@ type StorageUsageChecker interface {
 
 // NewMultipartService creates a new multipart upload service.
 // Starts background cleanup goroutine for expired uploads.
-func NewMultipartService(s3Client *s3.Client, bucket string) *MultipartService {
+//
+// When pool is non-nil, upload tracking state is persisted to PostgreSQL via a
+// write-through store so resumable uploads survive server restarts and work
+// across replicas. When pool is nil, the service operates purely in-memory
+// (preserves prior behavior for no-DB usage and unit tests).
+func NewMultipartService(s3Client *s3.Client, bucket string, pool *pgxpool.Pool) *MultipartService {
 	svc := &MultipartService{
 		s3Client: s3Client,
 		bucket:   bucket,
 		uploads:  make(map[string]*MultipartUpload),
+	}
+	if pool != nil {
+		svc.store = newPgMultipartStore(pool)
 	}
 	// Start cleanup goroutine for expired uploads
 	go svc.cleanupExpiredUploads()
@@ -229,6 +249,25 @@ func (ms *MultipartService) InitiateUpload(ctx context.Context, userID, vaultID,
 		ExpiresAt:     time.Now().Add(UploadExpiryTTL),
 	}
 
+	// Persist tracking state durably BEFORE caching in the map. If the store
+	// write fails, abort the just-created S3 upload so we don't leak S3 state
+	// that the server cannot track.
+	if ms.store != nil {
+		if err := ms.store.Insert(ctx, upload); err != nil {
+			log.Error().Err(err).Str("upload_id", upload.UploadID).
+				Msg("PH2-FIX: failed to persist multipart upload; aborting S3 upload")
+			if _, abortErr := ms.s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+				Bucket:   aws.String(upload.Bucket),
+				Key:      aws.String(upload.Key),
+				UploadId: aws.String(upload.UploadID),
+			}); abortErr != nil {
+				log.Warn().Err(abortErr).Str("upload_id", upload.UploadID).
+					Msg("PH2-FIX: failed to abort S3 upload after store insert failure")
+			}
+			return nil, fmt.Errorf("failed to persist multipart upload state: %w", err)
+		}
+	}
+
 	ms.mu.Lock()
 	ms.uploads[upload.UploadID] = upload
 	ms.mu.Unlock()
@@ -266,14 +305,69 @@ func (ms *MultipartService) authorizedUpload(uploadID, userID, vaultID string) (
 	return upload, nil
 }
 
+// loadUpload returns an authorized upload, rehydrating it from the durable store
+// on an in-memory cache miss. This is what makes resume-after-restart and
+// cross-replica resume work: a process that did not initiate the upload can
+// still serve it by reading the multipart_uploads table.
+//
+// SECURITY (cross-tenant IDOR): a store hit must still match the caller's
+// UserID/VaultID; on mismatch (or absence) it returns ErrUploadNotFound — the
+// same single error for "absent" and "not yours" — preserving the no-enumeration
+// contract of authorizedUpload. The rehydrated upload is repopulated into the
+// in-memory cache. This method takes ms.mu itself; callers must NOT hold it.
+func (ms *MultipartService) loadUpload(ctx context.Context, uploadID, userID, vaultID string) (*MultipartUpload, error) {
+	ms.mu.RLock()
+	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
+	ms.mu.RUnlock()
+	if err == nil {
+		return upload, nil
+	}
+	if ms.store == nil {
+		return nil, err
+	}
+
+	stored, getErr := ms.store.Get(ctx, uploadID)
+	if getErr != nil {
+		return nil, getErr
+	}
+	if stored == nil {
+		return nil, ErrUploadNotFound
+	}
+	// IDOR: same single error for "not found" and "not yours".
+	if stored.UserID != userID || stored.VaultID != vaultID {
+		return nil, ErrUploadNotFound
+	}
+
+	ms.mu.Lock()
+	// Another goroutine may have rehydrated/initiated concurrently; prefer the
+	// existing cached entry to avoid clobbering in-memory part progress.
+	if existing, ok := ms.uploads[uploadID]; ok {
+		ms.mu.Unlock()
+		return existing, nil
+	}
+	ms.uploads[uploadID] = stored
+	ms.mu.Unlock()
+	return stored, nil
+}
+
+// sortPartsAscending returns the completed parts sorted ascending by PartNumber.
+// S3's CompleteMultipartUpload requires parts in ascending part-number order; a
+// DB rehydrate already returns them ordered, but the in-memory cache path (parts
+// recorded out of order) must be sorted before constructing the S3 request.
+func sortPartsAscending(parts []CompletedPart) []CompletedPart {
+	sorted := make([]CompletedPart, len(parts))
+	copy(sorted, parts)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].PartNumber < sorted[j].PartNumber
+	})
+	return sorted
+}
+
 // GeneratePresignedPartURL generates a time-limited presigned URL for a specific part.
 // Client uses this URL to upload the part directly to S3 (15-minute expiry).
 // Returns error if upload not found, not owned by the caller, or not in progress.
 func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, userID, vaultID, uploadID string, partNumber int) (string, error) {
-	ms.mu.RLock()
-	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
-	ms.mu.RUnlock()
-
+	upload, err := ms.loadUpload(ctx, uploadID, userID, vaultID)
 	if err != nil {
 		return "", err
 	}
@@ -299,26 +393,51 @@ func (ms *MultipartService) GeneratePresignedPartURL(ctx context.Context, userID
 // CompletePart records a successfully uploaded part and updates progress state.
 // Called after client uploads a part and receives the ETag from S3.
 func (ms *MultipartService) CompletePart(ctx context.Context, userID, vaultID, uploadID string, partNumber int, etag string, size int64) error {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
+	// Rehydrate from the durable store on a cache miss so a resumed/restarted
+	// client can keep recording parts. loadUpload manages ms.mu itself.
+	upload, err := ms.loadUpload(ctx, uploadID, userID, vaultID)
 	if err != nil {
 		return err
 	}
 
-	upload.CompleteParts = append(upload.CompleteParts, CompletedPart{
+	part := CompletedPart{
 		PartNumber: partNumber,
 		ETag:       etag,
 		Size:       size,
-	})
+	}
+
+	ms.mu.Lock()
+	// Upsert-by-PartNumber in the in-memory cache: replace an existing entry for
+	// the same part number (resume/retry) instead of blindly appending, which
+	// would produce duplicate parts that S3's CompleteMultipartUpload rejects.
+	replaced := false
+	for i := range upload.CompleteParts {
+		if upload.CompleteParts[i].PartNumber == partNumber {
+			upload.CompleteParts[i] = part
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		upload.CompleteParts = append(upload.CompleteParts, part)
+	}
 	upload.UpdatedAt = time.Now()
+	completed := len(upload.CompleteParts)
+	totalParts := upload.TotalParts
+	ms.mu.Unlock()
+
+	// Durably record the part (upsert on (upload_id, part_number)).
+	if ms.store != nil {
+		if err := ms.store.UpsertPart(ctx, uploadID, part); err != nil {
+			return fmt.Errorf("failed to persist completed part: %w", err)
+		}
+	}
 
 	log.Info().
 		Str("upload_id", uploadID).
 		Int("part", partNumber).
-		Int("completed", len(upload.CompleteParts)).
-		Int("total", upload.TotalParts).
+		Int("completed", completed).
+		Int("total", totalParts).
 		Msg("PH2-FIX: Part completed")
 
 	return nil
@@ -338,17 +457,19 @@ func (ms *MultipartService) CompletePart(ctx context.Context, userID, vaultID, u
 // and return ErrFileSizeExceedsTier (-> HTTP 402). The InitiateUpload TotalSize
 // check remains only as an early gate.
 func (ms *MultipartService) FinalizeUpload(ctx context.Context, userID, vaultID, uploadID string) error {
-	ms.mu.Lock()
-	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
-	ms.mu.Unlock()
-
+	upload, err := ms.loadUpload(ctx, uploadID, userID, vaultID)
 	if err != nil {
 		return err
 	}
 
-	// Build completed parts list for S3.
-	parts := make([]types.CompletedPart, len(upload.CompleteParts))
-	for i, p := range upload.CompleteParts {
+	// Build completed parts list for S3. S3 requires ascending part numbers; a
+	// DB rehydrate already returns them ordered, but the in-memory cache path may
+	// have recorded parts out of order, so sort defensively.
+	ms.mu.RLock()
+	completedParts := sortPartsAscending(upload.CompleteParts)
+	ms.mu.RUnlock()
+	parts := make([]types.CompletedPart, len(completedParts))
+	for i, p := range completedParts {
 		etag := p.ETag
 		parts[i] = types.CompletedPart{
 			PartNumber: aws.Int32(int32(p.PartNumber)), //gosec:disable G115 -- S3 part numbers are bounded to 1..10000 by the S3 API
@@ -438,6 +559,15 @@ func (ms *MultipartService) FinalizeUpload(ctx context.Context, userID, vaultID,
 	delete(ms.uploads, uploadID)
 	ms.mu.Unlock()
 
+	// Durable state: the upload is fully assembled and accepted; drop its
+	// tracking row (parts cascade) so it is no longer resumable/cleanup-eligible.
+	if ms.store != nil {
+		if err := ms.store.Delete(ctx, uploadID); err != nil {
+			log.Warn().Err(err).Str("upload_id", uploadID).
+				Msg("PH2-FIX: failed to delete completed multipart upload from store")
+		}
+	}
+
 	log.Info().Str("upload_id", uploadID).Str("file_id", upload.FileID).Int64("real_size", realSize).Msg("PH2-FIX: Multipart upload completed")
 	return nil
 }
@@ -457,15 +587,18 @@ func (ms *MultipartService) deleteFinalObject(ctx context.Context, bucket, key, 
 	ms.mu.Lock()
 	delete(ms.uploads, uploadID)
 	ms.mu.Unlock()
+	if ms.store != nil {
+		if err := ms.store.Delete(ctx, uploadID); err != nil {
+			log.Warn().Err(err).Str("upload_id", uploadID).
+				Msg("F3: failed to delete rejected multipart upload from store")
+		}
+	}
 }
 
 // AbortUpload cancels an in-progress multipart upload and cleans up S3 resources.
 // Use when upload is abandoned or times out. Removes local tracking state.
 func (ms *MultipartService) AbortUpload(ctx context.Context, userID, vaultID, uploadID string) error {
-	ms.mu.Lock()
-	upload, err := ms.authorizedUpload(uploadID, userID, vaultID)
-	ms.mu.Unlock()
-
+	upload, err := ms.loadUpload(ctx, uploadID, userID, vaultID)
 	if err != nil {
 		return err
 	}
@@ -485,39 +618,85 @@ func (ms *MultipartService) AbortUpload(ctx context.Context, userID, vaultID, up
 	delete(ms.uploads, uploadID)
 	ms.mu.Unlock()
 
+	if ms.store != nil {
+		if err := ms.store.Delete(ctx, uploadID); err != nil {
+			log.Warn().Err(err).Str("upload_id", uploadID).
+				Msg("PH2-FIX: failed to delete aborted multipart upload from store")
+		}
+	}
+
 	log.Info().Str("upload_id", uploadID).Msg("PH2-FIX: Multipart upload aborted")
 	return nil
 }
 
 // GetUploadProgress returns current upload state including completed parts and progress percentage.
 // The caller must own the upload (matching UserID and VaultID).
-func (ms *MultipartService) GetUploadProgress(userID, vaultID, uploadID string) (*MultipartUpload, error) {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
-	return ms.authorizedUpload(uploadID, userID, vaultID)
+//
+// On an in-memory cache miss it rehydrates from the durable store (when wired),
+// which is the core of resume-after-restart: a fresh process can report progress
+// for an upload it never initiated.
+func (ms *MultipartService) GetUploadProgress(ctx context.Context, userID, vaultID, uploadID string) (*MultipartUpload, error) {
+	return ms.loadUpload(ctx, uploadID, userID, vaultID)
 }
 
-// cleanupExpiredUploads periodically aborts expired uploads
+// cleanupExpiredUploads periodically aborts expired uploads. When a durable
+// store is wired, expiry is driven from the store (multipart_uploads) so a
+// replica that did not initiate an upload can still clean it; otherwise it falls
+// back to scanning the in-memory map only.
 func (ms *MultipartService) cleanupExpiredUploads() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		ms.mu.Lock()
-		now := time.Now()
-		for id, upload := range ms.uploads {
-			if upload.Status == "in_progress" && now.After(upload.ExpiresAt) {
-				log.Warn().Str("upload_id", id).Msg("PH2-FIX: Aborting expired multipart upload")
-				// Best-effort abort
-				ms.s3Client.AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
-					Bucket:   aws.String(upload.Bucket),
-					Key:      aws.String(upload.Key),
-					UploadId: aws.String(upload.UploadID),
-				})
-				delete(ms.uploads, id)
-			}
-		}
-		ms.mu.Unlock()
+		ms.cleanupExpiredOnce(context.Background())
 	}
+}
+
+// cleanupExpiredOnce performs a single expiry sweep. Factored out for testability.
+func (ms *MultipartService) cleanupExpiredOnce(ctx context.Context) {
+	now := time.Now()
+
+	if ms.store != nil {
+		expired, err := ms.store.ListExpired(ctx, now)
+		if err != nil {
+			log.Warn().Err(err).Msg("PH2-FIX: failed to list expired multipart uploads from store")
+			return
+		}
+		for _, upload := range expired {
+			log.Warn().Str("upload_id", upload.UploadID).Msg("PH2-FIX: Aborting expired multipart upload")
+			// Best-effort abort of the underlying S3 multipart upload.
+			if _, err := ms.s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+				Bucket:   aws.String(upload.Bucket),
+				Key:      aws.String(upload.Key),
+				UploadId: aws.String(upload.UploadID),
+			}); err != nil {
+				log.Warn().Err(err).Str("upload_id", upload.UploadID).
+					Msg("PH2-FIX: failed to abort expired multipart upload in S3")
+			}
+			if err := ms.store.Delete(ctx, upload.UploadID); err != nil {
+				log.Warn().Err(err).Str("upload_id", upload.UploadID).
+					Msg("PH2-FIX: failed to delete expired multipart upload from store")
+			}
+			ms.mu.Lock()
+			delete(ms.uploads, upload.UploadID)
+			ms.mu.Unlock()
+		}
+		return
+	}
+
+	// In-memory-only fallback (no durable store).
+	ms.mu.Lock()
+	for id, upload := range ms.uploads {
+		if upload.Status == "in_progress" && now.After(upload.ExpiresAt) {
+			log.Warn().Str("upload_id", id).Msg("PH2-FIX: Aborting expired multipart upload")
+			// Best-effort abort
+			ms.s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+				Bucket:   aws.String(upload.Bucket),
+				Key:      aws.String(upload.Key),
+				UploadId: aws.String(upload.UploadID),
+			})
+			delete(ms.uploads, id)
+		}
+	}
+	ms.mu.Unlock()
 }
