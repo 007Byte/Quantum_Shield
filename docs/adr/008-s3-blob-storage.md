@@ -55,7 +55,7 @@ Use **S3-compatible storage** (AWS S3 API) with:
 
 ### Positive Outcomes
 
-- Multipart upload enables resumable transfers (network failures safe)
+- Multipart upload enables resumable transfers; resumable state is persisted in PostgreSQL (multipart_uploads table) so resume survives server restarts and works across replicas.
 - Deduplication reduces storage costs (many vaults share same attachments)
 - On-premises support via MinIO (S3-compatible, open-source)
 - Lifecycle policies automate archival/deletion after 90 days

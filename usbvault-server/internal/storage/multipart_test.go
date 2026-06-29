@@ -34,9 +34,9 @@ func TestMultipartUploadInitiation(t *testing.T) {
 // TestMultipartUploadPartCalculation tests part size calculation logic
 func TestMultipartUploadPartCalculation(t *testing.T) {
 	tests := []struct {
-		totalSize  int64
+		totalSize     int64
 		expectedParts int
-		description string
+		description   string
 	}{
 		{
 			totalSize:     100 * 1024 * 1024, // 100MB
@@ -224,8 +224,8 @@ func TestMultipartUploadStateTransitions(t *testing.T) {
 // TestPartNumberValidation validates part number constraints
 func TestPartNumberValidation(t *testing.T) {
 	tests := []struct {
-		partNumber int
-		valid      bool
+		partNumber  int
+		valid       bool
 		description string
 	}{
 		{0, false, "Part 0 (invalid: < 1)"},
@@ -252,6 +252,64 @@ func TestS3KeyConstruction(t *testing.T) {
 	actualKey := "vaults/" + vaultID + "/files/" + fileID
 	if actualKey != expectedKey {
 		t.Errorf("S3 key construction failed: expected %s, got %s", expectedKey, actualKey)
+	}
+}
+
+// TestCompletePart_UpsertNoDuplicate guards the resume duplicate-part fix:
+// recording the same part number twice must replace the prior entry (last write
+// wins) rather than appending, so CompleteMultipartUpload does not get duplicate
+// parts that S3 rejects. Uses store==nil so the path stays purely in-memory and
+// needs no S3 client.
+func TestCompletePart_UpsertNoDuplicate(t *testing.T) {
+	ctx := context.Background()
+	uploadID := "upload-dup"
+	ms := &MultipartService{uploads: make(map[string]*MultipartUpload)}
+	ms.uploads[uploadID] = &MultipartUpload{
+		UploadID:      uploadID,
+		UserID:        "u1",
+		VaultID:       "v1",
+		Status:        "in_progress",
+		CompleteParts: make([]CompletedPart, 0),
+	}
+
+	if err := ms.CompletePart(ctx, "u1", "v1", uploadID, 1, "etag-old", 100); err != nil {
+		t.Fatalf("first CompletePart: %v", err)
+	}
+	if err := ms.CompletePart(ctx, "u1", "v1", uploadID, 1, "etag-new", 200); err != nil {
+		t.Fatalf("second CompletePart: %v", err)
+	}
+
+	parts := ms.uploads[uploadID].CompleteParts
+	if len(parts) != 1 {
+		t.Fatalf("expected exactly 1 part after re-recording part 1, got %d", len(parts))
+	}
+	if parts[0].PartNumber != 1 || parts[0].ETag != "etag-new" || parts[0].Size != 200 {
+		t.Errorf("expected part 1 with etag-new/size 200 (last write wins), got %+v", parts[0])
+	}
+}
+
+// TestFinalizeParts_SortedAscending verifies the helper used to build the S3
+// CompletedMultipartUpload returns parts in ascending part-number order
+// (required by S3) regardless of the order parts were recorded.
+func TestFinalizeParts_SortedAscending(t *testing.T) {
+	unsorted := []CompletedPart{
+		{PartNumber: 3, ETag: "c"},
+		{PartNumber: 1, ETag: "a"},
+		{PartNumber: 2, ETag: "b"},
+	}
+	sorted := sortPartsAscending(unsorted)
+
+	if len(sorted) != 3 {
+		t.Fatalf("expected 3 parts, got %d", len(sorted))
+	}
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i-1].PartNumber > sorted[i].PartNumber {
+			t.Errorf("parts not ascending at index %d: %d > %d", i, sorted[i-1].PartNumber, sorted[i].PartNumber)
+		}
+	}
+	// Original slice must be unmodified (helper copies).
+	if unsorted[0].PartNumber != 3 {
+		t.Errorf("sortPartsAscending must not mutate its input, got %+v", unsorted)
 	}
 }
 

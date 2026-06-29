@@ -243,7 +243,7 @@ func HandleGetProgress(ms *MultipartService) http.HandlerFunc {
 		vaultID := chi.URLParam(r, "vaultID")
 		uploadID := chi.URLParam(r, "uploadID")
 
-		upload, err := ms.GetUploadProgress(userID, vaultID, uploadID)
+		upload, err := ms.GetUploadProgress(r.Context(), userID, vaultID, uploadID)
 		if err != nil {
 			log.Warn().Err(err).Str("upload_id", uploadID).Str("user_id", userID).Msg("upload not found for progress check")
 			http.Error(w, "upload not found", http.StatusNotFound)

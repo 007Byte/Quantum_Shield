@@ -8,17 +8,17 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
 	auth "github.com/usbvault/usbvault-server/internal/auth"
+	backuppkg "github.com/usbvault/usbvault-server/internal/backup"
+	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
+	"github.com/usbvault/usbvault-server/internal/gc"
+	"github.com/usbvault/usbvault-server/internal/notify"
 	oidcpkg "github.com/usbvault/usbvault-server/internal/oidc"
 	"github.com/usbvault/usbvault-server/internal/resilience"
 	sharing "github.com/usbvault/usbvault-server/internal/sharing"
 	storagepkg "github.com/usbvault/usbvault-server/internal/storage"
 	"github.com/usbvault/usbvault-server/internal/sync"
-	auditpkg "github.com/usbvault/usbvault-server/internal/audit"
-	backuppkg "github.com/usbvault/usbvault-server/internal/backup"
-	billingpkg "github.com/usbvault/usbvault-server/internal/billing"
-	"github.com/usbvault/usbvault-server/internal/gc"
-	"github.com/usbvault/usbvault-server/internal/notify"
 	"github.com/usbvault/usbvault-server/internal/vault"
 )
 
@@ -55,7 +55,7 @@ func (a *App) initServices(ctx context.Context) error {
 	vaultService := vault.NewVaultService(vaultRepository)
 	storageService := storagepkg.NewStorageService(a.s3Client, a.dbPool)
 	// PH2-FIX: Initialize multipart upload service
-	multipartService := storagepkg.NewMultipartService(a.s3Client, a.s3Bucket)
+	multipartService := storagepkg.NewMultipartService(a.s3Client, a.s3Bucket, a.dbPool)
 	sharingService := sharing.NewSharingService(sharingRepository)
 	// PH5-FIX: Initialize contact verification and cleanup services
 	contactVerificationService := sharing.NewContactVerificationService(a.dbPool)
