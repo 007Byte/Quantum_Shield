@@ -14,6 +14,31 @@
 // Wrapped MEK blob: nonce(24) || ciphertext(64+16) = 104 bytes
 constexpr static const uintptr_t WRAPPED_MEK_SIZE = ((24 + 64) + 16);
 
+// m_cost (KiB). Min 8 MiB (8192) — well below the 64 MiB default but still
+// expensive enough to be meaningful; Max 1 GiB (1048576) to bound peak
+// allocation and prevent OOM/DoS on unlock.
+constexpr static const uint32_t MIN_MEMORY_KIB = (8 * 1024);
+
+constexpr static const uint32_t MAX_MEMORY_KIB = (1024 * 1024);
+
+// t_cost (iterations).
+constexpr static const uint32_t MIN_TIME = 1;
+
+constexpr static const uint32_t MAX_TIME = 16;
+
+// p_cost (lanes / parallelism).
+constexpr static const uint8_t MIN_PARALLELISM = 1;
+
+constexpr static const uint8_t MAX_PARALLELISM = 16;
+
+// Canonical defaults for newly-created vaults (unchanged from the original
+// hardcoded values, so the param-driven path is byte-identical for them).
+constexpr static const uint32_t DEFAULT_MEMORY_KIB = 65536;
+
+constexpr static const uint32_t DEFAULT_TIME = 3;
+
+constexpr static const uint8_t DEFAULT_PARALLELISM = 4;
+
 // Default threshold for MEK recovery (minimum shares needed)
 constexpr static const uint8_t DEFAULT_THRESHOLD = 3;
 
@@ -53,6 +78,9 @@ constexpr static const uintptr_t HEADER_SIZE_V4 = 24576;
 
 // V5 header size — identical layout to V4 (24576 bytes).
 constexpr static const uintptr_t HEADER_SIZE_V5 = 24576;
+
+// V6 header size — identical layout to V4/V5 (24576 bytes).
+constexpr static const uintptr_t HEADER_SIZE_V6 = 24576;
 
 // ML-KEM-1024 public key size in bytes
 constexpr static const uintptr_t PUBLIC_KEY_SIZE = 1568;
@@ -196,7 +224,7 @@ int32_t usbvault_pqc_seal(const uint8_t *x25519_pub,
 // # Safety
 // Caller must ensure:
 // - x25519_sec is 32 bytes (recipient X25519 secret key)
-// - mlkem_sec is 3168 bytes (recipient ML-KEM-1024 decapsulation key, FIPS 203)
+// - mlkem_sec is 1568 bytes (recipient ML-KEM-1024 decapsulation key)
 // - sealed_ptr/sealed_len are valid
 // - out_ptr has capacity for plaintext (sealed_len - 1640)
 int32_t usbvault_pqc_open(const uint8_t *x25519_sec,
@@ -368,6 +396,28 @@ int32_t usbvault_vault_fail_counter_reset(const uint8_t *header_ptr,
                                           uint8_t *out_ptr,
                                           uintptr_t out_capacity,
                                           uintptr_t *out_len);
+
+// crypto-pr6: Deliberate, UNAUTHENTICATED cryptographic-erasure self-destruct.
+//
+// Parses the header, performs a full cryptographic erasure
+// ([`VaultHeader::self_destruct_wipe`] — overwrites the salt + wrapped MEK +
+// verify marker so the vault is PERMANENTLY unrecoverable), and writes the
+// wiped header bytes out. Returns `ERR_SUCCESS`. No `hmac_key` is required
+// (a user wiping their own device must not need the password first).
+//
+// DANGER: this is IRREVERSIBLE. The caller MUST gate it behind an explicit,
+// confirmed user action and flush the returned bytes to disk afterwards. A
+// subsequent `usbvault_vault_unlock` on the returned header yields
+// `ERR_SELF_DESTRUCTED`.
+//
+// # Safety
+// - header_ptr/header_len: valid header bytes
+// - out_ptr: capacity >= header size (24576 for V4/V5/V6)
+int32_t usbvault_vault_self_destruct(const uint8_t *header_ptr,
+                                     uintptr_t header_len,
+                                     uint8_t *out_ptr,
+                                     uintptr_t out_capacity,
+                                     uintptr_t *out_len);
 
 // A11: Commit a new index — flip active slot, update offset/length, increment counters.
 //

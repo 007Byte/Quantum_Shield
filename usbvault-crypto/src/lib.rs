@@ -25,8 +25,9 @@ pub mod ffi;
 pub use cipher::{decrypt, encrypt, CipherId};
 pub use error::{CryptoError, Result};
 pub use kdf::{
-    build_kdf_transcript, derive_file_key, derive_kek, derive_kek_v6, derive_master_key,
-    derive_subkey, generate_salt, unwrap_mek, unwrap_mek_ad, wrap_mek, wrap_mek_ad,
+    argon2_bounds, build_kdf_transcript, derive_file_key, derive_kek, derive_kek_v6,
+    derive_kek_v6_with_params, derive_kek_with_params, derive_master_key, derive_subkey,
+    generate_salt, unwrap_mek, unwrap_mek_ad, validate_argon2_params, wrap_mek, wrap_mek_ad,
     KeyEncryptionKey, MasterEncryptionKey, MasterKey, KDF_TRANSCRIPT_DOMAIN_V6, WRAPPED_MEK_SIZE,
 };
 pub use memory::{secure_zero, SecureVec};

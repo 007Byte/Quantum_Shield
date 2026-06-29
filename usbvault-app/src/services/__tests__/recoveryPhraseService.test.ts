@@ -108,12 +108,28 @@ describe('RecoveryPhraseService', () => {
 
     it('should validate checksum', async () => {
       const mnemonic = await recoveryPhraseService.generateMnemonic();
-      // Corrupt last word (which affects checksum)
-      mnemonic[23] = 'abandon'; // Replace with different valid word
+      // Corrupt the final word, which carries the 8-bit BIP39 checksum.
+      // A single-word swap leaves the checksum byte free, so any one
+      // replacement coincidentally re-validates with probability 1/256 —
+      // which made this test flaky (it failed ~0.4% of CI runs when the
+      // recomputed checksum happened to match the swapped word's bits).
+      // Try several distinct replacement words; a correct checksum
+      // implementation must reject at least one. The chance that all of
+      // them coincidentally validate is (1/256)^n ≈ 0.
+      const original = mnemonic[23];
+      const replacements = ['abandon', 'zoo', 'ability', 'able', 'about', 'zone'].filter(
+        w => w !== original
+      );
 
-      const result = await recoveryPhraseService.validateMnemonic(mnemonic);
+      const results = await Promise.all(
+        replacements.map(word => {
+          const corrupted = [...mnemonic];
+          corrupted[23] = word;
+          return recoveryPhraseService.validateMnemonic(corrupted);
+        })
+      );
 
-      expect(result.valid).toBe(false);
+      expect(results.some(r => !r.valid)).toBe(true);
     });
   });
 

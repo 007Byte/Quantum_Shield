@@ -525,3 +525,90 @@ fn test_error_code_consistency() {
     assert!(ERR_INVALID_ARGUMENT < 0, "Error codes should be negative");
     assert!(ERR_BUFFER_TOO_SMALL < 0, "Error codes should be negative");
 }
+
+// ── crypto-pr6: deliberate cryptographic-erasure self-destruct (FFI) ──
+
+use usbvault_crypto::ffi::{
+    usbvault_vault_create_header, usbvault_vault_self_destruct, usbvault_vault_unlock,
+};
+
+const ERR_SELF_DESTRUCTED: i32 = -21;
+const HEADER_CAP: usize = 24576;
+
+#[test]
+fn test_ffi_self_destruct_then_unlock_returns_self_destructed() {
+    let password = b"ffi-self-destruct-pw";
+
+    // 1. Create a V6 vault header (returns header || enc_key(32) || hmac_key(32)).
+    let mut create_out = vec![0u8; HEADER_CAP + 64];
+    let mut create_len: usize = 0;
+    let rc = usbvault_vault_create_header(
+        password.as_ptr(),
+        password.len(),
+        2, // XChaCha20-Poly1305
+        create_out.as_mut_ptr(),
+        create_out.len(),
+        &mut create_len,
+    );
+    assert_eq!(rc, ERR_SUCCESS, "create_header should succeed");
+    let header_len = create_len - 64;
+    let header = create_out[..header_len].to_vec();
+
+    // Sanity: the freshly-created header unlocks.
+    let mut unlock_out = [0u8; 64];
+    let mut unlock_len: usize = 0;
+    let rc = usbvault_vault_unlock(
+        header.as_ptr(),
+        header.len(),
+        password.as_ptr(),
+        password.len(),
+        unlock_out.as_mut_ptr(),
+        unlock_out.len(),
+        &mut unlock_len,
+    );
+    assert_eq!(rc, ERR_SUCCESS, "created vault must unlock before wipe");
+
+    // 2. Deliberate, unauthenticated self-destruct.
+    let mut wiped = vec![0u8; HEADER_CAP];
+    let mut wiped_len: usize = 0;
+    let rc = usbvault_vault_self_destruct(
+        header.as_ptr(),
+        header.len(),
+        wiped.as_mut_ptr(),
+        wiped.len(),
+        &mut wiped_len,
+    );
+    assert_eq!(rc, ERR_SUCCESS, "self_destruct should succeed");
+    let wiped = wiped[..wiped_len].to_vec();
+
+    // 3. Unlock on the wiped header returns ERR_SELF_DESTRUCTED (not password-wrong).
+    let mut out2 = [0u8; 64];
+    let mut out2_len: usize = 0;
+    let rc = usbvault_vault_unlock(
+        wiped.as_ptr(),
+        wiped.len(),
+        password.as_ptr(),
+        password.len(),
+        out2.as_mut_ptr(),
+        out2.len(),
+        &mut out2_len,
+    );
+    assert_eq!(
+        rc, ERR_SELF_DESTRUCTED,
+        "wiped vault unlock must report SelfDestructed"
+    );
+}
+
+#[test]
+fn test_ffi_self_destruct_null_pointers() {
+    let mut out = [0u8; HEADER_CAP];
+    let mut out_len: usize = 0;
+    let rc = usbvault_vault_self_destruct(
+        std::ptr::null(),
+        0,
+        out.as_mut_ptr(),
+        out.len(),
+        &mut out_len,
+    );
+    assert_eq!(rc, ERR_INVALID_ARGUMENT);
+}

@@ -1301,6 +1301,61 @@ pub extern "C" fn usbvault_vault_fail_counter_reset(
     }
 }
 
+/// crypto-pr6: Deliberate, UNAUTHENTICATED cryptographic-erasure self-destruct.
+///
+/// Parses the header, performs a full cryptographic erasure
+/// ([`VaultHeader::self_destruct_wipe`] — overwrites the salt + wrapped MEK +
+/// verify marker so the vault is PERMANENTLY unrecoverable), and writes the
+/// wiped header bytes out. Returns `ERR_SUCCESS`. No `hmac_key` is required
+/// (a user wiping their own device must not need the password first).
+///
+/// DANGER: this is IRREVERSIBLE. The caller MUST gate it behind an explicit,
+/// confirmed user action and flush the returned bytes to disk afterwards. A
+/// subsequent `usbvault_vault_unlock` on the returned header yields
+/// `ERR_SELF_DESTRUCTED`.
+///
+/// # Safety
+/// - header_ptr/header_len: valid header bytes
+/// - out_ptr: capacity >= header size (24576 for V4/V5/V6)
+#[no_mangle]
+pub extern "C" fn usbvault_vault_self_destruct(
+    header_ptr: *const u8,
+    header_len: usize,
+    out_ptr: *mut u8,
+    out_capacity: usize,
+    out_len: *mut usize,
+) -> i32 {
+    if header_ptr.is_null() || out_ptr.is_null() || out_len.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    let result = panic::catch_unwind(panic::AssertUnwindSafe(|| unsafe {
+        let data = slice::from_raw_parts(header_ptr, header_len);
+
+        let mut header = match VaultHeader::read(data) {
+            Ok(h) => h,
+            Err(e) => return crypto_error_to_code(&e),
+        };
+
+        // Unauthenticated, deliberate cryptographic erasure.
+        header.self_destruct_wipe();
+
+        let bytes = header.write();
+        if bytes.len() > out_capacity {
+            return ERR_BUFFER_TOO_SMALL;
+        }
+        let output = slice::from_raw_parts_mut(out_ptr, out_capacity);
+        output[..bytes.len()].copy_from_slice(&bytes);
+        *out_len = bytes.len();
+        ERR_SUCCESS
+    }));
+
+    match result {
+        Ok(code) => code,
+        Err(_) => ERR_MEMORY_ERROR,
+    }
+}
+
 /// A11: Commit a new index — flip active slot, update offset/length, increment counters.
 ///
 /// This is the atomic dual-index commit operation.

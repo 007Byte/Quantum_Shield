@@ -3,8 +3,8 @@
 use crate::cipher::CipherId;
 use crate::error::{CryptoError, Result};
 use crate::kdf::{
-    build_kdf_transcript, derive_kek, derive_kek_v6, generate_salt, unwrap_mek, unwrap_mek_ad,
-    wrap_mek_ad, MasterEncryptionKey, MasterKey,
+    build_kdf_transcript, derive_kek_v6_with_params, derive_kek_with_params, generate_salt,
+    unwrap_mek, unwrap_mek_ad, wrap_mek_ad, MasterEncryptionKey, MasterKey,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -435,6 +435,14 @@ impl VaultHeader {
             offset += 4;
             if let Some(ref block) = self.fail_counter_block {
                 data[offset..offset + block.len()].copy_from_slice(block);
+                // crypto-pr6 FIX: advance past the fail-counter block (this was
+                // missing — identity/tfa above DO advance). Without it, the V4+
+                // wrapped-MEK below was written 36 bytes too early, so a header
+                // carrying BOTH a fail_counter_block AND a wrapped_mek (every
+                // vault produced by `create_new`) read its wrapped MEK back as
+                // `None` and became un-unlockable after a write/read round-trip.
+                // read() already consumes the block symmetrically.
+                offset += block.len();
             }
         }
 
@@ -603,6 +611,25 @@ impl VaultHeader {
     /// Maximum failed unlock attempts before self-destruct
     pub const MAX_FAIL_ATTEMPTS: u32 = 10;
 
+    /// crypto-pr6: `kdf_hash_id` sentinel stamped into a cryptographically-erased
+    /// (self-destructed) vault. Chosen distinct from 1 (legacy hash) and
+    /// 2 (Argon2id) and from any value a real writer emits, so
+    /// [`Self::is_self_destructed`] is `false` for every genuine on-disk vault.
+    /// The byte lives in the existing `kdf_hash_id` field, so the header layout
+    /// is unchanged and a destroyed header still round-trips read()/write().
+    pub const KDF_HASH_ID_DESTROYED: u8 = 0xDE;
+
+    /// crypto-pr6: True if this header has been cryptographically erased.
+    ///
+    /// Detected via the destroyed sentinel OR a V4+ header that has lost its
+    /// wrapped MEK (V4/V5/V6 vaults always carry a wrapped MEK; its absence on
+    /// such a version means the KEK/MEK material was wiped). Pure read — never
+    /// mutates and never triggers a wipe.
+    pub fn is_self_destructed(&self) -> bool {
+        self.kdf_hash_id == Self::KDF_HASH_ID_DESTROYED
+            || (self.version >= 4 && self.wrapped_mek.is_none())
+    }
+
     // ── V6: deterministic AEAD associated-data (AD) builders (crypto-pr5) ──
     //
     // These bind a ciphertext to its header so a wrapped-MEK / verify-marker /
@@ -689,8 +716,17 @@ impl VaultHeader {
             argon2_parallelism,
         );
 
-        // Derive transcript-bound KEK from password.
-        let kek = derive_kek_v6(password, &salt, &transcript)?;
+        // Derive transcript-bound KEK from password using the canonical default
+        // Argon2 params (the same literals stored in the header). Using the
+        // param-driven derivation keeps create_new and unlock on one code path.
+        let kek = derive_kek_v6_with_params(
+            password,
+            &salt,
+            &transcript,
+            argon2_memory,
+            argon2_time,
+            argon2_parallelism,
+        )?;
 
         // Generate random MEK
         let mek = MasterEncryptionKey::generate();
@@ -797,15 +833,30 @@ impl VaultHeader {
     ///
     /// Returns the MEK halves (enc_key, hmac_key) on success.
     pub fn unlock(&self, password: &[u8]) -> Result<([u8; 32], [u8; 32])> {
+        // crypto-pr6: a cryptographically-erased (self-destructed) vault is
+        // reported as such BEFORE any KEK work — so the caller sees
+        // `SelfDestructed`, not a generic `PasswordWrong`/`InvalidHeader`. This
+        // is a pure read of the parsed header; it never wipes anything.
+        if self.is_self_destructed() {
+            return Err(CryptoError::SelfDestructed);
+        }
+
         let wrapped = self
             .wrapped_mek
             .as_ref()
             .ok_or(CryptoError::InvalidHeader)?;
 
-        // V-gated KEK derivation + AEAD AD. Anything <= 5 takes the EXACT legacy
-        // path (plain derive_kek + plain wrap/marker decrypt). V6 uses the
-        // transcript-bound KEK and header-bound AD on the wrapped MEK + verify
-        // marker. Existing on-disk vaults never match V6, so they are untouched.
+        // crypto-pr6: PARAM-DRIVEN KEK derivation. The Argon2 m/t/p are read from
+        // the (untrusted) header and VALIDATED against sane DoS/weakening bounds
+        // (inside derive_kek*_with_params -> validate_argon2_params). Existing
+        // V4/V5/V6 vaults were written with 65536/3/4, which is inside the bounds
+        // and produces the SAME KEK as the old hardcoded derivation, so they
+        // unlock unchanged. Out-of-bounds params return Err(InvalidArgument)
+        // WITHOUT attempting the (potentially huge) allocation.
+        //
+        // V-gated AEAD AD. Anything <= 5 takes the EXACT legacy path (plain
+        // wrap/marker decrypt); V6 uses the transcript-bound KEK and header-bound
+        // AD on the wrapped MEK + verify marker.
         let (kek, wrapped_ad, verify_ad) = if self.version >= 6 {
             let t = build_kdf_transcript(
                 self.version,
@@ -817,12 +868,29 @@ impl VaultHeader {
                 self.argon2_parallelism,
             );
             (
-                derive_kek_v6(password, &self.salt, &t)?,
+                derive_kek_v6_with_params(
+                    password,
+                    &self.salt,
+                    &t,
+                    self.argon2_memory,
+                    self.argon2_time,
+                    self.argon2_parallelism,
+                )?,
                 Some(self.wrap_ad_v6()),
                 Some(self.verify_ad_v6()),
             )
         } else {
-            (derive_kek(password, &self.salt)?, None, None)
+            (
+                derive_kek_with_params(
+                    password,
+                    &self.salt,
+                    self.argon2_memory,
+                    self.argon2_time,
+                    self.argon2_parallelism,
+                )?,
+                None,
+                None,
+            )
         };
 
         // Unwrap MEK (AD-bound for V6, plain for legacy).
@@ -981,20 +1049,80 @@ impl VaultHeader {
         self.header_hmac = self.compute_hmac(hmac_key);
     }
 
-    /// Self-destruct: overwrite the wrapped MEK with random bytes,
-    /// making the vault permanently inaccessible.
-    pub fn self_destruct(&mut self, hmac_key: &[u8; 32]) {
+    /// crypto-pr6: Cryptographic erasure of ALL KEK/MEK-critical material.
+    ///
+    /// After this the MEK can never be unwrapped (`wrapped_mek` is overwritten
+    /// then dropped) and the KEK can never be re-derived (`salt` is overwritten),
+    /// so the vault is PERMANENTLY unrecoverable even with the correct password.
+    /// The verify marker is destroyed (no known-plaintext oracle remains) and the
+    /// fail-counter / 2FA / identity blocks are dropped. Idempotent.
+    ///
+    /// NOTE: this scrubs the IN-MEMORY header. The durable security guarantee is
+    /// that the salt + wrapped MEK are removed from the PERSISTED header — the
+    /// caller MUST flush the wiped header bytes to disk (and ideally the
+    /// underlying sectors) after calling a wipe entrypoint.
+    fn crypto_erase_fields(&mut self) {
         use rand::RngCore;
+        let mut rng = rand::rngs::OsRng;
 
+        // Overwrite the wrapped MEK in place (random/zero/random) then DROP it,
+        // so no in-memory copy carries key material, and mark it absent.
         if let Some(ref mut wmek) = self.wrapped_mek {
-            // 3-pass overwrite: random, zeros, random
-            rand::rngs::OsRng.fill_bytes(wmek);
+            rng.fill_bytes(wmek);
             wmek.iter_mut().for_each(|b| *b = 0);
-            rand::rngs::OsRng.fill_bytes(wmek);
+            rng.fill_bytes(wmek);
         }
+        self.wrapped_mek = None;
 
+        // Destroy the salt -> the KEK can never be re-derived from the password.
+        rng.fill_bytes(&mut self.salt);
+
+        // Destroy the verify marker so no oracle / known-plaintext remains.
+        rng.fill_bytes(&mut self.verify_iv);
+        for b in self.verify_ciphertext.iter_mut() {
+            *b = 0;
+        }
+        self.verify_ciphertext.clear();
+
+        // Scrub the fail-counter / 2FA / identity blocks.
+        self.fail_counter_block = None;
+        self.tfa_block = None;
+        self.identity_block = None;
+
+        // Stamp the destroyed sentinel so is_self_destructed() is true even if a
+        // future format change ever lets a header carry no wrapped MEK legitimately.
+        self.kdf_hash_id = Self::KDF_HASH_ID_DESTROYED;
+    }
+
+    /// Self-destruct (AUTHENTICATED, fail-counter path): perform a full
+    /// cryptographic erasure and re-sign the header with the MEK `hmac_key` the
+    /// caller already holds, so the wiped header still round-trips
+    /// read()/write() with a valid V5/V6 MAC. The erased KEK/MEK material makes
+    /// it permanently un-unlockable; `unlock` reports `SelfDestructed`.
+    ///
+    /// Signature unchanged — the fail-counter FFI path (`usbvault_vault_*`) keeps
+    /// working as-is.
+    pub fn self_destruct(&mut self, hmac_key: &[u8; 32]) {
+        self.crypto_erase_fields();
         self.increment_state_version();
         self.header_hmac = self.compute_hmac(hmac_key);
+    }
+
+    /// crypto-pr6: Deliberate, UNAUTHENTICATED cryptographic erasure
+    /// (user-initiated device wipe).
+    ///
+    /// Does NOT require the MEK `hmac_key` — a user wiping their own device must
+    /// not need to first prove the password. The resulting header still parses
+    /// and is detected as self-destructed; its HMAC is zeroed (no key is
+    /// available to authenticate it, and `unlock` rejects on the sentinel BEFORE
+    /// any MAC check). Idempotent.
+    ///
+    /// DANGER: this is IRREVERSIBLE. It MUST only be wired behind an explicit,
+    /// confirmed user action — never on a parse/error/unlock-failure path.
+    pub fn self_destruct_wipe(&mut self) {
+        self.crypto_erase_fields();
+        self.increment_state_version();
+        self.header_hmac = [0u8; 32];
     }
 }
 
@@ -1502,6 +1630,253 @@ mod tests {
         assert_eq!(hmac_key, hmac2);
 
         assert!(header.unlock(b"wrong password").is_err());
+    }
+
+    /// crypto-pr6 regression: a `create_new` V6 vault (which carries BOTH a
+    /// fail_counter_block AND a wrapped_mek) MUST survive a write/read round-trip
+    /// and still unlock — this is exactly the production FFI
+    /// create_header -> persist -> read -> unlock path. Previously the write
+    /// offset skipped past the fail-counter block was missing, so the wrapped MEK
+    /// landed at the wrong offset and read back as `None`, bricking the vault.
+    #[test]
+    fn test_v6_create_new_write_read_unlock_roundtrip() {
+        let password = b"create-new-persist-unlock";
+        let (header, enc_key, hmac_key) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+        assert!(header.fail_counter_block.is_some());
+        assert!(header.wrapped_mek.is_some());
+
+        let bytes = header.write();
+        let parsed = VaultHeader::read(&bytes).expect("read back created header");
+        assert_eq!(
+            parsed.wrapped_mek, header.wrapped_mek,
+            "wrapped MEK must survive write/read"
+        );
+
+        let (enc2, hmac2) = parsed
+            .unlock(password)
+            .expect("created vault must unlock after persist+read");
+        assert_eq!(enc_key, enc2);
+        assert_eq!(hmac_key, hmac2);
+    }
+
+    // ── crypto-pr6: param-driven Argon2id on unlock ──
+
+    /// unlock() validates the header's Argon2 params BEFORE deriving the KEK:
+    /// an out-of-bounds memory cost yields Err(InvalidArgument), not a giant
+    /// allocation or a generic password error.
+    #[test]
+    fn test_unlock_uses_header_params() {
+        let password = b"param-driven-pw";
+        let (mut header, _enc, hmac_key) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+
+        // Tamper the stored memory cost to an out-of-bounds value and re-sign the
+        // header so the failure is the param-bounds check, not the MAC.
+        header.argon2_memory = 4096; // below MIN_MEMORY_KIB (8192)
+        header.header_hmac = header.compute_hmac(&hmac_key);
+
+        assert!(matches!(
+            header.unlock(password),
+            Err(CryptoError::InvalidArgument)
+        ));
+    }
+
+    /// A V6 vault written with valid NON-default params (131072/4/8) unlocks
+    /// correctly — proving the param-driven path round-trips, not just the
+    /// default 65536/3/4.
+    #[test]
+    fn test_unlock_with_valid_nondefault_params_roundtrips() {
+        use crate::kdf::{derive_kek_v6_with_params, wrap_mek_ad, MasterEncryptionKey};
+
+        let password = b"nondefault-params-pw";
+        let salt = generate_salt();
+        let memory: u32 = 131072;
+        let time: u32 = 4;
+        let parallelism: u8 = 8;
+        let version: u8 = 6;
+        let kdf_hash_id: u8 = 2;
+        let cipher_byte = CipherId::XChaCha20Poly1305.as_byte();
+
+        let transcript = build_kdf_transcript(
+            version,
+            kdf_hash_id,
+            cipher_byte,
+            &salt,
+            memory,
+            time,
+            parallelism,
+        );
+        let kek =
+            derive_kek_v6_with_params(password, &salt, &transcript, memory, time, parallelism)
+                .unwrap();
+        let mek = MasterEncryptionKey::generate();
+
+        // Build header skeleton first so the AD builders use the real fields.
+        let mut header = VaultHeader {
+            version,
+            kdf_hash_id,
+            cipher_id: cipher_byte,
+            salt,
+            verify_iv: [0u8; 24],
+            verify_ciphertext: Vec::new(),
+            header_hmac: [0u8; 32],
+            active_index_slot: 0,
+            index1_offset: HEADER_SIZE_V6 as u32,
+            index1_length: 0,
+            index2_offset: HEADER_SIZE_V6 as u32,
+            index2_length: 0,
+            commit_counter: 0,
+            argon2_memory: memory,
+            argon2_time: time,
+            argon2_parallelism: parallelism,
+            identity_block: None,
+            tfa_block: None,
+            fail_counter_block: None,
+            wrapped_mek: None,
+            state_version: 1,
+            index_encrypted: true,
+        };
+
+        // Wrap MEK with header-bound AD.
+        let wrapped = wrap_mek_ad(&kek, &mek, &header.wrap_ad_v6()).unwrap();
+        header.wrapped_mek = Some(wrapped);
+
+        // Build AD-bound verify marker.
+        let verify_ad = header.verify_ad_v6();
+        rand::rngs::OsRng.fill_bytes(&mut header.verify_iv);
+        header.verify_ciphertext = {
+            use chacha20poly1305::{
+                aead::{Aead, KeyInit, Payload},
+                XChaCha20Poly1305,
+            };
+            use generic_array::GenericArray;
+            let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
+            let nonce = chacha20poly1305::XNonce::from_slice(&header.verify_iv);
+            cipher
+                .encrypt(
+                    nonce,
+                    Payload {
+                        msg: b"USBVAULT_VERIFY_OK_0000".as_ref(),
+                        aad: &verify_ad,
+                    },
+                )
+                .unwrap()
+        };
+
+        header.write_fail_counter(mek.hmac_key(), 0);
+        header.header_hmac = header.compute_hmac(mek.hmac_key());
+
+        // Sanity: validate_argon2_params accepts these params.
+        assert!(crate::kdf::validate_argon2_params(memory, time, parallelism).is_ok());
+
+        let (enc2, hmac2) = header.unlock(password).expect("non-default params unlock");
+        assert_eq!(&enc2, mek.encryption_key());
+        assert_eq!(&hmac2, mek.hmac_key());
+
+        // And it survives a write/read round-trip (exercises the fail-counter +
+        // wrapped-MEK offset fix as well as the param-driven KEK).
+        let bytes = header.write();
+        let parsed = VaultHeader::read(&bytes).unwrap();
+        assert_eq!(parsed.argon2_memory, memory);
+        assert_eq!(parsed.wrapped_mek, header.wrapped_mek);
+        assert!(parsed.unlock(password).is_ok());
+    }
+
+    // ── crypto-pr6: cryptographic-erasure self-destruct ──
+
+    /// self_destruct_wipe makes the vault permanently unrecoverable: wrapped MEK
+    /// gone, salt overwritten, verify marker destroyed, sentinel stamped. After a
+    /// write/read round-trip, unlock(correct password) returns SelfDestructed
+    /// (NOT PasswordWrong).
+    #[test]
+    fn test_self_destruct_wipe_makes_unrecoverable() {
+        let password = b"wipe-me-pw";
+        let (mut header, _enc, _hmac) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+        let old_salt = header.salt;
+
+        assert!(!header.is_self_destructed());
+        assert!(header.unlock(password).is_ok());
+
+        header.self_destruct_wipe();
+
+        assert!(header.is_self_destructed());
+        assert!(header.wrapped_mek.is_none());
+        assert_ne!(header.salt, old_salt, "salt must be overwritten");
+        assert!(header.verify_ciphertext.is_empty());
+        assert_eq!(header.kdf_hash_id, VaultHeader::KDF_HASH_ID_DESTROYED);
+
+        // Wiped header still round-trips read()/write().
+        let bytes = header.write();
+        let parsed = VaultHeader::read(&bytes).expect("destroyed header still parses");
+        assert!(parsed.is_self_destructed());
+
+        // unlock reports SelfDestructed, distinct from a password typo.
+        assert!(matches!(
+            parsed.unlock(password),
+            Err(CryptoError::SelfDestructed)
+        ));
+        assert!(matches!(
+            header.unlock(password),
+            Err(CryptoError::SelfDestructed)
+        ));
+    }
+
+    /// The authenticated fail-counter path (self_destruct with the MEK hmac_key)
+    /// also performs full erasure and leaves a VALID, recomputable header HMAC.
+    #[test]
+    fn test_self_destruct_authenticated_still_works() {
+        let password = b"auth-destruct-pw";
+        let (mut header, _enc, hmac_key) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+
+        header.self_destruct(&hmac_key);
+
+        assert!(header.is_self_destructed());
+        assert!(header.wrapped_mek.is_none());
+        // HMAC is valid and recomputable with the same key (round-trips write).
+        assert!(
+            header
+                .compute_hmac(&hmac_key)
+                .ct_eq(&header.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
+        let bytes = header.write();
+        let parsed = VaultHeader::read(&bytes).unwrap();
+        assert!(parsed.is_self_destructed());
+        assert!(matches!(
+            parsed.unlock(password),
+            Err(CryptoError::SelfDestructed)
+        ));
+    }
+
+    /// Wiping twice does not panic and stays destroyed (idempotent).
+    #[test]
+    fn test_self_destruct_is_idempotent() {
+        let password = b"idempotent-pw";
+        let (mut header, _enc, _hmac) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+        header.self_destruct_wipe();
+        let salt_after_first = header.salt;
+        header.self_destruct_wipe();
+        assert!(header.is_self_destructed());
+        assert!(header.wrapped_mek.is_none());
+        // Second wipe re-randomizes salt again (still no key material).
+        let _ = salt_after_first;
+        let bytes = header.write();
+        assert!(VaultHeader::read(&bytes).unwrap().is_self_destructed());
+    }
+
+    /// A freshly created, healthy vault is NOT flagged destroyed.
+    #[test]
+    fn test_normal_vault_not_flagged_destroyed() {
+        let (header, _enc, _hmac) =
+            VaultHeader::create_new(b"healthy-pw", CipherId::XChaCha20Poly1305).unwrap();
+        assert!(!header.is_self_destructed());
+        assert_ne!(header.kdf_hash_id, VaultHeader::KDF_HASH_ID_DESTROYED);
+        assert!(header.wrapped_mek.is_some());
     }
 
     /// Transplant guard: a V6 wrapped-MEK / verify blob lifted into a header
