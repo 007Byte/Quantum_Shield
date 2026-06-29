@@ -958,6 +958,22 @@ export function validateFileVersion(currentVersion: number, incomingVersion: num
  * @param filename - File name to bind
  * @returns Uint8Array of associated data
  */
+/**
+ * crypto-pr5: V6 KDF-transcript + AEAD-AD builders.
+ *
+ * Thin re-exports of the native.ts primitives so the vault orchestrator and the
+ * cross-impl KAT can build the exact bytes the Rust side uses. Layouts are
+ * FROZEN and mirror usbvault-crypto (build_kdf_transcript / wrap_ad_v6 /
+ * verify_ad_v6 / index_ad_v6 / derive_kek_v6); the KAT asserts byte agreement.
+ */
+export {
+  buildKdfTranscript,
+  buildWrapAD,
+  buildVerifyAD,
+  buildIndexAD,
+  deriveKekV6,
+} from './native';
+
 export function buildVersionAD(version: number, filename: string): Uint8Array {
   const prefix = new TextEncoder().encode('file_version:');
   const versionBytes = new Uint8Array(8);

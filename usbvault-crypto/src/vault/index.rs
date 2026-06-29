@@ -126,6 +126,79 @@ impl VaultIndex {
         Self::from_json(&json)
     }
 
+    /// V6: encrypt the index, binding deterministic associated data (`ad`).
+    ///
+    /// Mirrors [`Self::encrypt`] (same derived key, same XChaCha20-Poly1305,
+    /// same `nonce(24) || ciphertext||tag(16)` layout) but authenticates `ad`
+    /// (typically `VaultHeader::index_ad_v6(version, salt, active_slot)`), so an
+    /// index blob lifted into a different/older header fails its AEAD tag. The
+    /// legacy [`Self::encrypt`] is unchanged for V<=5.
+    pub fn encrypt_with_ad(&self, master_key: &[u8; 32], ad: &[u8]) -> Result<Vec<u8>> {
+        use chacha20poly1305::{
+            aead::{Aead, KeyInit, Payload},
+            XChaCha20Poly1305,
+        };
+        use generic_array::GenericArray;
+        use rand::Rng;
+
+        let index_key = derive_subkey(master_key, "vault_index_encryption")?;
+        let json = self.to_json()?;
+
+        let mut nonce = [0u8; 24];
+        rand::thread_rng().fill(&mut nonce);
+
+        let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(&index_key));
+        let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
+
+        let ciphertext = cipher
+            .encrypt(
+                nonce_array,
+                Payload {
+                    msg: json.as_ref(),
+                    aad: ad,
+                },
+            )
+            .map_err(|_| CryptoError::SerializationError)?;
+
+        let mut result = Vec::with_capacity(24 + ciphertext.len());
+        result.extend_from_slice(&nonce);
+        result.extend_from_slice(&ciphertext);
+        Ok(result)
+    }
+
+    /// V6: decrypt an AD-bound index blob, verifying the associated data (`ad`).
+    /// Fails if `ad` does not match the AD used at encrypt time. Counterpart to
+    /// [`Self::encrypt_with_ad`].
+    pub fn decrypt_with_ad(master_key: &[u8; 32], encrypted: &[u8], ad: &[u8]) -> Result<Self> {
+        use chacha20poly1305::{
+            aead::{Aead, KeyInit, Payload},
+            XChaCha20Poly1305,
+        };
+        use generic_array::GenericArray;
+
+        if encrypted.len() < 24 + 16 {
+            return Err(CryptoError::CorruptedIndex);
+        }
+
+        let index_key = derive_subkey(master_key, "vault_index_encryption")?;
+        let nonce = chacha20poly1305::XNonce::from_slice(&encrypted[0..24]);
+        let ciphertext = &encrypted[24..];
+
+        let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(&index_key));
+
+        let json = cipher
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ciphertext,
+                    aad: ad,
+                },
+            )
+            .map_err(|_| CryptoError::CorruptedIndex)?;
+
+        Self::from_json(&json)
+    }
+
     /// Look up a file by name
     pub fn lookup(&self, filename: &str) -> Option<u64> {
         self.files.get(filename).map(|e| e.offset)
@@ -309,6 +382,42 @@ mod tests {
         let encrypted = index.encrypt(&key1).unwrap();
         let result = VaultIndex::decrypt(&key2, &encrypted);
         assert!(result.is_err());
+    }
+
+    // ── V6: AD-bound index encrypt/decrypt (crypto-pr5) ──
+
+    #[test]
+    fn test_index_encrypt_with_ad_roundtrip() {
+        let master_key = [0x42u8; 32];
+        let mut index = VaultIndex::new();
+        index.insert("secret.txt".to_string(), 4096);
+
+        let ad = b"USBVault-index-v6:context-A";
+        let encrypted = index.encrypt_with_ad(&master_key, ad).unwrap();
+        let decrypted = VaultIndex::decrypt_with_ad(&master_key, &encrypted, ad).unwrap();
+        assert_eq!(decrypted.lookup("secret.txt"), Some(4096));
+    }
+
+    #[test]
+    fn test_index_decrypt_with_wrong_ad_fails() {
+        let master_key = [0x42u8; 32];
+        let mut index = VaultIndex::new();
+        index.insert("secret.txt".to_string(), 4096);
+
+        let encrypted = index.encrypt_with_ad(&master_key, b"ad-with-slot-0").unwrap();
+        // Different active_slot / salt / version -> different AD -> tag fails.
+        assert!(VaultIndex::decrypt_with_ad(&master_key, &encrypted, b"ad-with-slot-1").is_err());
+    }
+
+    #[test]
+    fn test_index_ad_blob_not_openable_by_plain_decrypt() {
+        let master_key = [0x42u8; 32];
+        let mut index = VaultIndex::new();
+        index.insert("secret.txt".to_string(), 4096);
+
+        let encrypted = index.encrypt_with_ad(&master_key, b"some-ad").unwrap();
+        // The plain (no-AD) decrypt cannot open an AD-bound blob.
+        assert!(VaultIndex::decrypt(&master_key, &encrypted).is_err());
     }
 
     #[test]

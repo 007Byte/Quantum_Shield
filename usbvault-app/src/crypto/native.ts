@@ -116,6 +116,139 @@ function fromHex(hex: string): Uint8Array {
   return bytes;
 }
 
+// ─── V6 KDF-transcript + AEAD-AD builders (crypto-pr5) ─────────
+//
+// Byte-for-byte mirrors of the Rust builders in usbvault-crypto/src/kdf.rs
+// (build_kdf_transcript) and vault/header.rs (wrap_ad_v6 / verify_ad_v6 /
+// index_ad_v6). The layouts are FROZEN; the cross-impl KAT
+// (__tests__/kdfAdInterop.kat.test.ts) asserts identical hex against the Rust
+// KAT (usbvault-crypto/tests/kdf_ad_interop_kat.rs). V6 vault *files* are not
+// byte-identical across web/Rust (web wraps the MEK with AES-GCM), so the
+// cross-impl guarantee is at the PRIMITIVE level (these builders + the V6 KEK).
+
+const KDF_TRANSCRIPT_DOMAIN_V6 = new TextEncoder().encode('USBVault-KDF-transcript-v6:');
+const WRAP_AD_DOMAIN_V6 = new TextEncoder().encode('USBVault-wrapMEK-v6:');
+const VERIFY_AD_DOMAIN_V6 = new TextEncoder().encode('USBVault-verify-v6:');
+const INDEX_AD_DOMAIN_V6 = new TextEncoder().encode('USBVault-index-v6:');
+
+/** Encode a u32 little-endian into a fresh 4-byte array. */
+function u32leBytes(value: number): Uint8Array {
+  const b = new Uint8Array(4);
+  writeU32LE(b, 0, value >>> 0);
+  return b;
+}
+
+/**
+ * Canonical V6 KDF transcript (mirror of Rust `build_kdf_transcript`):
+ *   u8(version) || u8(kdfHashId) || u8(cipherId)
+ *   || u32le(salt.len) || salt
+ *   || u32le(argon2Memory) || u32le(argon2Time) || u8(argon2Parallelism)
+ */
+export function buildKdfTranscript(
+  version: number,
+  kdfHashId: number,
+  cipherId: number,
+  salt: Uint8Array,
+  argonMem: number,
+  argonTime: number,
+  argonPar: number
+): Uint8Array {
+  const out = new Uint8Array(3 + 4 + salt.length + 4 + 4 + 1);
+  let off = 0;
+  out[off++] = version & 0xff;
+  out[off++] = kdfHashId & 0xff;
+  out[off++] = cipherId & 0xff;
+  writeU32LE(out, off, salt.length);
+  off += 4;
+  out.set(salt, off);
+  off += salt.length;
+  out.set(u32leBytes(argonMem), off);
+  off += 4;
+  out.set(u32leBytes(argonTime), off);
+  off += 4;
+  out[off] = argonPar & 0xff;
+  return out;
+}
+
+/**
+ * V6 wrapped-MEK AD (mirror of Rust `wrap_ad_v6`):
+ *   domain || version || salt || u32le(argon2Memory) || u32le(argon2Time) || argon2Parallelism
+ */
+export function buildWrapAD(
+  version: number,
+  salt: Uint8Array,
+  argonMem: number,
+  argonTime: number,
+  argonPar: number
+): Uint8Array {
+  const out = new Uint8Array(WRAP_AD_DOMAIN_V6.length + 1 + salt.length + 4 + 4 + 1);
+  let off = 0;
+  out.set(WRAP_AD_DOMAIN_V6, off);
+  off += WRAP_AD_DOMAIN_V6.length;
+  out[off++] = version & 0xff;
+  out.set(salt, off);
+  off += salt.length;
+  out.set(u32leBytes(argonMem), off);
+  off += 4;
+  out.set(u32leBytes(argonTime), off);
+  off += 4;
+  out[off] = argonPar & 0xff;
+  return out;
+}
+
+/** V6 verify-marker AD (mirror of Rust `verify_ad_v6`): domain || version || salt */
+export function buildVerifyAD(version: number, salt: Uint8Array): Uint8Array {
+  const out = new Uint8Array(VERIFY_AD_DOMAIN_V6.length + 1 + salt.length);
+  out.set(VERIFY_AD_DOMAIN_V6, 0);
+  out[VERIFY_AD_DOMAIN_V6.length] = version & 0xff;
+  out.set(salt, VERIFY_AD_DOMAIN_V6.length + 1);
+  return out;
+}
+
+/** V6 index AD (mirror of Rust `index_ad_v6`): domain || version || salt || activeSlot */
+export function buildIndexAD(version: number, salt: Uint8Array, activeSlot: number): Uint8Array {
+  const out = new Uint8Array(INDEX_AD_DOMAIN_V6.length + 1 + salt.length + 1);
+  let off = 0;
+  out.set(INDEX_AD_DOMAIN_V6, off);
+  off += INDEX_AD_DOMAIN_V6.length;
+  out[off++] = version & 0xff;
+  out.set(salt, off);
+  off += salt.length;
+  out[off] = activeSlot & 0xff;
+  return out;
+}
+
+/**
+ * V6 transcript-bound KEK (mirror of Rust `derive_kek_v6`):
+ * Argon2id (32-byte output, same params as deriveKey) as IKM, then
+ * HKDF-SHA256-expand with info = KDF_TRANSCRIPT_DOMAIN_V6 || transcript.
+ *
+ * Returns the 32-byte KEK as a hex string.
+ */
+export async function deriveKekV6(
+  password: Uint8Array,
+  salt: Uint8Array,
+  transcript: Uint8Array
+): Promise<string> {
+  // Argon2id 64MB / 3 iters / 4 lanes, 32-byte output (matches Rust derive_kek).
+  const baseHex = await argon2id({
+    password,
+    salt,
+    parallelism: 4,
+    iterations: 3,
+    memorySize: 65536,
+    hashLength: 32,
+    outputType: 'hex',
+  });
+  const base = fromHex(baseHex);
+  const info = new Uint8Array(KDF_TRANSCRIPT_DOMAIN_V6.length + transcript.length);
+  info.set(KDF_TRANSCRIPT_DOMAIN_V6, 0);
+  info.set(transcript, KDF_TRANSCRIPT_DOMAIN_V6.length);
+  // HKDF-SHA256 with no salt (None), matching Rust Hkdf::new(None, base).
+  const out = hkdf(sha256, base, undefined, info, 32);
+  return toHex(out);
+}
+
 // ─── Web Crypto API fallback (development only) ────────────────
 
 let _streamSessions: Map<string, { key: CryptoKey; counter: number }> = new Map();
