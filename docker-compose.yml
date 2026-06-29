@@ -142,7 +142,9 @@ services:
     environment:
       # PH2-FIX: Point to PgBouncer instead of direct postgres connection
       # sslmode=disable is acceptable for local dev via Docker internal network
-      # For production, use sslmode=require or sslmode=verify-full
+      # For production, use sslmode=require or sslmode=verify-full.
+      # Production enables client_tls_sslmode in pgbouncer/pgbouncer.prod.ini and
+      # uses sslmode=require (Stage 1) -> verify-full (Stage 2); see docker-compose.prod.yml.
       DATABASE_URL: postgres://usbvault:${POSTGRES_PASSWORD:-dev_password_change_me}@pgbouncer:6432/usbvault_dev?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD:-dev_redis_pass}@redis:6379
       AWS_ENDPOINT: http://minio:9000
