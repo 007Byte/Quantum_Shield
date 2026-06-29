@@ -143,3 +143,48 @@ base64 values in:
 - **Prebuild caveat.** Native files can be overwritten by `expo prebuild`; the
   `app.json` / `native/android/**` sources are the prebuild-durable place to
   keep the configuration.
+- **CI footgun guard.** `usbvault-app/scripts/check-pin-placeholders.mjs` runs in
+  the `usbvault-app` CI job and **fails the build** if either the iOS
+  `NSPinnedDomains` key or an Android `<pin-set>` is *enabled* while still holding
+  a placeholder pin (`AAAA…=` / `BBBB…=`). A disabled scaffold and a real-pin
+  config both pass; only "enabled + placeholder" — the brick-the-app mistake —
+  fails. Run it locally with `node scripts/check-pin-placeholders.mjs`.
+
+---
+
+## Two pinning layers (native vs. JavaScript runtime)
+
+This app enforces pinning at **two independent layers**. F8 (above) is the
+native OS layer. There is also a JavaScript runtime layer:
+
+| Layer | Where | Driven by | Enable without native rebuild? |
+| --- | --- | --- | --- |
+| **Native (F8)** | Android `network_security_config.xml`, iOS `Info.plist` / `app.json` `NSPinnedDomains` | hardcoded SPKI pins | No — requires `expo prebuild` + store release |
+| **JS runtime** | `src/services/security/certificatePinning.ts` (used by `src/services/api.ts`) | `EXPO_PUBLIC_PIN_*` env vars at build time | Yes — set env vars and rebuild the JS bundle |
+
+The JS layer is **fail-closed**: `arePinsConfigured()` returns `false` for empty
+or placeholder values, and in production (`!__DEV__`) the client refuses to make
+pinned HTTPS requests rather than silently falling back to unpinned TLS. It is
+configured via environment variables (see `.env.example`):
+
+```sh
+EXPO_PUBLIC_PIN_PRIMARY="sha256/<primary SPKI pin>"
+EXPO_PUBLIC_PIN_BACKUP="sha256/<backup SPKI pin>"
+EXPO_PUBLIC_PIN_EXPIRATION="2027-06-01"   # soft-fail-open date
+```
+
+Use the same SPKI pins for both layers. The helper
+`usbvault-app/scripts/extract-pins.sh [host] [port]` prints the
+`sha256/<pin>` values for the whole presented chain — handy for filling both the
+`EXPO_PUBLIC_PIN_*` env vars (JS layer) and the native placeholders (F8).
+
+**Order of operations to fully enable pinning in production:**
+
+1. Deploy `api.usbvault.io` with its production leaf certificate.
+2. `./scripts/extract-pins.sh api.usbvault.io 443` → record the primary pin;
+   compute a backup pin from your rotation key/CSR (Step 2 above).
+3. Set `EXPO_PUBLIC_PIN_PRIMARY` / `EXPO_PUBLIC_PIN_BACKUP` / `EXPO_PUBLIC_PIN_EXPIRATION`
+   for the JS layer (ships with the next JS build).
+4. Fill the native placeholders and enable the F8 scaffold (Steps 3–4 above),
+   `expo prebuild`, then device-test (Step 5). The CI guard will block a build
+   that enables native pinning while placeholders remain.
