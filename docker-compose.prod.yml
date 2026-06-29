@@ -201,7 +201,9 @@ services:
   # PgBouncer — Connection pooling
   # ---------------------------------------------------------------------------
   pgbouncer:
-    image: edoburu/pgbouncer:1.22.0
+    # Tag is 1.22.0-p0 (edoburu publishes -pN patch tags; a bare "1.22.0" does
+    # not exist). The Alpine image has no bash, so the entrypoint runs under sh.
+    image: edoburu/pgbouncer:1.22.0-p0
     container_name: usbvault-pgbouncer
     restart: unless-stopped
     environment:
@@ -210,6 +212,10 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: ${POSTGRES_DB:-usbvault}
+      # auth_type=scram-sha-256 (pgbouncer.prod.ini) needs a SCRAM verifier the
+      # minimal image can't compute. Supply it out-of-band, matching the API's
+      # POSTGRES_PASSWORD. Generate with pgbouncer/generate-scram-verifier.sh.
+      PGBOUNCER_SCRAM_VERIFIER_FILE: /run/secrets/pgbouncer_scram_verifier
     volumes:
       # Prod mounts the TLS-enabled variant; dev/test mount the plain pgbouncer.ini.
       - ./pgbouncer/pgbouncer.prod.ini:/etc/pgbouncer/pgbouncer.ini:ro
@@ -218,7 +224,9 @@ services:
       # self-signed cert with SAN=DNS:pgbouncer for staging, or issue from the org
       # CA (cert-manager / Vault) for real prod. See ops follow-up in the PR.
       - ./certs/pgbouncer:/etc/pgbouncer/certs:ro
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    secrets:
+      - pgbouncer_scram_verifier
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     expose:
       - "6432"
     depends_on:
@@ -305,6 +313,10 @@ secrets:
     file: ${JWT_ED25519_PRIVATE_KEY_FILE:-./secrets/jwt_private.key}
   jwt_public_key:
     file: ${JWT_ED25519_PUBLIC_KEY_FILE:-./secrets/jwt_public.key}
+  # SCRAM-SHA-256 verifier for the PgBouncer client leg (auth_type=scram-sha-256).
+  # Generate with: pgbouncer/generate-scram-verifier.sh "$POSTGRES_PASSWORD" > secrets/pgbouncer_scram_verifier
+  pgbouncer_scram_verifier:
+    file: ${PGBOUNCER_SCRAM_VERIFIER_FILE:-./secrets/pgbouncer_scram_verifier}
 
 # =============================================================================
 # Networks — frontend (nginx <-> api), backend (api <-> datastores)
