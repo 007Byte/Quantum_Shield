@@ -52,7 +52,7 @@ subtle = "2"
 ml-kem = { version = "0.2", optional = true, features = ["std"] }
 
 [build-dependencies]
-cbindgen = "0.26"
+cbindgen = "0.29"
 
 [dev-dependencies]
 proptest = "1"
