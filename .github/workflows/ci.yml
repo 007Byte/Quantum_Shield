@@ -251,6 +251,13 @@ jobs:
             echo "::warning::npm audit found $HIGH high-severity vulnerabilities"
           fi
 
+      - name: Guard against enabled-with-placeholder TLS pins (F8)
+        # Native pinning is fail-closed: an active pin-set with placeholder pins
+        # would brick all HTTPS. Fail the build if app.json NSPinnedDomains or the
+        # Android network_security_config are enabled while still holding AAAA…/BBBB…
+        # placeholders. See usbvault-app/PINNING.md.
+        run: node scripts/check-pin-placeholders.mjs
+
       - name: Run TypeScript type check
         run: npx tsc --noEmit
 
