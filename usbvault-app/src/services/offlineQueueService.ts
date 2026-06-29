@@ -23,12 +23,7 @@ import { generateId } from '@/utils/generateId';
 // ── Types ──────────────────────────────────────────
 
 export type OperationType =
-  | 'create_vault'
-  | 'delete_vault'
-  | 'rename_vault'
-  | 'upload_file'
-  | 'delete_file'
-  | 'rename_file';
+  'create_vault' | 'delete_vault' | 'rename_vault' | 'upload_file' | 'delete_file' | 'rename_file';
 
 export type OperationStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'conflict';
 
