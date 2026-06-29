@@ -283,6 +283,7 @@ func TestHandleWebhook(t *testing.T) {
 			name:      "handles customer.subscription.updated event",
 			eventType: "customer.subscription.updated",
 			eventPayload: map[string]interface{}{
+				"id":   "evt_updated_1",
 				"type": "customer.subscription.updated",
 				"data": map[string]interface{}{
 					"object": map[string]interface{}{
@@ -296,6 +297,7 @@ func TestHandleWebhook(t *testing.T) {
 			name:      "handles customer.subscription.deleted event",
 			eventType: "customer.subscription.deleted",
 			eventPayload: map[string]interface{}{
+				"id":   "evt_deleted_1",
 				"type": "customer.subscription.deleted",
 				"data": map[string]interface{}{
 					"object": map[string]interface{}{
@@ -309,6 +311,7 @@ func TestHandleWebhook(t *testing.T) {
 			name:      "handles invoice.payment_succeeded event",
 			eventType: "invoice.payment_succeeded",
 			eventPayload: map[string]interface{}{
+				"id":   "evt_paysucc_1",
 				"type": "invoice.payment_succeeded",
 				"data": map[string]interface{}{
 					"object": map[string]interface{}{
@@ -322,6 +325,7 @@ func TestHandleWebhook(t *testing.T) {
 			name:      "handles invoice.payment_failed event",
 			eventType: "invoice.payment_failed",
 			eventPayload: map[string]interface{}{
+				"id":   "evt_payfail_1",
 				"type": "invoice.payment_failed",
 				"data": map[string]interface{}{
 					"object": map[string]interface{}{
