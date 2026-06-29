@@ -4,9 +4,22 @@
 
 This document describes the implementation of PH2-FIX: Multipart Upload Support for the Quantum_Shield project, enabling efficient uploading of large files (>5GB) with resumable state.
 
+> **DURABILITY UPDATE.** Upload tracking state is now **persisted in PostgreSQL**
+> (`multipart_uploads` / `multipart_upload_parts`, migration
+> `022_multipart_uploads.sql`) via a write-through store
+> (`internal/storage/multipart_store.go`). The in-memory map described below is
+> now a **write-through cache** in front of that durable store, so resumable
+> uploads **survive server restarts and work across replicas**. A
+> `MultipartService` constructed without a pool (`store == nil`) still runs
+> purely in-memory — preserving the original behavior for unit tests. Sections
+> that describe "in-memory only" state or list database persistence as a future
+> enhancement are superseded by this update.
+
 **Implementation Files**:
-- `internal/storage/multipart.go` - Core multipart service
+- `internal/storage/multipart.go` - Core multipart service (write-through cache)
+- `internal/storage/multipart_store.go` - Durable PostgreSQL store (source of truth)
 - `internal/storage/multipart_handlers.go` - HTTP handlers
+- `migrations/022_multipart_uploads.sql` - Durable upload/part tracking tables
 - `internal/storage/multipart_test.go` - Unit tests
 - `cmd/api/main.go` - Service initialization and route registration
 
@@ -58,14 +71,18 @@ This document describes the implementation of PH2-FIX: Multipart Upload Support 
 
 ### State Management
 
-The `MultipartService` maintains in-memory state of all active uploads using a thread-safe map:
+The `MultipartService` keeps a thread-safe in-memory map as a **write-through
+cache** in front of the durable PostgreSQL `store` (the source of truth). On a
+cache miss it rehydrates from the store, so state survives restarts and is
+shared across replicas. When `store` is nil it operates purely in-memory:
 
 ```go
 type MultipartService struct {
     s3Client *s3.Client
     bucket   string
     mu       sync.RWMutex
-    uploads  map[string]*MultipartUpload  // uploadID -> upload state
+    uploads  map[string]*MultipartUpload // write-through cache (uploadID -> state)
+    store    multipartStore              // durable PostgreSQL source of truth (nil => in-memory only)
 }
 ```
 
@@ -272,17 +289,20 @@ func (ms *MultipartService) cleanupExpiredUploads() {
 **Benefits**:
 - Prevents indefinite storage of abandoned uploads
 - S3 also has server-side expiry (7 days default)
-- In-memory cleanup reduces heap usage
+- The cleanup runs against the durable store as well as the cache
 
 **Limitations**:
-- Service restart loses state (acceptable for in-progress uploads)
 - Cleanup interval is fixed at 1 hour
+- (Resolved) Service restart no longer loses state — tracking is persisted in
+  PostgreSQL (`multipart_uploads`, migration 022) via the write-through store.
 
 ### Future Enhancements
 
 For production, consider:
-1. **Database Persistence**: Store upload state in PostgreSQL
-2. **Distributed Cleanup**: Use Redis for multi-instance coordination
+1. ~~**Database Persistence**: Store upload state in PostgreSQL~~ —
+   **IMPLEMENTED** (`multipart_store.go`, migration `022_multipart_uploads.sql`);
+   uploads survive restarts and work across replicas.
+2. **Distributed Cleanup**: Use Redis/advisory locks for multi-instance cleanup coordination
 3. **Metrics**: Track abandoned vs completed uploads
 4. **Configurable TTL**: Per-upload or global expiry settings
 
@@ -427,10 +447,10 @@ WARN  PH2-FIX: Aborting expired multipart upload
 
 ## Future Enhancements
 
-1. **Database Persistence**
-   - Store upload state in PostgreSQL
-   - Survive service restarts
-   - Enable multi-instance deployments
+1. **Database Persistence** — ✅ **IMPLEMENTED**
+   - Upload/part state stored in PostgreSQL (`multipart_store.go`, migration 022)
+   - Survives service restarts
+   - Enables multi-instance deployments (shared durable store)
 
 2. **WebSocket Updates**
    - Real-time progress via WebSocket
@@ -477,7 +497,7 @@ WARN  PH2-FIX: Aborting expired multipart upload
 1. Verify cleanup goroutine is running
 2. Check service logs for cleanup messages
 3. Manually abort old uploads: DELETE /{uploadID}
-4. Implement database persistence for long-term stability
+4. Inspect the durable `multipart_uploads` table (state is persisted there)
 
 ## References
 

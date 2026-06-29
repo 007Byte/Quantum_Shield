@@ -27,7 +27,9 @@ services:
 
   pgbouncer:
     # PH2-FIX: PgBouncer connection pooling service
-    image: edoburu/pgbouncer:1.22.0
+    # Tag is 1.22.0-p0 (edoburu publishes -pN patch tags; a bare "1.22.0" does
+    # not exist). The Alpine image has no bash, so the entrypoint runs under sh.
+    image: edoburu/pgbouncer:1.22.0-p0
     container_name: usbvault-pgbouncer
     environment:
       PGBOUNCER_USER: usbvault
@@ -35,7 +37,7 @@ services:
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./pgbouncer/entrypoint.sh:/entrypoint.sh:ro
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
       - "6432:6432"
     depends_on:
