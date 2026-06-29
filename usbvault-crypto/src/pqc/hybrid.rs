@@ -96,6 +96,45 @@ fn combine_shared_secrets(x25519_ss: &[u8], ml_kem_ss: &[u8]) -> Result<[u8; 32]
     derive_subkey(&combined, "hybrid_seal_x25519_mlkem1024")
 }
 
+/// Sealed-box version byte for the transcript-bound hybrid format.
+const HYBRID_SEAL_VERSION_V2: u8 = 2;
+
+/// HKDF info prefix for the v2 (transcript-bound) hybrid key. Distinct from the
+/// v1 `derive_subkey(..,"hybrid_seal_x25519_mlkem1024")` info, so v1 and v2 keys
+/// never collide even for identical shared secrets.
+const HYBRID_SEAL_V2_INFO_PREFIX: &[u8] = b"hybrid_seal_x25519_mlkem1024_v2:";
+
+/// V2: derive the hybrid session key bound to the full handshake transcript.
+///
+/// `combined = x25519_ss || ml_kem_ss`; key = HKDF-SHA256(ikm = combined,
+/// info = `HYBRID_SEAL_V2_INFO_PREFIX || transcript`) where
+/// `transcript = eph_x25519_pub(32) || ml_kem_ct(1568)`. Binding the transcript
+/// commits the session key to the ephemeral public key AND the ML-KEM
+/// ciphertext, closing the transcript-binding gap in v1.
+#[cfg(feature = "pqc")]
+fn combine_shared_secrets_bound(
+    x25519_ss: &[u8],
+    ml_kem_ss: &[u8],
+    transcript: &[u8],
+) -> Result<[u8; 32]> {
+    use hkdf::Hkdf;
+    use sha2::Sha256;
+
+    let mut combined = Vec::with_capacity(x25519_ss.len() + ml_kem_ss.len());
+    combined.extend_from_slice(x25519_ss);
+    combined.extend_from_slice(ml_kem_ss);
+
+    let mut info = Vec::with_capacity(HYBRID_SEAL_V2_INFO_PREFIX.len() + transcript.len());
+    info.extend_from_slice(HYBRID_SEAL_V2_INFO_PREFIX);
+    info.extend_from_slice(transcript);
+
+    let hk = Hkdf::<Sha256>::new(None, &combined);
+    let mut out = [0u8; 32];
+    hk.expand(&info, &mut out)
+        .map_err(|_| CryptoError::SharingError)?;
+    Ok(out)
+}
+
 /// Hybrid seal: encrypt plaintext for a recipient using hybrid KEM
 ///
 /// # Arguments
@@ -222,6 +261,128 @@ pub fn hybrid_open(recipient_secret: &HybridSecretKey, sealed: &[u8]) -> Result<
         .map_err(|_| CryptoError::SharingError)
 }
 
+/// V2 hybrid seal: transcript-bound variant of [`hybrid_seal`].
+///
+/// Identical KEM + AEAD to v1, except:
+/// * a leading version byte (= [`HYBRID_SEAL_VERSION_V2`]) is prepended, and
+/// * the session key is bound to the handshake transcript
+///   (`eph_x25519_pub(32) || ml_kem_ct(1568)`) via
+///   [`combine_shared_secrets_bound`].
+///
+/// Layout: `version(1) || x25519_eph(32) || mlkem_ct(1568) || nonce(24) || ct||tag(16)`
+///
+/// v1 [`hybrid_seal`] / [`hybrid_open`] are left byte-identical; a v1 open of a
+/// v2 box (and vice versa) fails because the version byte/key differ.
+#[cfg(feature = "pqc")]
+pub fn hybrid_seal_v2(recipient: &HybridPublicKey, plaintext: &[u8]) -> Result<Vec<u8>> {
+    // X25519 ECDH
+    let ephemeral_secret = StaticSecret::random_from_rng(OsRng);
+    let ephemeral_public = PublicKey::from(&ephemeral_secret);
+    let recipient_x25519 = PublicKey::from(recipient.x25519);
+    let x25519_ss = ephemeral_secret.diffie_hellman(&recipient_x25519);
+
+    // ML-KEM-1024 encapsulation
+    let (ml_kem_ct, ml_kem_ss) = ml_kem::encapsulate(&recipient.ml_kem)?;
+
+    // Transcript = eph_x25519_pub(32) || ml_kem_ct(1568).
+    let mut transcript = Vec::with_capacity(32 + ml_kem_ct.len());
+    transcript.extend_from_slice(ephemeral_public.as_bytes());
+    transcript.extend_from_slice(&ml_kem_ct);
+
+    // Transcript-bound key.
+    let key = combine_shared_secrets_bound(x25519_ss.as_bytes(), &ml_kem_ss, &transcript)?;
+
+    // Encrypt with XChaCha20-Poly1305
+    let mut nonce = [0u8; 24];
+    OsRng.fill_bytes(&mut nonce);
+
+    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(&key));
+    let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
+
+    let ciphertext = cipher
+        .encrypt(nonce_array, plaintext)
+        .map_err(|_| CryptoError::SharingError)?;
+
+    // version(1) || x25519_eph(32) || mlkem_ct(1568) || nonce(24) || ct||tag
+    let mut result = Vec::with_capacity(1 + 32 + ml_kem_ct.len() + 24 + ciphertext.len());
+    result.push(HYBRID_SEAL_VERSION_V2);
+    result.extend_from_slice(ephemeral_public.as_bytes());
+    result.extend_from_slice(&ml_kem_ct);
+    result.extend_from_slice(&nonce);
+    result.extend_from_slice(&ciphertext);
+
+    Ok(result)
+}
+
+/// V2 hybrid open: decrypts a [`hybrid_seal_v2`] box.
+///
+/// Parses the leading version byte and REQUIRES it to be
+/// [`HYBRID_SEAL_VERSION_V2`] (so a v1 box, which has no version byte and a
+/// different layout, is rejected). The session key is re-derived over the
+/// parsed `eph_pub || ml_kem_ct` transcript, so any tampering with those bytes
+/// fails the AEAD tag.
+#[cfg(feature = "pqc")]
+pub fn hybrid_open_v2(recipient_secret: &HybridSecretKey, sealed: &[u8]) -> Result<Vec<u8>> {
+    const X25519_SIZE: usize = 32;
+    const MLKEM_CT_SIZE: usize = 1568;
+    const NONCE_SIZE: usize = 24;
+    const MIN_SIZE: usize = 1 + X25519_SIZE + MLKEM_CT_SIZE + NONCE_SIZE + 16;
+
+    if sealed.len() < MIN_SIZE {
+        return Err(CryptoError::SharingError);
+    }
+
+    let mut offset = 0;
+
+    // Version byte must be v2.
+    if sealed[offset] != HYBRID_SEAL_VERSION_V2 {
+        return Err(CryptoError::SharingError);
+    }
+    offset += 1;
+
+    // X25519 ephemeral public key
+    let ephemeral_x25519: [u8; 32] = sealed[offset..offset + 32]
+        .try_into()
+        .map_err(|_| CryptoError::SharingError)?;
+    offset += 32;
+
+    // ML-KEM ciphertext
+    let ml_kem_ct = &sealed[offset..offset + MLKEM_CT_SIZE];
+    offset += MLKEM_CT_SIZE;
+
+    // Nonce
+    let nonce: [u8; 24] = sealed[offset..offset + 24]
+        .try_into()
+        .map_err(|_| CryptoError::SharingError)?;
+    offset += 24;
+
+    // Ciphertext (remaining)
+    let ciphertext = &sealed[offset..];
+
+    // X25519 ECDH
+    let x25519_bytes: [u8; 32] = recipient_secret.x25519.as_slice().try_into().unwrap();
+    let secret = StaticSecret::from(x25519_bytes);
+    let ephemeral_pk = PublicKey::from(ephemeral_x25519);
+    let x25519_ss = secret.diffie_hellman(&ephemeral_pk);
+
+    // ML-KEM decapsulation
+    let ml_kem_ss = ml_kem::decapsulate(&recipient_secret.ml_kem, ml_kem_ct)?;
+
+    // Re-derive transcript = eph_x25519_pub(32) || ml_kem_ct(1568).
+    let mut transcript = Vec::with_capacity(32 + ml_kem_ct.len());
+    transcript.extend_from_slice(&ephemeral_x25519);
+    transcript.extend_from_slice(ml_kem_ct);
+
+    let key = combine_shared_secrets_bound(x25519_ss.as_bytes(), &ml_kem_ss, &transcript)?;
+
+    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(&key));
+    let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
+
+    cipher
+        .decrypt(nonce_array, ciphertext)
+        .map_err(|_| CryptoError::SharingError)
+}
+
 // Stub implementations when pqc feature is not enabled
 #[cfg(not(feature = "pqc"))]
 pub fn generate_hybrid_keypair() -> Result<(HybridPublicKey, HybridSecretKey)> {
@@ -239,6 +400,20 @@ pub fn hybrid_seal(_recipient: &HybridPublicKey, _plaintext: &[u8]) -> Result<Ve
 
 #[cfg(not(feature = "pqc"))]
 pub fn hybrid_open(_recipient_secret: &HybridSecretKey, _sealed: &[u8]) -> Result<Vec<u8>> {
+    Err(CryptoError::InvalidInput(
+        "Hybrid PQC not available: compile with 'pqc' feature".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "pqc"))]
+pub fn hybrid_seal_v2(_recipient: &HybridPublicKey, _plaintext: &[u8]) -> Result<Vec<u8>> {
+    Err(CryptoError::InvalidInput(
+        "Hybrid PQC not available: compile with 'pqc' feature".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "pqc"))]
+pub fn hybrid_open_v2(_recipient_secret: &HybridSecretKey, _sealed: &[u8]) -> Result<Vec<u8>> {
     Err(CryptoError::InvalidInput(
         "Hybrid PQC not available: compile with 'pqc' feature".to_string(),
     ))
@@ -365,5 +540,64 @@ mod tests {
 
         let result = hybrid_open(&sk, &short_sealed);
         assert!(result.is_err());
+    }
+
+    // ── V2: transcript-bound hybrid seal/open (crypto-pr5) ──
+
+    #[test]
+    fn test_hybrid_seal_v2_open_v2_roundtrip() {
+        let (pk, sk) = generate_hybrid_keypair().unwrap();
+        let plaintext = b"transcript-bound hybrid message";
+
+        let sealed = hybrid_seal_v2(&pk, plaintext).expect("v2 seal");
+        assert_eq!(sealed[0], HYBRID_SEAL_VERSION_V2);
+        let opened = hybrid_open_v2(&sk, &sealed).expect("v2 open");
+        assert_eq!(plaintext.as_slice(), opened.as_slice());
+    }
+
+    #[test]
+    fn test_hybrid_v1_cannot_open_v2_box_and_vice_versa() {
+        let (pk, sk) = generate_hybrid_keypair().unwrap();
+
+        // v1 open of a v2 box fails (extra version byte + different key).
+        let v2 = hybrid_seal_v2(&pk, b"secret").unwrap();
+        assert!(hybrid_open(&sk, &v2).is_err());
+
+        // v2 open of a v1 box fails (no version-2 prefix).
+        let v1 = hybrid_seal(&pk, b"secret").unwrap();
+        assert!(hybrid_open_v2(&sk, &v1).is_err());
+    }
+
+    #[test]
+    fn test_hybrid_v2_tamper_transcript_fails() {
+        let (pk, sk) = generate_hybrid_keypair().unwrap();
+        let mut sealed = hybrid_seal_v2(&pk, b"secret").unwrap();
+
+        // Flip a byte in the ephemeral X25519 public key (transcript) — the key
+        // is bound to the transcript, so decryption must fail.
+        sealed[1] ^= 0xFF;
+        assert!(hybrid_open_v2(&sk, &sealed).is_err());
+
+        // Flip a byte inside the ML-KEM ciphertext (transcript) — also fails.
+        let mut sealed2 = hybrid_seal_v2(&pk, b"secret").unwrap();
+        sealed2[1 + 32 + 10] ^= 0xFF;
+        assert!(hybrid_open_v2(&sk, &sealed2).is_err());
+    }
+
+    #[test]
+    fn test_combine_shared_secrets_bound_is_transcript_sensitive() {
+        let x25519_ss = [0x42u8; 32];
+        let ml_kem_ss = [0x99u8; 32];
+
+        let key1 = combine_shared_secrets_bound(&x25519_ss, &ml_kem_ss, b"transcript-A").unwrap();
+        let key2 = combine_shared_secrets_bound(&x25519_ss, &ml_kem_ss, b"transcript-A").unwrap();
+        let key3 = combine_shared_secrets_bound(&x25519_ss, &ml_kem_ss, b"transcript-B").unwrap();
+
+        assert_eq!(key1, key2); // deterministic
+        assert_ne!(key1, key3); // transcript-sensitive
+
+        // v2 key never collides with the v1 combine over the same secrets.
+        let v1 = combine_shared_secrets(&x25519_ss, &ml_kem_ss).unwrap();
+        assert_ne!(v1, key1);
     }
 }

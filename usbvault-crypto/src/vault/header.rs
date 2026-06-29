@@ -2,7 +2,10 @@
 
 use crate::cipher::CipherId;
 use crate::error::{CryptoError, Result};
-use crate::kdf::{derive_kek, generate_salt, unwrap_mek, wrap_mek, MasterEncryptionKey, MasterKey};
+use crate::kdf::{
+    build_kdf_transcript, derive_kek, derive_kek_v6, generate_salt, unwrap_mek, unwrap_mek_ad,
+    wrap_mek_ad, MasterEncryptionKey, MasterKey,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
@@ -26,6 +29,21 @@ pub const MAGIC_V4: &[u8; 8] = b"USBVLT04";
 /// transparently upgraded to V5 on the next write/commit.
 pub const MAGIC_V5: &[u8; 8] = b"USBVLT05";
 
+/// V6 magic bytes.
+///
+/// V6 is byte-layout-identical to V4/V5 (same fields, same offsets, same size).
+/// The differences are cryptographic, NOT structural:
+/// * the KEK is derived via [`derive_kek_v6`] (Argon2id -> HKDF expand over a
+///   canonical KDF transcript) instead of plain [`derive_kek`];
+/// * the wrapped MEK, verify marker, and index are sealed with deterministic
+///   AEAD associated data bound to the header (version/salt/Argon2 params/active
+///   slot), so a ciphertext lifted into a different/older header fails its tag;
+/// * the header HMAC uses a V6 domain tag (downgrade resistance, mirrors V5).
+///
+/// V6 is OPT-IN for NEW vaults only — existing V2/V3/V4/V5 vaults never match
+/// this magic and so never take the V6 code path.
+pub const MAGIC_V6: &[u8; 8] = b"USBVLT06";
+
 /// V2 header size (4096 bytes)
 pub const HEADER_SIZE_V2: usize = 4096;
 
@@ -37,6 +55,9 @@ pub const HEADER_SIZE_V4: usize = 24576;
 
 /// V5 header size — identical layout to V4 (24576 bytes).
 pub const HEADER_SIZE_V5: usize = 24576;
+
+/// V6 header size — identical layout to V4/V5 (24576 bytes).
+pub const HEADER_SIZE_V6: usize = 24576;
 
 /// Vault header structure
 #[derive(Debug, Clone)]
@@ -132,6 +153,8 @@ impl VaultHeader {
             4
         } else if magic == MAGIC_V5 {
             5
+        } else if magic == MAGIC_V6 {
+            6
         } else {
             return Err(CryptoError::InvalidMagic);
         };
@@ -309,6 +332,7 @@ impl VaultHeader {
     /// Serialize header to bytes
     pub fn write(&self) -> Vec<u8> {
         let header_size = match self.version {
+            6 => HEADER_SIZE_V6,
             5 => HEADER_SIZE_V5,
             4 => HEADER_SIZE_V4,
             3 => HEADER_SIZE_V3,
@@ -320,6 +344,7 @@ impl VaultHeader {
 
         // Magic
         let magic = match self.version {
+            6 => MAGIC_V6,
             5 => MAGIC_V5,
             4 => MAGIC_V4,
             3 => MAGIC_V3,
@@ -448,6 +473,11 @@ impl VaultHeader {
     /// itself is also covered by the MAC input — see [`Self::compute_hmac`]).
     const HEADER_HMAC_DOMAIN_V5: &'static [u8] = b"USBVault-HeaderHMAC-v5:";
 
+    /// Domain separator for the V6 header HMAC. Identical wide field coverage to
+    /// V5; only the domain tag differs, so a V6->V5 magic-flip downgrade
+    /// recomputes a different MAC and fails (same reasoning as V5->V4).
+    const HEADER_HMAC_DOMAIN_V6: &'static [u8] = b"USBVault-HeaderHMAC-v6:";
+
     /// Compute HMAC-SHA256 over the security-relevant header content.
     ///
     /// The MAC is *version-gated* so that on-disk vaults always validate with
@@ -486,7 +516,13 @@ impl VaultHeader {
 
         if self.version >= 5 {
             // Widened, length-prefixed, domain-separated MAC for V5+.
-            mac.update(Self::HEADER_HMAC_DOMAIN_V5);
+            // V6 binds the same field set under a V6-specific domain tag so a
+            // V6->V5 magic flip recomputes a different MAC and fails.
+            if self.version >= 6 {
+                mac.update(Self::HEADER_HMAC_DOMAIN_V6);
+            } else {
+                mac.update(Self::HEADER_HMAC_DOMAIN_V5);
+            }
             mac.update(&[self.version, self.kdf_hash_id, self.cipher_id]);
             mac.update(&self.salt);
             mac.update(&self.verify_iv);
@@ -567,10 +603,65 @@ impl VaultHeader {
     /// Maximum failed unlock attempts before self-destruct
     pub const MAX_FAIL_ATTEMPTS: u32 = 10;
 
-    /// Create a new V5 vault header from a password.
+    // ── V6: deterministic AEAD associated-data (AD) builders (crypto-pr5) ──
+    //
+    // These bind a ciphertext to its header so a wrapped-MEK / verify-marker /
+    // index blob lifted into a different (or downgraded) header fails its AEAD
+    // tag. The byte layout is FROZEN and mirrored in the web impl
+    // (native.ts buildWrapAD/buildVerifyAD/buildIndexAD); the cross-impl KAT
+    // (tests/kdf_ad_interop_kat.rs) asserts identical bytes.
+
+    /// Domain tag for the wrapped-MEK AD.
+    const WRAP_AD_DOMAIN_V6: &'static [u8] = b"USBVault-wrapMEK-v6:";
+    /// Domain tag for the verify-marker AD.
+    const VERIFY_AD_DOMAIN_V6: &'static [u8] = b"USBVault-verify-v6:";
+    /// Domain tag for the index AD.
+    const INDEX_AD_DOMAIN_V6: &'static [u8] = b"USBVault-index-v6:";
+
+    /// V6 wrapped-MEK AD:
+    /// `domain || version || salt || argon2_memory_le || argon2_time_le || argon2_parallelism`
+    fn wrap_ad_v6(&self) -> Vec<u8> {
+        let mut ad = Vec::with_capacity(Self::WRAP_AD_DOMAIN_V6.len() + 1 + 32 + 4 + 4 + 1);
+        ad.extend_from_slice(Self::WRAP_AD_DOMAIN_V6);
+        ad.push(self.version);
+        ad.extend_from_slice(&self.salt);
+        ad.extend_from_slice(&self.argon2_memory.to_le_bytes());
+        ad.extend_from_slice(&self.argon2_time.to_le_bytes());
+        ad.push(self.argon2_parallelism);
+        ad
+    }
+
+    /// V6 verify-marker AD: `domain || version || salt`
+    fn verify_ad_v6(&self) -> Vec<u8> {
+        let mut ad = Vec::with_capacity(Self::VERIFY_AD_DOMAIN_V6.len() + 1 + 32);
+        ad.extend_from_slice(Self::VERIFY_AD_DOMAIN_V6);
+        ad.push(self.version);
+        ad.extend_from_slice(&self.salt);
+        ad
+    }
+
+    /// V6 index AD: `domain || version || salt || active_slot`
     ///
-    /// Generates salt, derives KEK, generates random MEK, wraps MEK,
-    /// creates verify marker, computes header HMAC.
+    /// Associated (static) so the vault orchestrator (FFI layer) can build the
+    /// AD for [`VaultIndex::encrypt_with_ad`] without a fully-built header.
+    pub fn index_ad_v6(version: u8, salt: &[u8], active_slot: u8) -> Vec<u8> {
+        let mut ad = Vec::with_capacity(Self::INDEX_AD_DOMAIN_V6.len() + 1 + salt.len() + 1);
+        ad.extend_from_slice(Self::INDEX_AD_DOMAIN_V6);
+        ad.push(version);
+        ad.extend_from_slice(salt);
+        ad.push(active_slot);
+        ad
+    }
+
+    /// Create a new V6 vault header from a password.
+    ///
+    /// Generates salt, derives a transcript-bound KEK ([`derive_kek_v6`]),
+    /// generates a random MEK, wraps the MEK with header-bound AD
+    /// ([`wrap_mek_ad`]), creates an AD-bound verify marker, and computes the
+    /// V6 header HMAC.
+    ///
+    /// NEW vaults are written as V6. Existing V2/V3/V4/V5 vaults are unaffected
+    /// (they never match MAGIC_V6 and so never take this path).
     ///
     /// Returns (header, enc_key_32, hmac_key_32) — the MEK halves for
     /// immediate use. The caller MUST zero these after writing the
@@ -578,52 +669,100 @@ impl VaultHeader {
     pub fn create_new(password: &[u8], cipher_id: CipherId) -> Result<(Self, [u8; 32], [u8; 32])> {
         let salt = generate_salt();
 
-        // Derive KEK from password
-        let kek = derive_kek(password, &salt)?;
+        // Fixed Argon2id params (same as derive_kek), bound into the transcript.
+        let argon2_memory: u32 = 65536;
+        let argon2_time: u32 = 3;
+        let argon2_parallelism: u8 = 4;
+        let version: u8 = 6;
+        let kdf_hash_id: u8 = 2; // Argon2id
+        let cipher_byte = cipher_id.as_byte();
+
+        // Build the canonical KDF transcript from the same literals that go into
+        // the header (avoid a half-built header to sidestep ordering hazards).
+        let transcript = build_kdf_transcript(
+            version,
+            kdf_hash_id,
+            cipher_byte,
+            &salt,
+            argon2_memory,
+            argon2_time,
+            argon2_parallelism,
+        );
+
+        // Derive transcript-bound KEK from password.
+        let kek = derive_kek_v6(password, &salt, &transcript)?;
 
         // Generate random MEK
         let mek = MasterEncryptionKey::generate();
 
-        // Wrap MEK with KEK
-        let wrapped = wrap_mek(&kek, &mek)?;
+        // Wrapped-MEK AD = domain || version || salt || argon2 params.
+        let wrap_ad = {
+            let mut ad = Vec::with_capacity(Self::WRAP_AD_DOMAIN_V6.len() + 1 + 32 + 4 + 4 + 1);
+            ad.extend_from_slice(Self::WRAP_AD_DOMAIN_V6);
+            ad.push(version);
+            ad.extend_from_slice(&salt);
+            ad.extend_from_slice(&argon2_memory.to_le_bytes());
+            ad.extend_from_slice(&argon2_time.to_le_bytes());
+            ad.push(argon2_parallelism);
+            ad
+        };
 
-        // Create verify marker: encrypt known plaintext with MEK enc key
+        // Wrap MEK with KEK, binding the AD.
+        let wrapped = wrap_mek_ad(&kek, &mek, &wrap_ad)?;
+
+        // Verify-marker AD = domain || version || salt.
+        let verify_ad = {
+            let mut ad = Vec::with_capacity(Self::VERIFY_AD_DOMAIN_V6.len() + 1 + 32);
+            ad.extend_from_slice(Self::VERIFY_AD_DOMAIN_V6);
+            ad.push(version);
+            ad.extend_from_slice(&salt);
+            ad
+        };
+
+        // Create verify marker: encrypt known plaintext with MEK enc key + AD.
         let verify_plaintext = b"USBVAULT_VERIFY_OK_0000";
         let mut verify_iv = [0u8; 24];
         rand::rngs::OsRng.fill_bytes(&mut verify_iv);
         let verify_ciphertext = {
             use chacha20poly1305::{
-                aead::{Aead, KeyInit},
+                aead::{Aead, KeyInit, Payload},
                 XChaCha20Poly1305,
             };
             use generic_array::GenericArray;
             let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
             let nonce = chacha20poly1305::XNonce::from_slice(&verify_iv);
             cipher
-                .encrypt(nonce, verify_plaintext.as_ref())
+                .encrypt(
+                    nonce,
+                    Payload {
+                        msg: verify_plaintext.as_ref(),
+                        aad: &verify_ad,
+                    },
+                )
                 .map_err(|_| CryptoError::KeyDerivationFailed)?
         };
 
         // Build header with initial dual-index pointers.
-        // New vaults are written as V5 (wide, downgrade-resistant header MAC).
-        // Both index slots initially empty (offset=HEADER_SIZE_V5, length=0)
+        // New vaults are written as V6 (transcript-bound KEK + AD-bound seals +
+        // wide, downgrade-resistant V6 header MAC).
+        // Both index slots initially empty (offset=HEADER_SIZE_V6, length=0)
         let mut header = VaultHeader {
-            version: 5,
-            kdf_hash_id: 2, // Argon2id
-            cipher_id: cipher_id.as_byte(),
+            version,
+            kdf_hash_id,
+            cipher_id: cipher_byte,
             salt,
             verify_iv,
             verify_ciphertext,
             header_hmac: [0u8; 32], // Computed below
             active_index_slot: 0,
-            index1_offset: HEADER_SIZE_V5 as u32,
+            index1_offset: HEADER_SIZE_V6 as u32,
             index1_length: 0,
-            index2_offset: HEADER_SIZE_V5 as u32,
+            index2_offset: HEADER_SIZE_V6 as u32,
             index2_length: 0,
             commit_counter: 0,
-            argon2_memory: 65536,
-            argon2_time: 3,
-            argon2_parallelism: 4,
+            argon2_memory,
+            argon2_time,
+            argon2_parallelism,
             identity_block: None,
             tfa_block: None,
             fail_counter_block: None,
@@ -663,22 +802,56 @@ impl VaultHeader {
             .as_ref()
             .ok_or(CryptoError::InvalidHeader)?;
 
-        // Derive KEK from password + header salt
-        let kek = derive_kek(password, &self.salt)?;
+        // V-gated KEK derivation + AEAD AD. Anything <= 5 takes the EXACT legacy
+        // path (plain derive_kek + plain wrap/marker decrypt). V6 uses the
+        // transcript-bound KEK and header-bound AD on the wrapped MEK + verify
+        // marker. Existing on-disk vaults never match V6, so they are untouched.
+        let (kek, wrapped_ad, verify_ad) = if self.version >= 6 {
+            let t = build_kdf_transcript(
+                self.version,
+                self.kdf_hash_id,
+                self.cipher_id,
+                &self.salt,
+                self.argon2_memory,
+                self.argon2_time,
+                self.argon2_parallelism,
+            );
+            (
+                derive_kek_v6(password, &self.salt, &t)?,
+                Some(self.wrap_ad_v6()),
+                Some(self.verify_ad_v6()),
+            )
+        } else {
+            (derive_kek(password, &self.salt)?, None, None)
+        };
 
-        // Unwrap MEK
-        let mek = unwrap_mek(&kek, wrapped).map_err(|_| CryptoError::PasswordWrong)?;
+        // Unwrap MEK (AD-bound for V6, plain for legacy).
+        let mek = match &wrapped_ad {
+            Some(ad) => unwrap_mek_ad(&kek, wrapped, ad),
+            None => unwrap_mek(&kek, wrapped),
+        }
+        .map_err(|_| CryptoError::PasswordWrong)?;
 
-        // Verify password by decrypting verify marker
+        // Verify password by decrypting verify marker (AD-bound for V6).
         let is_valid = {
             use chacha20poly1305::{
-                aead::{Aead, KeyInit},
+                aead::{Aead, KeyInit, Payload},
                 XChaCha20Poly1305,
             };
             use generic_array::GenericArray;
             let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(mek.encryption_key()));
             let nonce = chacha20poly1305::XNonce::from_slice(&self.verify_iv);
-            match cipher.decrypt(nonce, self.verify_ciphertext.as_ref()) {
+            let decrypted = match &verify_ad {
+                Some(ad) => cipher.decrypt(
+                    nonce,
+                    Payload {
+                        msg: self.verify_ciphertext.as_ref(),
+                        aad: ad,
+                    },
+                ),
+                None => cipher.decrypt(nonce, self.verify_ciphertext.as_ref()),
+            };
+            match decrypted {
                 Ok(plaintext) => plaintext.starts_with(b"USBVAULT_VERIFY"),
                 Err(_) => false,
             }
@@ -759,6 +932,13 @@ impl VaultHeader {
     /// automatically, so any unlocked V4 vault becomes V5 on its next write.
     ///
     /// Returns `true` if the version was changed.
+    ///
+    /// NOTE (crypto-pr5): V4/V5 vaults are NOT auto-upgraded to V6 here. V6
+    /// changes the KEK derivation (transcript-bound) and the wrapped-MEK AD,
+    /// which would require re-deriving from the password — unavailable at commit
+    /// time. V6 is opt-in for NEW vaults only. A V6 header passes through commit
+    /// unchanged (it is already `>= 5` for the wide-MAC purpose, and
+    /// `compute_hmac` selects the V6 domain tag for `version >= 6`).
     pub fn upgrade_to_v5_if_eligible(&mut self) -> bool {
         if self.version == 4 && self.wrapped_mek.is_some() {
             self.version = 5;
@@ -1192,6 +1372,155 @@ mod tests {
                 .unwrap_u8()
                 != 0
         );
+    }
+
+    // ── V6: transcript-bound KEK + AD-bound seals (crypto-pr5) ──
+
+    /// V6 headers round-trip through disk format and validate with the V6 wide
+    /// MAC (mirror of test_v5_header_roundtrip_and_wide_mac).
+    #[test]
+    fn test_v6_header_roundtrip_and_wide_mac() {
+        let hmac_key = [0x22u8; 32];
+
+        let mut header = VaultHeader {
+            version: 6,
+            kdf_hash_id: 2,
+            cipher_id: 2,
+            salt: [0x55u8; 32],
+            verify_iv: [0x66u8; 24],
+            verify_ciphertext: b"v6_verify_ct".to_vec(),
+            header_hmac: [0u8; 32],
+            active_index_slot: 0,
+            index1_offset: HEADER_SIZE_V6 as u32,
+            index1_length: 0,
+            index2_offset: HEADER_SIZE_V6 as u32,
+            index2_length: 0,
+            commit_counter: 0,
+            argon2_memory: 65536,
+            argon2_time: 3,
+            argon2_parallelism: 4,
+            identity_block: None,
+            tfa_block: None,
+            fail_counter_block: None,
+            wrapped_mek: Some(vec![0xCD; 104]),
+            state_version: 1,
+            index_encrypted: true,
+        };
+        header.header_hmac = header.compute_hmac(&hmac_key);
+
+        let bytes = header.write();
+        assert_eq!(bytes.len(), HEADER_SIZE_V6);
+        assert_eq!(&bytes[0..8], MAGIC_V6);
+
+        let parsed = VaultHeader::read(&bytes).expect("Failed to parse V6");
+        assert_eq!(parsed.version, 6);
+        assert!(parsed.index_encrypted);
+        assert_eq!(parsed.wrapped_mek.as_ref().unwrap().len(), 104);
+        assert!(
+            parsed
+                .compute_hmac(&hmac_key)
+                .ct_eq(&parsed.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
+
+        // V6 MAC must differ from the V5 MAC over identical fields (domain tag).
+        let mut v5 = header.clone();
+        v5.version = 5;
+        assert_ne!(v5.compute_hmac(&hmac_key), header.compute_hmac(&hmac_key));
+    }
+
+    /// Downgrade resistance: a V6 vault whose magic is flipped to V5 must fail
+    /// validation (mirror of test_v5_to_v4_downgrade_is_rejected).
+    #[test]
+    fn test_v6_to_v5_downgrade_is_rejected() {
+        let hmac_key = [0x33u8; 32];
+
+        let mut header = VaultHeader {
+            version: 6,
+            kdf_hash_id: 2,
+            cipher_id: 2,
+            salt: [0x77u8; 32],
+            verify_iv: [0x88u8; 24],
+            verify_ciphertext: b"v6_downgrade_ct".to_vec(),
+            header_hmac: [0u8; 32],
+            active_index_slot: 0,
+            index1_offset: HEADER_SIZE_V6 as u32,
+            index1_length: 0,
+            index2_offset: HEADER_SIZE_V6 as u32,
+            index2_length: 0,
+            commit_counter: 0,
+            argon2_memory: 65536,
+            argon2_time: 3,
+            argon2_parallelism: 4,
+            identity_block: None,
+            tfa_block: None,
+            fail_counter_block: None,
+            wrapped_mek: Some(vec![0xEF; 104]),
+            state_version: 3,
+            index_encrypted: true,
+        };
+        header.header_hmac = header.compute_hmac(&hmac_key);
+
+        let mut bytes = header.write();
+        // Attacker flips magic V6 -> V5, keeping the stored (V6-domain) MAC.
+        bytes[0..8].copy_from_slice(MAGIC_V5);
+
+        let forged = VaultHeader::read(&bytes).expect("parse as V5");
+        assert_eq!(forged.version, 5);
+        // V5 branch recomputes with the V5 domain tag, which cannot match the
+        // stored V6 MAC -> verification fails.
+        assert!(
+            forged
+                .compute_hmac(&hmac_key)
+                .ct_eq(&forged.header_hmac)
+                .unwrap_u8()
+                == 0
+        );
+    }
+
+    /// create_new produces a V6 vault and unlock(password) round-trips; wrong
+    /// password fails.
+    #[test]
+    fn test_v6_create_new_unlock_roundtrip() {
+        let password = b"correct horse battery staple";
+        let (header, enc_key, hmac_key) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+        assert_eq!(header.version, 6);
+
+        // Header HMAC validates with the returned hmac_key (V6 domain).
+        assert!(
+            header
+                .compute_hmac(&hmac_key)
+                .ct_eq(&header.header_hmac)
+                .unwrap_u8()
+                != 0
+        );
+
+        let (enc2, hmac2) = header.unlock(password).expect("V6 unlock");
+        assert_eq!(enc_key, enc2);
+        assert_eq!(hmac_key, hmac2);
+
+        assert!(header.unlock(b"wrong password").is_err());
+    }
+
+    /// Transplant guard: a V6 wrapped-MEK / verify blob lifted into a header
+    /// with a different transcript/AD (here: flipped to V5 magic, which switches
+    /// to the legacy plain derive_kek + plain unwrap) fails to unlock.
+    #[test]
+    fn test_v6_blob_transplanted_into_v5_header_fails() {
+        let password = b"transplant-test-pw";
+        let (header, _enc, _hmac) =
+            VaultHeader::create_new(password, CipherId::XChaCha20Poly1305).unwrap();
+
+        // Lift the V6 wrapped MEK + verify marker into a V5-tagged header with
+        // the same salt/params. V5 unlock uses plain derive_kek + plain unwrap,
+        // which cannot open the transcript-bound, AD-sealed V6 blobs.
+        let mut transplanted = header.clone();
+        transplanted.version = 5;
+        // Recompute a valid V5 HMAC so the failure is the AEAD/KEK, not the MAC.
+        // (We can't, without the MEK; instead assert unlock fails outright.)
+        assert!(transplanted.unlock(password).is_err());
     }
 
     // ── C-2 regression: VaultHeader::read must never panic on malformed input ──

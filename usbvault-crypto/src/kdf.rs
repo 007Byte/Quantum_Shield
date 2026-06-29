@@ -118,6 +118,39 @@ impl Drop for MasterEncryptionKey {
 /// Wrapped MEK blob: nonce(24) || ciphertext(64+16) = 104 bytes
 pub const WRAPPED_MEK_SIZE: usize = 24 + 64 + 16;
 
+/// V6 KDF-transcript domain tag. Binds the KEK to the full key-derivation context.
+pub const KDF_TRANSCRIPT_DOMAIN_V6: &[u8] = b"USBVault-KDF-transcript-v6:";
+
+/// Build a canonical, length-prefixed transcript of the key-derivation context.
+///
+/// Order/format is FROZEN — the Rust and web (TypeScript) implementations MUST
+/// agree byte-for-byte (see the cross-impl KAT in
+/// `tests/kdf_ad_interop_kat.rs` / `kdfAdInterop.kat.test.ts`).
+///
+/// layout: `u8(version) || u8(kdf_hash_id) || u8(cipher_id)`
+///       `|| u32le(salt.len) || salt`
+///       `|| u32le(argon2_memory) || u32le(argon2_time) || u8(argon2_parallelism)`
+pub fn build_kdf_transcript(
+    version: u8,
+    kdf_hash_id: u8,
+    cipher_id: u8,
+    salt: &[u8],
+    argon2_memory: u32,
+    argon2_time: u32,
+    argon2_parallelism: u8,
+) -> Vec<u8> {
+    let mut t = Vec::with_capacity(3 + 4 + salt.len() + 9);
+    t.push(version);
+    t.push(kdf_hash_id);
+    t.push(cipher_id);
+    t.extend_from_slice(&(salt.len() as u32).to_le_bytes());
+    t.extend_from_slice(salt);
+    t.extend_from_slice(&argon2_memory.to_le_bytes());
+    t.extend_from_slice(&argon2_time.to_le_bytes());
+    t.push(argon2_parallelism);
+    t
+}
+
 /// Derive a master key from password using Argon2id
 ///
 /// # Arguments
@@ -280,6 +313,113 @@ pub fn unwrap_mek(kek: &KeyEncryptionKey, wrapped: &[u8]) -> Result<MasterEncryp
     Ok(MasterEncryptionKey::from_bytes(key))
 }
 
+/// V6: derive a KEK bound to the full KDF transcript.
+///
+/// Runs the SAME Argon2id as [`derive_kek`] (identical params), then
+/// HKDF-SHA256-expands the Argon2 output (the IKM) with
+/// `info = KDF_TRANSCRIPT_DOMAIN_V6 || transcript`. This commits the KEK to the
+/// full key-derivation context (version, kdf/cipher ids, salt, Argon2 params)
+/// so a wrapped-MEK blob cannot be transplanted into a header with a different
+/// transcript. The legacy [`derive_kek`] is untouched (V<=5 path).
+pub fn derive_kek_v6(password: &[u8], salt: &[u8], transcript: &[u8]) -> Result<KeyEncryptionKey> {
+    if salt.len() != 32 {
+        return Err(CryptoError::InvalidArgument);
+    }
+    // Reuse the existing Argon2id (32-byte output) as IKM.
+    let base = derive_kek(password, salt)?;
+    let mut info = Vec::with_capacity(KDF_TRANSCRIPT_DOMAIN_V6.len() + transcript.len());
+    info.extend_from_slice(KDF_TRANSCRIPT_DOMAIN_V6);
+    info.extend_from_slice(transcript);
+    let hk = Hkdf::<Sha256>::new(None, base.as_bytes());
+    let mut out = [0u8; 32];
+    hk.expand(&info, &mut out)
+        .map_err(|_| CryptoError::KeyDerivationFailed)?;
+    Ok(KeyEncryptionKey(Zeroizing::new(out)))
+}
+
+/// V6: wrap (encrypt) a MEK with the KEK using XChaCha20-Poly1305, binding the
+/// supplied associated data (`ad`) into the AEAD tag.
+///
+/// Identical to [`wrap_mek`] except the AD is authenticated, so a wrapped-MEK
+/// blob produced under one header's AD cannot be opened against a different
+/// header. The blob layout is unchanged: nonce(24) || ciphertext(64+16).
+pub fn wrap_mek_ad(
+    kek: &KeyEncryptionKey,
+    mek: &MasterEncryptionKey,
+    ad: &[u8],
+) -> Result<Vec<u8>> {
+    use chacha20poly1305::{
+        aead::{Aead, KeyInit, Payload},
+        XChaCha20Poly1305,
+    };
+    use generic_array::GenericArray;
+
+    let mut nonce = [0u8; 24];
+    OsRng.fill_bytes(&mut nonce);
+
+    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(kek.as_bytes()));
+    let nonce_array = chacha20poly1305::XNonce::from_slice(&nonce);
+
+    let ciphertext = cipher
+        .encrypt(
+            nonce_array,
+            Payload {
+                msg: mek.as_bytes().as_ref(),
+                aad: ad,
+            },
+        )
+        .map_err(|_| CryptoError::KeyWrappingFailed)?;
+
+    let mut result = Vec::with_capacity(WRAPPED_MEK_SIZE);
+    result.extend_from_slice(&nonce);
+    result.extend_from_slice(&ciphertext);
+    Ok(result)
+}
+
+/// V6: unwrap (decrypt) a MEK from the wrapped blob, verifying the bound
+/// associated data (`ad`). Fails if `ad` does not match the AD used at wrap
+/// time. Counterpart to [`wrap_mek_ad`].
+pub fn unwrap_mek_ad(
+    kek: &KeyEncryptionKey,
+    wrapped: &[u8],
+    ad: &[u8],
+) -> Result<MasterEncryptionKey> {
+    use chacha20poly1305::{
+        aead::{Aead, KeyInit, Payload},
+        XChaCha20Poly1305,
+    };
+    use generic_array::GenericArray;
+
+    if wrapped.len() < WRAPPED_MEK_SIZE {
+        return Err(CryptoError::KeyWrappingFailed);
+    }
+
+    let nonce = chacha20poly1305::XNonce::from_slice(&wrapped[0..24]);
+    let ciphertext = &wrapped[24..];
+
+    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(kek.as_bytes()));
+
+    let mut plaintext = cipher
+        .decrypt(
+            nonce,
+            Payload {
+                msg: ciphertext,
+                aad: ad,
+            },
+        )
+        .map_err(|_| CryptoError::KeyWrappingFailed)?;
+
+    if plaintext.len() != 64 {
+        zeroize::Zeroize::zeroize(&mut plaintext);
+        return Err(CryptoError::KeyWrappingFailed);
+    }
+
+    let mut key = [0u8; 64];
+    key.copy_from_slice(&plaintext);
+    zeroize::Zeroize::zeroize(&mut plaintext);
+    Ok(MasterEncryptionKey::from_bytes(key))
+}
+
 /// Derive a per-file encryption key from the MEK using HKDF
 pub fn derive_file_key(mek: &MasterEncryptionKey, file_id: &str) -> Result<[u8; 32]> {
     let info = format!("file_encryption:{}", file_id);
@@ -357,6 +497,96 @@ mod tests {
 
         assert_ne!(key1, key2); // Different files get different keys
         assert_eq!(key1, key3); // Same file ID produces same key
+    }
+
+    // ── V6: transcript-bound KEK + AD-bound MEK wrap (crypto-pr5) ──
+
+    #[test]
+    fn test_derive_kek_v6_differs_from_derive_kek() {
+        let password = b"test_password";
+        let salt = [0x42u8; 32];
+        let transcript = build_kdf_transcript(6, 2, 2, &salt, 65536, 3, 4);
+
+        let legacy = derive_kek(password, &salt).unwrap();
+        let v6 = derive_kek_v6(password, &salt, &transcript).unwrap();
+        // Transcript binding is observable: the V6 KEK is not the raw Argon2 KEK.
+        assert_ne!(legacy.as_bytes(), v6.as_bytes());
+    }
+
+    #[test]
+    fn test_derive_kek_v6_changes_with_transcript_fields() {
+        let password = b"test_password";
+        let salt = [0x42u8; 32];
+        let base = derive_kek_v6(
+            password,
+            &salt,
+            &build_kdf_transcript(6, 2, 2, &salt, 65536, 3, 4),
+        )
+        .unwrap();
+
+        // Changing the cipher_id changes the KEK.
+        let diff_cipher = derive_kek_v6(
+            password,
+            &salt,
+            &build_kdf_transcript(6, 2, 1, &salt, 65536, 3, 4),
+        )
+        .unwrap();
+        assert_ne!(base.as_bytes(), diff_cipher.as_bytes());
+
+        // Changing an Argon2 param changes the KEK.
+        let diff_mem = derive_kek_v6(
+            password,
+            &salt,
+            &build_kdf_transcript(6, 2, 2, &salt, 131072, 3, 4),
+        )
+        .unwrap();
+        assert_ne!(base.as_bytes(), diff_mem.as_bytes());
+
+        // Same inputs are deterministic.
+        let same = derive_kek_v6(
+            password,
+            &salt,
+            &build_kdf_transcript(6, 2, 2, &salt, 65536, 3, 4),
+        )
+        .unwrap();
+        assert_eq!(base.as_bytes(), same.as_bytes());
+    }
+
+    #[test]
+    fn test_wrap_mek_ad_roundtrip() {
+        let kek = derive_kek(b"pw", &[0x42u8; 32]).unwrap();
+        let mek = MasterEncryptionKey::generate();
+        let ad = b"USBVault-wrapMEK-v6:context";
+
+        let wrapped = wrap_mek_ad(&kek, &mek, ad).unwrap();
+        assert_eq!(wrapped.len(), WRAPPED_MEK_SIZE);
+        let unwrapped = unwrap_mek_ad(&kek, &wrapped, ad).unwrap();
+        assert_eq!(mek.as_bytes(), unwrapped.as_bytes());
+    }
+
+    #[test]
+    fn test_unwrap_mek_ad_mismatched_ad_fails() {
+        let kek = derive_kek(b"pw", &[0x42u8; 32]).unwrap();
+        let mek = MasterEncryptionKey::generate();
+        let wrapped = wrap_mek_ad(&kek, &mek, b"ad-A").unwrap();
+        assert!(unwrap_mek_ad(&kek, &wrapped, b"ad-B").is_err());
+    }
+
+    #[test]
+    fn test_ad_wrap_not_openable_by_plain_unwrap_and_vice_versa() {
+        let kek = derive_kek(b"pw", &[0x42u8; 32]).unwrap();
+        let mek = MasterEncryptionKey::generate();
+
+        // A blob wrapped WITH ad is not openable by the plain (no-AD) unwrap.
+        let wrapped_ad = wrap_mek_ad(&kek, &mek, b"some-ad").unwrap();
+        assert!(unwrap_mek(&kek, &wrapped_ad).is_err());
+
+        // A blob wrapped WITHOUT ad is not openable by the AD unwrap (with ad).
+        let wrapped_plain = wrap_mek(&kek, &mek).unwrap();
+        assert!(unwrap_mek_ad(&kek, &wrapped_plain, b"some-ad").is_err());
+
+        // ...but plain<->plain and ad(empty)<->plain semantics are consistent.
+        assert!(unwrap_mek(&kek, &wrapped_plain).is_ok());
     }
 
     #[test]
