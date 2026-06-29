@@ -45,12 +45,6 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 	r.Use(mw.RequestLogger())
 	// MEDIUM-FIX: Apply request body limit middleware to prevent oversized requests
 	r.Use(mw.RequestBodyLimit(mw.DefaultRequestBodyLimitConfig()))
-	r.Use(mw.NewRateLimiter(a.redisClient, mw.RateLimitConfig{
-		PerIP:         100,
-		PerUser:       1000,
-		Window:        time.Minute,
-		AuthEndpoints: 10,
-	}))
 
 	// CORS with explicit allowed origins (no wildcards for https://).
 	// F4: AllowCredentials is required so the browser will attach/accept the
@@ -74,6 +68,19 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 
 	// Auth middleware (extracts JWT if present, doesn't require it)
 	r.Use(mw.AuthMiddleware(a.redisClient))
+
+	// MED-FIX (dead PerUser limit): NewRateLimiter reads ctxkeys.UserID to apply
+	// its per-user ceiling, so it MUST run AFTER AuthMiddleware (which populates
+	// that key). Previously it ran before AuthMiddleware, so UserID was never set
+	// and the PerUser(1000) limit was dead. It stays BEFORE AuditMiddleware (and
+	// before the first route on this mux, satisfying chi's middleware-ordering
+	// rule). The PerIP check uses getClientIP and is unaffected by the move.
+	r.Use(mw.NewRateLimiter(a.redisClient, mw.RateLimitConfig{
+		PerIP:         100,
+		PerUser:       1000,
+		Window:        time.Minute,
+		AuthEndpoints: 10,
+	}))
 
 	// Phase 1 Security Fix: Audit middleware logs all mutating requests as security events.
 	// This ensures SOC 2 compliance even if handlers forget to call auditService.LogAction().
@@ -269,6 +276,11 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 		// Recovery codes (authenticated)
 		r.Route("/recovery", func(r chi.Router) {
 			r.Use(mw.RequireAuth)
+			// LOW-FIX: throttle recovery-code generate/verify with the per-IP
+			// auth limiter (10/min, env-tunable via AUTH_RATE_LIMIT_PER_MIN) so
+			// recovery codes can't be brute-forced. Placed AFTER RequireAuth so
+			// unauthenticated probes are already 401'd.
+			r.Use(mw.AuthRateLimiter(a.redisClient))
 			r.Post("/generate", recoverypkg.HandleGenerateCodes(a.dbPool))
 			r.Post("/verify", recoverypkg.HandleVerifyCode(a.dbPool, a.auditService))
 			r.Get("/remaining", recoverypkg.HandleGetRemainingCodes(a.dbPool))

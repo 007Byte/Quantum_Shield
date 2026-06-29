@@ -45,8 +45,13 @@ func NewAccountLockoutService(redisClient *redis.Client) *AccountLockoutService 
 
 // CheckLockout checks the current lockout status for an account
 // Returns the lockout status and any error
-func (s *AccountLockoutService) CheckLockout(ctx context.Context, emailHash string) (*LockoutStatus, error) {
-	key := fmt.Sprintf("lockout:%s", emailHash)
+func (s *AccountLockoutService) CheckLockout(ctx context.Context, emailHash, clientIP string) (*LockoutStatus, error) {
+	// HIGH-FIX: scope the lockout key to (emailHash + clientIP) so an off-path
+	// attacker on a different IP cannot perpetually lock a victim's account by
+	// firing failed SRP attempts at their email. Brute force from the victim's
+	// OWN IP is still bounded by the per-IP AuthRateLimiter (10/min). Old
+	// emailHash-only keys are abandoned and self-clean via their existing 30-min TTL.
+	key := fmt.Sprintf("lockout:%s:%s", emailHash, clientIP)
 
 	data, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -96,8 +101,8 @@ func (s *AccountLockoutService) CheckLockout(ctx context.Context, emailHash stri
 
 // RecordFailedAttempt increments the failed attempt counter and locks the account if needed
 // Uses a Lua script for atomic operations
-func (s *AccountLockoutService) RecordFailedAttempt(ctx context.Context, emailHash string) (*LockoutStatus, error) {
-	key := fmt.Sprintf("lockout:%s", emailHash)
+func (s *AccountLockoutService) RecordFailedAttempt(ctx context.Context, emailHash, clientIP string) (*LockoutStatus, error) {
+	key := fmt.Sprintf("lockout:%s:%s", emailHash, clientIP)
 
 	// Lua script for atomic increment and lockout check
 	script := redis.NewScript(`
@@ -174,8 +179,8 @@ return json_data
 }
 
 // ResetAttempts resets the failed attempt counter for an account (called on successful login)
-func (s *AccountLockoutService) ResetAttempts(ctx context.Context, emailHash string) error {
-	key := fmt.Sprintf("lockout:%s", emailHash)
+func (s *AccountLockoutService) ResetAttempts(ctx context.Context, emailHash, clientIP string) error {
+	key := fmt.Sprintf("lockout:%s:%s", emailHash, clientIP)
 
 	if err := s.redis.Del(ctx, key).Err(); err != nil {
 		log.Error().Err(err).Str("email_hash", emailHash).Msg("failed to reset lockout attempts")

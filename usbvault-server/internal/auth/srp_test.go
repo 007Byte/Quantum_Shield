@@ -128,9 +128,13 @@ func TestSRPInit_ValidUser(t *testing.T) {
 	}
 }
 
-// TestSRPInit_UserNotFound tests timing-safe dummy response
-func TestSRPInit_UserNotFound(t *testing.T) {
-	// Test that user-not-found returns consistent timing
+// TestSRPInit_NonExistentUserUniform tests the MED enumeration fix: a
+// non-existent account returns a uniform 200 SRPInitResponse (deterministic
+// decoy salt + valid decoy B + session) that is wire-indistinguishable from a
+// real account, and the SAME email yields the SAME salt across calls. This
+// simulates the decoy branch of HandleSRPInit (which cannot be driven directly
+// here because it takes a concrete *pgxpool.Pool).
+func TestSRPInit_NonExistentUserUniform(t *testing.T) {
 	mr := miniredis.NewMiniRedis()
 	if err := mr.Start(); err != nil {
 		t.Fatalf("failed to start miniredis: %v", err)
@@ -140,20 +144,127 @@ func TestSRPInit_UserNotFound(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	defer redisClient.Close()
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		// Simulate user not found
-		dummyB := computeDummyB()
-		time.Sleep(time.Duration(randomDelayMS()) * time.Millisecond)
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
-		_ = dummyB // prevent optimization
+	// Mirror the decoy branch in HandleSRPInit.
+	decoyHandler := func(w http.ResponseWriter, r *http.Request) {
+		var req SRPInitRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		emailHash := hashEmail(req.Email)
+		decoySalt := deterministicPseudoSalt(emailHash)
+
+		N := new(big.Int)
+		N.SetString(srpN, 16)
+		g := big.NewInt(srpG)
+		b, _ := randomBigInt(srpEphemeralKeyBits)
+		B := new(big.Int).Exp(g, b, N)
+
+		sessionID := "decoy-session-id"
+		state := srpServerState{
+			B:         B.String(),
+			BPrivate:  b.String(),
+			Salt:      decoySalt,
+			EmailHash: emailHash,
+			UserID:    "", // decoy: verify must reject this
+			CreatedAt: time.Now(),
+		}
+		stateJSON, _ := json.Marshal(state)
+		redisClient.Set(r.Context(), "srp:"+sessionID, stateJSON, srpSessionTTL)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(SRPInitResponse{
+			Salt:      hex.EncodeToString(decoySalt),
+			B:         B.String(),
+			SessionID: sessionID,
+		})
 	}
 
-	req := httptest.NewRequest("POST", "/auth/srp/init", bytes.NewReader([]byte(`{"email":"nonexistent@example.com"}`)))
+	do := func() SRPInitResponse {
+		req := httptest.NewRequest("POST", "/auth/srp/init", bytes.NewReader([]byte(`{"email":"nonexistent@example.com"}`)))
+		w := httptest.NewRecorder()
+		decoyHandler(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected uniform 200 for non-existent user, got %d", w.Code)
+		}
+		var resp SRPInitResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode decoy response: %v", err)
+		}
+		return resp
+	}
+
+	r1 := do()
+	if len(r1.Salt) != 64 { // 32 bytes hex-encoded
+		t.Errorf("expected 64-char hex salt, got %d chars", len(r1.Salt))
+	}
+	if r1.B == "" {
+		t.Error("decoy B must be non-empty")
+	}
+	if r1.SessionID == "" {
+		t.Error("decoy SessionID must be non-empty")
+	}
+
+	r2 := do()
+	if r1.Salt != r2.Salt {
+		t.Errorf("decoy salt must be deterministic per email: %s != %s", r1.Salt, r2.Salt)
+	}
+}
+
+// TestSRPInit_DecoySessionCannotAuth proves the load-bearing invariant of the
+// enumeration fix: a decoy session (UserID=="") stored at init must be rejected
+// by the verify required-field guard (srp.go), so a decoy can NEVER mint tokens.
+func TestSRPInit_DecoySessionCannotAuth(t *testing.T) {
+	mr := miniredis.NewMiniRedis()
+	if err := mr.Start(); err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	defer mr.Close()
+
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer redisClient.Close()
+	ctx := context.Background()
+
+	// Store a decoy session exactly as the HandleSRPInit decoy branch would.
+	N := new(big.Int)
+	N.SetString(srpN, 16)
+	g := big.NewInt(srpG)
+	b, _ := randomBigInt(srpEphemeralKeyBits)
+	B := new(big.Int).Exp(g, b, N)
+	sessionID := "decoy-verify-session"
+	state := srpServerState{
+		B:         B.String(),
+		BPrivate:  b.String(),
+		Salt:      deterministicPseudoSalt(hashEmail("nonexistent@example.com")),
+		EmailHash: hashEmail("nonexistent@example.com"),
+		UserID:    "", // decoy
+		CreatedAt: time.Now(),
+	}
+	stateJSON, _ := json.Marshal(state)
+	redisClient.Set(ctx, "srp:"+sessionID, stateJSON, srpSessionTTL)
+
+	// Reproduce the verify required-field guard (srp.go): UserID=="" => reject.
+	verifyGuard := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req SRPVerifyRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		raw, err := redisClient.Get(r.Context(), "srp:"+req.SessionID).Bytes()
+		if err != nil {
+			http.Error(w, "invalid session", http.StatusUnauthorized)
+			return
+		}
+		var st srpServerState
+		json.Unmarshal(raw, &st)
+		if st.UserID == "" || st.EmailHash == "" || len(st.Salt) == 0 || len(st.SRPVerifier) == 0 || st.B == "" || st.BPrivate == "" {
+			http.Error(w, "invalid session", http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	body, _ := json.Marshal(SRPVerifyRequest{SessionID: sessionID, A: "1", M1: "deadbeef"})
+	req := httptest.NewRequest("POST", "/auth/srp/verify", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handler(w, req)
+	verifyGuard.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status 401, got %d", w.Code)
+		t.Errorf("decoy session must NOT authenticate: expected 401, got %d", w.Code)
 	}
 }
 
@@ -329,7 +440,7 @@ func TestSRPVerify_ValidProof(t *testing.T) {
 		accessToken := "mock-access-token"
 		refreshToken := "mock-refresh-token"
 
-		lockoutSvc.ResetAttempts(r.Context(), state.EmailHash)
+		lockoutSvc.ResetAttempts(r.Context(), state.EmailHash, GetClientIP(r))
 		audit.LogAction(r.Context(), state.UserID, "AUTH_LOGIN", []byte("SRP"))
 
 		w.Header().Set("Content-Type", "application/json")

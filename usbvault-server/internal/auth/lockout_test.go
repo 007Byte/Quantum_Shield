@@ -11,6 +11,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// testClientIP is the fixed client IP threaded through every lockout call after
+// the per-IP keying fix (lockout keys are now lockout:{emailHash}:{clientIP}).
+const testClientIP = "192.0.2.10"
+
 func TestLockout_NoAttempts(t *testing.T) {
 	// Fresh user should have no lockout
 	mr := miniredis.NewMiniRedis()
@@ -24,7 +28,7 @@ func TestLockout_NoAttempts(t *testing.T) {
 
 	svc := NewAccountLockoutService(redisClient)
 
-	status, err := svc.CheckLockout(context.Background(), "test-email-hash")
+	status, err := svc.CheckLockout(context.Background(), "test-email-hash", testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed: %v", err)
 	}
@@ -91,7 +95,7 @@ func TestLockout_AccountLocked(t *testing.T) {
 
 	// Record 9 failed attempts
 	for i := 0; i < 9; i++ {
-		status, err := svc.RecordFailedAttempt(ctx, emailHash)
+		status, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt %d failed: %v", i+1, err)
 		}
@@ -101,7 +105,7 @@ func TestLockout_AccountLocked(t *testing.T) {
 	}
 
 	// 10th attempt should lock the account
-	status, err := svc.RecordFailedAttempt(ctx, emailHash)
+	status, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("RecordFailedAttempt 10 failed: %v", err)
 	}
@@ -114,7 +118,7 @@ func TestLockout_AccountLocked(t *testing.T) {
 	}
 
 	// Check that subsequent CheckLockout call also reports locked status
-	checkStatus, err := svc.CheckLockout(ctx, emailHash)
+	checkStatus, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed: %v", err)
 	}
@@ -140,14 +144,14 @@ func TestLockout_LockExpiry(t *testing.T) {
 
 	// Record 10 failed attempts to lock the account
 	for i := 0; i < 10; i++ {
-		_, err := svc.RecordFailedAttempt(ctx, emailHash)
+		_, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt failed: %v", err)
 		}
 	}
 
 	// Verify account is locked
-	status, err := svc.CheckLockout(ctx, emailHash)
+	status, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed: %v", err)
 	}
@@ -159,10 +163,10 @@ func TestLockout_LockExpiry(t *testing.T) {
 	// (FastForward only affects Redis TTL, not time.Now() used by CheckLockout)
 	pastLockTime := time.Now().Add(-1 * time.Minute).Unix()
 	lockData := fmt.Sprintf(`{"attempts":10,"locked_until":%d}`, pastLockTime)
-	redisClient.Set(ctx, "lockout:"+emailHash, lockData, 0)
+	redisClient.Set(ctx, "lockout:"+emailHash+":"+testClientIP, lockData, 0)
 
 	// After lock expires, account should no longer be locked
-	expiredStatus, err := svc.CheckLockout(ctx, emailHash)
+	expiredStatus, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed after expiry: %v", err)
 	}
@@ -193,13 +197,13 @@ func TestLockout_ResetOnSuccess(t *testing.T) {
 
 	// Record 3 failed attempts
 	for i := 0; i < 3; i++ {
-		_, err := svc.RecordFailedAttempt(ctx, emailHash)
+		_, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt failed: %v", err)
 		}
 	}
 
-	status, err := svc.CheckLockout(ctx, emailHash)
+	status, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed: %v", err)
 	}
@@ -208,12 +212,12 @@ func TestLockout_ResetOnSuccess(t *testing.T) {
 	}
 
 	// Reset on successful login
-	if err := svc.ResetAttempts(ctx, emailHash); err != nil {
+	if err := svc.ResetAttempts(ctx, emailHash, testClientIP); err != nil {
 		t.Fatalf("ResetAttempts failed: %v", err)
 	}
 
 	// Check that attempts are reset
-	resetStatus, err := svc.CheckLockout(ctx, emailHash)
+	resetStatus, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed after reset: %v", err)
 	}
@@ -249,7 +253,7 @@ func TestLockout_AtomicIncrement(t *testing.T) {
 	for i := 0; i < attemptCount; i++ {
 		go func() {
 			defer wg.Done()
-			_, err := svc.RecordFailedAttempt(ctx, emailHash)
+			_, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 			if err != nil {
 				t.Errorf("RecordFailedAttempt failed: %v", err)
 			}
@@ -259,7 +263,7 @@ func TestLockout_AtomicIncrement(t *testing.T) {
 	wg.Wait()
 
 	// Verify that all attempts were counted correctly
-	status, err := svc.CheckLockout(ctx, emailHash)
+	status, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout failed: %v", err)
 	}
@@ -288,7 +292,7 @@ func TestLockout_MultipleUsers(t *testing.T) {
 
 	// Record 5 attempts for user1
 	for i := 0; i < 5; i++ {
-		_, err := svc.RecordFailedAttempt(ctx, user1)
+		_, err := svc.RecordFailedAttempt(ctx, user1, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt for user1 failed: %v", err)
 		}
@@ -296,14 +300,14 @@ func TestLockout_MultipleUsers(t *testing.T) {
 
 	// Record 3 attempts for user2
 	for i := 0; i < 3; i++ {
-		_, err := svc.RecordFailedAttempt(ctx, user2)
+		_, err := svc.RecordFailedAttempt(ctx, user2, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt for user2 failed: %v", err)
 		}
 	}
 
 	// Check user1
-	status1, err := svc.CheckLockout(ctx, user1)
+	status1, err := svc.CheckLockout(ctx, user1, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout for user1 failed: %v", err)
 	}
@@ -312,7 +316,7 @@ func TestLockout_MultipleUsers(t *testing.T) {
 	}
 
 	// Check user2
-	status2, err := svc.CheckLockout(ctx, user2)
+	status2, err := svc.CheckLockout(ctx, user2, testClientIP)
 	if err != nil {
 		t.Fatalf("CheckLockout for user2 failed: %v", err)
 	}
@@ -345,12 +349,12 @@ func TestLockout_DelayCalculation(t *testing.T) {
 	}
 
 	for i, expectedDelay := range expectedDelays {
-		_, err := svc.RecordFailedAttempt(ctx, emailHash)
+		_, err := svc.RecordFailedAttempt(ctx, emailHash, testClientIP)
 		if err != nil {
 			t.Fatalf("RecordFailedAttempt %d failed: %v", i+1, err)
 		}
 
-		status, err := svc.CheckLockout(ctx, emailHash)
+		status, err := svc.CheckLockout(ctx, emailHash, testClientIP)
 		if err != nil {
 			t.Fatalf("CheckLockout failed: %v", err)
 		}
@@ -358,5 +362,54 @@ func TestLockout_DelayCalculation(t *testing.T) {
 		if status.Delay != expectedDelay {
 			t.Errorf("attempt %d: expected delay %v, got %v", i+1, expectedDelay, status.Delay)
 		}
+	}
+}
+
+// TestLockout_PerIPIsolation proves the HIGH account-lockout DoS fix: lockout
+// state is keyed on (emailHash + clientIP), so 10 failed attempts from one IP
+// lock only that (email, IP) bucket and DO NOT lock the same email from a
+// different IP. Without the fix, any off-path attacker who knows the victim's
+// email could lock the victim out from every IP.
+func TestLockout_PerIPIsolation(t *testing.T) {
+	mr := miniredis.NewMiniRedis()
+	if err := mr.Start(); err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	defer mr.Close()
+
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer redisClient.Close()
+
+	svc := NewAccountLockoutService(redisClient)
+	ctx := context.Background()
+	emailHash := "victim-email-hash"
+	const ipA = "198.51.100.1" // attacker IP
+	const ipB = "203.0.113.7"  // victim IP
+
+	// Attacker fires 10 failed attempts from ipA — locks (emailHash, ipA).
+	for i := 0; i < 10; i++ {
+		if _, err := svc.RecordFailedAttempt(ctx, emailHash, ipA); err != nil {
+			t.Fatalf("RecordFailedAttempt from ipA failed: %v", err)
+		}
+	}
+
+	statusA, err := svc.CheckLockout(ctx, emailHash, ipA)
+	if err != nil {
+		t.Fatalf("CheckLockout for ipA failed: %v", err)
+	}
+	if !statusA.Locked {
+		t.Error("(emailHash, ipA) should be locked after 10 failed attempts")
+	}
+
+	// The SAME email from a DIFFERENT IP must NOT be locked — the DoS is contained.
+	statusB, err := svc.CheckLockout(ctx, emailHash, ipB)
+	if err != nil {
+		t.Fatalf("CheckLockout for ipB failed: %v", err)
+	}
+	if statusB.Locked {
+		t.Error("(emailHash, ipB) must NOT be locked — off-path attacker on ipA cannot lock the victim's ipB")
+	}
+	if statusB.Attempts != 0 {
+		t.Errorf("(emailHash, ipB) should have 0 attempts, got %d", statusB.Attempts)
 	}
 }
