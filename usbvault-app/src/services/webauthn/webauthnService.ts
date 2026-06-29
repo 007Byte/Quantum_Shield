@@ -66,12 +66,7 @@ export interface WebAuthnAuthenticationResult {
 }
 
 export type WebAuthnErrorCode =
-  | 'NOT_SUPPORTED'
-  | 'NOT_ALLOWED'
-  | 'SECURITY_ERROR'
-  | 'INVALID_STATE'
-  | 'TIMEOUT'
-  | 'UNKNOWN';
+  'NOT_SUPPORTED' | 'NOT_ALLOWED' | 'SECURITY_ERROR' | 'INVALID_STATE' | 'TIMEOUT' | 'UNKNOWN';
 
 export class WebAuthnError extends Error {
   code: WebAuthnErrorCode;

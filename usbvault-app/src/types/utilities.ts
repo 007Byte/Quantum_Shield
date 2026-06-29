@@ -7,12 +7,7 @@ import { AppError } from '@/errors';
  * Use this instead of `any` for data that can be serialized to/from JSON
  */
 export type JSONValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JSONValue[]
-  | { [key: string]: JSONValue };
+  string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
 
 /**
  * Generic JSON object type for API responses and serialized data

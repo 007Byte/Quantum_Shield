@@ -25,11 +25,7 @@ import { logger } from '@/utils/logger';
 // ── Types ──────────────────────────────────────────────────────
 
 export type SecurityCheckCategory =
-  | 'integrity'
-  | 'debugging'
-  | 'signing'
-  | 'encryption'
-  | 'runtime';
+  'integrity' | 'debugging' | 'signing' | 'encryption' | 'runtime';
 export type SecurityCheckStatus = 'pass' | 'fail' | 'warn' | 'unknown';
 export type SecurityGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 
