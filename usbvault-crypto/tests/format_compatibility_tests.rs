@@ -692,3 +692,72 @@ fn test_streaming_with_aes256_format() {
     assert_eq!(name, "test.txt");
     assert_eq!(data, b"data");
 }
+
+// ============================================================================
+// crypto-pr6: param-driven Argon2id bounds + cryptographic-erasure self-destruct
+// ============================================================================
+
+#[test]
+fn test_pr6_validate_argon2_params_accepts_real_vault_params() {
+    // Every on-disk vault was written with 65536/3/4; the V3-style fixtures use
+    // 131072/4/8. Both MUST validate (inside bounds) so they keep unlocking.
+    assert!(validate_argon2_params(65536, 3, 4).is_ok());
+    assert!(validate_argon2_params(131072, 4, 8).is_ok());
+    // DoS / weakening params are rejected.
+    assert!(validate_argon2_params(u32::MAX, 3, 4).is_err());
+    assert!(validate_argon2_params(4096, 3, 4).is_err());
+    assert!(validate_argon2_params(65536, 0, 4).is_err());
+    assert!(validate_argon2_params(65536, 3, 0).is_err());
+}
+
+#[test]
+fn test_pr6_derive_kek_default_equals_params_via_public_api() {
+    // Public-API mirror of the in-crate brick-risk gate: the param-driven KEK
+    // with default params MUST equal the legacy 2-arg derive_kek byte-for-byte.
+    let salt = [0x42u8; 32];
+    let legacy = derive_kek(b"pw", &salt).unwrap();
+    let params = derive_kek_with_params(b"pw", &salt, 65536, 3, 4).unwrap();
+    assert_eq!(
+        legacy.as_bytes(),
+        params.as_bytes(),
+        "BRICK RISK: default-params KEK must equal legacy derive_kek"
+    );
+}
+
+#[test]
+fn test_pr6_v6_vault_param_driven_unlock_roundtrips() {
+    // Full lifecycle through the public API: create -> write -> read -> unlock,
+    // proving the param-driven unlock path opens a real V6 vault.
+    let password = b"pr6-format-compat-pw";
+    let (header, enc, hmac) =
+        vault::VaultHeader::create_new(password, cipher::CipherId::XChaCha20Poly1305).unwrap();
+    assert_eq!(header.version, 6);
+    assert_eq!(header.argon2_memory, 65536);
+
+    let bytes = header.write();
+    let parsed = vault::VaultHeader::read(&bytes).unwrap();
+    let (enc2, hmac2) = parsed.unlock(password).expect("V6 param-driven unlock");
+    assert_eq!(enc, enc2);
+    assert_eq!(hmac, hmac2);
+}
+
+#[test]
+fn test_pr6_self_destruct_wipe_yields_self_destructed_on_unlock() {
+    let password = b"pr6-self-destruct-pw";
+    let (mut header, _enc, _hmac) =
+        vault::VaultHeader::create_new(password, cipher::CipherId::XChaCha20Poly1305).unwrap();
+    assert!(!header.is_self_destructed());
+
+    header.self_destruct_wipe();
+    assert!(header.is_self_destructed());
+
+    // Persisted destroyed header still parses and reports SelfDestructed (not a
+    // generic password / corruption error).
+    let bytes = header.write();
+    let parsed = vault::VaultHeader::read(&bytes).expect("destroyed header parses");
+    assert!(parsed.is_self_destructed());
+    assert!(matches!(
+        parsed.unlock(password),
+        Err(CryptoError::SelfDestructed)
+    ));
+}

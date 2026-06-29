@@ -32,6 +32,51 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 const SHARE_SEAL_INFO = new TextEncoder().encode('seal');
 
 /**
+ * crypto-pr6: Argon2id parameter bounds enforced on unlock.
+ *
+ * These MUST stay byte-identical to the Rust bounds in
+ * `usbvault-crypto/src/kdf.rs` (`argon2_bounds`) so the web and native paths
+ * agree on which vaults are valid. Params read from an untrusted header are
+ * validated against these before the (potentially huge) argon2id allocation —
+ * argon2id would otherwise happily attempt a multi-TiB allocation for a crafted
+ * memory cost.
+ */
+export const ARGON2_BOUNDS = {
+  MIN_MEMORY_KIB: 8 * 1024, // 8 MiB
+  MAX_MEMORY_KIB: 1024 * 1024, // 1 GiB
+  MIN_TIME: 1,
+  MAX_TIME: 16,
+  MIN_PARALLELISM: 1,
+  MAX_PARALLELISM: 16,
+} as const;
+
+/**
+ * crypto-pr6: `kdf_hash_id` sentinel (header byte at offset 8) marking a
+ * cryptographically-erased (self-destructed) vault. Mirrors the Rust
+ * `VaultHeader::KDF_HASH_ID_DESTROYED`.
+ */
+export const KDF_HASH_ID_DESTROYED = 0xde;
+
+/**
+ * crypto-pr6: throw if Argon2id params read from a header are outside the sane
+ * DoS/weakening bounds. Mirrors Rust `validate_argon2_params`.
+ */
+export function validateArgon2Params(memoryKib: number, time: number, parallelism: number): void {
+  if (
+    memoryKib < ARGON2_BOUNDS.MIN_MEMORY_KIB ||
+    memoryKib > ARGON2_BOUNDS.MAX_MEMORY_KIB ||
+    time < ARGON2_BOUNDS.MIN_TIME ||
+    time > ARGON2_BOUNDS.MAX_TIME ||
+    parallelism < ARGON2_BOUNDS.MIN_PARALLELISM ||
+    parallelism > ARGON2_BOUNDS.MAX_PARALLELISM
+  ) {
+    throw new Error(
+      `Invalid Argon2 params (out of bounds): memory=${memoryKib} time=${time} parallelism=${parallelism}`
+    );
+  }
+}
+
+/**
  * Represents the native USBVault crypto module interface.
  */
 export interface USBVaultCryptoModule {
@@ -969,6 +1014,14 @@ const webCryptoFallback: USBVaultCryptoModule = {
       throw new Error(`Invalid vault magic: ${magic}`);
     }
 
+    // crypto-pr6: detect a cryptographically-erased (self-destructed) vault via
+    // the kdf_hash_id sentinel (header byte at offset 8, right after the magic).
+    // A destroyed vault must report a distinct error, not a generic verify
+    // failure. (Absent-wrapped-MEK detection happens below once we read it.)
+    if (header[8] === KDF_HASH_ID_DESTROYED) {
+      throw new Error('Vault self-destructed: cryptographic erasure detected');
+    }
+
     // Extract salt
     const salt = header.slice(10, 42);
 
@@ -980,6 +1033,11 @@ const webCryptoFallback: USBVaultCryptoModule = {
     const argon2Time = readU32LE(header, off);
     off += 4;
     const argon2Parallelism = header[off];
+
+    // crypto-pr6: validate the header's Argon2 params against the shared bounds
+    // BEFORE the argon2id call, so a crafted memory cost cannot drive a giant
+    // allocation. Mirrors the Rust validate_argon2_params layer.
+    validateArgon2Params(argon2Memory, argon2Time, argon2Parallelism);
 
     // Derive KEK from password + salt using header's Argon2 params
     const kekHex = await argon2id({
@@ -1000,6 +1058,14 @@ const webCryptoFallback: USBVaultCryptoModule = {
 
     const wrappedMekLen = readU32LE(header, wrappedOffset);
     wrappedOffset += 4;
+
+    // crypto-pr6: a V4+ vault that has lost its wrapped MEK is cryptographically
+    // erased (self-destructed) — report it distinctly rather than failing later
+    // with a generic unwrap/verify error.
+    if (wrappedMekLen === 0) {
+      throw new Error('Vault self-destructed: cryptographic erasure detected');
+    }
+
     const wrappedMek = header.slice(wrappedOffset, wrappedOffset + wrappedMekLen);
 
     // Decrypt wrapped MEK with KEK
