@@ -621,8 +621,7 @@ impl VaultHeader {
     /// V6 wrapped-MEK AD:
     /// `domain || version || salt || argon2_memory_le || argon2_time_le || argon2_parallelism`
     fn wrap_ad_v6(&self) -> Vec<u8> {
-        let mut ad =
-            Vec::with_capacity(Self::WRAP_AD_DOMAIN_V6.len() + 1 + 32 + 4 + 4 + 1);
+        let mut ad = Vec::with_capacity(Self::WRAP_AD_DOMAIN_V6.len() + 1 + 32 + 4 + 4 + 1);
         ad.extend_from_slice(Self::WRAP_AD_DOMAIN_V6);
         ad.push(self.version);
         ad.extend_from_slice(&self.salt);

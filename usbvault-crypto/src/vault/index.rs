@@ -404,7 +404,9 @@ mod tests {
         let mut index = VaultIndex::new();
         index.insert("secret.txt".to_string(), 4096);
 
-        let encrypted = index.encrypt_with_ad(&master_key, b"ad-with-slot-0").unwrap();
+        let encrypted = index
+            .encrypt_with_ad(&master_key, b"ad-with-slot-0")
+            .unwrap();
         // Different active_slot / salt / version -> different AD -> tag fails.
         assert!(VaultIndex::decrypt_with_ad(&master_key, &encrypted, b"ad-with-slot-1").is_err());
     }
