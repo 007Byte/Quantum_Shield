@@ -10,13 +10,18 @@
 
 *Synthesized from 7 discovery agents (≈140 raw findings). Spot-verified against the live repository tree on 2026-06-29: crypto crate versions, branch protection, coverage file, and four placeholder code sites all confirmed still-present. Deduped to **98 real items** (28 raw entries were duplicates across dimensions; 9 were "already-done / healthy" status notes, not work).*
 
+> **UPDATE 2026-06-29 (post-snapshot progress):**
+> - ✅ **`main` branch protection enabled** — CI Pipeline Summary required green, force-push/deletion blocked, owner-overridable.
+> - ✅ **`streamBridge.ts` coverage** 0% → 93.58% (PR #123 merged).
+> - 🛑 **PRs #105/#107 (sha2/chacha20poly1305 0.11) are NOT code-now — they are ECOSYSTEM-BLOCKED and were CLOSED.** Completing them needs `aes-gcm-siv` on `aead 0.6` (cipher.rs shares the `aead` trait across both ciphers), which only exists as `0.12.0-rc.3` — a release candidate the anti-RC guard (`security.yml`, #80) bans. No CVE forces the bump (cargo-audit green on 0.10). Revisit when `aes-gcm-siv` ships a stable `aead 0.6` release. The top-10 / bucket-A entries below predate this and are corrected inline.
+
 ---
 
 ## State of the Project (assessment)
 
 Quantum_Shield is **code-complete for v1 and gated by deployment plumbing, not engineering.** The application surface (mobile app, Electron desktop, landing, Go API, Rust crypto core) is feature-shipped: onboarding wizard, 4-language i18n, store-listing assets, compliance docs (ECCN, Apple/Google declarations), and a 872-line beta runbook are all done. Phase 10 security hardening closed 16 of 18 findings. **The critical path to launch is almost entirely DEPLOY-TIME**: real production infrastructure does not exist yet (no Terraform for RDS/ElastiCache/EKS — only an S3 module; cluster/DNS assumed pre-existing), **every production secret is still a `<REPLACE_WITH_*>` placeholder** (DB, Redis, S3, Stripe, backup key, push, certs), and TLS cert-pinning ships with self-rejecting placeholder pins pending real SPKI values + device test (issue #69).
 
-There are, however, **two genuine P0 CODE-NOW blockers that will silently rot the repo**: the `sha2`/`chacha20poly1305` 0.11 dependabot bumps (#105/#107) fail CI on RustCrypto API changes — the crypto core's trust anchor must not drift, yet **`main` has no branch protection**, so a bad merge is one click away. Layered on top is a **testing credibility gap**: global TS coverage is 35.77%, and the most security-critical files — `streamBridge.ts` (0%), `keyVerification.ts` (4%), `pqc.ts` (22%) — are the *least* tested, while CI lets component tests pass with `--passWithNoTests` and treats Go's 75% threshold as a warning.
+Two governance/dependency concerns flagged here are now resolved (see UPDATE above): **`main` branch protection is enabled** so the crypto trust anchor can't drift via a bad merge, and the `sha2`/`chacha20poly1305` 0.11 bumps (#105/#107) proved **ecosystem-blocked** (RC-only `aes-gcm-siv` on `aead 0.6`, banned by policy; no CVE) and were closed. What remains is the **testing credibility gap**: global TS coverage is 35.77%, and the most security-critical files are the *least* tested — `streamBridge.ts` is now covered (93.58%), but `keyVerification.ts` (4%), `pqc.ts` (22%), and `native.ts` (34%) remain — while CI lets component tests pass with `--passWithNoTests` and treats Go's 75% threshold as a warning.
 
 **Bottom line:** ~2–4 weeks of code work (crypto migration, branch protection, crypto-path test coverage, IaC authoring) runs in parallel with a business-gated provisioning track (AWS account, Stripe live, Apple/Google/Expo accounts, external crypto audit). Launch is **infra-and-accounts-bound, not feature-bound.**
 
@@ -35,8 +40,8 @@ There are, however, **two genuine P0 CODE-NOW blockers that will silently rot th
 
 ## TOP 10 HIGHEST-LEVERAGE ITEMS
 
-1. **[P0/CODE] PR #105 — `sha2` 0.10→0.11 breaks CI** (`usbvault-crypto/Cargo.toml:20`, verified still `"0.10"`). Digest/`OutputSizeUser` trait incompat at `src/kdf.rs:214`. Crypto trust anchor; must migrate, not ignore.
-2. **[P0/CODE] PR #107 — `chacha20poly1305` 0.10→0.11 AEAD API migration** (`Cargo.toml:16`, verified). Touches `kdf.rs`, `sharing.rs`, `streaming.rs`. Same crate of trust.
+1. ~~**[P0/CODE] PR #105 — `sha2` 0.10→0.11 breaks CI**~~ → **CLOSED, ecosystem-blocked** (see UPDATE): the 0.11 stack drags in RC-only `aes-gcm-siv` which the anti-RC guard bans; no CVE forces it. Revisit on a stable `aes-gcm-siv`/`aead 0.6`.
+2. ~~**[P0/CODE] PR #107 — `chacha20poly1305` 0.10→0.11**~~ → **CLOSED, ecosystem-blocked** (same root cause as #105; the two ciphers share the `aead` trait, so they migrate together or not at all).
 3. **[P1/DECISION] Enable `main` branch protection** (verified: GitHub returns "Branch not protected"). 10 blocking CI jobs exist but anyone can bypass them — this is what makes #1/#2 dangerous.
 4. **[P0/DEPLOY] Fill all production secrets** — 8+ `<REPLACE_WITH_*>` in `.env.production.template` (DB:23, Redis:42, S3/AWS:55-62, Stripe:92-100, backup key:81). Single largest blocker cluster; nothing runs in prod without it.
 5. **[P1/DEPLOY] Author missing IaC** — `infrastructure/terraform/s3.tf` is the *only* `.tf`; no RDS/ElastiCache/EKS/VPC. `deploy-production.sh` assumes cluster pre-exists. The infra to hold the secrets doesn't exist yet.
@@ -51,8 +56,8 @@ There are, however, **two genuine P0 CODE-NOW blockers that will silently rot th
 ## BUCKET A — CODE-NOW (fixable in-repo today) — 42 items
 
 ### usbvault-crypto (Rust core)
-- **[P0]** PR #105 `sha2` 0.10→0.11 — trait incompat, `src/kdf.rs:214`. *(M)*
-- **[P0]** PR #107 `chacha20poly1305` 0.10→0.11 — AEAD API migration; `kdf.rs`/`sharing.rs`/`streaming.rs`. *(M)*
+- ~~**[P0]** PR #105 `sha2` 0.10→0.11~~ — **CLOSED, ecosystem-blocked** (RC-only `aes-gcm-siv` on `aead 0.6`, anti-RC guard; no CVE). Not code-now; revisit on stable release.
+- ~~**[P0]** PR #107 `chacha20poly1305` 0.10→0.11~~ — **CLOSED, ecosystem-blocked** (same root cause; ciphers share the `aead` trait).
 - **[P2]** PR #108 `cbindgen` 0.26→0.29.4 — passes CI, ready to merge. *(S)*
 - **[P3]** ML-DSA PQC signatures not implemented (also tracked as DECISION via roadmap; code-side: X25519+ML-KEM only, `usbvault-crypto/ARCHITECTURE.md`). *(L)*
 
@@ -213,7 +218,7 @@ There are, however, **two genuine P0 CODE-NOW blockers that will silently rot th
 
 ## Recommended critical path (sequencing)
 
-1. **This week (CODE, unblocks everything):** Merge #105/#107 crypto migration → turn on `main` branch protection → land #63/#108/#115/#116 → file BIS declaration (due today).
+1. **This week (CODE):** ✅ `main` branch protection on; ✅ #105/#107 triaged → closed (ecosystem-blocked, await stable `aes-gcm-siv`/`aead 0.6`) → land #63/#108/#115/#116 → file BIS declaration.
 2. **Weeks 1-3 (CODE, parallel):** Crypto-path test coverage (streamBridge, keyVerification, pqc, native) to clear the P0/P1 testing gaps; make Go 75% + component tests blocking; author RDS/ElastiCache/EKS/VPC Terraform.
 3. **Business track (start now, long lead):** Open AWS/Stripe-live/Apple/Google/Expo accounts; commission external crypto audit (SEC-018).
 4. **Deploy track (after #2+#3):** Provision infra → populate AWS Secrets Manager → bootstrap certs (nginx + cert-manager DNS) → fill real cert-pins + device-test (#69) → deploy Prometheus/AlertManager/PagerDuty → staged rollout with smoke-test gating.
