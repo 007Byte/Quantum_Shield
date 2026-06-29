@@ -85,11 +85,7 @@ export interface GroupKeyRotationHistory {
 // ── Email Alert Types ──────────────────────────────────────────
 
 export type AlertType =
-  | 'brute_force'
-  | 'self_destruct'
-  | 'emergency_access'
-  | 'device_change'
-  | 'key_rotation';
+  'brute_force' | 'self_destruct' | 'emergency_access' | 'device_change' | 'key_rotation';
 
 export interface EmailAlertConfig {
   smtpHost: string;
