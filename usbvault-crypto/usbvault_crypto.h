@@ -444,4 +444,4 @@ int32_t usbvault_vault_commit_index(const uint8_t *header_ptr,
 // This function is safe to call from any thread.
 int32_t usbvault_android_init();
 
-} // extern "C"
+}  // extern "C"
