@@ -9,9 +9,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pashagolub/pgxmock/v2"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -21,14 +23,39 @@ import (
 func TestNewBillingService(t *testing.T) {
 	t.Parallel()
 
-	t.Skip("NewBillingService requires *pgxpool.Pool which needs to be mocked")
-
 	t.Run("creates billing service with stripe key", func(t *testing.T) {
-		t.Skip("Requires pool")
+		// pgxmock's PgxPoolIface satisfies the BillingPool interface, so we can
+		// construct the service with a mock pool and no real database.
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		svc := NewBillingService("sk_test_123456789", mock)
+
+		require.NotNil(t, svc)
+		assert.Equal(t, "sk_test_123456789", svc.apiKey)
+		assert.Equal(t, mock, svc.pool)
+		assert.NotNil(t, svc.httpClient, "an HTTP client must always be wired for Stripe calls")
 	})
 
 	t.Run("handles empty stripe key", func(t *testing.T) {
-		t.Skip("Requires pool")
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		svc := NewBillingService("", mock)
+
+		require.NotNil(t, svc)
+		assert.Equal(t, "", svc.apiKey)
+		// An empty key must resolve to local (non-live) billing mode.
+		assert.False(t, isLiveStripeKey(svc.apiKey))
+	})
+
+	t.Run("accepts a nil pool for local-only mode", func(t *testing.T) {
+		svc := NewBillingService("sk_test_123456789", nil)
+
+		require.NotNil(t, svc)
+		assert.Nil(t, svc.pool)
 	})
 }
 
@@ -44,41 +71,78 @@ func TestCreateCustomer(t *testing.T) {
 		userID      string
 		email       string
 		expectError bool
-		validateID  func(*testing.T, string)
+		errIs       error
+		// expectInsert is true when the local-mode INSERT/upsert into subscriptions
+		// is expected to run (i.e. the email passes validation).
+		expectInsert bool
+		validateID   func(*testing.T, string)
 	}{
 		{
-			name:        "creates customer for valid user",
-			userID:      "user-123",
-			email:       "user@example.com",
-			expectError: false,
+			name:         "creates customer for valid user",
+			userID:       "user-123",
+			email:        "user@example.com",
+			expectError:  false,
+			expectInsert: true,
 			validateID: func(t *testing.T, id string) {
 				assert.NotEmpty(t, id)
+				// Local (non-live) mode returns a local_cust_<userID> identifier.
 				assert.Contains(t, id, "cust_")
+				assert.Contains(t, id, "user-123")
 			},
 		},
 		{
-			name:        "generates customer ID with user ID",
-			userID:      "user-456",
-			email:       "another@example.com",
-			expectError: false,
+			name:         "generates customer ID with user ID",
+			userID:       "user-456",
+			email:        "another@example.com",
+			expectError:  false,
+			expectInsert: true,
 			validateID: func(t *testing.T, id string) {
 				assert.Contains(t, id, "user-456")
 			},
 		},
 		{
-			name:        "handles missing email gracefully",
-			userID:      "user-789",
-			email:       "",
-			expectError: false,
-			validateID: func(t *testing.T, id string) {
-				assert.NotEmpty(t, id)
-			},
+			// CreateCustomer validates the email FIRST and fails closed on an empty
+			// one (ErrInvalidEmail) before touching the database — no INSERT runs.
+			name:         "rejects missing email",
+			userID:       "user-789",
+			email:        "",
+			expectError:  true,
+			errIs:        ErrInvalidEmail,
+			expectInsert: false,
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("NewBillingService requires *pgxpool.Pool which needs mocking")
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			defer mock.Close()
+
+			// Non-live ("placeholder") key keeps CreateCustomer on the local path:
+			// it upserts a local_cust_<userID> row and never calls the Stripe API.
+			svc := NewBillingService("sk_test_placeholder", mock)
+
+			if tt.expectInsert {
+				mock.ExpectExec("INSERT INTO subscriptions").
+					WithArgs(tt.userID, "local_cust_"+tt.userID).
+					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+			}
+
+			id, err := svc.CreateCustomer(context.Background(), tt.userID, tt.email)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errIs != nil {
+					assert.ErrorIs(t, err, tt.errIs)
+				}
+			} else {
+				require.NoError(t, err)
+				tt.validateID(t, id)
+			}
+
+			assert.NoError(t, mock.ExpectationsWereMet(),
+				"all and only the expected DB calls must have run")
 		})
 	}
 }
@@ -88,61 +152,67 @@ func TestCreateCustomer(t *testing.T) {
 // ============================================================================
 
 func TestCreateSubscription(t *testing.T) {
-	t.Parallel()
+	// NOTE: intentionally NOT t.Parallel() — a sub-test uses t.Setenv to drive the
+	// STRIPE_PRICE_* lookup, which Go forbids under a parallel ancestor.
 
-	tests := []struct {
-		name         string
-		userID       string
-		tier         string
-		expectError  bool
-		validateID   func(*testing.T, string)
-	}{
-		{
-			name:        "creates subscription for individual tier",
-			userID:      "user-123",
-			tier:        "individual",
-			expectError: false,
-			validateID: func(t *testing.T, id string) {
-				assert.NotEmpty(t, id)
-				assert.Contains(t, id, "sub_")
-			},
-		},
-		{
-			name:        "creates subscription for team tier",
-			userID:      "user-456",
-			tier:        "team",
-			expectError: false,
-			validateID: func(t *testing.T, id string) {
-				assert.NotEmpty(t, id)
-			},
-		},
-		{
-			name:        "creates subscription for enterprise tier",
-			userID:      "user-789",
-			tier:        "enterprise",
-			expectError: false,
-			validateID: func(t *testing.T, id string) {
-				assert.NotEmpty(t, id)
-			},
-		},
-	}
+	// Branch 1: nil pool == pure local mode. CreateSubscription short-circuits and
+	// returns a local_sub_<userID> identifier without touching any database.
+	t.Run("nil pool returns local subscription id", func(t *testing.T) {
+		svc := NewBillingService("sk_test_placeholder", nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("NewBillingService requires *pgxpool.Pool which needs mocking")
-			svc := NewBillingService("sk_test_123456789", nil)
-			ctx := context.Background()
+		for _, tier := range []string{"individual", "team", "enterprise"} {
+			id, err := svc.CreateSubscription(context.Background(), "user-"+tier, tier)
+			require.NoError(t, err)
+			assert.Contains(t, id, "sub_")
+			assert.Contains(t, id, "user-"+tier)
+		}
+	})
 
-			subscriptionID, err := svc.CreateSubscription(ctx, tt.userID, tt.tier)
+	// Branch 2 (CRIT-4 security property): with a real DB pool but NO live Stripe
+	// configuration, a paid-tier subscription must FAIL CLOSED rather than self-grant
+	// a paid tier for free. The code looks up the customer + maps the price, then
+	// refuses at the live-Stripe gate — so NO tier-write Exec is ever issued.
+	t.Run("paid tier without live Stripe fails closed (no self-grant)", func(t *testing.T) {
+		// A configured price is required to reach the live-Stripe gate; set one so the
+		// refusal is proven to happen AT the gate, not earlier for a missing price.
+		t.Setenv("STRIPE_PRICE_INDIVIDUAL", "price_individual_monthly")
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				tt.validateID(t, subscriptionID)
-			}
-		})
-	}
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		svc := NewBillingService("sk_test_placeholder", mock)
+
+		// Customer lookup succeeds (a customer exists)...
+		mock.ExpectQuery("SELECT stripe_customer_id FROM subscriptions WHERE user_id").
+			WithArgs("user-123").
+			WillReturnRows(pgxmock.NewRows([]string{"stripe_customer_id"}).AddRow("local_cust_user-123"))
+		// ...but NO UPDATE/tier-write is expected — the handler must refuse first.
+
+		id, err := svc.CreateSubscription(context.Background(), "user-123", "individual")
+
+		require.Error(t, err, "must refuse to provision a paid tier without live Stripe")
+		assert.Empty(t, id)
+		assert.NoError(t, mock.ExpectationsWereMet(),
+			"the customer lookup must run but no tier-write Exec may be issued")
+	})
+
+	// Branch 3: an invalid tier is rejected up front with ErrInvalidTier and never
+	// reaches the database.
+	t.Run("invalid tier is rejected", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		svc := NewBillingService("sk_test_placeholder", mock)
+
+		id, err := svc.CreateSubscription(context.Background(), "user-123", "platinum")
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidTier)
+		assert.Empty(t, id)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 // ============================================================================
