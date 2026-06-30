@@ -306,9 +306,11 @@ export const useAuthStore = create<AuthState>(set => ({
         );
       }
 
-      // WebAuthn assertion against the registered authenticators (proves possession,
-      // plus user verification when the authenticator enforces it).
-      const device = await fido2Service.authenticate();
+      // WebAuthn assertion against the registered authenticators. Passwordless is
+      // single-factor, so require user verification (PIN/biometric) — the ceremony
+      // fails closed if the authenticator can't perform UV, preventing a
+      // possession-only sign-in.
+      const device = await fido2Service.authenticate({ userVerification: 'required' });
       if (!device) {
         throw new Error('Security key authentication was not completed.');
       }

@@ -80,6 +80,8 @@ describe('loginWithFido2 — passwordless security-key login', () => {
       'alice@example.com',
       expect.objectContaining({ method: 'security_key', deviceId: 'dev-1' })
     );
+    // Hardening: passwordless single-factor must require user verification.
+    expect(fido2.authenticate).toHaveBeenCalledWith({ userVerification: 'required' });
   });
 
   it('rejects (no assertion call) when no account exists on the device', async () => {
