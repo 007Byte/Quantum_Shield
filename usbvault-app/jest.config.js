@@ -42,6 +42,15 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
+    // Test files must NOT be in the coverage denominator. jest auto-excludes
+    // files matching THIS config's testMatch (the *.test.ts suites), but NOT
+    // the *.test.tsx component suites (run under jest.config.components.js and
+    // ignored here via testPathIgnorePatterns). Without this line those .test.tsx
+    // files count as 0%-covered "source" and silently drag the global down
+    // (~78.6% -> ~71.8% once the feature-component tests land). Exclude all
+    // __tests__ so the gate measures production code only.
+    '!src/**/__tests__/**',
+    '!src/**/*.test.{ts,tsx}',
     '!src/app/**',
     '!src/components/**',
     '!src/theme/**',
@@ -68,29 +77,30 @@ module.exports = {
   // step (it reads coverage/coverage-summary.json); without it that file is
   // never generated and the CI check silently no-ops.
   coverageReporters: ['json-summary', 'text', 'text-summary', 'lcov'],
-  // Ratchet floors set strictly BELOW the measured baseline (measured 2026-06-26
-  // over the UI-inclusive denominator: global lines ~19% / branches ~11% /
-  // functions ~14% / statements ~19%; crypto lines+statements ~32% / branches
-  // ~24% / functions ~43%; services branches ~32%). jest --coverage enforces
-  // these as a real floor. Ratchet UP as coverage climbs; never lower.
-  // Ratcheted 2026-06-29 (after coverage waves 1+2) to lock current coverage as a
-  // NO-REGRESSION floor — a couple points below the jest-measured actuals so a minor
-  // fluctuation doesn't fail CI. Raise as coverage grows; never lower.
-  //
-  // The per-directory crypto/services floors are the meaningful protection (waves 1+2
-  // took services ~45%->~83% lines and crypto stays ~84%). The jest-enforced GLOBAL
-  // stays low (~20% lines / ~12% branches) because collectCoverageFrom spans src/**
-  // EXCEPT app/components/theme — so it still includes the large, still-untested
-  // src/hooks and src/stores layers that drag the average down. Raising global
-  // meaningfully needs those covered (tracked in REMAINING_WORK.md).
+  // IMPORTANT — two different "global" numbers, both real:
+  //  * coverage-summary.json `.total` (what the CI "70% TS check" reads) = ~78.6%
+  //    lines. It only counts files that at least one suite TOUCHES.
+  //  * jest's ENFORCED `global` coverageThreshold = ~54.5% lines. It is computed
+  //    over the FULL collectCoverageFrom expansion, INCLUDING files no test ever
+  //    imports (forced to 0%): generated data (utils/weakPasswordBloom), pure
+  //    *.types.ts, partially-tested modules. collectCoverageFrom force-include
+  //    WINS over coveragePathIgnorePatterns, so you cannot lift this number by
+  //    ignore-patterns — only by actually testing more production code. This (not
+  //    a cache flake) is the source of the old "summary says 78% but the gate
+  //    sees ~20%" confusion; pre-wave-3 the enforced global was genuinely ~15-20%.
+  // The floors below are the ENFORCED numbers (measured 2026-06-29: 54.53% lines /
+  // 53.91% statements / 45.31% functions / 36.23% branches), set ~6 points under
+  // actual so CI denominator variance can't flake. The per-directory crypto/
+  // services floors remain the meaningful security gate. Ratchet UP; never lower.
   coverageThreshold: {
     global: {
-      branches: 10,
-      functions: 13,
-      lines: 18,
-      statements: 18,
+      branches: 30,
+      functions: 38,
+      lines: 45,
+      statements: 45,
     },
-    // Security-critical: client crypto primitives and bridge (~84% covered).
+    // Security-critical: client crypto primitives and bridge (~84.5% covered;
+    // unchanged by the coverage waves, which targeted services/stores/hooks).
     './src/crypto/': {
       branches: 47,
       functions: 80,
@@ -98,12 +108,13 @@ module.exports = {
       statements: 82,
     },
     // Security-critical services: key hierarchy, session, SRP, recovery, vault,
-    // device, messaging, security, billing, etc. (~83% covered after waves 1+2).
+    // device, messaging, security, billing, etc. — 87.5% lines / 74.8% branches /
+    // 86.3% functions / 86.4% statements after waves 1-3.
     './src/services/': {
-      branches: 66,
-      functions: 79,
-      lines: 80,
-      statements: 80,
+      branches: 71,
+      functions: 82,
+      lines: 84,
+      statements: 82,
     },
   },
 };
