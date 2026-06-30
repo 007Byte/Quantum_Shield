@@ -73,12 +73,16 @@ module.exports = {
   // functions ~14% / statements ~19%; crypto lines+statements ~32% / branches
   // ~24% / functions ~43%; services branches ~32%). jest --coverage enforces
   // these as a real floor. Ratchet UP as coverage climbs; never lower.
-  // Ratcheted 2026-06-29 to lock in current coverage as a NO-REGRESSION floor
-  // (raise as coverage grows; not a target). Actuals: crypto ~84%, services ~45%.
-  // NOTE: the GLOBAL number (~19%) is low because collectCoverageFrom spans ALL of
-  // src/ including the still-untested UI (screens/components/hooks) — closing that
-  // gap toward the 70% target is tracked in REMAINING_WORK.md. The security-critical
-  // crypto/services floors below are what this ratchet meaningfully protects.
+  // Ratcheted 2026-06-29 (after coverage waves 1+2) to lock current coverage as a
+  // NO-REGRESSION floor — a couple points below the jest-measured actuals so a minor
+  // fluctuation doesn't fail CI. Raise as coverage grows; never lower.
+  //
+  // The per-directory crypto/services floors are the meaningful protection (waves 1+2
+  // took services ~45%->~83% lines and crypto stays ~84%). The jest-enforced GLOBAL
+  // stays low (~20% lines / ~12% branches) because collectCoverageFrom spans src/**
+  // EXCEPT app/components/theme — so it still includes the large, still-untested
+  // src/hooks and src/stores layers that drag the average down. Raising global
+  // meaningfully needs those covered (tracked in REMAINING_WORK.md).
   coverageThreshold: {
     global: {
       branches: 10,
@@ -86,19 +90,20 @@ module.exports = {
       lines: 18,
       statements: 18,
     },
-    // Security-critical: client crypto primitives and bridge (now ~84% covered).
+    // Security-critical: client crypto primitives and bridge (~84% covered).
     './src/crypto/': {
-      branches: 46,
+      branches: 47,
       functions: 80,
       lines: 82,
       statements: 82,
     },
-    // Security-critical: key hierarchy, session, SRP, recovery-phrase, key-verification.
+    // Security-critical services: key hierarchy, session, SRP, recovery, vault,
+    // device, messaging, security, billing, etc. (~83% covered after waves 1+2).
     './src/services/': {
-      branches: 33,
-      functions: 42,
-      lines: 42,
-      statements: 42,
+      branches: 66,
+      functions: 79,
+      lines: 80,
+      statements: 80,
     },
   },
 };
