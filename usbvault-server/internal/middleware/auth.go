@@ -208,9 +208,20 @@ func CompareTiers(a, b string) int {
 	return 0
 }
 
+// TierPool is the minimal database surface RequireTier needs (a single tier lookup).
+// Both *pgxpool.Pool and the pgxmock test double satisfy it, which lets RequireTier be
+// unit-tested without a live database while production wiring (a *pgxpool.Pool) is
+// unchanged. This mirrors the BillingPool / LifecyclePool seams already used elsewhere.
+type TierPool interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// Ensure *pgxpool.Pool satisfies TierPool at compile time.
+var _ TierPool = (*pgxpool.Pool)(nil)
+
 // RequireTier creates middleware that checks subscription tier before allowing access.
 // PH8-FIX: Enhanced with X-Required-Tier/X-Current-Tier headers and JSON error response.
-func RequireTier(requiredTier string, pool *pgxpool.Pool) func(http.Handler) http.Handler {
+func RequireTier(requiredTier string, pool TierPool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := UserIDFromContext(r.Context())

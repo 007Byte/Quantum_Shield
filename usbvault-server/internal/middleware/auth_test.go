@@ -2,10 +2,14 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/pashagolub/pgxmock/v2"
 	auth "github.com/usbvault/usbvault-server/internal/auth"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
 )
@@ -433,12 +437,194 @@ func TestGetClientIP_NoTrustedProxyConfigIgnoresHeaders(t *testing.T) {
 	}
 }
 
-// TODO: RequireTier requires a *pgxpool.Pool which needs to be mocked or set up
-// These tests are placeholder and require proper database mocking
+// RequireTier gates a handler by the caller's subscription tier. It is driven by a
+// single tier-lookup query, which we drive with pgxmock (via the TierPool seam) so the
+// middleware can be exercised end-to-end without a real database.
 func TestRequireTier(t *testing.T) {
-	t.Skip("RequireTier requires database pool setup")
+	// rowsForTier builds the single-column result the tier query Scans into.
+	rowsForTier := func(tier string) *pgxmock.Rows {
+		return pgxmock.NewRows([]string{"tier"}).AddRow(tier)
+	}
+
+	tests := []struct {
+		name          string
+		requiredTier  string
+		userID        string
+		setupDB       func(pgxmock.PgxPoolIface)
+		wantStatus    int
+		wantNextCall  bool
+		wantCurrent   string // expected X-Current-Tier header
+		wantTierInCtx string // tier the next handler should observe in context (when called)
+	}{
+		{
+			name:         "active tier meeting the requirement is allowed",
+			requiredTier: "team",
+			userID:       "user-team",
+			setupDB: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("SELECT COALESCE.+FROM subscriptions WHERE user_id").
+					WithArgs("user-team").
+					WillReturnRows(rowsForTier("team"))
+			},
+			wantStatus:    http.StatusOK,
+			wantNextCall:  true,
+			wantCurrent:   "team",
+			wantTierInCtx: "team",
+		},
+		{
+			name:         "higher tier than required is allowed",
+			requiredTier: "individual",
+			userID:       "user-ent",
+			setupDB: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("SELECT COALESCE.+FROM subscriptions WHERE user_id").
+					WithArgs("user-ent").
+					WillReturnRows(rowsForTier("enterprise"))
+			},
+			wantStatus:    http.StatusOK,
+			wantNextCall:  true,
+			wantCurrent:   "enterprise",
+			wantTierInCtx: "enterprise",
+		},
+		{
+			name:         "lower tier than required is forbidden",
+			requiredTier: "enterprise",
+			userID:       "user-free",
+			setupDB: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("SELECT COALESCE.+FROM subscriptions WHERE user_id").
+					WithArgs("user-free").
+					WillReturnRows(rowsForTier("individual"))
+			},
+			wantStatus:   http.StatusForbidden,
+			wantNextCall: false,
+			wantCurrent:  "individual",
+		},
+		{
+			name:         "no active subscription fails closed to free",
+			requiredTier: "team",
+			userID:       "user-none",
+			setupDB: func(mock pgxmock.PgxPoolIface) {
+				// pgx.ErrNoRows is the legitimate "no active subscription" path → free.
+				mock.ExpectQuery("SELECT COALESCE.+FROM subscriptions WHERE user_id").
+					WithArgs("user-none").
+					WillReturnError(pgx.ErrNoRows)
+			},
+			wantStatus:   http.StatusForbidden,
+			wantNextCall: false,
+			wantCurrent:  "free",
+		},
+		{
+			name:         "transient DB error fails closed to free (M-4)",
+			requiredTier: "individual",
+			userID:       "user-dberr",
+			setupDB: func(mock pgxmock.PgxPoolIface) {
+				// A real DB error must NOT grant a paid tier; it degrades to free.
+				mock.ExpectQuery("SELECT COALESCE.+FROM subscriptions WHERE user_id").
+					WithArgs("user-dberr").
+					WillReturnError(errors.New("connection reset"))
+			},
+			wantStatus:   http.StatusForbidden,
+			wantNextCall: false,
+			wantCurrent:  "free",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			mock, err := pgxmock.NewPool()
+			if err != nil {
+				t.Fatalf("failed to create mock pool: %v", err)
+			}
+			defer mock.Close()
+			tt.setupDB(mock)
+
+			nextCalled := false
+			var observedTier string
+			var observedTierOK bool
+			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				nextCalled = true
+				observedTier, observedTierOK = UserTierFromContext(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := RequireTier(tt.requiredTier, mock)(next)
+
+			req := httptest.NewRequest("GET", "/gated", nil)
+			ctx := context.WithValue(req.Context(), ctxkeys.UserID, tt.userID)
+			req = req.WithContext(ctx)
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("status: want %d, got %d (body=%s)", tt.wantStatus, w.Code, w.Body.String())
+			}
+			if nextCalled != tt.wantNextCall {
+				t.Errorf("next handler called: want %v, got %v", tt.wantNextCall, nextCalled)
+			}
+			// Tier headers are always set for observability.
+			if got := w.Header().Get("X-Required-Tier"); got != tt.requiredTier {
+				t.Errorf("X-Required-Tier: want %q, got %q", tt.requiredTier, got)
+			}
+			if got := w.Header().Get("X-Current-Tier"); got != tt.wantCurrent {
+				t.Errorf("X-Current-Tier: want %q, got %q", tt.wantCurrent, got)
+			}
+			if tt.wantNextCall {
+				if !observedTierOK || observedTier != tt.wantTierInCtx {
+					t.Errorf("tier in context: want %q (ok), got %q (ok=%v)", tt.wantTierInCtx, observedTier, observedTierOK)
+				}
+			}
+			// On a forbidden response the JSON error body must describe the gate.
+			if tt.wantStatus == http.StatusForbidden {
+				var gateErr TierGateError
+				if err := json.Unmarshal(w.Body.Bytes(), &gateErr); err != nil {
+					t.Fatalf("forbidden response body must be a TierGateError JSON: %v (body=%s)", err, w.Body.String())
+				}
+				if gateErr.Error != "insufficient_tier" {
+					t.Errorf("gate error code: want %q, got %q", "insufficient_tier", gateErr.Error)
+				}
+				if gateErr.RequiredTier != tt.requiredTier || gateErr.CurrentTier != tt.wantCurrent {
+					t.Errorf("gate error tiers: want required=%q current=%q, got required=%q current=%q",
+						tt.requiredTier, tt.wantCurrent, gateErr.RequiredTier, gateErr.CurrentTier)
+				}
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet DB expectations: %v", err)
+			}
+		})
+	}
 }
 
+// An unauthenticated request (no user_id in context) is rejected with 401 BEFORE any
+// database lookup happens — the tier query must never run.
 func TestRequireTier_Unauthorized(t *testing.T) {
-	t.Skip("RequireTier requires database pool setup")
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+	defer mock.Close()
+	// Deliberately set up NO expectations: any query would be an unexpected call.
+
+	nextCalled := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RequireTier("enterprise", mock)(next)
+
+	req := httptest.NewRequest("GET", "/gated", nil)
+	// No ctxkeys.UserID in context → unauthenticated.
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d (body=%s)", w.Code, w.Body.String())
+	}
+	if nextCalled {
+		t.Error("next handler must not be called for an unauthenticated request")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("no DB query should run for an unauthenticated request: %v", err)
+	}
 }
