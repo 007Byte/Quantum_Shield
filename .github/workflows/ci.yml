@@ -59,7 +59,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -226,7 +226,7 @@ jobs:
           cache-dependency-path: 'usbvault-app/package-lock.json'
 
       - name: Cache Jest transform
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: usbvault-app/.jest-cache
           key: ${{ runner.os }}-jest-${{ hashFiles('usbvault-app/package-lock.json') }}
@@ -608,7 +608,7 @@ jobs:
           cache-dependency-path: 'usbvault-server/go.sum'
 
       - name: Cache cargo build
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -694,7 +694,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo build
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry
