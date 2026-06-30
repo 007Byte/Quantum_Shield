@@ -265,12 +265,15 @@ jobs:
         run: npx eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file eslint-report.json
 
       - name: Run service-layer Jest tests with coverage
-        run: npx jest --config jest.config.js --coverage --passWithNoTests --cacheDirectory=.jest-cache
+        # No --passWithNoTests: a config that matches zero tests must FAIL, not
+        # silently pass. The coverageThreshold in jest.config.js is the enforced
+        # no-regression floor (ratcheted to current coverage).
+        run: npx jest --config jest.config.js --coverage --cacheDirectory=.jest-cache
 
       - name: Run component Jest tests
         run: |
           if [ -f jest.config.components.js ]; then
-            npx jest --config jest.config.components.js --passWithNoTests --cacheDirectory=.jest-cache
+            npx jest --config jest.config.components.js --cacheDirectory=.jest-cache
           else
             echo "No component test config found — skipping"
           fi
