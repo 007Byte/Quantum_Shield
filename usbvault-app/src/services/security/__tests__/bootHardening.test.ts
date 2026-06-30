@@ -213,7 +213,7 @@ describe('runBootHardening (native platform, Platform.OS=ios)', () => {
 describe('runBootHardening (web platform)', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    document.head.innerHTML = '';
+    document.head.replaceChildren(); // reset jsdom <head> between tests (no DOM-sink assignment)
   });
 
   function loadWeb(): typeof import('../bootHardening') {

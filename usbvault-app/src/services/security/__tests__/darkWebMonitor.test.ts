@@ -92,7 +92,9 @@ describe('DarkWebMonitorService', () => {
     });
 
     it('returns an empty array when no suffix matches', async () => {
-      mockFetchOnce(200, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:1\r\nBBBBBB:2');
+      // Realistic HIBP range-API mock: <35-hex SHA-1 suffix>:<count> lines (CRLF).
+      // None matches the queried email's hash → expect no breaches.
+      mockFetchOnce(200, '1234567890ABCDEF1234567890ABCDEF123:1\r\nFEDCBA0987654321FEDCBA0987654321FED:2');
       const breaches = await darkWebMonitorService.checkEmail('clean@example.com');
       expect(breaches).toEqual([]);
     });
