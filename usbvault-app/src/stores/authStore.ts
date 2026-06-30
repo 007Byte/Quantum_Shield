@@ -148,6 +148,11 @@ export interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
+  /**
+   * SG-011: Passwordless sign-in with a registered FIDO2 security key / passkey.
+   * Single-factor WebAuthn login for the locally-stored account (web only).
+   */
+  loginWithFido2: () => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -268,6 +273,68 @@ export const useAuthStore = create<AuthState>(set => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
       auditService.log('failed_login', email, { error: message }, 'error').catch(() => {});
+      set({ isAuthenticated: false, error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // SG-011: Passwordless login with a registered FIDO2 security key / passkey.
+  // The "Security Key" button on the login screen has no password field, so this is
+  // a single-factor WebAuthn login: prove possession (+ user verification) of a
+  // registered authenticator, then establish the session for the locally-stored
+  // account. Requires an existing account on this device with >=1 FIDO2 device.
+  loginWithFido2: async () => {
+    if (!isWeb) {
+      // Native FIDO2-primary login needs the server WebAuthn assertion endpoint;
+      // until that path is wired, native users sign in with their password.
+      throw new Error('Security key sign-in is currently available on the web app only.');
+    }
+    set({ isLoading: true, error: null });
+    const stored = getStoredAuth();
+    try {
+      if (!stored) {
+        throw new Error(
+          'No account found on this device. Please sign in with your password first.'
+        );
+      }
+      if (!fido2Service.isWebAuthnSupported()) {
+        throw new Error('Security keys are not supported in this browser.');
+      }
+      if (fido2Service.getDeviceCount() === 0) {
+        throw new Error(
+          'No security key registered. Sign in with your password, then add one in Settings.'
+        );
+      }
+
+      // WebAuthn assertion against the registered authenticators (proves possession,
+      // plus user verification when the authenticator enforces it).
+      const device = await fido2Service.authenticate();
+      if (!device) {
+        throw new Error('Security key authentication was not completed.');
+      }
+
+      saveSession(stored.email, stored.userId, stored.subscriptionTier);
+      set({
+        isAuthenticated: true,
+        userId: stored.userId,
+        email: stored.email,
+        subscriptionTier: stored.subscriptionTier,
+        isLoading: false,
+        fido2Verified: true,
+      });
+      auditService
+        .log('login', stored.email, { method: 'security_key', deviceId: device.id })
+        .catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Security key sign-in failed';
+      auditService
+        .log(
+          'failed_login',
+          stored?.email ?? 'unknown',
+          { reason: 'security_key', error: message },
+          'error'
+        )
+        .catch(() => {});
       set({ isAuthenticated: false, error: message, isLoading: false });
       throw error;
     }
