@@ -270,10 +270,14 @@ jobs:
         # no-regression floor (ratcheted to current coverage).
         run: npx jest --config jest.config.js --coverage --cacheDirectory=.jest-cache
 
-      - name: Run component Jest tests
+      - name: Run component Jest tests with coverage gate
+        # --coverage makes the coverageThreshold in jest.config.components.js an
+        # ENFORCED gate (jest exits non-zero if the feature components regress
+        # below the floor). Writes to a separate coverage-components/ dir so it
+        # does not clobber the service-layer coverage/coverage-summary.json.
         run: |
           if [ -f jest.config.components.js ]; then
-            npx jest --config jest.config.components.js --cacheDirectory=.jest-cache
+            npx jest --config jest.config.components.js --coverage --cacheDirectory=.jest-cache
           else
             echo "No component test config found — skipping"
           fi
