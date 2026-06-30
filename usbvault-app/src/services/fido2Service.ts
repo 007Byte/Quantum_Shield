@@ -191,8 +191,16 @@ class Fido2ServiceImpl {
 
   /**
    * Authenticate using a registered FIDO2 device.
+   *
+   * @param options.userVerification - WebAuthn UV requirement. Defaults to
+   *   'preferred' (the 2FA path, already gated by a password). Passwordless
+   *   single-factor login passes 'required' so the ceremony fails CLOSED when
+   *   the authenticator cannot perform user verification (PIN/biometric),
+   *   preventing a possession-only sign-in.
    */
-  async authenticate(): Promise<Fido2Device | null> {
+  async authenticate(options?: {
+    userVerification?: UserVerificationRequirement;
+  }): Promise<Fido2Device | null> {
     if (!this.isWebAuthnSupported()) {
       throw new Error('WebAuthn is not supported in this browser');
     }
@@ -212,7 +220,7 @@ class Fido2ServiceImpl {
       publicKey: {
         challenge: challenge.buffer as ArrayBuffer,
         allowCredentials,
-        userVerification: 'preferred',
+        userVerification: options?.userVerification ?? 'preferred',
         timeout: 60000,
         rpId: window.location.hostname || RP_ID,
       },

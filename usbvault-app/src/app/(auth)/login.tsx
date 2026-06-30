@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
 export default function LoginScreen() {
   const router = useRouter();
   const login = useAuthStore(state => state.login);
+  const loginWithFido2 = useAuthStore(state => state.loginWithFido2);
   const error = useAuthStore(state => state.error);
   const isLoading = useAuthStore(state => state.isLoading);
 
@@ -255,6 +256,17 @@ export default function LoginScreen() {
     } catch (err) {
       // Error is handled by store
       logger.error('Login failed:', err);
+    }
+  };
+
+  const handleSecurityKeyLogin = async () => {
+    setValidationError('');
+    try {
+      await loginWithFido2();
+      router.replace('/(tabs)/dashboard');
+    } catch (err) {
+      // Error surfaced via the auth store's error state (shown above the form).
+      logger.error('Security key sign-in failed:', err);
     }
   };
 
@@ -375,9 +387,8 @@ export default function LoginScreen() {
 
           <Button
             variant="secondary"
-            onPress={() => {
-              // FIDO2 authentication handler to be implemented
-            }}
+            onPress={handleSecurityKeyLogin}
+            disabled={isLoading}
             fullWidth
             testID="login-fido2-button"
             accessibilityLabel="Sign in with security key"
