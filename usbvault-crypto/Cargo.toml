@@ -43,7 +43,7 @@ hex = "0.4"
 # Base64
 base64 = "0.22"
 # Generic array support
-generic-array = "0.14"
+generic-array = "1.4"
 # Constant-time comparison
 subtle = "2"
 # Shamir's Secret Sharing — implemented in-house (shamir.rs) over GF(256)
