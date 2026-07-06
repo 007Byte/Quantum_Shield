@@ -30,6 +30,30 @@ updates:
       # Review manually and schedule separately
       - dependency-name: "cryptography"
         update-types: ["version-update:semver-major"]
+      # RustCrypto ecosystem coupling. These crates share the digest/aead/
+      # generic-array trait versions and MUST move as one coordinated set.
+      # src/streaming.rs + src/sharing.rs construct keys with
+      # generic-array 0.14's GenericArray and feed them to XChaCha20Poly1305 /
+      # Hkdf<Sha256>, so bumping any one crate's breaking (pre-1.0 minor or
+      # major) version alone yields a trait/type mismatch and fails the build
+      # (closed PRs #143 hkdf 0.13, #145 generic-array 1.x, #105 sha2 0.11,
+      # #107 chacha20poly1305 0.11). No CVE forces these (cargo-audit clean).
+      # The only upstream versions that unblock the set pull aes-gcm-siv as a
+      # release candidate, which the anti-RC gate in security.yml bans.
+      # DEFER until the stack ships stable aead-0.6 releases; upgrade the whole
+      # set together in one manual PR then. Patch updates still flow.
+      - dependency-name: "hkdf"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "sha2"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "digest"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "chacha20poly1305"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "aes-gcm-siv"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "generic-array"
+        update-types: ["version-update:semver-major"]
 
   # ============================================================
   # Go Modules
@@ -120,10 +144,19 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-native-*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # react/react-dom/react-test-renderer/@types/react are pinned to the
+      # EXACT version React Native requires (RN 0.81.6 hard-asserts
+      # React.version === "19.1.4" and throws otherwise), so even a minor bump
+      # breaks the app — closed PR #151 (expo-sdk group) tried react
+      # 19.1.4 -> 19.2.7. Ignore minor+major; upgrade with the RN/Expo SDK.
       - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-test-renderer"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # ============================================================
   # GitHub Actions
