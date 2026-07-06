@@ -413,6 +413,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -429,10 +438,40 @@ jobs:
         run: |
           go run ./cmd/dast-helper/main.go -output-urls=../zap-urls.txt -output-context=../zap-context.yaml -base-url=http://localhost:8080
 
+      # The server fails fast at boot if S3_ENDPOINT is unset (cmd/api/infra.go),
+      # so the DAST target needs object storage. Run MinIO in a step rather than
+      # a service container: the minio image needs a `server` command argument,
+      # which GitHub service containers can't override. Mirrors the S3 wiring in
+      # docker-compose.test.yml.
+      - name: Start MinIO (S3) and create bucket
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin_secret \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
+              echo "MinIO healthy after ${i}s"; break
+            fi
+            if [ "$i" -eq 30 ]; then echo "::error::MinIO failed to start"; exit 1; fi
+            sleep 1
+          done
+          AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin_secret \
+            aws --endpoint-url http://localhost:9000 --region us-east-1 \
+            s3 mb s3://usbvault-encrypted-blobs || true
+
       - name: Build and start server
         working-directory: usbvault-server
         env:
           DATABASE_URL: postgres://usbvault_test:test_password@localhost:5432/usbvault_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+          S3_ENDPOINT: http://localhost:9000
+          S3_BUCKET: usbvault-encrypted-blobs
+          S3_REGION: us-east-1
+          AWS_ENDPOINT: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin_secret
+          AWS_REGION: us-east-1
           ENVIRONMENT: test
           PORT: "8080"
           JWT_SECRET: zap-test-jwt-secret-not-for-production
