@@ -30,6 +30,20 @@ updates:
       # Review manually and schedule separately
       - dependency-name: "cryptography"
         update-types: ["version-update:semver-major"]
+      # hkdf 0.13 requires hmac 0.13 → digest 0.11, which forces the entire
+      # RustCrypto 0.11-era stack including aes-gcm-siv 0.12.0-rc.3 (a release
+      # candidate). The anti-RC guard in .github/workflows/security.yml hard-fails
+      # RC crypto crates. Block until aes-gcm-siv ships a stable aead-0.6 release.
+      # See closed PRs #105 and #107 for full context.
+      - dependency-name: "hkdf"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # generic-array 1.x is the new-era API; the RustCrypto 0.10-era crates
+      # (sha2 0.10, hmac 0.12, chacha20poly1305 0.10, aes-gcm-siv 0.11) all
+      # depend on generic-array 0.14. Moving our direct dep to 1.x causes 34
+      # E0308 type-mismatch errors at the AES/ChaCha cipher trait boundaries.
+      # Reopen when the whole 0.10-era stack migrates to aead-0.6 + digest-0.11.
+      - dependency-name: "generic-array"
+        update-types: ["version-update:semver-major"]
 
   # ============================================================
   # Go Modules
@@ -120,10 +134,19 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-native-*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # react is pinned EXACTLY to 19.1.4 (RN 0.81.6 throws at runtime on any
+      # other version). Block major AND minor bumps; patch bumps are still allowed.
+      # Also ignore react-dom, @types/react, and react-test-renderer which are
+      # grouped into expo-sdk and must stay version-locked to the SDK.
+      # Re-open condition: deliberate SDK upgrade via `npx expo install --fix`.
       - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-test-renderer"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # ============================================================
   # GitHub Actions
