@@ -7,10 +7,26 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
+
+// migrationAdvisoryLockKey is a fixed, application-chosen key for the Postgres
+// session-level advisory lock that serializes migration runs across every
+// runner. In production the schema is mutated by potentially several processes
+// starting at once — the pre-deploy migrate Job/initContainer plus (if
+// boot-migrate is enabled) N API replicas — which without coordination race on
+// concurrent DDL and crash-loop the rollout. Holding this advisory lock means
+// exactly one runner applies migrations at a time; the others block on the
+// lock, then observe the schema already up to date and no-op. The value is an
+// arbitrary constant; it only needs to be stable and unique to this subsystem.
+const migrationAdvisoryLockKey int64 = 774209166134
+
+// migrationLockTimeout bounds how long a runner waits to acquire the advisory
+// lock before giving up, so a stuck peer can't wedge a boot indefinitely.
+const migrationLockTimeout = 2 * time.Minute
 
 // Migration represents a database migration
 type Migration struct {
@@ -33,8 +49,45 @@ func NewMigrator(pool *pgxpool.Pool, migrationsDir string) *Migrator {
 	}
 }
 
-// Migrate runs all pending migrations
+// Migrate runs all pending migrations while holding a Postgres session-level
+// advisory lock, so concurrent runners (multiple replicas and/or the pre-deploy
+// migrate Job) never apply DDL at the same time. Runners that lose the race
+// block until the lock is free, then find nothing pending and no-op.
 func (m *Migrator) Migrate(ctx context.Context) error {
+	// Acquire a dedicated connection so the session-level advisory lock is held
+	// on one specific backend for the full duration of the migration run (the
+	// lock is scoped to the session, not the pool).
+	conn, err := m.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to acquire connection for migration lock: %w", err)
+	}
+	defer conn.Release()
+
+	// Bound the wait so a wedged peer can't block boot forever.
+	lockCtx, cancel := context.WithTimeout(ctx, migrationLockTimeout)
+	defer cancel()
+
+	log.Info().Msg("acquiring migration advisory lock")
+	if _, err := conn.Exec(lockCtx, `SELECT pg_advisory_lock($1)`, migrationAdvisoryLockKey); err != nil {
+		return fmt.Errorf("failed to acquire migration advisory lock (another migration runner may be in progress): %w", err)
+	}
+	defer func() {
+		// Best-effort explicit unlock. Use a fresh context so the release still
+		// runs even if the caller's ctx has been cancelled; the lock also
+		// auto-releases when the session (connection) ends.
+		unlockCtx, unlockCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer unlockCancel()
+		if _, err := conn.Exec(unlockCtx, `SELECT pg_advisory_unlock($1)`, migrationAdvisoryLockKey); err != nil {
+			log.Warn().Err(err).Msg("failed to release migration advisory lock (auto-releases on session end)")
+		}
+	}()
+
+	return m.migrateLocked(ctx)
+}
+
+// migrateLocked performs the actual migration work. Callers MUST hold the
+// migration advisory lock (see Migrate) before invoking it.
+func (m *Migrator) migrateLocked(ctx context.Context) error {
 	// Create schema_migrations table if it doesn't exist
 	if err := m.createMigrationsTable(ctx); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
