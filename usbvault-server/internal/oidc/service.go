@@ -423,11 +423,19 @@ func (s *Service) mapUser(ctx context.Context, providerID, sub, email, name stri
 		log.Info().Str("user_id", userID).Msg("OIDC user logged in")
 	}
 
-	// Generate JWT tokens using existing auth infrastructure
-	accessToken, refreshToken, err := auth.GenerateTokenPair(userID, "oidc")
+	// Generate JWT tokens using existing auth infrastructure.
+	// F1: embed the user's token epoch and register both JTIs so account deletion
+	// / logout-everywhere can invalidate this login token pair (previously these
+	// login-issued tokens were untracked and survived bulk revocation).
+	epoch, err := auth.LoadUserTokenEpoch(ctx, s.pool, s.redisClient, userID)
+	if err != nil {
+		return nil, fmt.Errorf("oidc: failed to load token epoch: %w", err)
+	}
+	accessToken, refreshToken, err := auth.GenerateTokenPairWithEpoch(userID, "oidc", "", "", epoch)
 	if err != nil {
 		return nil, fmt.Errorf("oidc: failed to generate token pair: %w", err)
 	}
+	auth.RegisterIssuedTokens(ctx, s.redisClient, userID, accessToken, refreshToken)
 
 	return &CallbackResult{
 		UserID:       userID,

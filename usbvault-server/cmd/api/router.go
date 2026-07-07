@@ -139,8 +139,8 @@ func (a *App) setupRouter(isProduction bool) *chi.Mux {
 			// CORS (getAllowedOrigins) so these state-changing cookie endpoints
 			// reject forged cross-site Origin/Referer requests with 403,
 			// independently of SameSite/CORS.
-			r.Post("/refresh", auth.HandleRefreshToken(a.redisClient, a.auditService, getAllowedOrigins()...))
-			r.Post("/logout", auth.HandleLogout(a.redisClient, a.auditService, getAllowedOrigins()...))
+			r.Post("/refresh", auth.HandleRefreshToken(a.dbPool, a.redisClient, a.auditService, getAllowedOrigins()...))
+			r.Post("/logout", auth.HandleLogout(a.dbPool, a.redisClient, a.auditService, getAllowedOrigins()...))
 
 			// OIDC routes (enterprise SSO)
 			if a.oidcService != nil {

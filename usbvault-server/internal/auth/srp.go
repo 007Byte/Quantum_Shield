@@ -457,13 +457,23 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// Compute server proof M2 = H(A, M1, K)
 		M2Computed := computeSRPProofM2(A, M1Computed[:], K[:])
 
-		// Issue JWT tokens
-		accessToken, refreshToken, err := GenerateTokenPair(state.UserID, "web")
+		// Issue JWT tokens.
+		// F1: embed the user's current token epoch so account deletion / logout
+		// everywhere can invalidate this token pair, and register both JTIs in the
+		// user_tokens set so per-JTI bulk revocation also covers login-issued tokens.
+		epoch, epochErr := LoadUserTokenEpoch(ctx, pool, redisClient, state.UserID)
+		if epochErr != nil {
+			log.Error().Err(epochErr).Str("user_id", state.UserID).Msg("failed to load token epoch")
+			http.Error(w, "token generation failed", http.StatusInternalServerError)
+			return
+		}
+		accessToken, refreshToken, err := GenerateTokenPairWithEpoch(state.UserID, "web", "", "", epoch)
 		if err != nil {
 			log.Error().Err(err).Str("user_id", state.UserID).Msg("token generation failed")
 			http.Error(w, "token generation failed", http.StatusInternalServerError)
 			return
 		}
+		RegisterIssuedTokens(ctx, redisClient, state.UserID, accessToken, refreshToken)
 
 		// H-5: SRP verify is a fresh strong authentication — record it so the user may
 		// enroll a new credential within the short step-up window without re-authing again.

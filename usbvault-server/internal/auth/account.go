@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -53,11 +54,17 @@ func HandleDeleteAccount(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc
 			return
 		}
 
-		// 3. Mark user as deleted in database
-		_, err = tx.Exec(r.Context(),
-			`UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+		// 3. Mark user as deleted in database AND bump the token epoch (F1).
+		// Bumping token_epoch in the same transaction instantly invalidates EVERY
+		// outstanding token for this user — web cookie and native keychain refresh
+		// tokens included — even though those login-issued tokens were never
+		// tracked per-JTI. This is the durable (Redis-flush-proof) guarantee that a
+		// deleted account can no longer mint sessions (GDPR right-to-delete).
+		var newEpoch int64
+		err = tx.QueryRow(r.Context(),
+			`UPDATE users SET deleted_at = NOW(), updated_at = NOW(), token_epoch = token_epoch + 1 WHERE id = $1 RETURNING token_epoch`,
 			userID,
-		)
+		).Scan(&newEpoch)
 		if err != nil {
 			log.Error().Err(err).Str("user_id", userID).Msg("failed to mark user as deleted")
 			http.Error(w, "deletion failed", http.StatusInternalServerError)
@@ -81,6 +88,35 @@ func HandleDeleteAccount(pool *pgxpool.Pool, redisClient *redis.Client, auditSvc
 		// TD-007 FIX: Revoke all active tokens in Redis after successful DB commit
 		revokeCtx, revokeCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer revokeCancel()
+
+		// F1: mirror the bumped epoch into Redis so the hot access-token validation
+		// path (middleware) rejects outstanding tokens immediately, without waiting
+		// for the mirror to be refreshed on a (now impossible) login.
+		setEpochMirror(revokeCtx, redisClient, userID, newEpoch)
+
+		// F1: explicitly clear the web refresh cookie and revoke the caller's
+		// current access-header + refresh-cookie JTIs. The epoch bump already
+		// invalidates them logically, but clearing the cookie stops the browser
+		// from replaying it and revoking the JTIs keeps the revocation list
+		// consistent for the token's remaining lifetime.
+		clearRefreshCookie(w)
+		if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+			if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && parts[0] == "Bearer" {
+				if ac, verr := ValidateToken(parts[1]); verr == nil && ac.ExpiresAt != nil {
+					if ttl := time.Until(ac.ExpiresAt.Time); ttl > 0 {
+						redisClient.Set(revokeCtx, "revoked:"+ac.JTI, "account_deleted", ttl)
+					}
+				}
+			}
+		}
+		if c, cerr := r.Cookie(RefreshCookieName); cerr == nil && c.Value != "" {
+			if rc, verr := ValidateToken(c.Value); verr == nil && rc.ExpiresAt != nil {
+				if ttl := time.Until(rc.ExpiresAt.Time); ttl > 0 {
+					redisClient.Set(revokeCtx, "revoked:"+rc.JTI, "account_deleted", ttl)
+				}
+			}
+		}
+
 		tokens, err := redisClient.SMembers(revokeCtx, "user_tokens:"+userID).Result()
 		if err == nil {
 			pipe := redisClient.Pipeline()

@@ -94,7 +94,7 @@ func TestClearRefreshCookie_Expires(t *testing.T) {
 // cookie-clearing Set-Cookie header and returns 200 even when there is no
 // authenticated user and no refresh cookie (pure-logic path; no Redis needed).
 func TestHandleLogout_ClearsCookie_NoUser(t *testing.T) {
-	handler := HandleLogout(nil, &mockAuditService{})
+	handler := HandleLogout(nil, nil, &mockAuditService{})
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	rec := httptest.NewRecorder()
@@ -163,7 +163,7 @@ func TestCheckRequestOrigin(t *testing.T) {
 // TestHandleRefreshToken_ForeignOriginRejected verifies a foreign Origin on
 // POST /auth/refresh is rejected with 403 BEFORE any token processing.
 func TestHandleRefreshToken_ForeignOriginRejected(t *testing.T) {
-	handler := HandleRefreshToken(nil, &mockAuditService{}, testAllowedOrigins...)
+	handler := HandleRefreshToken(nil, nil, &mockAuditService{}, testAllowedOrigins...)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 	req.Header.Set("Origin", "https://evil.example.com")
@@ -180,7 +180,7 @@ func TestHandleRefreshToken_ForeignOriginRejected(t *testing.T) {
 // POST /auth/logout is rejected with 403 before any state mutation (no cookie
 // is cleared).
 func TestHandleLogout_ForeignOriginRejected(t *testing.T) {
-	handler := HandleLogout(nil, &mockAuditService{}, testAllowedOrigins...)
+	handler := HandleLogout(nil, nil, &mockAuditService{}, testAllowedOrigins...)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.Header.Set("Origin", "https://evil.example.com")
@@ -198,7 +198,7 @@ func TestHandleLogout_ForeignOriginRejected(t *testing.T) {
 // TestHandleLogout_AllowedOriginProceeds verifies an allowed Origin passes the
 // CSRF gate and proceeds to the normal no-user logout path (cookie cleared, 200).
 func TestHandleLogout_AllowedOriginProceeds(t *testing.T) {
-	handler := HandleLogout(nil, &mockAuditService{}, testAllowedOrigins...)
+	handler := HandleLogout(nil, nil, &mockAuditService{}, testAllowedOrigins...)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.Header.Set("Origin", "https://app.usbvault.io")

@@ -19,9 +19,9 @@ import (
 
 // SD-008 FIX: Backup code constants
 const (
-	BackupCodeLength    = 8
-	BackupCodeCount     = 10
-	BackupCodeCharset   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	BackupCodeLength  = 8
+	BackupCodeCount   = 10
+	BackupCodeCharset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 type GenerateBackupCodesRequest struct {
@@ -294,12 +294,21 @@ func HandleVerifyBackupCode(pool *pgxpool.Pool, redisClient *redis.Client, audit
 			return
 		}
 
-		// Issue tokens
-		accessToken, refreshToken, err := GenerateTokenPair(userID, "web")
+		// Issue tokens.
+		// F1: embed the user's token epoch and register both JTIs so account
+		// deletion / logout-everywhere can invalidate this login token pair.
+		epoch, epochErr := LoadUserTokenEpoch(ctx, pool, redisClient, userID)
+		if epochErr != nil {
+			log.Error().Err(epochErr).Str("user_id", userID).Msg("failed to load token epoch")
+			http.Error(w, "token generation failed", http.StatusInternalServerError)
+			return
+		}
+		accessToken, refreshToken, err := GenerateTokenPairWithEpoch(userID, "web", "", "", epoch)
 		if err != nil {
 			http.Error(w, "token generation failed", http.StatusInternalServerError)
 			return
 		}
+		RegisterIssuedTokens(ctx, redisClient, userID, accessToken, refreshToken)
 
 		auditSvc.LogAction(ctx, userID, "BACKUP_CODE_LOGIN", nil)
 		log.Info().Str("user_id", userID).Msg("SD-008 FIX: user authenticated via backup code")
