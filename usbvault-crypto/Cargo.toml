@@ -20,7 +20,7 @@ hkdf = "0.12"
 sha2 = "0.10"
 hmac = "0.12"
 # X25519 key exchange for E2E sharing
-x25519-dalek = { version = "2", features = ["static_secrets"] }
+x25519-dalek = { version = "3", features = ["static_secrets"] }
 # Secure memory
 zeroize = { version = "1", features = ["derive"] }
 # Random number generation
