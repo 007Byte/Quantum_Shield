@@ -21,6 +21,10 @@ type RegisterRequest struct {
 	SRPVerifier      string `json:"srp_verifier"`       // hex-encoded verifier
 	PublicKeyX25519  string `json:"public_key_x25519"`  // base64-encoded X25519 public key
 	PublicKeyEd25519 string `json:"public_key_ed25519"` // base64-encoded Ed25519 public key
+	// RecoveryCode proves ownership when RE-registering a flagged/existing account
+	// (F4). It is ignored for a brand-new email (first-time registration). Format is
+	// the human recovery code (XXXX-XXXX-XXXX); dashes/case are normalized server-side.
+	RecoveryCode string `json:"recovery_code,omitempty"`
 }
 
 // RegisterResponse contains the new user ID
@@ -90,20 +94,23 @@ func HandleRegister(pool *pgxpool.Pool, auditSvc interface {
 		if err == nil {
 			// #65: an account flagged for re-registration (its verifier predates the
 			// ffdhe3072 modulus fix and can no longer authenticate) may register a FRESH
-			// verifier here, which clears the flag. This resets the login credential
-			// WITHOUT proving the old one — by definition the old verifier is unusable.
+			// verifier here, which clears the flag. The old verifier is by definition
+			// unusable, so the credential is reset rather than rotated in place.
 			// The zero-knowledge vault stays protected: its MEK is wrapped to the ORIGINAL
 			// password's KEK, so a new credential grants login but NOT vault decryption.
 			//
-			// BLAST RADIUS (must be stated honestly before any release with real accounts):
-			// this is NOT a benign transient race. Because re-registration requires no
-			// proof of the old credential, an attacker who knows a flagged account's email
-			// can win the re-registration first and (a) TAKE OVER login for that account and
-			// (b) LOCK OUT the legitimate owner, who then has no self-service recovery. It is
-			// attacker-favored, not symmetric. It is bounded only by: the zero-knowledge model
-			// (no vault decryption — see above) and the AuthRateLimiter. Acceptable ONLY for
-			// 0.1.0 pre-release with no real users. Hardening before real accounts — gate
-			// re-registration on recovery-code / email-token proof of ownership — is tracked.
+			// F4 — PROOF OF OWNERSHIP REQUIRED. Historically this branch overwrote the
+			// verifier with NO proof of the old credential, which was a pre-auth
+			// account-takeover + owner-lockout primitive (anyone who knew a flagged
+			// account's email could win the re-registration first, take over login, and
+			// lock out the owner). That was documented as "acceptable ONLY for 0.1.0
+			// pre-release". Before real accounts, re-registration now requires a valid,
+			// unused RECOVERY CODE (the existing internal/recovery mechanism, migration
+			// 007) proving the caller owns the account. No/invalid proof => reject WITHOUT
+			// overwriting the verifier. On success the code is consumed (single-use) and
+			// the verifier swap happen in the SAME transaction, so a code is never burned
+			// without the verifier being reset and vice versa. Rate limiting is unchanged
+			// (/auth/register sits behind mw.AuthRateLimiter).
 			//
 			// KEY HANDLING — we accept the fresh X25519/Ed25519 public keys here and
 			// overwrite the stored ones. This is deliberately consistent with the ONLY
@@ -120,7 +127,40 @@ func HandleRegister(pool *pgxpool.Pool, auditSvc interface {
 			// The `AND auth_method = 'srp'` guard prevents grafting password credentials
 			// onto an OIDC-managed identity via this public path.
 			if existingNeedsReReg {
-				tag, uerr := pool.Exec(ctx,
+				// F4 gate: require a recovery code before touching the verifier.
+				proof := strings.TrimSpace(req.RecoveryCode)
+				if proof == "" {
+					log.Warn().Str("user_id", existingID).Msg("F4: re-registration rejected — no ownership proof (recovery code) supplied")
+					auditSvc.LogAction(ctx, existingID, "ACCOUNT_REREGISTER_DENIED", nil)
+					writeReRegistrationProofRequired(w)
+					return
+				}
+
+				// Verify+consume the recovery code AND swap the verifier atomically.
+				tx, txerr := pool.Begin(ctx)
+				if txerr != nil {
+					log.Error().Err(txerr).Str("user_id", existingID).Msg("F4: failed to begin re-registration transaction")
+					http.Error(w, "registration failed", http.StatusInternalServerError)
+					return
+				}
+				defer tx.Rollback(ctx)
+
+				valid, verr := verifyAndConsumeRecoveryCode(ctx, tx, existingID, proof)
+				if verr != nil {
+					log.Error().Err(verr).Str("user_id", existingID).Msg("F4: recovery-code verification failed during re-registration")
+					http.Error(w, "registration failed", http.StatusInternalServerError)
+					return
+				}
+				if !valid {
+					// Invalid/used code — reject WITHOUT overwriting the verifier. The tx
+					// is rolled back by the deferred Rollback, so no code is consumed.
+					log.Warn().Str("user_id", existingID).Msg("F4: re-registration rejected — invalid or already-used recovery code")
+					auditSvc.LogAction(ctx, existingID, "ACCOUNT_REREGISTER_DENIED", nil)
+					writeReRegistrationProofRequired(w)
+					return
+				}
+
+				tag, uerr := tx.Exec(ctx,
 					`UPDATE users SET srp_salt = $1, srp_verifier = $2, public_key_x25519 = $3,
 					                  public_key_ed25519 = $4, srp_needs_reregistration = false, updated_at = NOW()
 					 WHERE id = $5 AND auth_method = 'srp' AND deleted_at IS NULL`,
@@ -133,13 +173,19 @@ func HandleRegister(pool *pgxpool.Pool, auditSvc interface {
 				}
 				if tag.RowsAffected() == 0 {
 					// Flagged but not an eligible SRP account (e.g. auth_method != 'srp').
-					// Should not happen given migration 019 only flags SRP rows; refuse safely.
+					// Should not happen given migration 019 only flags SRP rows; refuse
+					// safely. Rollback (deferred) restores the just-consumed recovery code.
 					log.Warn().Str("user_id", existingID).Msg("#65: re-registration rejected — not an eligible SRP account")
 					http.Error(w, "account already exists", http.StatusConflict)
 					return
 				}
+				if cerr := tx.Commit(ctx); cerr != nil {
+					log.Error().Err(cerr).Str("user_id", existingID).Msg("F4: failed to commit re-registration")
+					http.Error(w, "registration failed", http.StatusInternalServerError)
+					return
+				}
 				auditSvc.LogAction(ctx, existingID, "ACCOUNT_REREGISTERED", nil)
-				log.Info().Str("user_id", existingID).Msg("#65: account re-registered (verifier reset after modulus fix)")
+				log.Info().Str("user_id", existingID).Msg("#65/F4: account re-registered (verifier reset after ownership proof)")
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
 				json.NewEncoder(w).Encode(RegisterResponse{UserID: existingID})
