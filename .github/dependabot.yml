@@ -54,6 +54,14 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "generic-array"
         update-types: ["version-update:semver-major"]
+      # x25519-dalek 3.x pulls curve25519-dalek 5.0 and changes the RNG API
+      # (StaticSecret/EphemeralSecret take `&mut Rng` instead of `OsRng` by
+      # value) → E0308 at the X25519 keygen sites. No CVE forces it (closed
+      # PR #183). Ignore the major; upgrade with a deliberate call-site migration.
+      - dependency-name: "x25519-dalek"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "curve25519-dalek"
+        update-types: ["version-update:semver-major"]
 
   # ============================================================
   # Go Modules
