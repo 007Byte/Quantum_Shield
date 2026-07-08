@@ -93,6 +93,8 @@ services:
       STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE}
       JWT_ED25519_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
       JWT_ED25519_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
+      # REQUIRED in production: server refuses to boot if unset/<32 bytes.
+      SRP_ENUM_SECRET: ${SRP_ENUM_SECRET}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       FIDO2_RELYING_PARTY_ID: ${FIDO2_RELYING_PARTY_ID:-usbvault.io}
       FIDO2_RELYING_PARTY_NAME: ${FIDO2_RELYING_PARTY_NAME:-USBVault}

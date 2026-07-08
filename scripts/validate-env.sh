@@ -94,6 +94,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
         S3_ENDPOINT AWS_ENDPOINT S3_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY S3_ACCESS_KEY S3_SECRET_KEY
         JWT_ED25519_PRIVATE_KEY JWT_ED25519_PUBLIC_KEY
         BACKUP_ENCRYPTION_KEY
+        SRP_ENUM_SECRET
         STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET
         STRIPE_PRICE_INDIVIDUAL STRIPE_PRICE_TEAM STRIPE_PRICE_ENTERPRISE
         ENVIRONMENT
@@ -303,6 +304,21 @@ if require_var BACKUP_ENCRYPTION_KEY "32-byte base64-encoded encryption key"; th
         pass "BACKUP_ENCRYPTION_KEY is valid (32 bytes)"
     else
         fail "BACKUP_ENCRYPTION_KEY must decode to exactly 32 bytes (got ${DECODED_LEN})"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+echo ""
+echo -e "${BOLD}--- Anti-Enumeration Secret ---${NC}"
+
+# SRP_ENUM_SECRET is read as raw bytes; the server fails to boot in production
+# if it is shorter than 32 bytes (cmd/api/app.go). Validate the raw length.
+if require_var SRP_ENUM_SECRET "32+ byte secret (e.g. openssl rand -hex 32)"; then
+    SRP_LEN=$(printf '%s' "${SRP_ENUM_SECRET}" | wc -c | tr -d ' ')
+    if [[ "$SRP_LEN" -ge 32 ]]; then
+        pass "SRP_ENUM_SECRET is valid (${SRP_LEN} bytes)"
+    else
+        fail "SRP_ENUM_SECRET must be at least 32 bytes (got ${SRP_LEN}) — the server will refuse to start"
         ERRORS=$((ERRORS + 1))
     fi
 fi
