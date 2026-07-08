@@ -31,6 +31,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/usbvault/usbvault-server/internal/ctxkeys"
+	"github.com/usbvault/usbvault-server/internal/database"
 )
 
 // JWT TTL constants for token expiration and event tracking
@@ -185,6 +186,12 @@ type Claims struct {
 	JTI               string `json:"jti"`                          // JWT ID for unique token identification
 	FamilyID          string `json:"family_id"`                    // For refresh token rotation tracking
 	DeviceFingerprint string `json:"device_fingerprint,omitempty"` // Optional device binding
+	// TokenEpoch is the user's per-user token epoch at issuance time (F1). A
+	// token is only honoured while its epoch matches the user's current epoch;
+	// bumping the epoch (account deletion, logout-everywhere) invalidates every
+	// outstanding token for the user at once. Omitted when zero for backward
+	// compatibility with tokens minted before this field existed.
+	TokenEpoch int64 `json:"token_epoch,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -209,8 +216,19 @@ func GenerateTokenPairWithFingerprint(userID, deviceID, deviceFingerprint string
 }
 
 // TD-004 FIX: New function to preserve family ID during token rotation
-// GenerateTokenPairWithFamily creates a token pair while preserving the family chain for theft detection
+// GenerateTokenPairWithFamily creates a token pair while preserving the family chain for theft detection.
+//
+// It issues tokens at epoch 0 (the default for callers that do not track a
+// per-user token epoch, e.g. unit tests). Production login/refresh paths use
+// GenerateTokenPairWithEpoch so the user's current epoch is embedded (F1).
 func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID string) (accessToken, refreshToken string, err error) {
+	return GenerateTokenPairWithEpoch(userID, deviceID, deviceFingerprint, familyID, 0)
+}
+
+// GenerateTokenPairWithEpoch creates a token pair embedding the user's per-user
+// token epoch (F1) alongside the family chain. Both the access and refresh token
+// carry the epoch so a single epoch bump invalidates the entire outstanding set.
+func GenerateTokenPairWithEpoch(userID, deviceID, deviceFingerprint, familyID string, epoch int64) (accessToken, refreshToken string, err error) {
 	// CR-3 FIX: Acquire read lock to copy key values, then release before JWT operations
 	jwtKeyMu.RLock()
 	privKey := jwtPrivateKey
@@ -234,6 +252,7 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 		JTI:               jti,
 		FamilyID:          familyID,
 		DeviceFingerprint: deviceFingerprint,
+		TokenEpoch:        epoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
@@ -262,6 +281,7 @@ func GenerateTokenPairWithFamily(userID, deviceID, deviceFingerprint, familyID s
 		JTI:               refreshJTI,
 		FamilyID:          familyID,
 		DeviceFingerprint: deviceFingerprint,
+		TokenEpoch:        epoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(refreshTokenTTL)),
@@ -393,6 +413,15 @@ func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) 
 		if err == nil && revoked != "" {
 			return nil, errors.New("token revoked")
 		}
+
+		// F1: reject tokens superseded by a newer epoch. Account deletion and
+		// logout-everywhere bump the user's epoch, invalidating every outstanding
+		// token — including login-issued refresh tokens that were never tracked in
+		// the user_tokens set. This is the hot path (every authenticated request),
+		// so we consult the Redis mirror rather than the DB.
+		if eerr := checkTokenEpochRedis(ctx, redisClient, claims.TokenEpoch, claims.UserID); eerr != nil {
+			return nil, eerr
+		}
 	}
 
 	return claims, nil
@@ -417,7 +446,14 @@ func ValidateTokenWithRevocation(redisClient *redis.Client, tokenString string) 
 //   - Token has expired
 //   - Token has already been revoked (possible theft)
 //   - New token generation fails
-func RefreshAccessToken(redisClient *redis.Client, refreshToken string) (newAccessToken, newRefreshToken string, err error) {
+//
+// F1: pool is the durable store for the per-user token epoch + deleted_at. When
+// non-nil (production wiring) RefreshAccessToken authoritatively rejects, WITHOUT
+// depending on Redis: (a) refresh tokens for soft-deleted accounts, and (b)
+// refresh tokens whose epoch is older than the user's current epoch. This is the
+// path that re-mints 30-day sessions, so it must survive a Redis flush. When nil
+// (unit tests) the check degrades to the Redis epoch mirror only.
+func RefreshAccessToken(pool database.QueryExecutor, redisClient *redis.Client, refreshToken string) (newAccessToken, newRefreshToken string, err error) {
 	claims, err := ValidateToken(refreshToken)
 	if err != nil {
 		return "", "", err
@@ -429,6 +465,32 @@ func RefreshAccessToken(redisClient *redis.Client, refreshToken string) (newAcce
 
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeoutDuration)
 	defer cancel()
+
+	// F1: durable epoch + deleted_at enforcement. currentEpoch is the epoch the
+	// freshly rotated tokens must carry so they keep validating.
+	currentEpoch := claims.TokenEpoch
+	if pool != nil {
+		dbEpoch, deleted, derr := userEpochAndDeleted(ctx, pool, claims.UserID)
+		if derr != nil {
+			log.Error().Err(derr).Str("user_id", claims.UserID).Msg("F1: failed to load user epoch/deleted_at on refresh")
+			return "", "", fmt.Errorf("token refresh failed: %w", derr)
+		}
+		if deleted {
+			// GDPR right-to-delete: a deleted account may not mint new sessions,
+			// even if the presented refresh token is otherwise valid and unrevoked.
+			log.Warn().Str("user_id", claims.UserID).Msg("F1: refused refresh for soft-deleted account")
+			return "", "", ErrAccountDeleted
+		}
+		if claims.TokenEpoch < dbEpoch {
+			log.Warn().Str("user_id", claims.UserID).Int64("token_epoch", claims.TokenEpoch).Int64("current_epoch", dbEpoch).Msg("F1: refused refresh for superseded token epoch")
+			// Keep the Redis mirror in sync so the hot path also rejects promptly.
+			setEpochMirror(ctx, redisClient, claims.UserID, dbEpoch)
+			return "", "", ErrTokenEpochStale
+		}
+		currentEpoch = dbEpoch
+	} else if eerr := checkTokenEpochRedis(ctx, redisClient, claims.TokenEpoch, claims.UserID); eerr != nil {
+		return "", "", eerr
+	}
 
 	// SD-006 FIX: Atomic check-and-revoke using Redis Lua script to prevent race conditions
 	// This ensures that only one concurrent request can successfully refresh a token.
@@ -491,8 +553,10 @@ func RefreshAccessToken(redisClient *redis.Client, refreshToken string) (newAcce
 		return "", "", errors.New("token already used - possible theft detected")
 	}
 
-	// TD-004 FIX: Issue new token pair with preserved family ID for theft detection chain
-	newAccessToken, newRefreshToken, err = GenerateTokenPairWithFamily(claims.UserID, claims.DeviceID, claims.DeviceFingerprint, claims.FamilyID)
+	// TD-004 FIX: Issue new token pair with preserved family ID for theft detection chain.
+	// F1: carry the user's current epoch so rotated tokens keep validating (and are
+	// themselves invalidated by a future epoch bump).
+	newAccessToken, newRefreshToken, err = GenerateTokenPairWithEpoch(claims.UserID, claims.DeviceID, claims.DeviceFingerprint, claims.FamilyID, currentEpoch)
 	if err != nil {
 		return "", "", err
 	}
@@ -586,7 +650,10 @@ type RefreshTokenResponse struct {
 // This does NOT depend on SameSite/CORS — CORS only sets response headers and
 // does not gate request handling. When empty, the Origin check is skipped
 // (e.g. unit tests that exercise pure token logic).
-func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
+// F1: pool is threaded through so RefreshAccessToken can perform the durable
+// deleted_at + token-epoch check (see RefreshAccessToken). May be nil in unit
+// tests that exercise only request parsing / CSRF gating.
+func HandleRefreshToken(pool database.QueryExecutor, redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }, allowedOrigins ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -623,7 +690,7 @@ func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
 
 		// Token rotation: issue new access and refresh tokens. This revokes the
 		// presented refresh token; reuse triggers family revocation (theft).
-		accessToken, refreshToken, err := RefreshAccessToken(redisClient, presentedRefreshToken)
+		accessToken, refreshToken, err := RefreshAccessToken(pool, redisClient, presentedRefreshToken)
 		if err != nil {
 			// Clear the cookie on failure so the browser doesn't keep retrying
 			// with a revoked/rotated token.
@@ -673,7 +740,11 @@ func HandleRefreshToken(redisClient *redis.Client, auditSvc interface {
 // allowedOrigins (variadic, F4 CSRF defense-in-depth): see HandleRefreshToken.
 // Logout is state-changing (revokes tokens) so it is also guarded by the
 // Origin/Referer allowlist. When empty, the check is skipped (unit tests).
-func HandleLogout(redisClient *redis.Client, auditSvc interface {
+// F1: pool is threaded through so logout can bump the user's token epoch,
+// invalidating every outstanding token across all devices — including native
+// keychain refresh tokens that were never tracked in the user_tokens set and
+// therefore could not be revoked by JTI. May be nil in unit tests.
+func HandleLogout(pool database.QueryExecutor, redisClient *redis.Client, auditSvc interface {
 	LogAction(ctx context.Context, userID string, actionType string, encryptedDetail []byte) error
 }, allowedOrigins ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -758,6 +829,16 @@ func HandleLogout(redisClient *redis.Client, auditSvc interface {
 				redisClient.Set(ctx, "revoked:"+jti, "1", revokedTokenTTL)
 			}
 			redisClient.Del(ctx, "user_tokens:"+userID)
+		}
+
+		// F1: bump the token epoch so EVERY outstanding token is invalidated,
+		// including login-issued refresh tokens (web cookie + native keychain) that
+		// are not in the user_tokens set. This is what makes "logout everywhere"
+		// actually terminate the native keychain session.
+		if pool != nil {
+			if _, berr := BumpUserTokenEpoch(ctx, pool, redisClient, userID); berr != nil {
+				log.Error().Err(berr).Str("user_id", userID).Msg("F1: failed to bump token epoch on logout")
+			}
 		}
 
 		log.Info().Str("user_id", userID).Msg("user logged out - all tokens revoked")
