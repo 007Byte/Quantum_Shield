@@ -68,3 +68,32 @@ resource "aws_secretsmanager_secret_version" "redis_url" {
     "6379",
   )
 }
+
+# --- SRP anti-enumeration secret ---
+# The API refuses to start in production if this is unset or shorter than 32
+# bytes (cmd/api/app.go); it keys the HMAC that derives the decoy SRP salt for
+# non-existent accounts. byte_length = 32 yields a 64-character hex string.
+
+resource "random_id" "srp_enum_secret" {
+  byte_length = 32
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
+
+resource "aws_secretsmanager_secret" "srp_enum_secret" {
+  name                    = "usbvault/${var.environment}/srp-enum-secret"
+  description             = "SRP anti-enumeration decoy-salt HMAC key for USBVault ${var.environment}"
+  recovery_window_in_days = 30
+
+  tags = {
+    Name     = "usbvault-${var.environment}-srp-enum-secret"
+    Critical = "true"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "srp_enum_secret" {
+  secret_id     = aws_secretsmanager_secret.srp_enum_secret.id
+  secret_string = random_id.srp_enum_secret.hex
+}

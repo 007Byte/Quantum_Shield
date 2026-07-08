@@ -37,6 +37,7 @@ for arg in "$@"; do
             echo "  jwt_private.key    ED25519 private key (base64)"
             echo "  jwt_public.key     ED25519 public key (base64)"
             echo "  backup.key         Backup encryption key (base64)"
+            echo "  srp_enum.secret    SRP anti-enumeration secret (hex, 32 bytes)"
             echo "  postgres.password  PostgreSQL password"
             echo "  redis.password     Redis password"
             exit 0
@@ -126,6 +127,13 @@ BACKUP_KEY=$(openssl rand -base64 32)
 write_secret "$OUTPUT_DIR/backup.key" "Backup encryption key" "$BACKUP_KEY"
 
 # ------------------------------------------------------------------
+# 2b. SRP anti-enumeration secret (>= 32 bytes; server fails to boot without it)
+# ------------------------------------------------------------------
+info "Generating SRP anti-enumeration secret..."
+SRP_ENUM_SECRET=$(openssl rand -hex 32)
+write_secret "$OUTPUT_DIR/srp_enum.secret" "SRP anti-enumeration secret" "$SRP_ENUM_SECRET"
+
+# ------------------------------------------------------------------
 # 3. PostgreSQL password
 # ------------------------------------------------------------------
 info "Generating PostgreSQL password..."
@@ -159,6 +167,7 @@ echo "2. Set environment variables by referencing the key files:"
 echo "   export JWT_ED25519_PRIVATE_KEY_FILE=/etc/usbvault/secrets/jwt_private.key"
 echo "   export JWT_ED25519_PUBLIC_KEY_FILE=/etc/usbvault/secrets/jwt_public.key"
 echo "   export BACKUP_ENCRYPTION_KEY=\$(cat /etc/usbvault/secrets/backup.key)"
+echo "   export SRP_ENUM_SECRET=\$(cat /etc/usbvault/secrets/srp_enum.secret)"
 echo ""
 echo "   Or load keys inline (less secure):"
 echo "   export JWT_ED25519_PRIVATE_KEY=\$(cat $OUTPUT_DIR/jwt_private.key)"

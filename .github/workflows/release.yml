@@ -149,6 +149,7 @@ jobs:
           HAS_SENTRY_DSN: ${{ secrets.SENTRY_DSN != '' }}
           HAS_S3: ${{ secrets.S3_ENDPOINT != '' || secrets.AWS_ACCESS_KEY_ID != '' }}
           HAS_BACKUP_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY != '' }}
+          HAS_SRP_ENUM_SECRET: ${{ secrets.SRP_ENUM_SECRET != '' }}
         run: |
           echo "=== Validating Required Production Secrets ==="
           MISSING=""
@@ -160,6 +161,7 @@ jobs:
           if [ "$HAS_SENTRY_DSN" != "true" ]; then MISSING="$MISSING SENTRY_DSN"; fi
           if [ "$HAS_S3" != "true" ]; then MISSING="$MISSING S3_ENDPOINT/AWS_ACCESS_KEY_ID"; fi
           if [ "$HAS_BACKUP_KEY" != "true" ]; then MISSING="$MISSING BACKUP_ENCRYPTION_KEY"; fi
+          if [ "$HAS_SRP_ENUM_SECRET" != "true" ]; then MISSING="$MISSING SRP_ENUM_SECRET"; fi
 
           if [ -n "$MISSING" ]; then
             echo "::error::Missing required production secrets:$MISSING"
