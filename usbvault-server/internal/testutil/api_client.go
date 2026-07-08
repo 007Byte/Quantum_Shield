@@ -123,6 +123,14 @@ func (c *APIClient) do(method, path string, body interface{}) (*http.Response, e
 // POST for an already-existing, flagged email), where the caller asserts on the
 // status code directly.
 func (c *APIClient) Register(email, password string) (statusCode int, userID string, err error) {
+	return c.RegisterWithRecoveryCode(email, password, "")
+}
+
+// RegisterWithRecoveryCode is like Register but supplies a recovery code as proof
+// of account ownership. The F4 gate requires this when re-registering a flagged
+// account (srp_needs_reregistration = true); passing an empty code exercises the
+// no-proof rejection path. For a brand-new email the code is ignored server-side.
+func (c *APIClient) RegisterWithRecoveryCode(email, password, recoveryCode string) (statusCode int, userID string, err error) {
 	creds, err := ComputeSRPRegistration(email, password)
 	if err != nil {
 		return 0, "", fmt.Errorf("compute SRP registration: %w", err)
@@ -145,6 +153,9 @@ func (c *APIClient) Register(email, password string) (statusCode int, userID str
 		"srp_verifier":       creds.VerifierHex,
 		"public_key_x25519":  base64.StdEncoding.EncodeToString(x25519Pub),
 		"public_key_ed25519": base64.StdEncoding.EncodeToString(ed25519Pub),
+	}
+	if recoveryCode != "" {
+		payload["recovery_code"] = recoveryCode
 	}
 
 	resp, err := c.do(http.MethodPost, apiPrefix+"/auth/register", payload)
