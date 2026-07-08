@@ -135,6 +135,10 @@ api:
     BACKUP_ENCRYPTION_KEY:
       secretName: usbvault-secrets
       key: backup-encryption-key
+    # REQUIRED: the API refuses to boot in production without this (>= 32 bytes).
+    SRP_ENUM_SECRET:
+      secretName: usbvault-secrets
+      key: srp-enum-secret
     S3_ENDPOINT:
       secretName: usbvault-secrets
       key: s3-endpoint
