@@ -4,8 +4,10 @@ package integration
 
 import (
 	"context"
+	"crypto/sha256"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,11 +38,13 @@ func integrationDBURL() string {
 //     pre-ffdhe3072 account that migration 019 would have flagged.
 //  3. Assert /auth/srp/init now returns 409 SRP_REREGISTRATION_REQUIRED instead of
 //     a confusing "invalid credentials" — and that a full login no longer succeeds.
-//  4. Re-register the same email with a fresh verifier (the #65 recovery path) and
-//     assert it succeeds (201) AND updates the SAME row. This is the regression
-//     guard for the missing users.deleted_at column: the register "already exists"
-//     lookup filters on deleted_at, which previously threw 42703 and made
-//     re-registration impossible (total lockout).
+//  4. F4 ownership gate: re-registration WITHOUT proof is rejected (401) and leaves
+//     the account flagged; then, with a valid recovery code as proof of ownership,
+//     re-register a fresh verifier (the #65 recovery path) and assert it succeeds
+//     (201), updates the SAME row, and consumes the single-use code. The success
+//     path is also the regression guard for the missing users.deleted_at column:
+//     the register "already exists" lookup filters on deleted_at, which previously
+//     threw 42703 and made re-registration impossible (total lockout).
 //  5. Assert login now succeeds again (flag cleared, fresh verifier valid).
 func TestSRPReRegistrationFlow(t *testing.T) {
 	apiURL := testutil.GetAPIURL()
@@ -101,17 +105,62 @@ func TestSRPReRegistrationFlow(t *testing.T) {
 		t.Fatalf("LoginTestUser unexpectedly succeeded for a flagged account")
 	}
 
-	// 4. Re-register the same email with a fresh verifier — the #65 recovery path.
-	//    Expect 201 and the SAME user row (update, not insert).
-	regStatus, regUserID, err := client.Register(user.Email, password)
+	// 4a. F4 gate: re-registration WITHOUT proof of ownership must be rejected
+	//     (401) and must NOT overwrite the verifier. This is the account-takeover
+	//     guard — anyone who knows a flagged account's email must not be able to
+	//     seize it without proving they own it.
+	noProofStatus, _, err := client.Register(user.Email, password)
 	if err != nil {
-		t.Fatalf("re-registration request failed: %v", err)
+		t.Fatalf("re-registration (no proof) request failed: %v", err)
+	}
+	if noProofStatus != http.StatusUnauthorized {
+		t.Fatalf("re-registration without recovery code status = %d, want %d (401)", noProofStatus, http.StatusUnauthorized)
+	}
+	// The account must still be flagged (verifier untouched) after a rejected attempt.
+	var flaggedAfterReject bool
+	if err := pool.QueryRow(ctx,
+		`SELECT srp_needs_reregistration FROM users WHERE id = $1`, user.UserID,
+	).Scan(&flaggedAfterReject); err != nil {
+		t.Fatalf("flag read after rejected re-registration failed: %v", err)
+	}
+	if !flaggedAfterReject {
+		t.Fatalf("account no longer flagged after a rejected (no-proof) re-registration — verifier may have been overwritten")
+	}
+
+	// 4b. Provision a recovery code as proof of ownership (what a real user would
+	//     have generated while still able to authenticate). Insert it directly with
+	//     the same hashing the server uses: sha256(uppercase, dashes stripped).
+	const recoveryCode = "F4TEST-OWNS-ACCT"
+	normalized := strings.ToUpper(strings.ReplaceAll(recoveryCode, "-", ""))
+	codeHash := sha256.Sum256([]byte(normalized))
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO recovery_codes (user_id, code_hash, code_index, created_at)
+		 VALUES ($1, $2, 0, NOW())`, user.UserID, codeHash[:]); err != nil {
+		t.Fatalf("failed to seed recovery code: %v", err)
+	}
+
+	// 4c. Re-register the same email with a fresh verifier AND valid proof — the
+	//     #65 recovery path. Expect 201 and the SAME user row (update, not insert).
+	regStatus, regUserID, err := client.RegisterWithRecoveryCode(user.Email, password, recoveryCode)
+	if err != nil {
+		t.Fatalf("re-registration (with proof) request failed: %v", err)
 	}
 	if regStatus != http.StatusCreated {
 		t.Fatalf("re-registration status = %d, want %d (201)", regStatus, http.StatusCreated)
 	}
 	if regUserID != user.UserID {
 		t.Fatalf("re-registration user_id = %q, want same row %q (must UPDATE, not INSERT)", regUserID, user.UserID)
+	}
+
+	// 4d. The recovery code is single-use: it must be consumed (used_at set) now.
+	var codeUsed bool
+	if err := pool.QueryRow(ctx,
+		`SELECT used_at IS NOT NULL FROM recovery_codes WHERE user_id = $1 AND code_index = 0`, user.UserID,
+	).Scan(&codeUsed); err != nil {
+		t.Fatalf("recovery-code used_at read failed: %v", err)
+	}
+	if !codeUsed {
+		t.Fatalf("recovery code was not consumed after successful re-registration")
 	}
 
 	// 5. The flag is cleared and the fresh verifier is valid: login works again.
