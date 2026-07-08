@@ -62,7 +62,7 @@ func TestSRPVerifyEndpoint_InvalidJSON(t *testing.T) {
 }
 
 func TestRefreshTokenEndpoint_InvalidJSON(t *testing.T) {
-	handler := HandleRefreshToken(nil, nil)
+	handler := HandleRefreshToken(nil, nil, nil)
 
 	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBufferString("bad"))
 	w := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestRefreshTokenEndpoint_InvalidToken(t *testing.T) {
 	body := map[string]string{"refresh_token": "invalid.token.here"}
 	bodyBytes, _ := json.Marshal(body)
 
-	handler := HandleRefreshToken(nil, nil)
+	handler := HandleRefreshToken(nil, nil, nil)
 	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(bodyBytes))
 	w := httptest.NewRecorder()
 

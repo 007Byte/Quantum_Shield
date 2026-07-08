@@ -299,12 +299,21 @@ func HandleFIDO2Verify(pool database.TransactionExecutor, redisClient *redis.Cli
 			}
 		}
 
-		// 7. Issue tokens only after successful cryptographic verification
-		accessToken, refreshToken, err := GenerateTokenPair(userID, "web")
+		// 7. Issue tokens only after successful cryptographic verification.
+		// F1: embed the user's token epoch and register both JTIs so account
+		// deletion / logout-everywhere can invalidate this login token pair.
+		epoch, epochErr := LoadUserTokenEpoch(ctx, pool, redisClient, userID)
+		if epochErr != nil {
+			log.Error().Err(epochErr).Str("user_id", userID).Msg("failed to load token epoch")
+			http.Error(w, "token generation failed", http.StatusInternalServerError)
+			return
+		}
+		accessToken, refreshToken, err := GenerateTokenPairWithEpoch(userID, "web", "", "", epoch)
 		if err != nil {
 			http.Error(w, "token generation failed", http.StatusInternalServerError)
 			return
 		}
+		RegisterIssuedTokens(ctx, redisClient, userID, accessToken, refreshToken)
 
 		// H-5: a FIDO2 assertion is a fresh strong authentication — record it so the user
 		// may enroll a new credential within the step-up window (any-strong-auth, not

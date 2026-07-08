@@ -203,7 +203,7 @@ func TestRefreshToken_Rotation(t *testing.T) {
 	oldJTI := claims.JTI
 
 	// Perform refresh with rotation
-	newAccessToken, newRefreshToken, err := RefreshAccessToken(mockRedis, refreshToken)
+	newAccessToken, newRefreshToken, err := RefreshAccessToken(nil, mockRedis, refreshToken)
 	if err != nil {
 		t.Fatalf("RefreshAccessToken failed: %v", err)
 	}
@@ -252,13 +252,13 @@ func TestRefreshToken_ReuseDetection(t *testing.T) {
 	claims, _ := ValidateToken(refreshToken)
 
 	// First, perform a legitimate refresh
-	_, newRefreshToken, err := RefreshAccessToken(mockRedis, refreshToken)
+	_, newRefreshToken, err := RefreshAccessToken(nil, mockRedis, refreshToken)
 	if err != nil {
 		t.Fatalf("first refresh failed: %v", err)
 	}
 
 	// Now try to reuse the original refresh token (theft detection)
-	_, _, err = RefreshAccessToken(mockRedis, refreshToken)
+	_, _, err = RefreshAccessToken(nil, mockRedis, refreshToken)
 	if err == nil {
 		t.Error("should detect token reuse/theft")
 	}
@@ -339,7 +339,7 @@ func TestTokenFamily_TheftDetection(t *testing.T) {
 	_ = claims1.FamilyID
 
 	// User legitimately refreshes
-	_, refreshToken2, _ := RefreshAccessToken(mockRedis, refreshToken1)
+	_, refreshToken2, _ := RefreshAccessToken(nil, mockRedis, refreshToken1)
 	claims2, _ := ValidateToken(refreshToken2)
 
 	// Both should be in same family
@@ -349,7 +349,7 @@ func TestTokenFamily_TheftDetection(t *testing.T) {
 
 	ctx := context.Background()
 	// Now attacker tries to use the old token (theft attempt)
-	_, _, err := RefreshAccessToken(mockRedis, refreshToken1)
+	_, _, err := RefreshAccessToken(nil, mockRedis, refreshToken1)
 
 	// Should detect theft
 	if err == nil {

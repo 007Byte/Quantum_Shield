@@ -1,0 +1,17 @@
+-- 023: Per-user token epoch for instant, JTI-free bulk session revocation.
+--
+-- F1 FIX (session-revocation gap): login-issuance paths (SRP, FIDO2, FIDO2
+-- backup, OIDC) minted 30-day refresh tokens WITHOUT registering their JTIs in
+-- the Redis `user_tokens:<id>` set that account-deletion / logout iterate. As a
+-- result "delete account" (GDPR right-to-delete) and native logout revoked an
+-- empty/partial set and left working refresh tokens that could re-mint sessions
+-- for up to 30 days (web cookie + native keychain).
+--
+-- The robust fix is a monotonically increasing per-user token epoch. Every
+-- issued access AND refresh token embeds the user's current epoch as a claim.
+-- Bumping the epoch (on account deletion and logout-everywhere) instantly
+-- invalidates ALL outstanding tokens for that user — web and native — without
+-- per-JTI tracking. This column is the DURABLE source of truth (survives a
+-- Redis flush); a `user_epoch:<id>` Redis key mirrors it for the hot
+-- validation path.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_epoch BIGINT NOT NULL DEFAULT 0;
