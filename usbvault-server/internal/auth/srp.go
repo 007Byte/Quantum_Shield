@@ -317,6 +317,12 @@ func HandleSRPInit(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *Ac
 		stateJSON, _ := json.Marshal(state)
 		redisClient.Set(ctx, "srp:"+sessionID, stateJSON, srpSessionTTL)
 
+		// F3: timing parity with the decoy/unknown-account path, which sleeps
+		// randomDelayMS before responding. Without a matching delay here, a real
+		// (existing) account returns measurably faster than a decoy, re-introducing
+		// the user-enumeration oracle the decoy path exists to eliminate.
+		time.Sleep(time.Duration(randomDelayMS()) * time.Millisecond)
+
 		// Encode salt and B as hex strings for JSON response
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(SRPInitResponse{
@@ -371,6 +377,29 @@ func HandleSRPVerify(pool *pgxpool.Pool, redisClient *redis.Client, lockoutSvc *
 		// thus only accumulate failures against their own IP bucket, never the
 		// victim's.
 		clientIP := GetClientIP(r)
+
+		// F2: enforce account lockout on the VERIFY path, not just /srp/init.
+		// HandleSRPInit checks the lock, but an attacker can pre-bank many
+		// /srp/init sessions BEFORE any failure is recorded (init is gated on
+		// verify-time failures, which haven't happened yet) and then submit their
+		// proof guesses to /srp/verify. Without this re-check the 15-minute lock
+		// only blocks new inits, so the banked sessions bypass it entirely.
+		lockoutStatus, lerr := lockoutSvc.CheckLockout(ctx, state.EmailHash, clientIP)
+		if lerr != nil {
+			log.Error().Err(lerr).Str("email_hash", state.EmailHash).Msg("failed to check lockout status on verify")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if lockoutStatus.Locked {
+			retryAfter := int(time.Until(lockoutStatus.LockedUntil).Seconds())
+			if retryAfter <= 0 {
+				retryAfter = 1
+			}
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+			log.Warn().Str("email_hash", state.EmailHash).Int("retry_after_seconds", retryAfter).Msg("verify attempt on locked account")
+			http.Error(w, "account locked due to too many failed login attempts", http.StatusTooManyRequests)
+			return
+		}
 
 		// Parse SRP group parameters
 		N := new(big.Int)
