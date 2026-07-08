@@ -671,27 +671,58 @@ func (bs *BillingService) handleSubscriptionUpdated(ctx context.Context, event m
 		return
 	}
 
-	// Extract tier from items array (first item's price lookup)
-	defaultTier := "individual"
+	// H2-FIX: Resolve the tier from the event's price id, but NEVER default to
+	// "individual" on an unknown/rotated/empty price.
+	//
+	// Previously `resolvedTier` started at "individual" and was only overwritten
+	// when mapPriceToTier returned non-empty, so an unrecognized price id (e.g. a
+	// rotated STRIPE_PRICE_* value not yet redeployed) silently DOWNGRADED a paying
+	// team/enterprise customer to individual — and propagateTierToUser then mirrored
+	// that onto users.subscription_tier where enforcement denied their real limits.
+	//
+	// Instead we seed the tier with the customer's CURRENT persisted tier (the
+	// authoritative subscriptions row) and only change it when we can positively map
+	// the price to a known tier. On an unknown price we preserve the existing tier and
+	// log a warning; status/current_period_end still update normally.
+	var currentTier string
+	if err := bs.pool.QueryRow(ctx,
+		`SELECT tier FROM subscriptions WHERE stripe_subscription_id = $1`,
+		subID,
+	).Scan(&currentTier); err != nil {
+		// No existing subscription row (or transient read error): fall back to the
+		// customer lookup's tier if available, else leave empty. We still avoid the
+		// hardcoded "individual" downgrade.
+		_ = bs.pool.QueryRow(ctx,
+			`SELECT tier FROM subscriptions WHERE stripe_customer_id = $1`,
+			customerID,
+		).Scan(&currentTier)
+	}
+
+	resolvedTier := currentTier
 	if len(tier) > 0 {
 		if item, ok := tier[0].(map[string]interface{}); ok {
 			if pricingTier, ok := item["price"].(map[string]interface{}); ok {
 				if pricingTierID, ok := pricingTier["id"].(string); ok {
 					// Map the real (env-configured) Stripe price ID back to its tier.
-					// The previous hardcoded literals ("price_team_monthly", ...) never
-					// matched the actual Stripe-generated price IDs (STRIPE_PRICE_*), so a
-					// paying team/enterprise customer's webhook fell through to the default
-					// and was silently DOWNGRADED to individual.
 					if t := bs.mapPriceToTier(pricingTierID); t != "" {
-						defaultTier = t
+						resolvedTier = t
 					} else {
 						log.Warn().Str("price_id", pricingTierID).Str("subscription_id", subID).
-							Msg("webhook: unrecognized Stripe price id — keeping default tier")
+							Str("preserved_tier", currentTier).
+							Msg("H2: unrecognized Stripe price id — preserving existing tier, not downgrading")
 					}
 				}
 			}
 		}
 	}
+
+	// Final guard: if we still have no tier (brand-new sub, unknown price, empty DB),
+	// fall back to "individual" as the lowest paid tier rather than write an empty
+	// string. This only applies when there is genuinely no prior tier to preserve.
+	if resolvedTier == "" {
+		resolvedTier = "individual"
+	}
+	defaultTier := resolvedTier
 
 	// Update subscriptions table with status, tier, and period end
 	_, err = bs.pool.Exec(ctx,

@@ -25,11 +25,19 @@ func (cs *CleanupService) CleanupExpiredShares(ctx context.Context) (int, error)
 	var totalDeleted int
 
 	for {
-		// PH5-FIX: Delete expired shares in batches to prevent locking
+		// H1-FIX: Delete expired shares in batches to prevent locking.
+		// PostgreSQL does NOT support LIMIT on a DELETE statement (that is a
+		// MySQL-ism) — the previous query was a hard syntax error, so this
+		// scheduled job failed on every run and expired shares were never purged.
+		// Bound the batch by selecting the physical row ids (ctid) of at most 100
+		// expired rows in a subquery and deleting exactly those.
 		result, err := cs.pool.Exec(ctx,
 			`DELETE FROM share_records
-			 WHERE expires_at IS NOT NULL AND expires_at < NOW()
-			 LIMIT 100`,
+			 WHERE ctid IN (
+			     SELECT ctid FROM share_records
+			     WHERE expires_at IS NOT NULL AND expires_at < NOW()
+			     LIMIT 100
+			 )`,
 		)
 
 		if err != nil {
