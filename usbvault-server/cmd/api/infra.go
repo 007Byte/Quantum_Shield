@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,19 +58,41 @@ func (a *App) connectDB(ctx context.Context) error {
 	}
 	log.Info().Msg("database connected")
 
-	// Run database migrations on startup
-	migrationsDir := os.Getenv("MIGRATIONS_DIR")
-	if migrationsDir == "" {
-		migrationsDir = "migrations"
-	}
-	migrationsDir = filepath.Clean(migrationsDir)
-	if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() { //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
-		migrator := migrations.NewMigrator(dbPool, migrationsDir)
-		if err := migrator.Migrate(ctx); err != nil {
-			log.Fatal().Err(err).Msg("database migration failed")
+	// Run database migrations on startup.
+	//
+	// migrations.Migrate now takes a Postgres advisory lock so concurrent runners
+	// are race-safe. But in production we still don't want all N replicas racing
+	// to migrate on every boot — the canonical path is the pre-deploy migrate
+	// Job/initContainer (`./migrate up`, see deploy/k8s/production-values.yaml).
+	// So boot-migrate is DISABLED by default in production and ENABLED by default
+	// everywhere else (dev/staging/test), preserving the local "just run the
+	// server" workflow. Override explicitly with RUN_MIGRATIONS_ON_BOOT=true|false.
+	isProduction := os.Getenv("ENVIRONMENT") == "production"
+	bootMigrate := !isProduction
+	if v := os.Getenv("RUN_MIGRATIONS_ON_BOOT"); v != "" {
+		if parsed, err := strconv.ParseBool(v); err == nil {
+			bootMigrate = parsed
+		} else {
+			log.Warn().Str("value", v).Msg("invalid RUN_MIGRATIONS_ON_BOOT (want true/false); ignoring")
 		}
+	}
+
+	if !bootMigrate {
+		log.Info().Msg("boot-migrate disabled (production default); migrations must be applied via the pre-deploy migrate Job/initContainer")
 	} else {
-		log.Warn().Str("dir", migrationsDir).Msg("migrations directory not found, skipping auto-migration")
+		migrationsDir := os.Getenv("MIGRATIONS_DIR")
+		if migrationsDir == "" {
+			migrationsDir = "migrations"
+		}
+		migrationsDir = filepath.Clean(migrationsDir)
+		if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() { //gosec:disable G703 -- operator-configured path from trusted env var, normalized with filepath.Clean
+			migrator := migrations.NewMigrator(dbPool, migrationsDir)
+			if err := migrator.Migrate(ctx); err != nil {
+				log.Fatal().Err(err).Msg("database migration failed")
+			}
+		} else {
+			log.Warn().Str("dir", migrationsDir).Msg("migrations directory not found, skipping auto-migration")
+		}
 	}
 
 	a.dbPool = dbPool
