@@ -18,7 +18,7 @@ aes-gcm-siv = "0.11"
 # Key derivation & hashing
 hkdf = "0.12"
 sha2 = "0.10"
-hmac = "0.12"
+hmac = "0.13"
 # X25519 key exchange for E2E sharing
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 # Secure memory
