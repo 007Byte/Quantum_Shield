@@ -29,7 +29,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/oauth2 v0.36.0
-	nhooyr.io/websocket v1.8.11
+	nhooyr.io/websocket v1.8.17
 )
 
 require (
