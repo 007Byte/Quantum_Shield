@@ -45,7 +45,7 @@ jobs:
       # with the runner's go1.25 toolchain, so it parses go1.25 code) and run it
       # inside usbvault-server, where the report lands next to the check step.
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache-dependency-path: 'usbvault-server/go.sum'
@@ -428,7 +428,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache-dependency-path: 'usbvault-server/go.sum'
@@ -627,7 +627,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache-dependency-path: 'usbvault-server/go.sum'
@@ -682,7 +682,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache-dependency-path: 'usbvault-server/go.sum'
