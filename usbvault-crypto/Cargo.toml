@@ -41,7 +41,7 @@ thiserror = "2"
 # Hex encoding
 hex = "0.4"
 # Base64
-base64 = "0.22"
+base64 = "0.23"
 # Generic array support
 generic-array = "0.14"
 # Constant-time comparison
